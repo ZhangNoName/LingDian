@@ -1,0 +1,89 @@
+/**
+ * LingDian 全局色系（CSS 变量）
+ * web / admin：在入口 import '@theme/colors.css'
+ * uniapp：在 main 中 import，H5/组件内可用 var(--ld-*)
+ */
+
+:root {
+  color-scheme: light;
+
+  /* 语义色 — ld 前缀避免与第三方冲突 */
+  --ld-color-primary: #aa3bff;
+  --ld-color-success: #22c55e;
+  --ld-color-warning: #f59e0b;
+  --ld-color-error: #ef4444;
+
+  --ld-text-body: #6b6375;
+  --ld-text-heading: #08060d;
+  --ld-text-muted: #9ca3af;
+  --ld-text-inverse: #ffffff;
+
+  --ld-bg-page: #ffffff;
+  --ld-bg-muted: #f8f8f8;
+  --ld-bg-code: #f4f3ec;
+  --ld-bg-social: rgba(244, 243, 236, 0.5);
+  --ld-bg-mask: rgba(0, 0, 0, 0.4);
+
+  --ld-border-default: #e5e4e7;
+
+  --ld-accent: #aa3bff;
+  --ld-accent-bg: rgba(170, 59, 255, 0.1);
+  --ld-accent-border: rgba(170, 59, 255, 0.5);
+
+  --ld-shadow-md:
+    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+
+  /* 与现有 web/admin 样式兼容的别名 */
+  --text: var(--ld-text-body);
+  --text-h: var(--ld-text-heading);
+  --bg: var(--ld-bg-page);
+  --border: var(--ld-border-default);
+  --code-bg: var(--ld-bg-code);
+  --accent: var(--ld-accent);
+  --accent-bg: var(--ld-accent-bg);
+  --accent-border: var(--ld-accent-border);
+  --social-bg: var(--ld-bg-social);
+  --shadow: var(--ld-shadow-md);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --ld-color-primary: #c084fc;
+    --ld-color-success: #4ade80;
+    --ld-color-warning: #fbbf24;
+    --ld-color-error: #f87171;
+
+    --ld-text-body: #9ca3af;
+    --ld-text-heading: #f3f4f6;
+    --ld-text-muted: #6b7280;
+    --ld-text-inverse: #08060d;
+
+    --ld-bg-page: #16171d;
+    --ld-bg-muted: #1f2028;
+    --ld-bg-code: #1f2028;
+    --ld-bg-social: rgba(47, 48, 58, 0.5);
+    --ld-bg-mask: rgba(0, 0, 0, 0.55);
+
+    --ld-border-default: #2e303a;
+
+    --ld-accent: #c084fc;
+    --ld-accent-bg: rgba(192, 132, 252, 0.15);
+    --ld-accent-border: rgba(192, 132, 252, 0.5);
+
+    --ld-shadow-md:
+      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+
+    --text: var(--ld-text-body);
+    --text-h: var(--ld-text-heading);
+    --bg: var(--ld-bg-page);
+    --border: var(--ld-border-default);
+    --code-bg: var(--ld-bg-code);
+    --accent: var(--ld-accent);
+    --accent-bg: var(--ld-accent-bg);
+    --accent-border: var(--ld-accent-border);
+    --social-bg: var(--ld-bg-social);
+    --shadow: var(--ld-shadow-md);
+  }
+}

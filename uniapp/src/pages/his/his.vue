@@ -1,8 +1,6 @@
 <template>
   <Layout active-tab="order">
     <view class="page">
-      <view class="safe-top-spacer" />
-
       <view class="header">
         <text class="title">历史订单</text>
         <view class="back-btn" @tap="goBack">返回点餐</view>
@@ -93,12 +91,6 @@ function onAction(action: "detail" | "cancel" | "delete", orderNo: string) {
 .page {
   padding: 24rpx;
   box-sizing: border-box;
-}
-
-.safe-top-spacer {
-  padding-top: var(--status-bar-height);
-  padding-top: constant(safe-area-inset-top);
-  padding-top: env(safe-area-inset-top);
 }
 
 .header {

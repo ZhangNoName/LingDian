@@ -56,11 +56,6 @@ const tabs = [
   { key: "user" as const, label: "我的", path: "/pages/user/user" },
 ];
 
-const systemInfo = uni.getSystemInfoSync();
-const safeTop =
-  systemInfo.safeAreaInsets?.top ?? systemInfo.statusBarHeight ?? 0;
-const layoutStyle = `padding-top: ${safeTop}px;`;
-
 function onTabTap(item: (typeof tabs)[number]) {
   emit("change", item.key);
   if (!props.navigateOnTap || props.activeTab === item.key) return;
@@ -76,9 +71,7 @@ function onTabTap(item: (typeof tabs)[number]) {
   height: 100vh;
   background-color: #f6f6f6;
   box-sizing: border-box;
-  padding-top: var(--status-bar-height);
-  /* padding-top: constant(safe-area-inset-top);
-  padding-top: env(safe-area-inset-top); */
+  padding-top: 12rpx;
 }
 
 .layout-body {

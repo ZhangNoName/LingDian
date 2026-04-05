@@ -7,7 +7,7 @@
       </view>
 
       <view class="card">
-        <text class="card-title">今日推荐</text>
+        <text class="card-title">今日推荐222</text>
         <text class="card-text">香辣鸡腿堡套餐 + 可乐 + 薯条</text>
       </view>
     </view>

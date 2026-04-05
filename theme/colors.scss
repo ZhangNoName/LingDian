@@ -1,0 +1,44 @@
+/**
+ * LingDian 全局色系（SCSS 变量）
+ * 与 theme/colors.css 中浅色默认值保持一致；深色请优先用 var(--ld-*) 或 colors.css
+ * uni-app：在 uni.scss 顶部 @import '@theme/colors.scss'
+ */
+
+// 品牌 / 状态（浅色基准；小程序端无 prefers-color-scheme 时沿用此套）
+$ld-color-primary: #aa3bff;
+$ld-color-success: #22c55e;
+$ld-color-warning: #f59e0b;
+$ld-color-error: #ef4444;
+
+$ld-text-body: #6b6375;
+$ld-text-heading: #08060d;
+$ld-text-muted: #9ca3af;
+$ld-text-inverse: #ffffff;
+
+$ld-bg-page: #ffffff;
+$ld-bg-muted: #f8f8f8;
+$ld-bg-code: #f4f3ec;
+$ld-border-default: #e5e4e7;
+
+// 对齐 uni-app 官方变量名，便于组件主题一致
+$uni-color-primary: $ld-color-primary;
+$uni-color-success: $ld-color-success;
+$uni-color-warning: $ld-color-warning;
+$uni-color-error: $ld-color-error;
+
+$uni-text-color: $ld-text-heading;
+$uni-text-color-inverse: $ld-text-inverse;
+$uni-text-color-grey: $ld-text-muted;
+$uni-text-color-placeholder: #808080;
+$uni-text-color-disable: #c0c0c0;
+
+$uni-bg-color: $ld-bg-page;
+$uni-bg-color-grey: $ld-bg-muted;
+$uni-bg-color-hover: #f1f1f1;
+$uni-bg-color-mask: rgba(0, 0, 0, 0.4);
+
+$uni-border-color: $ld-border-default;
+
+$uni-color-title: #2c405a;
+$uni-color-subtitle: #555555;
+$uni-color-paragraph: #3f536e;

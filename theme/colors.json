@@ -1,0 +1,40 @@
+{
+  "name": "LingDian",
+  "description": "全局语义色与兼容命名，供构建/文档/脚本读取；运行时以 theme/colors.css 为准。",
+  "light": {
+    "primary": "#aa3bff",
+    "success": "#22c55e",
+    "warning": "#f59e0b",
+    "error": "#ef4444",
+    "textBody": "#6b6375",
+    "textHeading": "#08060d",
+    "textMuted": "#9ca3af",
+    "textInverse": "#ffffff",
+    "bgPage": "#ffffff",
+    "bgMuted": "#f8f8f8",
+    "bgCode": "#f4f3ec",
+    "bgSocial": "rgba(244, 243, 236, 0.5)",
+    "borderDefault": "#e5e4e7",
+    "accent": "#aa3bff",
+    "accentBg": "rgba(170, 59, 255, 0.1)",
+    "accentBorder": "rgba(170, 59, 255, 0.5)"
+  },
+  "dark": {
+    "primary": "#c084fc",
+    "success": "#4ade80",
+    "warning": "#fbbf24",
+    "error": "#f87171",
+    "textBody": "#9ca3af",
+    "textHeading": "#f3f4f6",
+    "textMuted": "#6b7280",
+    "textInverse": "#08060d",
+    "bgPage": "#16171d",
+    "bgMuted": "#1f2028",
+    "bgCode": "#1f2028",
+    "bgSocial": "rgba(47, 48, 58, 0.5)",
+    "borderDefault": "#2e303a",
+    "accent": "#c084fc",
+    "accentBg": "rgba(192, 132, 252, 0.15)",
+    "accentBorder": "rgba(192, 132, 252, 0.5)"
+  }
+}
