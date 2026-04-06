@@ -19,11 +19,12 @@
           :class="{ 'tab-item--active': activeTab === item.key }"
           @tap="onTabTap(item)"
         >
-          <view class="tab-icon" aria-hidden="true">
-            <view v-if="item.key === 'home'" class="ico ico-home" />
-            <view v-else-if="item.key === 'order'" class="ico ico-order" />
-            <view v-else class="ico ico-user" />
-          </view>
+          <uni-icons
+            :type="item.icon"
+            :size="22"
+            :color="activeTab === item.key ? '#e02020' : '#9e9e9e'"
+          />
+          <text class="tab-label">{{ item.label }}</text>
         </view>
       </view>
     </view>
@@ -51,9 +52,9 @@ const emit = defineEmits<{
 }>();
 
 const tabs = [
-  { key: "home" as const, label: "首页", path: "/pages/home/home" },
-  { key: "order" as const, label: "点餐", path: "/pages/order/order" },
-  { key: "user" as const, label: "我的", path: "/pages/user/user" },
+  { key: "home" as const, label: "首页", path: "/pages/home/home", icon: "home" },
+  { key: "order" as const, label: "点餐", path: "/pages/order/order", icon: "cart" },
+  { key: "user" as const, label: "我的", path: "/pages/user/user", icon: "person" },
 ];
 
 function onTabTap(item: (typeof tabs)[number]) {
@@ -71,7 +72,7 @@ function onTabTap(item: (typeof tabs)[number]) {
   height: 100vh;
   background-color: #f6f6f6;
   box-sizing: border-box;
-  padding-top: safe-area-inset-top;
+  padding-top: calc(var(--status-bar-height) + 20rpx);
 }
 
 .layout-body {
@@ -115,112 +116,9 @@ function onTabTap(item: (typeof tabs)[number]) {
   color: #e02020;
 }
 
-.tab-item--active .ico-home::before {
-  border-color: #e02020;
-}
-.tab-item--active .ico-home::after {
-  border-bottom-color: #e02020;
-}
-.tab-item--active .ico-order::before {
-  background-color: #e02020;
-  box-shadow:
-    0 10rpx 0 #e02020,
-    0 20rpx 0 #e02020;
-}
-.tab-item--active .ico-user::before,
-.tab-item--active .ico-user::after {
-  border-color: #e02020;
-}
-
-.tab-icon {
-  width: 48rpx;
-  height: 48rpx;
-  position: relative;
-}
-
-/* 简易 CSS 图标：未选中灰色，选中由父级改色 */
-.ico {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-}
-
-.ico-home {
-  width: 36rpx;
-  height: 32rpx;
-}
-.ico-home::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  transform: translateX(-50%);
-  width: 28rpx;
-  height: 20rpx;
-  border: 3rpx solid #bdbdbd;
-  border-top: none;
-  border-radius: 0 0 6rpx 6rpx;
-  box-sizing: border-box;
-}
-.ico-home::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 0;
-  transform: translateX(-50%);
-  width: 0;
-  height: 0;
-  border-left: 16rpx solid transparent;
-  border-right: 16rpx solid transparent;
-  border-bottom: 12rpx solid #bdbdbd;
-}
-
-.ico-order {
-  width: 32rpx;
-  height: 36rpx;
-}
-.ico-order::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 6rpx;
-  width: 100%;
-  height: 4rpx;
-  border-radius: 2rpx;
-  background-color: #bdbdbd;
-  box-shadow:
-    0 10rpx 0 #bdbdbd,
-    0 20rpx 0 #bdbdbd;
-}
-
-.ico-user {
-  width: 28rpx;
-  height: 32rpx;
-}
-.ico-user::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 0;
-  transform: translateX(-50%);
-  width: 14rpx;
-  height: 14rpx;
-  border: 3rpx solid #bdbdbd;
-  border-radius: 50%;
-  box-sizing: border-box;
-}
-.ico-user::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  transform: translateX(-50%);
-  width: 24rpx;
-  height: 14rpx;
-  border: 3rpx solid #bdbdbd;
-  border-bottom: none;
-  border-radius: 14rpx 14rpx 0 0;
-  box-sizing: border-box;
+.tab-label {
+  margin-top: 4rpx;
+  font-size: 20rpx;
+  line-height: 1.2;
 }
 </style>
