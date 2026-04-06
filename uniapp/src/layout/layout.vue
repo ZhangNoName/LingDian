@@ -71,7 +71,7 @@ function onTabTap(item: (typeof tabs)[number]) {
   height: 100vh;
   background-color: #f6f6f6;
   box-sizing: border-box;
-  padding-top: 12rpx;
+  padding-top: safe-area-inset-top;
 }
 
 .layout-body {

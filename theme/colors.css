@@ -33,7 +33,7 @@
   --ld-shadow-md:
     rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
 
-  /* 与现有 web/admin 样式兼容的别名 */
+  /* 别名兼容 */
   --text: var(--ld-text-body);
   --text-h: var(--ld-text-heading);
   --bg: var(--ld-bg-page);
