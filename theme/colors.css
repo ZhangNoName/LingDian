@@ -1,42 +1,45 @@
-/**
- * LingDian 全局色系（CSS 变量）
- * web / admin：在入口 import '@theme/colors.css'
- * uniapp：在 main 中 import，H5/组件内可用 var(--ld-*)
+/*
+ * LingDian 全局颜色令牌
+ * Web / uni-app H5 可直接 import '@theme/colors.css'
+ * 小程序样式侧通过 theme/colors.scss 消费同一套颜色值
  */
 
 :root {
   color-scheme: light;
 
-  /* 语义色 — ld 前缀避免与第三方冲突 */
-  --ld-color-primary: #aa3bff;
-  --ld-color-success: #22c55e;
-  --ld-color-warning: #f59e0b;
-  --ld-color-error: #ef4444;
+  --ld-color-primary: #1677ff;
+  --ld-color-primary-soft: #e6f4ff;
+  --ld-color-secondary: #4096ff;
+  --ld-color-success: #52c41a;
+  --ld-color-warning: #faad14;
+  --ld-color-error: #ff4d4f;
 
-  --ld-text-body: #6b6375;
-  --ld-text-heading: #08060d;
-  --ld-text-muted: #9ca3af;
+  --ld-text-body: #595959;
+  --ld-text-heading: #262626;
+  --ld-text-muted: #8c8c8c;
   --ld-text-inverse: #ffffff;
 
-  --ld-bg-page: #ffffff;
-  --ld-bg-muted: #f8f8f8;
-  --ld-bg-code: #f4f3ec;
-  --ld-bg-social: rgba(244, 243, 236, 0.5);
-  --ld-bg-mask: rgba(0, 0, 0, 0.4);
+  --ld-bg-page: #f5f7fa;
+  --ld-bg-elevated: #ffffff;
+  --ld-bg-muted: #fafafa;
+  --ld-bg-code: #f5f5f5;
+  --ld-bg-social: rgba(22, 119, 255, 0.08);
+  --ld-bg-mask: rgba(0, 0, 0, 0.45);
 
-  --ld-border-default: #e5e4e7;
+  --ld-border-default: #f0f0f0;
 
-  --ld-accent: #aa3bff;
-  --ld-accent-bg: rgba(170, 59, 255, 0.1);
-  --ld-accent-border: rgba(170, 59, 255, 0.5);
+  --ld-accent: #1677ff;
+  --ld-accent-bg: rgba(22, 119, 255, 0.1);
+  --ld-accent-border: rgba(22, 119, 255, 0.22);
 
   --ld-shadow-md:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+    rgba(0, 0, 0, 0.06) 0 6px 18px -8px,
+    rgba(0, 0, 0, 0.04) 0 3px 8px -6px;
 
-  /* 别名兼容 */
   --text: var(--ld-text-body);
   --text-h: var(--ld-text-heading);
   --bg: var(--ld-bg-page);
+  --surface: var(--ld-bg-elevated);
   --border: var(--ld-border-default);
   --code-bg: var(--ld-bg-code);
   --accent: var(--ld-accent);
@@ -50,34 +53,39 @@
   :root {
     color-scheme: dark;
 
-    --ld-color-primary: #c084fc;
-    --ld-color-success: #4ade80;
-    --ld-color-warning: #fbbf24;
-    --ld-color-error: #f87171;
+    --ld-color-primary: #3c9cff;
+    --ld-color-primary-soft: #112a45;
+    --ld-color-secondary: #69b1ff;
+    --ld-color-success: #73d13d;
+    --ld-color-warning: #ffc53d;
+    --ld-color-error: #ff7875;
 
-    --ld-text-body: #9ca3af;
-    --ld-text-heading: #f3f4f6;
-    --ld-text-muted: #6b7280;
-    --ld-text-inverse: #08060d;
+    --ld-text-body: #d9d9d9;
+    --ld-text-heading: #ffffff;
+    --ld-text-muted: #a6a6a6;
+    --ld-text-inverse: #141414;
 
-    --ld-bg-page: #16171d;
-    --ld-bg-muted: #1f2028;
-    --ld-bg-code: #1f2028;
-    --ld-bg-social: rgba(47, 48, 58, 0.5);
+    --ld-bg-page: #141414;
+    --ld-bg-elevated: #1f1f1f;
+    --ld-bg-muted: #1a1a1a;
+    --ld-bg-code: #262626;
+    --ld-bg-social: rgba(60, 156, 255, 0.14);
     --ld-bg-mask: rgba(0, 0, 0, 0.55);
 
-    --ld-border-default: #2e303a;
+    --ld-border-default: #303030;
 
-    --ld-accent: #c084fc;
-    --ld-accent-bg: rgba(192, 132, 252, 0.15);
-    --ld-accent-border: rgba(192, 132, 252, 0.5);
+    --ld-accent: #3c9cff;
+    --ld-accent-bg: rgba(60, 156, 255, 0.16);
+    --ld-accent-border: rgba(60, 156, 255, 0.3);
 
     --ld-shadow-md:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+      rgba(0, 0, 0, 0.32) 0 10px 30px -12px,
+      rgba(0, 0, 0, 0.2) 0 6px 12px -10px;
 
     --text: var(--ld-text-body);
     --text-h: var(--ld-text-heading);
     --bg: var(--ld-bg-page);
+    --surface: var(--ld-bg-elevated);
     --border: var(--ld-border-default);
     --code-bg: var(--ld-bg-code);
     --accent: var(--ld-accent);

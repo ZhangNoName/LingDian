@@ -1,18 +1,24 @@
 <template>
   <Layout active-tab="user">
     <view class="page">
-      <view class="profile">
-        <view class="avatar" />
-        <view class="info">
-          <text class="name">点点用户</text>
-          <text class="tip">会员等级：黄金会员</text>
-        </view>
+      <view class="profile-card">
+        <text class="name">访客用户</text>
+        <text class="meta">手机号授权、会员等级、积分余额将在这里承接</text>
       </view>
 
-      <view class="panel">
-        <view class="cell">我的订单</view>
-        <view class="cell">优惠券</view>
-        <view class="cell">收货地址</view>
+      <view class="menu-list">
+        <view class="menu-row">
+          <text>优惠券</text>
+          <text class="hint">3 张可用</text>
+        </view>
+        <view class="menu-row">
+          <text>收货地址</text>
+          <text class="hint">管理外带地址</text>
+        </view>
+        <view class="menu-row">
+          <text>发票与售后</text>
+          <text class="hint">待接入</text>
+        </view>
       </view>
     </view>
   </Layout>
@@ -25,57 +31,58 @@ import Layout from "../../layout/layout.vue";
 <style scoped>
 .page {
   padding: 24rpx;
-  box-sizing: border-box;
 }
 
-.profile {
-  display: flex;
-  align-items: center;
-  padding: 24rpx;
-  border-radius: 16rpx;
-  background-color: #ffffff;
+.profile-card,
+.menu-list {
+  border-radius: 24rpx;
+  border: 1rpx solid var(--ld-border-default);
+  background: var(--ld-bg-elevated);
 }
 
-.avatar {
-  width: 96rpx;
-  height: 96rpx;
-  border-radius: 50%;
-  background-color: #ffd7d7;
+.profile-card {
+  padding: 28rpx 24rpx;
+  background: linear-gradient(180deg, #fff1eb, #ffffff);
 }
 
-.info {
-  margin-left: 20rpx;
+.name,
+.meta {
+  display: block;
 }
 
 .name {
-  display: block;
-  font-size: 30rpx;
-  font-weight: 600;
-  color: #222222;
+  font-size: 36rpx;
+  font-weight: 700;
+  color: var(--ld-text-heading);
 }
 
-.tip {
-  display: block;
-  margin-top: 8rpx;
+.meta {
+  margin-top: 10rpx;
   font-size: 24rpx;
-  color: #888888;
+  color: var(--ld-text-body);
 }
 
-.panel {
+.menu-list {
   margin-top: 20rpx;
-  background-color: #ffffff;
-  border-radius: 14rpx;
-  overflow: hidden;
+  padding: 0 24rpx;
 }
 
-.cell {
-  padding: 24rpx;
+.menu-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 96rpx;
+  border-top: 1rpx solid var(--ld-border-default);
   font-size: 28rpx;
-  color: #333333;
-  border-bottom: 1rpx solid #f2f2f2;
+  color: var(--ld-text-heading);
 }
 
-.cell:last-child {
-  border-bottom: none;
+.menu-row:first-child {
+  border-top: 0;
+}
+
+.hint {
+  color: var(--ld-text-muted);
+  font-size: 24rpx;
 }
 </style>
