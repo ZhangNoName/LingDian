@@ -17,6 +17,31 @@ npm run start:dev
 - `GET /api/menu/current`
 - `POST /api/orders`
 
+## Prisma
+
+当前后端已经接入 `Prisma`，默认使用 `MySQL`。
+
+### 方式一：从你的 `local.yml` 生成本地 `.env`
+
+```bash
+cd backend
+npm run db:sync-local-config -- --config "E:\\私人\\local.yml"
+```
+
+### 方式二：手动配置 `.env`
+
+```env
+DATABASE_URL=mysql://username:password@host:3306/database
+```
+
+### 常用命令
+
+```bash
+npm run prisma:generate
+npm run db:push
+npm run prisma:studio
+```
+
 ## 目录说明
 
 | 路径 | 说明 |
@@ -28,6 +53,8 @@ npm run start:dev
 | `src/modules/stores/` | 门店上下文 |
 | `src/modules/menu/` | 菜单与分类 |
 | `src/modules/orders/` | 下单能力 |
+| `src/prisma/` | Prisma 模块与客户端服务 |
+| `prisma/schema.prisma` | 数据模型定义 |
 
 ## 环境变量
 

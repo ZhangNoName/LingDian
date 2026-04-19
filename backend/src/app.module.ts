@@ -6,6 +6,7 @@ import { HealthModule } from './modules/health/health.module';
 import { MenuModule } from './modules/menu/menu.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { StoresModule } from './modules/stores/stores.module';
+import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { StoresModule } from './modules/stores/stores.module';
       load: [appConfig],
       validate: validateEnv,
     }),
+    PrismaModule,
     HealthModule,
     StoresModule,
     MenuModule,

@@ -1,0 +1,134 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum StoreStatus {
+  OPEN
+  CLOSED
+  RESTING
+}
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  SOLD_OUT
+  ARCHIVED
+}
+
+enum OrderType {
+  DINE_IN
+  TAKEOUT
+  PICKUP
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  PAID
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+  REFUNDING
+  REFUNDED
+}
+
+model Store {
+  id              String      @id @default(cuid())
+  code            String      @unique
+  name            String
+  contactName     String?
+  contactPhone    String?
+  address         String?
+  businessHours   String?
+  status          StoreStatus @default(OPEN)
+  dineInEnabled   Boolean     @default(true)
+  takeoutEnabled  Boolean     @default(true)
+  pickupEnabled   Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  categories      Category[]
+  products        Product[]
+  orders          Order[]
+
+  @@map("stores")
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  storeId   String
+  name      String
+  sortOrder Int       @default(0)
+  isVisible Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  store     Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  products  Product[]
+
+  @@index([storeId, sortOrder])
+  @@map("categories")
+}
+
+model Product {
+  id          String        @id @default(cuid())
+  storeId     String
+  categoryId  String
+  name        String
+  description String?
+  imageUrl    String?
+  price       Decimal       @db.Decimal(10, 2)
+  status      ProductStatus @default(DRAFT)
+  isFeatured  Boolean       @default(false)
+  stock       Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  store       Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  category    Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  orderItems  OrderItem[]
+
+  @@index([storeId, status])
+  @@index([categoryId])
+  @@map("products")
+}
+
+model Order {
+  id             String      @id @default(cuid())
+  orderNo        String      @unique
+  storeId        String
+  customerName   String
+  customerMobile String
+  orderType      OrderType
+  status         OrderStatus @default(PENDING_PAYMENT)
+  totalAmount    Decimal     @db.Decimal(10, 2)
+  payableAmount  Decimal     @db.Decimal(10, 2)
+  remark         String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  store          Store       @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  items          OrderItem[]
+
+  @@index([storeId, createdAt])
+  @@index([status])
+  @@map("orders")
+}
+
+model OrderItem {
+  id          String   @id @default(cuid())
+  orderId     String
+  productId   String
+  productName String
+  unitPrice   Decimal  @db.Decimal(10, 2)
+  quantity    Int
+  subtotal    Decimal  @db.Decimal(10, 2)
+  remark      String?
+  createdAt   DateTime @default(now())
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
