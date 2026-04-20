@@ -1,9 +1,9 @@
 <template>
-  <div class="grid gap-5 xl:grid-cols-[1.5fr_0.95fr] xl:items-start">
+  <div class="grid h-full min-h-0 gap-5 overflow-hidden xl:grid-cols-[1.5fr_0.95fr]">
     <PageSection
       title="点餐收银"
-      description="前台快速录单，支持堂食、外带、自提三种下单方式。"
-      card-class="xl:h-[calc(100vh-7.5rem)]"
+      description="先选餐，再核对会员和优惠，最后进入确认弹窗选择桌台与支付方式。"
+      card-class="flex h-full min-h-0 flex-col overflow-hidden"
       content-class="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden"
     >
       <template #actions>
@@ -21,17 +21,9 @@
         </div>
       </template>
 
-      <div class="grid gap-4 rounded-3xl border border-border bg-card p-4 md:grid-cols-4">
+      <div class="grid shrink-0 gap-4 rounded-3xl border border-border bg-card p-4 md:grid-cols-3">
         <div>
-          <p class="text-xs text-muted-foreground">桌号 / 取餐号</p>
-          <Input
-            v-model="orderForm.tableNo"
-            class="mt-2 rounded-2xl"
-            :placeholder="orderForm.orderType === 'dine_in' ? '如 A08' : '如 T12'"
-          />
-        </div>
-        <div>
-          <p class="text-xs text-muted-foreground">人数</p>
+          <p class="text-xs text-muted-foreground">用餐人数</p>
           <Input v-model="orderForm.guestCount" type="number" min="1" class="mt-2 rounded-2xl" />
         </div>
         <div>
@@ -44,7 +36,7 @@
         </div>
       </div>
 
-      <div class="flex flex-wrap gap-2">
+      <div class="flex shrink-0 flex-wrap gap-2">
         <Button
           v-for="category in categories"
           :key="category"
@@ -90,35 +82,28 @@
 
     <PageSection
       title="订单结算"
-      description="自动计算会员、优惠券和手动折扣后的应收金额。"
-      card-class="xl:h-[calc(100vh-7.5rem)]"
-      content-class="min-h-0 overflow-y-auto pr-1"
+      description="右侧先核对会员与优惠，点击确定后再选择桌台和支付方式。"
+      card-class="flex h-full min-h-0 flex-col overflow-hidden"
+      content-class="flex min-h-0 flex-1 flex-col overflow-hidden"
     >
-      <div class="grid gap-4">
+      <div class="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
         <Card class="rounded-3xl border-border/80 shadow-none">
           <CardHeader class="pb-3">
             <CardTitle class="text-base">会员信息</CardTitle>
-            <CardDescription>输入手机号识别会员等级和折扣。</CardDescription>
+            <CardDescription>输入会员号自动识别折扣，也可以一键填充示例会员。</CardDescription>
           </CardHeader>
           <CardContent class="grid gap-4">
             <div class="flex gap-2">
-              <Input
-                v-model="memberPhone"
-                maxlength="11"
-                placeholder="输入会员手机号"
-                class="rounded-full"
-              />
-              <Button variant="outline" class="rounded-full" @click="fillDemoMember">
-                示例会员
-              </Button>
+              <Input v-model="memberPhone" maxlength="11" placeholder="输入会员手机号" class="rounded-full" />
+              <Button variant="outline" class="rounded-full" @click="fillDemoMember">示例会员</Button>
             </div>
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between gap-3 rounded-2xl bg-muted/40 p-3">
               <div>
                 <p class="text-sm font-medium text-foreground">
                   {{ memberProfile ? memberProfile.name : '普通顾客' }}
                 </p>
                 <p class="mt-1 text-xs text-muted-foreground">
-                  {{ memberProfile ? `${memberProfile.level} · 手机号 ${memberPhone}` : '未匹配会员，按原价结算' }}
+                  {{ memberProfile ? `${memberProfile.level} · 会员号 ${memberPhone}` : '未匹配到会员，当前按原价结算。' }}
                 </p>
               </div>
               <Badge :variant="memberProfile ? 'secondary' : 'outline'">
@@ -130,51 +115,30 @@
 
         <Card class="rounded-3xl border-border/80 shadow-none">
           <CardHeader class="pb-3">
-            <CardTitle class="text-base">优惠与支付</CardTitle>
+            <CardTitle class="text-base">优惠券</CardTitle>
+            <CardDescription>在结算前选择可用优惠券，系统会自动计算优惠金额。</CardDescription>
           </CardHeader>
           <CardContent class="grid gap-4">
-            <div class="grid gap-2">
-              <p class="text-xs text-muted-foreground">优惠券</p>
-              <Select v-model="selectedCouponCode">
-                <SelectTrigger class="w-full rounded-2xl">
-                  <SelectValue placeholder="选择优惠券" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">不使用优惠券</SelectItem>
-                  <SelectItem v-for="coupon in availableCoupons" :key="coupon.code" :value="coupon.code">
-                    {{ coupon.label }}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <Select v-model="selectedCouponCode">
+              <SelectTrigger class="w-full rounded-2xl">
+                <SelectValue placeholder="选择优惠券" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">不使用优惠券</SelectItem>
+                <SelectItem v-for="coupon in availableCoupons" :key="coupon.code" :value="coupon.code">
+                  {{ coupon.label }}
+                </SelectItem>
+              </SelectContent>
+            </Select>
 
-            <div class="grid gap-2">
-              <p class="text-xs text-muted-foreground">手动折扣</p>
-              <div class="grid grid-cols-4 gap-2">
-                <Button
-                  v-for="rate in manualDiscountOptions"
-                  :key="rate"
-                  :variant="manualDiscountRate === rate ? 'default' : 'outline'"
-                  class="rounded-2xl"
-                  @click="manualDiscountRate = rate"
-                >
-                  {{ Math.round(rate * 100) }}%
-                </Button>
+            <div class="grid gap-2 rounded-2xl bg-muted/40 p-3 text-sm">
+              <div class="flex items-center justify-between">
+                <span class="text-muted-foreground">已选优惠</span>
+                <span>{{ selectedCoupon.label }}</span>
               </div>
-            </div>
-
-            <div class="grid gap-2">
-              <p class="text-xs text-muted-foreground">支付方式</p>
-              <div class="grid grid-cols-3 gap-2">
-                <Button
-                  v-for="method in paymentMethods"
-                  :key="method.value"
-                  :variant="paymentMethod === method.value ? 'default' : 'outline'"
-                  class="rounded-2xl justify-start"
-                  @click="paymentMethod = method.value"
-                >
-                  {{ method.label }}
-                </Button>
+              <div class="flex items-center justify-between">
+                <span class="text-muted-foreground">优惠金额</span>
+                <span class="text-emerald-600">- ¥ {{ couponDiscountAmount.toFixed(2) }}</span>
               </div>
             </div>
           </CardContent>
@@ -232,11 +196,13 @@
             <Textarea
               v-model="orderForm.remark"
               class="min-h-24 rounded-2xl"
-              placeholder="可填写少冰、少辣、打包需求、顾客特殊说明等"
+              placeholder="可填写少冰、少辣、打包需求或顾客特殊说明"
             />
           </CardContent>
         </Card>
+      </div>
 
+      <div class="shrink-0 border-t border-border/70 bg-background pt-4">
         <Card class="rounded-3xl border-border/80 shadow-sm">
           <CardContent class="grid gap-3 p-5">
             <div class="flex items-center justify-between text-sm">
@@ -244,7 +210,7 @@
               <span>¥ {{ subtotal.toFixed(2) }}</span>
             </div>
             <div class="flex items-center justify-between text-sm">
-              <span class="text-muted-foreground">会员折扣</span>
+              <span class="text-muted-foreground">会员优惠</span>
               <span class="text-emerald-600">- ¥ {{ memberDiscountAmount.toFixed(2) }}</span>
             </div>
             <div class="flex items-center justify-between text-sm">
@@ -252,23 +218,19 @@
               <span class="text-emerald-600">- ¥ {{ couponDiscountAmount.toFixed(2) }}</span>
             </div>
             <div class="flex items-center justify-between text-sm">
-              <span class="text-muted-foreground">手动折扣</span>
-              <span class="text-emerald-600">- ¥ {{ manualDiscountAmount.toFixed(2) }}</span>
-            </div>
-            <div class="flex items-center justify-between text-sm">
-              <span class="text-muted-foreground">支付方式</span>
-              <span>{{ selectedPaymentLabel }}</span>
+              <span class="text-muted-foreground">待选桌台</span>
+              <span>{{ orderForm.orderType === 'dine_in' ? selectedTableLabel : '无需桌台' }}</span>
             </div>
             <Separator />
-            <div class="flex items-end justify-between">
+            <div class="flex items-end justify-between gap-3">
               <div>
                 <p class="text-sm text-muted-foreground">应收金额</p>
                 <p class="mt-1 text-3xl font-semibold text-foreground">¥ {{ payableAmount.toFixed(2) }}</p>
               </div>
               <div class="flex gap-2">
                 <Button variant="outline" class="rounded-full" @click="resetOrder">清空</Button>
-                <Button :disabled="cartItems.length === 0" class="rounded-full px-6">
-                  确认收款
+                <Button :disabled="cartItems.length === 0" class="rounded-full px-6" @click="openCheckoutDialog">
+                  确定
                 </Button>
               </div>
             </div>
@@ -276,6 +238,142 @@
         </Card>
       </div>
     </PageSection>
+
+    <Dialog v-model:open="checkoutDialogOpen">
+      <DialogContent class="p-0">
+        <div class="grid gap-0 md:grid-cols-[1.15fr_0.85fr]">
+          <div class="grid gap-6 p-6">
+            <DialogHeader>
+              <DialogTitle>确认订单</DialogTitle>
+              <DialogDescription>
+                选择桌台和支付方式后即可完成本次收银，当前订单共 {{ totalQuantity }} 件商品。
+              </DialogDescription>
+            </DialogHeader>
+
+            <div v-if="orderForm.orderType === 'dine_in'" class="grid gap-3">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm font-medium text-foreground">选择桌台</p>
+                  <p class="text-xs text-muted-foreground">
+                    可用 {{ availableTables.length }} 张，已占用 {{ occupiedTables.length }} 张
+                  </p>
+                </div>
+                <Badge variant="outline">{{ selectedTableLabel }}</Badge>
+              </div>
+
+              <div class="grid max-h-[340px] gap-3 overflow-y-auto pr-1 sm:grid-cols-2">
+                <button
+                  v-for="table in diningTables"
+                  :key="table.id"
+                  type="button"
+                  :disabled="table.occupied"
+                  class="rounded-3xl border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-55"
+                  :class="
+                    table.id === selectedTableId
+                      ? 'border-primary bg-primary/5 shadow-sm'
+                      : 'border-border/80 bg-card hover:border-primary/35'
+                  "
+                  @click="selectTable(table.id)"
+                >
+                  <div class="flex items-start justify-between gap-3">
+                    <div>
+                      <p class="text-base font-semibold text-foreground">{{ table.label }}</p>
+                      <p class="mt-1 text-xs text-muted-foreground">{{ table.area }}</p>
+                    </div>
+                    <Badge :variant="table.occupied ? 'destructive' : 'secondary'">
+                      {{ table.occupied ? '已有人' : '空闲中' }}
+                    </Badge>
+                  </div>
+                  <div class="mt-4 flex items-center justify-between text-sm">
+                    <span class="text-muted-foreground">座位数</span>
+                    <span>{{ table.seats }} 位</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <div v-else class="rounded-3xl border border-dashed border-border/80 bg-muted/30 p-5">
+              <p class="text-sm font-medium text-foreground">{{ selectedOrderModeLabel }}</p>
+              <p class="mt-2 text-sm leading-6 text-muted-foreground">
+                当前订单无需选择桌台，确认后将按 {{ selectedOrderModeLabel }} 流程出单。
+              </p>
+            </div>
+
+            <div class="grid gap-3">
+              <div>
+                <p class="text-sm font-medium text-foreground">支付方式</p>
+                <p class="mt-1 text-xs text-muted-foreground">请在收银前选择本次付款渠道。</p>
+              </div>
+              <div class="grid grid-cols-3 gap-3">
+                <Button
+                  v-for="method in paymentMethods"
+                  :key="method.value"
+                  :variant="paymentMethod === method.value ? 'default' : 'outline'"
+                  class="h-12 rounded-2xl"
+                  @click="paymentMethod = method.value"
+                >
+                  {{ method.label }}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid gap-5 rounded-b-[28px] bg-slate-50 p-6 md:rounded-r-[28px] md:rounded-bl-none dark:bg-slate-950/30">
+            <div class="rounded-3xl border border-border/80 bg-background p-4">
+              <p class="text-sm font-medium text-foreground">订单摘要</p>
+              <div class="mt-4 grid gap-3 text-sm">
+                <div class="flex items-center justify-between">
+                  <span class="text-muted-foreground">下单方式</span>
+                  <span>{{ selectedOrderModeLabel }}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-muted-foreground">桌台</span>
+                  <span>{{ orderForm.orderType === 'dine_in' ? selectedTableLabel : '无需桌台' }}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-muted-foreground">支付方式</span>
+                  <span>{{ selectedPaymentLabel }}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-muted-foreground">顾客人数</span>
+                  <span>{{ orderForm.guestCount }} 位</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="rounded-3xl border border-border/80 bg-background p-4">
+              <p class="text-sm font-medium text-foreground">金额明细</p>
+              <div class="mt-4 grid gap-3 text-sm">
+                <div class="flex items-center justify-between">
+                  <span class="text-muted-foreground">商品金额</span>
+                  <span>¥ {{ subtotal.toFixed(2) }}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-muted-foreground">会员优惠</span>
+                  <span class="text-emerald-600">- ¥ {{ memberDiscountAmount.toFixed(2) }}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-muted-foreground">优惠券</span>
+                  <span class="text-emerald-600">- ¥ {{ couponDiscountAmount.toFixed(2) }}</span>
+                </div>
+                <Separator />
+                <div class="flex items-end justify-between">
+                  <span class="text-sm text-muted-foreground">应收金额</span>
+                  <span class="text-3xl font-semibold text-foreground">¥ {{ payableAmount.toFixed(2) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" class="rounded-full" @click="checkoutDialogOpen = false">返回修改</Button>
+              <Button class="rounded-full px-6" :disabled="checkoutDisabled" @click="confirmOrder">
+                确认收款
+              </Button>
+            </DialogFooter>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>
 
@@ -285,6 +383,7 @@ import PageSection from '@/components/shared/page-section/index.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
@@ -309,12 +408,21 @@ type CartItem = Product & {
   quantity: number
 }
 
+type DiningTable = {
+  id: string
+  label: string
+  area: string
+  seats: number
+  occupied: boolean
+}
+
 const keyword = ref('')
 const activeCategory = ref('全部')
 const memberPhone = ref('')
 const paymentMethod = ref<PaymentMethod>('cash')
 const selectedCouponCode = ref('none')
-const manualDiscountRate = ref(1)
+const checkoutDialogOpen = ref(false)
+const selectedTableId = ref('t-a01')
 
 const orderModes: Array<{ label: string; value: OrderType }> = [
   { label: '堂食', value: 'dine_in' },
@@ -324,7 +432,6 @@ const orderModes: Array<{ label: string; value: OrderType }> = [
 
 const orderForm = reactive({
   orderType: 'dine_in' as OrderType,
-  tableNo: 'A08',
   guestCount: 2,
   cashier: '前台 01',
   storeName: '陆家嘴示范店',
@@ -338,13 +445,12 @@ const paymentMethods: Array<{ label: string; value: PaymentMethod }> = [
 ]
 
 const categories = ['全部', '主食', '套餐', '小吃', '饮品']
-const manualDiscountOptions = [1, 0.95, 0.9, 0.88]
 
 const products: Product[] = [
   {
     id: 'p1',
     name: '炙烤鸡腿饭',
-    description: '招牌主食，含时蔬和溏心蛋',
+    description: '招牌主食，含时蔬和溏心蛋。',
     category: '主食',
     price: 29.9,
     stock: 128,
@@ -354,7 +460,7 @@ const products: Product[] = [
   {
     id: 'p2',
     name: '黑椒牛肉意面',
-    description: '经典西式主食，适合晚市',
+    description: '经典西式主食，适合晚市组合。',
     category: '主食',
     price: 32,
     stock: 64,
@@ -364,7 +470,7 @@ const products: Product[] = [
   {
     id: 'p3',
     name: '双人分享套餐',
-    description: '鸡腿饭 + 小吃 + 饮品组合',
+    description: '鸡腿饭 + 小吃 + 饮品组合。',
     category: '套餐',
     price: 58.8,
     stock: 36,
@@ -374,7 +480,7 @@ const products: Product[] = [
   {
     id: 'p4',
     name: '现炸薯条',
-    description: '适合加购，支持单点',
+    description: '适合加购，支持单点。',
     category: '小吃',
     price: 12,
     stock: 86,
@@ -384,7 +490,7 @@ const products: Product[] = [
   {
     id: 'p5',
     name: '冰美式',
-    description: '门店现制饮品',
+    description: '门店现制饮品。',
     category: '饮品',
     price: 16,
     stock: 72,
@@ -394,13 +500,22 @@ const products: Product[] = [
   {
     id: 'p6',
     name: '芝士鸡块',
-    description: '小食推荐，适合搭配套餐',
+    description: '小食推荐，适合搭配套餐。',
     category: '小吃',
     price: 18,
     stock: 55,
     tag: '推荐',
     badgeVariant: 'secondary',
   },
+]
+
+const diningTables: DiningTable[] = [
+  { id: 't-a01', label: 'A01', area: '大厅靠窗区', seats: 2, occupied: false },
+  { id: 't-a02', label: 'A02', area: '大厅靠窗区', seats: 4, occupied: true },
+  { id: 't-b03', label: 'B03', area: '中厅家庭区', seats: 4, occupied: false },
+  { id: 't-b05', label: 'B05', area: '中厅家庭区', seats: 6, occupied: false },
+  { id: 't-c01', label: 'C01', area: '吧台区', seats: 2, occupied: true },
+  { id: 't-v08', label: 'V08', area: '包厢区', seats: 8, occupied: false },
 ]
 
 const cartItems = ref<CartItem[]>([
@@ -422,9 +537,9 @@ const memberProfiles: Record<string, { name: string; level: string; discountRate
 
 const coupons = [
   { code: 'none', label: '不使用优惠券', discountAmount: 0 },
-  { code: 'NEW8', label: '新人券 ¥8', discountAmount: 8 },
-  { code: 'MEAL12', label: '套餐券 ¥12', discountAmount: 12 },
-  { code: 'VIP15', label: '会员券 ¥15', discountAmount: 15 },
+  { code: 'NEW8', label: '新人券 - ¥8', discountAmount: 8 },
+  { code: 'MEAL12', label: '套餐券 - ¥12', discountAmount: 12 },
+  { code: 'VIP15', label: '会员券 - ¥15', discountAmount: 15 },
 ]
 
 const availableCoupons = coupons.filter((coupon) => coupon.code !== 'none')
@@ -437,6 +552,7 @@ const filteredProducts = computed(() => {
       normalizedKeyword.length === 0 ||
       product.name.toLowerCase().includes(normalizedKeyword) ||
       product.category.toLowerCase().includes(normalizedKeyword)
+
     return matchesCategory && matchesKeyword
   })
 })
@@ -444,16 +560,23 @@ const filteredProducts = computed(() => {
 const memberProfile = computed(() => memberProfiles[memberPhone.value] ?? null)
 const discountRate = computed(() => memberProfile.value?.discountRate ?? 1)
 const subtotal = computed(() => cartItems.value.reduce((sum, item) => sum + item.price * item.quantity, 0))
+const totalQuantity = computed(() => cartItems.value.reduce((sum, item) => sum + item.quantity, 0))
 const memberDiscountAmount = computed(() => subtotal.value * (1 - discountRate.value))
 const afterMemberDiscount = computed(() => subtotal.value - memberDiscountAmount.value)
 const selectedCoupon = computed(() => coupons.find((coupon) => coupon.code === selectedCouponCode.value) ?? coupons[0])
 const couponDiscountAmount = computed(() => Math.min(selectedCoupon.value.discountAmount, afterMemberDiscount.value))
-const afterCouponDiscount = computed(() => afterMemberDiscount.value - couponDiscountAmount.value)
-const manualDiscountAmount = computed(() => afterCouponDiscount.value * (1 - manualDiscountRate.value))
-const payableAmount = computed(() => afterCouponDiscount.value - manualDiscountAmount.value)
+const payableAmount = computed(() => afterMemberDiscount.value - couponDiscountAmount.value)
 const selectedPaymentLabel = computed(
   () => paymentMethods.find((method) => method.value === paymentMethod.value)?.label ?? '现金',
 )
+const selectedOrderModeLabel = computed(
+  () => orderModes.find((mode) => mode.value === orderForm.orderType)?.label ?? '堂食',
+)
+const selectedTable = computed(() => diningTables.find((table) => table.id === selectedTableId.value) ?? null)
+const selectedTableLabel = computed(() => selectedTable.value?.label ?? '请选择桌台')
+const availableTables = computed(() => diningTables.filter((table) => !table.occupied))
+const occupiedTables = computed(() => diningTables.filter((table) => table.occupied))
+const checkoutDisabled = computed(() => orderForm.orderType === 'dine_in' && !selectedTable.value)
 
 function addToCart(product: Product) {
   const existing = cartItems.value.find((item) => item.id === product.id)
@@ -461,6 +584,7 @@ function addToCart(product: Product) {
     existing.quantity += 1
     return
   }
+
   cartItems.value.push({
     ...product,
     quantity: 1,
@@ -479,10 +603,12 @@ function decreaseItem(id: string) {
   if (!target) {
     return
   }
+
   if (target.quantity === 1) {
     cartItems.value = cartItems.value.filter((item) => item.id !== id)
     return
   }
+
   target.quantity -= 1
 }
 
@@ -490,12 +616,42 @@ function fillDemoMember() {
   memberPhone.value = '13900139000'
 }
 
+function selectTable(tableId: string) {
+  const table = diningTables.find((item) => item.id === tableId)
+  if (!table || table.occupied) {
+    return
+  }
+
+  selectedTableId.value = tableId
+}
+
+function openCheckoutDialog() {
+  if (cartItems.value.length === 0) {
+    return
+  }
+
+  if (orderForm.orderType === 'dine_in' && selectedTable.value?.occupied) {
+    selectedTableId.value = availableTables.value[0]?.id ?? ''
+  }
+
+  checkoutDialogOpen.value = true
+}
+
+function confirmOrder() {
+  if (checkoutDisabled.value) {
+    return
+  }
+
+  checkoutDialogOpen.value = false
+}
+
 function resetOrder() {
   cartItems.value = []
   memberPhone.value = ''
   selectedCouponCode.value = 'none'
-  manualDiscountRate.value = 1
   paymentMethod.value = 'cash'
+  checkoutDialogOpen.value = false
+  selectedTableId.value = availableTables.value[0]?.id ?? ''
   orderForm.remark = ''
 }
 </script>
