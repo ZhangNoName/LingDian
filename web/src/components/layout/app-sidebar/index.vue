@@ -73,7 +73,7 @@
 
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
-import { Separator } from '@/components/ui/separator'
+import { Separator } from '@/baseComponents/separator'
 import { navigationItems } from '@/config/navigation'
 
 defineProps<{

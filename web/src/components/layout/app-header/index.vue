@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <header class="sticky top-0 z-20 border-b border-border/70 bg-background/85 px-4 py-4 backdrop-blur md:px-6">
     <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
       <div class="flex items-start gap-3">
@@ -30,8 +30,8 @@
 
 <script setup lang="ts">
 import { PanelLeft } from 'lucide-vue-next'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Badge } from '@/baseComponents/badge'
+import { Button } from '@/baseComponents/button'
 
 defineEmits<{
   (event: 'toggle-sidebar'): void

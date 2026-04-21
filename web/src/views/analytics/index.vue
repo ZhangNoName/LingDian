@@ -1,20 +1,30 @@
-<template>
+﻿<template>
   <div class="grid gap-5">
     <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-      <StatCard v-for="metric in metrics" :key="metric.label" v-bind="metric" />
+      <Card v-for="metric in metrics" :key="metric.label" class="rounded-lg border-border/80">
+        <CardContent class="p-5">
+          <p class="text-sm text-muted-foreground">{{ metric.label }}</p>
+          <p class="mt-3 text-2xl font-semibold text-foreground">{{ metric.value }}</p>
+          <p class="mt-2 text-xs text-muted-foreground">{{ metric.trend }}</p>
+        </CardContent>
+      </Card>
     </div>
 
-    <PageSection title="经营概览">
-      <div class="rounded-2xl border border-dashed border-border bg-muted/20 p-6 text-sm text-muted-foreground">
-        这里后续接图表组件，当前保留为经营分析主容器。
-      </div>
-    </PageSection>
+    <Card class="rounded-lg border-border/80">
+      <CardHeader>
+        <CardTitle class="text-xl">经营概览</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div class="rounded-lg border border-dashed border-border bg-muted/20 p-6 text-sm text-muted-foreground">
+          这里后续接图表组件，当前保留为经营分析主容器。
+        </div>
+      </CardContent>
+    </Card>
   </div>
 </template>
 
 <script setup lang="ts">
-import PageSection from '@/components/shared/page-section/index.vue'
-import StatCard from '@/components/shared/stat-card/index.vue'
+import { Card, CardContent, CardHeader, CardTitle } from '@/baseComponents/card'
 
 const metrics = [
   { label: '本周销售额', value: '¥ 186,420', trend: '周环比 +8.2%' },

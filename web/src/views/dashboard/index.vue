@@ -1,43 +1,58 @@
-<template>
+﻿<template>
   <div class="grid gap-5">
     <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-      <StatCard v-for="card in cards" :key="card.label" v-bind="card" />
+      <Card v-for="card in cards" :key="card.label" class="rounded-lg border-border/80">
+        <CardContent class="p-5">
+          <p class="text-sm text-muted-foreground">{{ card.label }}</p>
+          <p class="mt-3 text-2xl font-semibold text-foreground">{{ card.value }}</p>
+          <p class="mt-2 text-xs text-muted-foreground">{{ card.trend }}</p>
+        </CardContent>
+      </Card>
     </div>
 
     <div class="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
-      <PageSection title="待办事项">
-        <div class="grid gap-3">
-          <div
-            v-for="item in todos"
-            :key="item.title"
-            class="flex items-start justify-between gap-4 rounded-2xl border border-border bg-muted/30 p-4"
-          >
-            <div>
-              <p class="text-sm font-semibold text-foreground">{{ item.title }}</p>
-              <p class="mt-1 text-sm leading-6 text-muted-foreground">{{ item.detail }}</p>
+      <Card class="rounded-lg border-border/80">
+        <CardHeader>
+          <CardTitle class="text-xl">待办事项</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div class="grid gap-3">
+            <div
+              v-for="item in todos"
+              :key="item.title"
+              class="flex items-start justify-between gap-4 rounded-lg border border-border bg-muted/30 p-4"
+            >
+              <div>
+                <p class="text-sm font-semibold text-foreground">{{ item.title }}</p>
+                <p class="mt-1 text-sm leading-6 text-muted-foreground">{{ item.detail }}</p>
+              </div>
+              <Badge :variant="item.variant">{{ item.level }}</Badge>
             </div>
-            <Badge :variant="item.variant">{{ item.level }}</Badge>
           </div>
-        </div>
-      </PageSection>
+        </CardContent>
+      </Card>
 
-      <PageSection title="快捷操作">
-        <div class="grid gap-2">
-          <Button variant="outline" class="justify-start rounded-2xl">新建商品</Button>
-          <Button variant="outline" class="justify-start rounded-2xl">查看异常订单</Button>
-          <Button variant="outline" class="justify-start rounded-2xl">处理低库存</Button>
-          <Button variant="outline" class="justify-start rounded-2xl">进入经营分析</Button>
-        </div>
-      </PageSection>
+      <Card class="rounded-lg border-border/80">
+        <CardHeader>
+          <CardTitle class="text-xl">快捷操作</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div class="grid gap-2">
+            <Button variant="outline" class="justify-start rounded-md">新建商品</Button>
+            <Button variant="outline" class="justify-start rounded-md">查看异常订单</Button>
+            <Button variant="outline" class="justify-start rounded-md">处理低库存</Button>
+            <Button variant="outline" class="justify-start rounded-md">进入经营分析</Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import PageSection from '@/components/shared/page-section/index.vue'
-import StatCard from '@/components/shared/stat-card/index.vue'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Badge } from '@/baseComponents/badge'
+import { Button } from '@/baseComponents/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/baseComponents/card'
 
 const cards = [
   { label: '今日销售额', value: '¥ 28,640', trend: '较昨日 +12.4%' },
