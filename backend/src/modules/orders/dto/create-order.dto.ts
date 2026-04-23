@@ -3,8 +3,9 @@ import {
   ArrayMinSize,
   IsArray,
   IsIn,
+  IsInt,
   IsMobilePhone,
-  IsNumber,
+  IsNotEmpty,
   IsOptional,
   IsString,
   Min,
@@ -12,10 +13,15 @@ import {
 } from 'class-validator';
 
 class OrderItemDto {
-  @IsString()
-  skuId!: string;
+  @IsOptional()
+  @IsNotEmpty()
+  skuId?: string | number;
 
-  @IsNumber()
+  @IsOptional()
+  @IsNotEmpty()
+  sku_id?: string | number;
+
+  @IsInt()
   @Min(1)
   quantity!: number;
 

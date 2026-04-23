@@ -10,7 +10,7 @@ const argConfigPath = argConfigIndex >= 0 ? process.argv[argConfigIndex + 1] : u
 const configPath =
   argConfigPath ||
   process.env.LOCAL_CONFIG_PATH ||
-  path.resolve(backendRoot, '..', '..', '私人', 'local.yml');
+  path.resolve(backendRoot, 'config.yaml');
 
 if (!fs.existsSync(configPath)) {
   throw new Error(`Config file not found: ${configPath}`);

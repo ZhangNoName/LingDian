@@ -37,22 +37,22 @@ enum OrderStatus {
 }
 
 model Store {
-  id              String      @id @default(cuid())
-  code            String      @unique
-  name            String
-  contactName     String?
-  contactPhone    String?
-  address         String?
-  businessHours   String?
-  status          StoreStatus @default(OPEN)
-  dineInEnabled   Boolean     @default(true)
-  takeoutEnabled  Boolean     @default(true)
-  pickupEnabled   Boolean     @default(true)
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  categories      Category[]
-  products        Product[]
-  orders          Order[]
+  id             String      @id @default(cuid())
+  code           String      @unique
+  name           String
+  contactName    String?
+  contactPhone   String?
+  address        String?
+  businessHours  String?
+  status         StoreStatus @default(OPEN)
+  dineInEnabled  Boolean     @default(true)
+  takeoutEnabled Boolean     @default(true)
+  pickupEnabled  Boolean     @default(true)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  categories     Category[]
+  products       Product[]
+  orders         Order[]
 
   @@map("stores")
 }
@@ -87,11 +87,27 @@ model Product {
   updatedAt   DateTime      @updatedAt
   store       Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
   category    Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  skus        ProductSKU[]
   orderItems  OrderItem[]
 
   @@index([storeId, status])
   @@index([categoryId])
   @@map("products")
+}
+
+model ProductSKU {
+  id         String      @id @default(cuid())
+  productId  String
+  skuName    String
+  price      Decimal     @db.Decimal(10, 2)
+  stockCount Int         @default(0)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+
+  @@index([productId])
+  @@map("product_skus")
 }
 
 model Order {
@@ -116,19 +132,23 @@ model Order {
 }
 
 model OrderItem {
-  id          String   @id @default(cuid())
+  id          String      @id @default(cuid())
   orderId     String
   productId   String
+  skuId       String?
   productName String
-  unitPrice   Decimal  @db.Decimal(10, 2)
+  skuName     String?
+  unitPrice   Decimal     @db.Decimal(10, 2)
   quantity    Int
-  subtotal    Decimal  @db.Decimal(10, 2)
+  subtotal    Decimal     @db.Decimal(10, 2)
   remark      String?
-  createdAt   DateTime @default(now())
-  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  createdAt   DateTime    @default(now())
+  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product     @relation(fields: [productId], references: [id], onDelete: Restrict)
+  sku         ProductSKU? @relation(fields: [skuId], references: [id], onDelete: Restrict)
 
   @@index([orderId])
   @@index([productId])
+  @@index([skuId])
   @@map("order_items")
 }

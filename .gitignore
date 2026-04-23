@@ -29,6 +29,7 @@ coverage.xml
 .env
 .env.*
 !.env.example
+backend/config.yaml
 
 # 构建与打包产物
 dist/
