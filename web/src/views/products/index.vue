@@ -8,90 +8,92 @@
       </el-card>
     </section>
 
-    <section class="products-panel">
-      <div class="panel-header">
-        <div>
-          <h2>商品管理</h2>
-          <p>SPU 商品与 SKU 规格库存维护</p>
-        </div>
-        <div class="toolbar">
-          <el-input
-            v-model="keyword"
-            clearable
-            placeholder="搜索商品 / 分类 / SKU"
-            class="search-input"
-          />
-          <el-button :icon="Refresh" :loading="loading" @click="fetchProducts">刷新</el-button>
-        </div>
-      </div>
+    <AppFormTable title="商品管理" description="SPU 商品与 SKU 规格库存维护">
+      <template #headerActions>
+        <el-button :icon="Refresh" :loading="loading" @click="fetchProducts">刷新</el-button>
+      </template>
 
-      <el-table
-        v-loading="loading"
-        :data="filteredProducts"
-        row-key="id"
-        class="products-table"
-        empty-text="暂无商品数据"
-      >
-        <el-table-column type="expand" width="52">
-          <template #default="{ row }">
-            <div class="sku-expand">
-              <el-table :data="row.skus" row-key="id" border empty-text="暂无 SKU">
-                <el-table-column prop="sku_name" label="规格名称" min-width="180" />
-                <el-table-column label="售价" width="220">
-                  <template #default="{ row: sku }">
-                    <el-input-number
-                      v-model="sku.price"
-                      :min="0"
-                      :precision="2"
-                      :step="1"
-                      controls-position="right"
-                      @focus="captureOriginalValue(sku, 'price')"
-                      @change="queueSkuChange(sku, 'price')"
-                    />
-                  </template>
-                </el-table-column>
-                <el-table-column label="库存" width="220">
-                  <template #default="{ row: sku }">
-                    <el-input-number
-                      v-model="sku.stock_count"
-                      :min="0"
-                      :precision="0"
-                      :step="1"
-                      controls-position="right"
-                      @focus="captureOriginalValue(sku, 'stock_count')"
-                      @change="queueSkuChange(sku, 'stock_count')"
-                    />
-                  </template>
-                </el-table-column>
-                <el-table-column label="库存状态" width="140">
-                  <template #default="{ row: sku }">
-                    <el-tag :type="sku.stock_count > 0 ? 'success' : 'danger'" effect="light">
-                      {{ sku.stock_count > 0 ? '可售' : '售罄' }}
-                    </el-tag>
-                  </template>
-                </el-table-column>
-              </el-table>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column prop="name" label="商品名称" min-width="180" />
-        <el-table-column prop="category" label="分类" width="160" />
-        <el-table-column label="上架状态" width="140">
-          <template #default="{ row }">
-            <el-tag :type="row.is_active ? 'success' : 'info'" effect="light">
-              {{ row.is_active ? '上架中' : '未上架' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="SKU 数" width="120">
-          <template #default="{ row }">{{ row.skus.length }}</template>
-        </el-table-column>
-        <el-table-column label="总库存" width="140">
-          <template #default="{ row }">{{ getTotalStock(row) }}</template>
-        </el-table-column>
-        <el-table-column prop="description" label="描述" min-width="240" show-overflow-tooltip />
-      </el-table>
-    </section>
+      <template #form>
+        <AppForm :model="filters" :columns="1">
+          <el-form-item label="搜索">
+            <el-input
+              v-model="filters.keyword"
+              clearable
+              placeholder="搜索商品 / 分类 / SKU"
+            />
+          </el-form-item>
+        </AppForm>
+      </template>
+
+      <AppTable>
+        <el-table
+          v-loading="loading"
+          :data="filteredProducts"
+          row-key="id"
+          class="products-table"
+          empty-text="暂无商品数据"
+        >
+          <el-table-column type="expand" width="52">
+            <template #default="{ row }">
+              <div class="sku-expand">
+                <el-table :data="row.skus" row-key="id" border empty-text="暂无 SKU">
+                  <el-table-column prop="sku_name" label="规格名称" min-width="180" />
+                  <el-table-column label="售价" width="220">
+                    <template #default="{ row: sku }">
+                      <el-input-number
+                        v-model="sku.price"
+                        :min="0"
+                        :precision="2"
+                        :step="1"
+                        controls-position="right"
+                        @focus="captureOriginalValue(sku, 'price')"
+                        @change="queueSkuChange(sku, 'price')"
+                      />
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="库存" width="220">
+                    <template #default="{ row: sku }">
+                      <el-input-number
+                        v-model="sku.stock_count"
+                        :min="0"
+                        :precision="0"
+                        :step="1"
+                        controls-position="right"
+                        @focus="captureOriginalValue(sku, 'stock_count')"
+                        @change="queueSkuChange(sku, 'stock_count')"
+                      />
+                    </template>
+                  </el-table-column>
+                  <el-table-column label="库存状态" width="140">
+                    <template #default="{ row: sku }">
+                      <el-tag :type="sku.stock_count > 0 ? 'success' : 'danger'" effect="light">
+                        {{ sku.stock_count > 0 ? '可售' : '售罄' }}
+                      </el-tag>
+                    </template>
+                  </el-table-column>
+                </el-table>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column prop="name" label="商品名称" min-width="180" />
+          <el-table-column prop="category" label="分类" width="160" />
+          <el-table-column label="上架状态" width="140">
+            <template #default="{ row }">
+              <el-tag :type="row.is_active ? 'success' : 'info'" effect="light">
+                {{ row.is_active ? '上架中' : '未上架' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="SKU 数" width="120">
+            <template #default="{ row }">{{ row.skus.length }}</template>
+          </el-table-column>
+          <el-table-column label="总库存" width="140">
+            <template #default="{ row }">{{ getTotalStock(row) }}</template>
+          </el-table-column>
+          <el-table-column prop="description" label="描述" min-width="240" show-overflow-tooltip />
+        </el-table>
+      </AppTable>
+    </AppFormTable>
 
     <el-dialog v-model="confirmVisible" title="确认修改 SKU" width="420px" @close="revertPendingChange">
       <p v-if="pendingChange" class="confirm-copy">
@@ -109,11 +111,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import {
   ElButton,
   ElCard,
   ElDialog,
+  ElFormItem,
   ElInput,
   ElInputNumber,
   ElMessage,
@@ -122,6 +125,9 @@ import {
   ElTag,
 } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
+import AppForm from '@/components/form/AppForm.vue'
+import AppFormTable from '@/components/form-table/AppFormTable.vue'
+import AppTable from '@/components/table/AppTable.vue'
 
 type SkuField = 'price' | 'stock_count'
 
@@ -154,7 +160,9 @@ interface PendingChange {
 }
 
 const products = ref<Product[]>([])
-const keyword = ref('')
+const filters = reactive({
+  keyword: '',
+})
 const loading = ref(false)
 const saving = ref(false)
 const confirmVisible = ref(false)
@@ -178,7 +186,7 @@ const metrics = computed(() => {
 })
 
 const filteredProducts = computed(() => {
-  const text = keyword.value.trim().toLowerCase()
+  const text = filters.keyword.trim().toLowerCase()
 
   if (!text) {
     return products.value
@@ -349,45 +357,6 @@ onMounted(fetchProducts)
   margin-top: 6px;
 }
 
-.products-panel {
-  display: grid;
-  gap: 16px;
-  padding: 20px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--card);
-}
-
-.panel-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.panel-header h2 {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 700;
-}
-
-.panel-header p {
-  margin-top: 6px;
-  color: var(--muted-foreground);
-  font-size: 14px;
-}
-
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
-.search-input {
-  width: 280px;
-}
-
 .products-table {
   width: 100%;
 }
@@ -411,15 +380,6 @@ onMounted(fetchProducts)
 @media (max-width: 720px) {
   .metrics-grid {
     grid-template-columns: 1fr;
-  }
-
-  .panel-header {
-    display: grid;
-  }
-
-  .toolbar,
-  .search-input {
-    width: 100%;
   }
 }
 </style>
