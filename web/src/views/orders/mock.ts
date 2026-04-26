@@ -1,4 +1,4 @@
-import type { Coupon, DiningTable, MemberProfile, OrderMode, PaymentOption, Product } from './types'
+import type { Coupon, DiningTable, MemberProfile, OrderMode, PaymentOption } from './types'
 
 export const orderModes: OrderMode[] = [
   { label: '堂食', value: 'dine_in' },
@@ -10,71 +10,6 @@ export const paymentMethods: PaymentOption[] = [
   { label: '现金', value: 'cash' },
   { label: '支付宝', value: 'alipay' },
   { label: '微信', value: 'wechat' },
-]
-
-export const categories = ['全部', '主食', '套餐', '小吃', '饮品']
-
-export const products: Product[] = [
-  {
-    id: 'p1',
-    name: '炙烤鸡腿饭',
-    description: '招牌主食，含时蔬和溏心蛋。',
-    category: '主食',
-    price: 29.9,
-    stock: 128,
-    tag: '热销',
-    badgeVariant: 'secondary',
-  },
-  {
-    id: 'p2',
-    name: '黑椒牛肉意面',
-    description: '经典西式主食，适合晚市组合。',
-    category: '主食',
-    price: 32,
-    stock: 64,
-    tag: '新品',
-    badgeVariant: 'outline',
-  },
-  {
-    id: 'p3',
-    name: '双人分享套餐',
-    description: '鸡腿饭 + 小吃 + 饮品组合。',
-    category: '套餐',
-    price: 58.8,
-    stock: 36,
-    tag: '套餐',
-    badgeVariant: 'secondary',
-  },
-  {
-    id: 'p4',
-    name: '现炸薯条',
-    description: '适合加购，支持单点。',
-    category: '小吃',
-    price: 12,
-    stock: 86,
-    tag: '加购',
-    badgeVariant: 'outline',
-  },
-  {
-    id: 'p5',
-    name: '冰美式',
-    description: '门店现制饮品。',
-    category: '饮品',
-    price: 16,
-    stock: 72,
-    tag: '饮品',
-    badgeVariant: 'outline',
-  },
-  {
-    id: 'p6',
-    name: '芝士鸡块',
-    description: '小食推荐，适合搭配套餐。',
-    category: '小吃',
-    price: 18,
-    stock: 55,
-    tag: '推荐',
-    badgeVariant: 'secondary',
-  },
 ]
 
 export const diningTables: DiningTable[] = [

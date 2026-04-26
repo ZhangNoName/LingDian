@@ -6,6 +6,9 @@ export type BadgeVariant = 'secondary' | 'outline' | 'destructive'
 
 export type Product = {
   id: string
+  skuId: string
+  storeId: string
+  productId: string
   name: string
   description: string
   category: string
@@ -55,4 +58,24 @@ export type OrderForm = {
   cashier: string
   storeName: string
   remark: string
+}
+
+export type ProductApiSku = {
+  id: string
+  product_id: string
+  sku_name: string
+  price: number
+  stock_count: number
+}
+
+export type ProductApiItem = {
+  id: string
+  store_id: string
+  name: string
+  description?: string
+  is_active: boolean
+  status: string
+  category: string
+  category_id: string
+  skus: ProductApiSku[]
 }

@@ -11,6 +11,7 @@
     "db:push": "prisma db push",
     "db:pull": "prisma db pull",
     "db:sync-local-config": "node ./scripts/sync-local-config.mjs",
+    "db:seed:demo": "node ./scripts/seed-demo-data.mjs",
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch"

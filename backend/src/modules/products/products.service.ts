@@ -27,6 +27,7 @@ export class ProductsService {
 
     return products.map((product) => ({
       id: product.id,
+      store_id: product.storeId,
       name: product.name,
       description: product.description,
       is_active: product.status === 'ACTIVE',

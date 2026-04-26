@@ -3,6 +3,15 @@
     class="grid h-full min-h-0 gap-5 overflow-hidden xl:grid-cols-[1.5fr_0.95fr]"
   >
     <div class="flex flex-col gap-2">
+      <div class="shrink-0">
+        <Input
+          :model-value="state.keyword"
+          placeholder="搜索商品 / 分类 / 规格"
+          class="rounded-md"
+          @update:model-value="state.keyword = String($event)"
+        />
+      </div>
+
       <div class="flex shrink-0 flex-wrap gap-2">
         <Button
           v-for="category in categories"
@@ -16,7 +25,10 @@
       </div>
 
       <div class="min-h-0 flex-1 overflow-y-auto pr-1">
-        <div class="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+        <div v-if="loadingProducts" class="py-16 text-center text-sm text-muted-foreground">
+          正在加载商品...
+        </div>
+        <div v-else class="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
           <OrderProductCard
             v-for="product in filteredProducts"
             :key="product.id"
@@ -79,15 +91,18 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted } from "vue";
 import { Button } from "@/baseComponents/button";
+import { Input } from "@/baseComponents/input";
 import { useOrderStore } from "@/stores/order";
 import OrderCheckoutPanel from "./components/OrderCheckoutPanel.vue";
 import OrderConfirmDialog from "./components/OrderConfirmDialog.vue";
 import OrderProductCard from "./components/OrderProductCard.vue";
-import { categories, diningTables, paymentMethods } from "./mock";
+import { diningTables, paymentMethods } from "./mock";
 
 const {
   state,
+  categories,
   availableCoupons,
   filteredProducts,
   memberProfile,
@@ -104,6 +119,8 @@ const {
   availableTables,
   occupiedTables,
   checkoutDisabled,
+  loadingProducts,
+  initialize,
   addToCart,
   increaseItem,
   decreaseItem,
@@ -115,4 +132,8 @@ const {
   isProductInCart,
   getProductQuantity,
 } = useOrderStore();
+
+onMounted(() => {
+  void initialize();
+});
 </script>
