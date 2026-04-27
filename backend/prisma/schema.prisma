@@ -19,6 +19,11 @@ enum ProductStatus {
   ARCHIVED
 }
 
+enum ProductType {
+  SINGLE
+  PACKAGE
+}
+
 enum OrderType {
   DINE_IN
   TAKEOUT
@@ -36,23 +41,44 @@ enum OrderStatus {
   REFUNDED
 }
 
+enum SelectionGroupType {
+  MODIFIER
+  COMPONENT
+}
+
+enum SelectionMode {
+  SINGLE
+  MULTIPLE
+}
+
+enum SelectionScope {
+  PRODUCT
+  VARIANT
+}
+
+enum SelectionOptionType {
+  VALUE
+  VARIANT
+}
+
 model Store {
-  id             String      @id @default(cuid())
-  code           String      @unique
-  name           String
-  contactName    String?
-  contactPhone   String?
-  address        String?
-  businessHours  String?
-  status         StoreStatus @default(OPEN)
-  dineInEnabled  Boolean     @default(true)
-  takeoutEnabled Boolean     @default(true)
-  pickupEnabled  Boolean     @default(true)
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-  categories     Category[]
-  products       Product[]
-  orders         Order[]
+  id              String           @id @default(cuid())
+  code            String           @unique
+  name            String
+  contactName     String?
+  contactPhone    String?
+  address         String?
+  businessHours   String?
+  status          StoreStatus      @default(OPEN)
+  dineInEnabled   Boolean          @default(true)
+  takeoutEnabled  Boolean          @default(true)
+  pickupEnabled   Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  categories      Category[]
+  products        Product[]
+  selectionGroups SelectionGroup[]
+  orders          Order[]
 
   @@map("stores")
 }
@@ -73,22 +99,24 @@ model Category {
 }
 
 model Product {
-  id          String        @id @default(cuid())
-  storeId     String
-  categoryId  String
-  name        String
-  description String?
-  imageUrl    String?
-  price       Decimal       @db.Decimal(10, 2)
-  status      ProductStatus @default(DRAFT)
-  isFeatured  Boolean       @default(false)
-  stock       Int           @default(0)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  store       Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  category    Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  skus        ProductSKU[]
-  orderItems  OrderItem[]
+  id                String                  @id @default(cuid())
+  storeId           String
+  categoryId        String
+  name              String
+  description       String?
+  imageUrl          String?
+  type              ProductType             @default(SINGLE)
+  price             Decimal                 @db.Decimal(10, 2)
+  status            ProductStatus           @default(DRAFT)
+  isFeatured        Boolean                 @default(false)
+  stock             Int                     @default(0)
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  store             Store                   @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  category          Category                @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  skus              ProductSKU[]
+  selectionBindings ProductSelectionGroup[]
+  orderItems        OrderItem[]
 
   @@index([storeId, status])
   @@index([categoryId])
@@ -96,18 +124,87 @@ model Product {
 }
 
 model ProductSKU {
-  id         String      @id @default(cuid())
-  productId  String
-  skuName    String
-  price      Decimal     @db.Decimal(10, 2)
-  stockCount Int         @default(0)
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
-  orderItems OrderItem[]
+  id                  String                  @id @default(cuid())
+  productId           String
+  skuName             String
+  price               Decimal                 @db.Decimal(10, 2)
+  stockCount          Int                     @default(0)
+  isDefault           Boolean                 @default(false)
+  isActive            Boolean                 @default(true)
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  product             Product                 @relation(fields: [productId], references: [id], onDelete: Cascade)
+  selectionBindings   ProductSelectionGroup[]
+  referencedByOptions SelectionOption[]
+  orderItems          OrderItem[]
 
   @@index([productId])
   @@map("product_skus")
+}
+
+model SelectionGroup {
+  id              String                  @id @default(cuid())
+  storeId         String
+  name            String
+  groupType       SelectionGroupType
+  selectionMode   SelectionMode
+  minSelect       Int                     @default(0)
+  maxSelect       Int                     @default(1)
+  isRequired      Boolean                 @default(false)
+  isActive        Boolean                 @default(true)
+  sortOrder       Int                     @default(0)
+  description     String?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  store           Store                   @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  options         SelectionOption[]
+  productBindings ProductSelectionGroup[]
+
+  @@index([storeId, sortOrder])
+  @@map("selection_groups")
+}
+
+model SelectionOption {
+  id              String               @id @default(cuid())
+  groupId         String
+  name            String
+  optionType      SelectionOptionType  @default(VALUE)
+  priceDelta      Decimal              @default(0) @db.Decimal(10, 2)
+  stockDelta      Int                  @default(0)
+  isDefault       Boolean              @default(false)
+  isActive        Boolean              @default(true)
+  sortOrder       Int                  @default(0)
+  referencedSkuId String?
+  extraData       Json?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  group           SelectionGroup       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  referencedSku   ProductSKU?          @relation(fields: [referencedSkuId], references: [id], onDelete: SetNull)
+  orderSelections OrderItemSelection[]
+
+  @@index([groupId, sortOrder])
+  @@index([referencedSkuId])
+  @@map("selection_options")
+}
+
+model ProductSelectionGroup {
+  id        String         @id @default(cuid())
+  productId String?
+  variantId String?
+  groupId   String
+  scope     SelectionScope
+  sortOrder Int            @default(0)
+  isEnabled Boolean        @default(true)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  product   Product?       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant   ProductSKU?    @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  group     SelectionGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([productId, sortOrder])
+  @@index([variantId, sortOrder])
+  @@index([groupId])
+  @@map("product_selection_groups")
 }
 
 model Order {
@@ -132,23 +229,45 @@ model Order {
 }
 
 model OrderItem {
-  id          String      @id @default(cuid())
+  id          String               @id @default(cuid())
   orderId     String
   productId   String
   skuId       String?
   productName String
   skuName     String?
-  unitPrice   Decimal     @db.Decimal(10, 2)
+  unitPrice   Decimal              @db.Decimal(10, 2)
   quantity    Int
-  subtotal    Decimal     @db.Decimal(10, 2)
+  subtotal    Decimal              @db.Decimal(10, 2)
   remark      String?
-  createdAt   DateTime    @default(now())
-  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product     Product     @relation(fields: [productId], references: [id], onDelete: Restrict)
-  sku         ProductSKU? @relation(fields: [skuId], references: [id], onDelete: Restrict)
+  createdAt   DateTime             @default(now())
+  order       Order                @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product              @relation(fields: [productId], references: [id], onDelete: Restrict)
+  sku         ProductSKU?          @relation(fields: [skuId], references: [id], onDelete: Restrict)
+  selections  OrderItemSelection[]
 
   @@index([orderId])
   @@index([productId])
   @@index([skuId])
   @@map("order_items")
+}
+
+model OrderItemSelection {
+  id                 String              @id @default(cuid())
+  orderItemId        String
+  selectionGroupId   String?
+  selectionOptionId  String?
+  groupNameSnapshot  String
+  optionNameSnapshot String
+  optionType         SelectionOptionType
+  referencedSkuId    String?
+  referencedSkuName  String?
+  priceDelta         Decimal             @default(0) @db.Decimal(10, 2)
+  quantity           Int                 @default(1)
+  createdAt          DateTime            @default(now())
+  orderItem          OrderItem           @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  selectionOption    SelectionOption?    @relation(fields: [selectionOptionId], references: [id], onDelete: SetNull)
+
+  @@index([orderItemId])
+  @@index([selectionOptionId])
+  @@map("order_item_selections")
 }

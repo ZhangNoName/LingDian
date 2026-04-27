@@ -13,6 +13,32 @@ import {
   ValidateNested,
 } from 'class-validator';
 
+export class OrderItemSelectionDto {
+  @ApiPropertyOptional({
+    description: '选择组 ID',
+    example: 'cmofp2ez1000aw0j6abc12345',
+  })
+  @IsOptional()
+  @IsString()
+  selectionGroupId?: string;
+
+  @ApiProperty({
+    description: '选择项 ID',
+    example: 'cmofp2ez1000bw0j6abc12345',
+  })
+  @IsString()
+  selectionOptionId!: string;
+
+  @ApiPropertyOptional({
+    description: '选择数量',
+    example: 1,
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  quantity?: number;
+}
+
 export class OrderItemDto {
   @ApiPropertyOptional({
     description: 'SKU ID，兼容旧字段 skuId',
@@ -46,6 +72,16 @@ export class OrderItemDto {
   @IsOptional()
   @IsString()
   remark?: string;
+
+  @ApiPropertyOptional({
+    description: '规格附加选择',
+    type: [OrderItemSelectionDto],
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => OrderItemSelectionDto)
+  selections?: OrderItemSelectionDto[];
 }
 
 export class CreateOrderDto {

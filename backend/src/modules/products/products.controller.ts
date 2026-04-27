@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { SyncProductConfigDto } from './dto/sync-product-config.dto';
 import { UpdateSkuPriceDto } from './dto/update-sku-price.dto';
 import { UpdateSkuStockDto } from './dto/update-sku-stock.dto';
 import { ProductsService } from './products.service';
@@ -13,6 +14,18 @@ export class ProductsController {
   @Get('products')
   getProducts() {
     return this.productsService.getProducts();
+  }
+
+  @ApiOperation({ summary: '获取单个商品的完整配置详情' })
+  @Get('products/:id')
+  getProductDetail(@Param('id') id: string) {
+    return this.productsService.getProductDetail(id);
+  }
+
+  @ApiOperation({ summary: '同步商品规格与配置项结构' })
+  @Put('products/:id/config')
+  syncProductConfiguration(@Param('id') id: string, @Body() body: SyncProductConfigDto) {
+    return this.productsService.syncProductConfiguration(id, body);
   }
 
   @ApiOperation({ summary: '更新 SKU 库存' })
