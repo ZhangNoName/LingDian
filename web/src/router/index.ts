@@ -40,7 +40,7 @@ export const router = createRouter({
           path: 'orders',
           name: 'orders',
           component: OrdersPage,
-          meta: { title: '点餐收银' },
+          meta: { title: '订单管理' },
         },
         {
           path: 'members',

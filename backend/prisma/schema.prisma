@@ -31,14 +31,26 @@ enum OrderType {
 }
 
 enum OrderStatus {
+  CREATING
   PENDING_PAYMENT
   PAID
   PREPARING
   READY
   COMPLETED
-  CANCELLED
+  TIMED_OUT
   REFUNDING
   REFUNDED
+  CANCELLED
+  FAILED
+  DELETED
+}
+
+enum PaymentChannel {
+  CASH
+  WECHAT
+  ALIPAY
+  CUSTOMER_SCAN
+  OTHER
 }
 
 enum SelectionGroupType {
@@ -214,18 +226,43 @@ model Order {
   customerName   String
   customerMobile String
   orderType      OrderType
-  status         OrderStatus @default(PENDING_PAYMENT)
+  status         OrderStatus @default(CREATING)
+  paymentChannel PaymentChannel @default(CASH)
   totalAmount    Decimal     @db.Decimal(10, 2)
   payableAmount  Decimal     @db.Decimal(10, 2)
   remark         String?
+  isDeleted      Boolean     @default(false)
+  deletedAt      DateTime?
+  paidAt         DateTime?
+  cancelledAt    DateTime?
+  refundingAt    DateTime?
+  refundedAt     DateTime?
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
   store          Store       @relation(fields: [storeId], references: [id], onDelete: Restrict)
   items          OrderItem[]
+  statusLogs     OrderStatusLog[]
 
   @@index([storeId, createdAt])
   @@index([status])
+  @@index([isDeleted, createdAt])
+  @@index([storeId, status, isDeleted])
   @@map("orders")
+}
+
+model OrderStatusLog {
+  id           String      @id @default(cuid())
+  orderId      String
+  fromStatus   OrderStatus?
+  toStatus     OrderStatus
+  operatorName String?
+  note         String?
+  extra        Json?
+  createdAt    DateTime    @default(now())
+  order        Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+  @@map("order_status_logs")
 }
 
 model OrderItem {

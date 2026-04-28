@@ -15,7 +15,7 @@ import {
 
 export class OrderItemSelectionDto {
   @ApiPropertyOptional({
-    description: '选择组 ID',
+    description: 'Selection group id',
     example: 'cmofp2ez1000aw0j6abc12345',
   })
   @IsOptional()
@@ -23,14 +23,14 @@ export class OrderItemSelectionDto {
   selectionGroupId?: string;
 
   @ApiProperty({
-    description: '选择项 ID',
+    description: 'Selection option id',
     example: 'cmofp2ez1000bw0j6abc12345',
   })
   @IsString()
   selectionOptionId!: string;
 
   @ApiPropertyOptional({
-    description: '选择数量',
+    description: 'Selection quantity',
     example: 1,
   })
   @IsOptional()
@@ -41,7 +41,7 @@ export class OrderItemSelectionDto {
 
 export class OrderItemDto {
   @ApiPropertyOptional({
-    description: 'SKU ID，兼容旧字段 skuId',
+    description: 'SKU id, compatible with the legacy field name',
     example: 'cmofp2e9y0003w0j6jezkngva',
   })
   @IsOptional()
@@ -49,7 +49,7 @@ export class OrderItemDto {
   skuId?: string | number;
 
   @ApiPropertyOptional({
-    description: 'SKU ID，推荐字段',
+    description: 'SKU id, preferred field name',
     example: 'cmofp2e9y0003w0j6jezkngva',
   })
   @IsOptional()
@@ -57,7 +57,7 @@ export class OrderItemDto {
   sku_id?: string | number;
 
   @ApiProperty({
-    description: '购买数量',
+    description: 'Purchase quantity',
     example: 2,
     minimum: 1,
   })
@@ -66,15 +66,15 @@ export class OrderItemDto {
   quantity!: number;
 
   @ApiPropertyOptional({
-    description: '单项备注',
-    example: '少冰',
+    description: 'Item remark',
+    example: 'Less ice',
   })
   @IsOptional()
   @IsString()
   remark?: string;
 
   @ApiPropertyOptional({
-    description: '规格附加选择',
+    description: 'Optional selections for the sku',
     type: [OrderItemSelectionDto],
   })
   @IsOptional()
@@ -86,36 +86,45 @@ export class OrderItemDto {
 
 export class CreateOrderDto {
   @ApiProperty({
-    description: '门店 ID',
+    description: 'Store id',
     example: 'cmofp2e5k0000w0j66zjobzse',
   })
   @IsString()
   storeId!: string;
 
   @ApiProperty({
-    description: '下单方式',
+    description: 'Order type',
     enum: ['dine_in', 'takeout', 'pickup'],
     example: 'takeout',
   })
   @IsIn(['dine_in', 'takeout', 'pickup'])
   orderType!: 'dine_in' | 'takeout' | 'pickup';
 
+  @ApiPropertyOptional({
+    description: 'Payment channel',
+    enum: ['cash', 'wechat', 'alipay', 'customer_scan', 'other'],
+    example: 'wechat',
+  })
+  @IsOptional()
+  @IsIn(['cash', 'wechat', 'alipay', 'customer_scan', 'other'])
+  paymentChannel?: 'cash' | 'wechat' | 'alipay' | 'customer_scan' | 'other';
+
   @ApiProperty({
-    description: '顾客姓名',
-    example: '张三',
+    description: 'Customer name',
+    example: 'Zhang San',
   })
   @IsString()
   customerName!: string;
 
   @ApiProperty({
-    description: '顾客手机号',
+    description: 'Customer mobile number',
     example: '13800000000',
   })
   @IsMobilePhone('zh-CN')
   mobile!: string;
 
   @ApiProperty({
-    description: '订单商品列表',
+    description: 'Order items',
     type: [OrderItemDto],
   })
   @IsArray()
@@ -125,10 +134,18 @@ export class CreateOrderDto {
   items!: OrderItemDto[];
 
   @ApiPropertyOptional({
-    description: '优惠券编码',
+    description: 'Coupon code',
     example: 'NEW8',
   })
   @IsOptional()
   @IsString()
   couponCode?: string;
+
+  @ApiPropertyOptional({
+    description: 'Order remark',
+    example: 'Deliver as soon as possible',
+  })
+  @IsOptional()
+  @IsString()
+  remark?: string;
 }
