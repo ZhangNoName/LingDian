@@ -163,6 +163,7 @@ import { Refresh } from '@element-plus/icons-vue'
 import AppForm from '@/components/form/AppForm.vue'
 import AppFormTable from '@/components/form-table/AppFormTable.vue'
 import AppTable from '@/components/table/AppTable.vue'
+import { requestData } from '@/lib/api'
 import OrderDetailDialog from './components/OrderDetailDialog.vue'
 import OrderMetricsGrid from './components/OrderMetricsGrid.vue'
 import type {
@@ -413,17 +414,13 @@ async function fetchOrders() {
 
   try {
     const query = buildQueryParams()
-    const [summaryResponse, listResponse] = await Promise.all([
-      fetch(`/api/orders/summary${query ? `?${query}` : ''}`),
-      fetch(`/api/orders${query ? `?${query}` : ''}`),
+    const [summaryData, listData] = await Promise.all([
+      requestData<OrderSummaryResponse>(`/api/orders/summary${query ? `?${query}` : ''}`),
+      requestData<OrderListItem[]>(`/api/orders${query ? `?${query}` : ''}`),
     ])
 
-    if (!summaryResponse.ok || !listResponse.ok) {
-      throw new Error('订单数据加载失败')
-    }
-
-    summary.value = (await summaryResponse.json()) as OrderSummaryResponse
-    orders.value = (await listResponse.json()) as OrderListItem[]
+    summary.value = summaryData
+    orders.value = listData
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '订单数据加载失败')
   } finally {
@@ -437,12 +434,7 @@ async function openOrderDetail(orderId: string) {
   actionNote.value = ''
 
   try {
-    const response = await fetch(`/api/orders/${orderId}`)
-    if (!response.ok) {
-      throw new Error('订单详情加载失败')
-    }
-
-    activeOrder.value = (await response.json()) as OrderDetail
+    activeOrder.value = await requestData<OrderDetail>(`/api/orders/${orderId}`)
   } catch (error) {
     detailDialogOpen.value = false
     ElMessage.error(error instanceof Error ? error.message : '订单详情加载失败')
@@ -459,7 +451,7 @@ async function handleStatusChange(status: OrderStatus) {
   savingStatus.value = status
 
   try {
-    const response = await fetch(`/api/orders/${activeOrder.value.id}/status`, {
+    activeOrder.value = await requestData<OrderDetail>(`/api/orders/${activeOrder.value.id}/status`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -471,12 +463,6 @@ async function handleStatusChange(status: OrderStatus) {
       }),
     })
 
-    if (!response.ok) {
-      const errorBody = await response.json().catch(() => null)
-      throw new Error(errorBody?.message ?? '状态变更失败')
-    }
-
-    activeOrder.value = (await response.json()) as OrderDetail
     actionNote.value = ''
     ElMessage.success(`订单已更新为${statusLabel(status)}`)
     await fetchOrders()
@@ -509,16 +495,9 @@ async function handleDeleteOrder() {
   deletingOrder.value = true
 
   try {
-    const response = await fetch(`/api/orders/${activeOrder.value.id}?operatorName=订单后台`, {
+    activeOrder.value = await requestData<OrderDetail>(`/api/orders/${activeOrder.value.id}?operatorName=订单后台`, {
       method: 'DELETE',
     })
-
-    if (!response.ok) {
-      const errorBody = await response.json().catch(() => null)
-      throw new Error(errorBody?.message ?? '删除订单失败')
-    }
-
-    activeOrder.value = (await response.json()) as OrderDetail
     ElMessage.success('订单已标记为删除')
     await fetchOrders()
   } catch (error) {

@@ -8,13 +8,13 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import {
-  ResponseCode,
-  type ResponseCodeValue,
-} from '../constants/response-code';
+  RES_CODE,
+  type ResCodeValue,
+} from '@lingdian/common';
 import { AppException } from '../exceptions/app.exception';
 
 type ErrorResponseBody = {
-  code: ResponseCodeValue;
+  code: ResCodeValue;
   msg: string;
   data: unknown;
 };
@@ -71,7 +71,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       return {
         status: HttpStatus.BAD_REQUEST,
         body: {
-          code: ResponseCode.PARAM_INVALID,
+          code: RES_CODE.PARAM_INVALID,
           msg: 'Database query validation failed',
           data: null,
         },
@@ -82,7 +82,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       return {
         status: HttpStatus.SERVICE_UNAVAILABLE,
         body: {
-          code: ResponseCode.DATABASE_ERROR,
+          code: RES_CODE.DATABASE_ERROR,
           msg: 'Database connection initialization failed',
           data: null,
         },
@@ -93,7 +93,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       return {
         status: HttpStatus.INTERNAL_SERVER_ERROR,
         body: {
-          code: ResponseCode.DATABASE_ERROR,
+          code: RES_CODE.DATABASE_ERROR,
           msg: 'Database engine error',
           data: null,
         },
@@ -107,7 +107,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     return {
       status: HttpStatus.INTERNAL_SERVER_ERROR,
       body: {
-        code: ResponseCode.INTERNAL_ERROR,
+        code: RES_CODE.INTERNAL_ERROR,
         msg: 'Internal server error',
         data: null,
       },
@@ -119,21 +119,21 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const exceptionResponse = exception.getResponse();
     const extracted = this.extractHttpMessage(exceptionResponse);
 
-    const codeMap: Partial<Record<number, ResponseCodeValue>> = {
-      [HttpStatus.BAD_REQUEST]: ResponseCode.BUSINESS_ERROR,
-      [HttpStatus.UNAUTHORIZED]: ResponseCode.UNAUTHORIZED,
-      [HttpStatus.FORBIDDEN]: ResponseCode.FORBIDDEN,
-      [HttpStatus.NOT_FOUND]: ResponseCode.RESOURCE_NOT_FOUND,
-      [HttpStatus.CONFLICT]: ResponseCode.STATUS_CONFLICT,
-      [HttpStatus.UNPROCESSABLE_ENTITY]: ResponseCode.PARAM_INVALID,
+    const codeMap: Partial<Record<number, ResCodeValue>> = {
+      [HttpStatus.BAD_REQUEST]: RES_CODE.BUSINESS_ERROR,
+      [HttpStatus.UNAUTHORIZED]: RES_CODE.UNAUTHORIZED,
+      [HttpStatus.FORBIDDEN]: RES_CODE.FORBIDDEN,
+      [HttpStatus.NOT_FOUND]: RES_CODE.RESOURCE_NOT_FOUND,
+      [HttpStatus.CONFLICT]: RES_CODE.STATUS_CONFLICT,
+      [HttpStatus.UNPROCESSABLE_ENTITY]: RES_CODE.PARAM_INVALID,
     };
 
     return {
       status,
       body: {
         code: extracted.isValidationError
-          ? ResponseCode.PARAM_INVALID
-          : codeMap[status] ?? ResponseCode.BUSINESS_ERROR,
+          ? RES_CODE.PARAM_INVALID
+          : codeMap[status] ?? RES_CODE.BUSINESS_ERROR,
         msg: extracted.message,
         data: extracted.data,
       },
@@ -146,27 +146,27 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const prismaCodeMap: Partial<
       Record<
         string,
-        { status: number; code: ResponseCodeValue; msg: string }
+        { status: number; code: ResCodeValue; msg: string }
       >
     > = {
       P2002: {
         status: HttpStatus.CONFLICT,
-        code: ResponseCode.DATABASE_CONSTRAINT_ERROR,
+        code: RES_CODE.DATABASE_CONSTRAINT_ERROR,
         msg: 'Database unique constraint violation',
       },
       P2003: {
         status: HttpStatus.BAD_REQUEST,
-        code: ResponseCode.DATABASE_CONSTRAINT_ERROR,
+        code: RES_CODE.DATABASE_CONSTRAINT_ERROR,
         msg: 'Database foreign key constraint violation',
       },
       P2022: {
         status: HttpStatus.INTERNAL_SERVER_ERROR,
-        code: ResponseCode.DATABASE_ERROR,
+        code: RES_CODE.DATABASE_ERROR,
         msg: 'Database column does not exist or schema is out of sync',
       },
       P2025: {
         status: HttpStatus.NOT_FOUND,
-        code: ResponseCode.DATABASE_RECORD_NOT_FOUND,
+        code: RES_CODE.DATABASE_RECORD_NOT_FOUND,
         msg: 'Database record not found',
       },
     };
@@ -176,7 +176,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     return {
       status: matched?.status ?? HttpStatus.INTERNAL_SERVER_ERROR,
       body: {
-        code: matched?.code ?? ResponseCode.DATABASE_ERROR,
+        code: matched?.code ?? RES_CODE.DATABASE_ERROR,
         msg: matched?.msg ?? 'Database request failed',
         data: {
           prismaCode: exception.code,

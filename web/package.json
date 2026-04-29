@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@lingdian/common": "file:../common",
     "@tanstack/vue-table": "^8.21.3",
     "@element-plus/icons-vue": "^2.3.2",
     "@vueuse/core": "^14.2.1",

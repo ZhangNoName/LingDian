@@ -7,21 +7,10 @@ import {
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import {
-  ResponseCode,
+  RES_CODE,
+  isResponseEnvelope,
   type ResponseEnvelope,
-} from '../constants/response-code';
-
-function isResponseEnvelope<T>(
-  value: unknown,
-): value is ResponseEnvelope<T> {
-  return Boolean(
-    value &&
-      typeof value === 'object' &&
-      'code' in value &&
-      'msg' in value &&
-      'data' in value,
-  );
-}
+} from '@lingdian/common';
 
 @Injectable()
 export class ResponseInterceptor<T>
@@ -38,7 +27,7 @@ export class ResponseInterceptor<T>
         }
 
         return {
-          code: ResponseCode.SUCCESS,
+          code: RES_CODE.SUCCESS,
           msg: 'success',
           data,
         };

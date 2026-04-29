@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@lingdian/common": "file:../common",
     "vue": "^3.5.30"
   },
   "devDependencies": {

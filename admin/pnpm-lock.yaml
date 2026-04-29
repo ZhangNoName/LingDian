@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@lingdian/common':
+        specifier: file:../common
+        version: file:../common
       vue:
         specifier: ^3.5.30
         version: 3.5.31(typescript@5.9.3)
@@ -61,6 +64,9 @@ packages:
 
   '@jridgewell/sourcemap-codec@1.5.5':
     resolution: {integrity: sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og==}
+
+  '@lingdian/common@file:../common':
+    resolution: {directory: ../common, type: directory}
 
   '@napi-rs/wasm-runtime@1.1.1':
     resolution: {integrity: sha512-p64ah1M1ld8xjWv3qbvFwHiFVWrq1yFvV4f7w+mzaqiR4IlSgkqhcRdHwsGgomwzBH51sRY4NEowLxnaBjcW/A==}
@@ -480,6 +486,8 @@ snapshots:
     optional: true
 
   '@jridgewell/sourcemap-codec@1.5.5': {}
+
+  '@lingdian/common@file:../common': {}
 
   '@napi-rs/wasm-runtime@1.1.1':
     dependencies:

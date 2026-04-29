@@ -208,6 +208,7 @@ import { Refresh } from '@element-plus/icons-vue'
 import AppForm from '@/components/form/AppForm.vue'
 import AppFormTable from '@/components/form-table/AppFormTable.vue'
 import AppTable from '@/components/table/AppTable.vue'
+import { requestData } from '@/lib/api'
 import ProductConfigDialog from './components/ProductConfigDialog.vue'
 import ProductMetricsGrid from './components/ProductMetricsGrid.vue'
 import type { ProductConfigForm, ProductRecord, ProductSku, ProductType } from './types'
@@ -300,15 +301,9 @@ async function fetchProducts() {
   loading.value = true
 
   try {
-    const response = await fetch('/api/products')
-
-    if (!response.ok) {
-      throw new Error('商品列表加载失败')
-    }
-
-    products.value = await response.json()
+    products.value = await requestData<ProductRecord[]>('/api/products')
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '商品列表加载失败')
+    ElMessage.error(error instanceof Error ? error.message : 'Product list load failed')
   } finally {
     loading.value = false
   }
@@ -318,12 +313,7 @@ async function openConfigDialog(productId: string) {
   savingConfig.value = false
 
   try {
-    const response = await fetch(`/api/products/${productId}`)
-    if (!response.ok) {
-      throw new Error('商品详情加载失败')
-    }
-
-    const product: ProductRecord = await response.json()
+    const product = await requestData<ProductRecord>(`/api/products/${productId}`)
     const index = products.value.findIndex((item) => item.id === productId)
     if (index >= 0) {
       products.value[index] = product
@@ -334,7 +324,7 @@ async function openConfigDialog(productId: string) {
     activeProductId.value = productId
     configDialogOpen.value = true
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '商品详情加载失败')
+    ElMessage.error(error instanceof Error ? error.message : 'Product detail load failed')
   }
 }
 
@@ -346,32 +336,22 @@ async function saveProductConfig(payload: ProductConfigForm) {
   savingConfig.value = true
 
   try {
-    const response = await fetch(`/api/products/${activeProductId.value}/config`, {
+    const product = await requestData<ProductRecord>(`/api/products/${activeProductId.value}/config`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
     })
-
-    if (!response.ok) {
-      const errorBody = await response.json().catch(() => null)
-      const message = Array.isArray(errorBody?.message)
-        ? errorBody.message.join('，')
-        : errorBody?.message
-      throw new Error(message ?? '保存商品配置失败')
-    }
-
-    const product: ProductRecord = await response.json()
     const index = products.value.findIndex((item) => item.id === product.id)
     if (index >= 0) {
       products.value[index] = product
     }
 
-    ElMessage.success('商品配置已保存')
+    ElMessage.success('Product config saved')
     configDialogOpen.value = false
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '保存商品配置失败')
+    ElMessage.error(error instanceof Error ? error.message : 'Product config save failed')
   } finally {
     savingConfig.value = false
   }
@@ -423,7 +403,7 @@ async function confirmPendingChange() {
   savingInline.value = true
 
   try {
-    const response = await fetch(endpoint, {
+    await requestData<unknown>(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -431,17 +411,12 @@ async function confirmPendingChange() {
       body: JSON.stringify(payload),
     })
 
-    if (!response.ok) {
-      const errorBody = await response.json().catch(() => null)
-      throw new Error(errorBody?.message ?? 'SKU 修改失败')
-    }
-
-    ElMessage.success('SKU 已更新')
+    ElMessage.success('SKU updated')
     clearPendingChange()
     await fetchProducts()
   } catch (error) {
     revertPendingChange()
-    ElMessage.error(error instanceof Error ? error.message : 'SKU 修改失败')
+    ElMessage.error(error instanceof Error ? error.message : 'SKU update failed')
   } finally {
     savingInline.value = false
   }
