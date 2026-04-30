@@ -1,6 +1,9 @@
 import 'dotenv/config';
 import { PrismaMariaDb } from '@prisma/adapter-mariadb';
 import {
+  OrderStatus,
+  OrderType,
+  PaymentChannel,
   PrismaClient,
   ProductStatus,
   ProductType,
@@ -165,8 +168,423 @@ const catalogSeed = [
   },
 ];
 
+const demoOrders = [
+  {
+    orderNo: 'LD202604300001',
+    customerName: '张三',
+    customerMobile: '13811110001',
+    orderType: OrderType.DINE_IN,
+    status: OrderStatus.PAID,
+    paymentChannel: PaymentChannel.WECHAT,
+    remark: '少冰，先上饮料',
+    createdAt: new Date('2026-04-29T11:08:00+08:00'),
+    updatedAt: new Date('2026-04-29T11:16:00+08:00'),
+    paidAt: new Date('2026-04-29T11:11:00+08:00'),
+    items: [
+      {
+        skuKey: 'classic-burger-combo:standard',
+        quantity: 1,
+        remark: '汉堡不要番茄',
+        selections: ['burger:spicy', 'snack:fries', 'drink:cola'],
+      },
+      {
+        skuKey: 'cola:large',
+        quantity: 1,
+        remark: '少冰',
+        selections: ['ice:less'],
+      },
+    ],
+    logs: [
+      {
+        fromStatus: null,
+        toStatus: OrderStatus.CREATING,
+        note: '订单创建',
+        createdAt: new Date('2026-04-29T11:08:00+08:00'),
+      },
+      {
+        fromStatus: OrderStatus.CREATING,
+        toStatus: OrderStatus.PENDING_PAYMENT,
+        note: '等待顾客支付',
+        createdAt: new Date('2026-04-29T11:09:00+08:00'),
+      },
+      {
+        fromStatus: OrderStatus.PENDING_PAYMENT,
+        toStatus: OrderStatus.PAID,
+        note: '微信支付成功',
+        operatorName: '收银员-A',
+        createdAt: new Date('2026-04-29T11:11:00+08:00'),
+      },
+    ],
+  },
+  {
+    orderNo: 'LD202604300002',
+    customerName: '李女士',
+    customerMobile: '13811110002',
+    orderType: OrderType.TAKEOUT,
+    status: OrderStatus.PENDING_PAYMENT,
+    paymentChannel: PaymentChannel.CUSTOMER_SCAN,
+    remark: '外卖尽快出餐',
+    createdAt: new Date('2026-04-29T12:18:00+08:00'),
+    updatedAt: new Date('2026-04-29T12:18:00+08:00'),
+    items: [
+      {
+        skuKey: 'spicy-chicken-burger:double',
+        quantity: 2,
+        remark: '一份微辣一份正常',
+        selections: ['spice:mild', 'addon:cheese'],
+      },
+      {
+        skuKey: 'fries:large',
+        quantity: 1,
+      },
+    ],
+    logs: [
+      {
+        fromStatus: null,
+        toStatus: OrderStatus.CREATING,
+        note: '订单创建',
+        createdAt: new Date('2026-04-29T12:18:00+08:00'),
+      },
+      {
+        fromStatus: OrderStatus.CREATING,
+        toStatus: OrderStatus.PENDING_PAYMENT,
+        note: '用户待扫码付款',
+        createdAt: new Date('2026-04-29T12:18:30+08:00'),
+      },
+    ],
+  },
+  {
+    orderNo: 'LD202604300003',
+    customerName: '王先生',
+    customerMobile: '13811110003',
+    orderType: OrderType.TAKEOUT,
+    status: OrderStatus.COMPLETED,
+    paymentChannel: PaymentChannel.ALIPAY,
+    remark: '不要辣，电话联系',
+    createdAt: new Date('2026-04-28T18:02:00+08:00'),
+    updatedAt: new Date('2026-04-28T18:39:00+08:00'),
+    paidAt: new Date('2026-04-28T18:05:00+08:00'),
+    items: [
+      {
+        skuKey: 'grilled-chicken-burger:single',
+        quantity: 1,
+        selections: ['veggie:no-tomato'],
+      },
+      {
+        skuKey: 'popcorn-chicken:share',
+        quantity: 1,
+      },
+      {
+        skuKey: 'fruit-drink:medium',
+        quantity: 1,
+        selections: ['ice:no'],
+      },
+    ],
+    logs: [
+      {
+        fromStatus: null,
+        toStatus: OrderStatus.CREATING,
+        note: '订单创建',
+        createdAt: new Date('2026-04-28T18:02:00+08:00'),
+      },
+      {
+        fromStatus: OrderStatus.CREATING,
+        toStatus: OrderStatus.PENDING_PAYMENT,
+        note: '等待支付',
+        createdAt: new Date('2026-04-28T18:03:00+08:00'),
+      },
+      {
+        fromStatus: OrderStatus.PENDING_PAYMENT,
+        toStatus: OrderStatus.PAID,
+        note: '支付宝支付完成',
+        operatorName: '系统',
+        createdAt: new Date('2026-04-28T18:05:00+08:00'),
+      },
+      {
+        fromStatus: OrderStatus.PAID,
+        toStatus: OrderStatus.PREPARING,
+        note: '后厨开始制作',
+        operatorName: '后厨-1',
+        createdAt: new Date('2026-04-28T18:08:00+08:00'),
+      },
+      {
+        fromStatus: OrderStatus.PREPARING,
+        toStatus: OrderStatus.READY,
+        note: '已打包完成',
+        operatorName: '后厨-1',
+        createdAt: new Date('2026-04-28T18:22:00+08:00'),
+      },
+      {
+        fromStatus: OrderStatus.READY,
+        toStatus: OrderStatus.COMPLETED,
+        note: '骑手已取餐',
+        operatorName: '配送员',
+        createdAt: new Date('2026-04-28T18:39:00+08:00'),
+      },
+    ],
+  },
+  {
+    orderNo: 'LD202604300004',
+    customerName: '赵女士',
+    customerMobile: '13811110004',
+    orderType: OrderType.DINE_IN,
+    status: OrderStatus.REFUNDING,
+    paymentChannel: PaymentChannel.CASH,
+    remark: '顾客临时改口味，申请退款',
+    createdAt: new Date('2026-04-29T19:12:00+08:00'),
+    updatedAt: new Date('2026-04-29T19:28:00+08:00'),
+    paidAt: new Date('2026-04-29T19:13:00+08:00'),
+    refundingAt: new Date('2026-04-29T19:28:00+08:00'),
+    items: [
+      {
+        skuKey: 'beef-bacon-burger:single',
+        quantity: 1,
+      },
+      {
+        skuKey: 'cola:medium',
+        quantity: 1,
+        selections: ['ice:regular'],
+      },
+    ],
+    logs: [
+      {
+        fromStatus: null,
+        toStatus: OrderStatus.CREATING,
+        note: '订单创建',
+        createdAt: new Date('2026-04-29T19:12:00+08:00'),
+      },
+      {
+        fromStatus: OrderStatus.CREATING,
+        toStatus: OrderStatus.PENDING_PAYMENT,
+        note: '等待付款',
+        createdAt: new Date('2026-04-29T19:12:30+08:00'),
+      },
+      {
+        fromStatus: OrderStatus.PENDING_PAYMENT,
+        toStatus: OrderStatus.PAID,
+        note: '现金收款完成',
+        operatorName: '收银员-B',
+        createdAt: new Date('2026-04-29T19:13:00+08:00'),
+      },
+      {
+        fromStatus: OrderStatus.PAID,
+        toStatus: OrderStatus.REFUNDING,
+        note: '顾客发起退款',
+        operatorName: '店长',
+        createdAt: new Date('2026-04-29T19:28:00+08:00'),
+      },
+    ],
+  },
+  {
+    orderNo: 'LD202604300005',
+    customerName: '陈先生',
+    customerMobile: '13811110005',
+    orderType: OrderType.PICKUP,
+    status: OrderStatus.REFUNDED,
+    paymentChannel: PaymentChannel.WECHAT,
+    remark: '顾客重复下单，已退款',
+    createdAt: new Date('2026-04-27T10:06:00+08:00'),
+    updatedAt: new Date('2026-04-27T10:26:00+08:00'),
+    paidAt: new Date('2026-04-27T10:08:00+08:00'),
+    refundingAt: new Date('2026-04-27T10:17:00+08:00'),
+    refundedAt: new Date('2026-04-27T10:26:00+08:00'),
+    items: [
+      {
+        skuKey: 'classic-burger-combo:standard',
+        quantity: 1,
+        selections: ['burger:grilled', 'snack:chicken', 'drink:fruit'],
+      },
+    ],
+    logs: [
+      {
+        fromStatus: null,
+        toStatus: OrderStatus.CREATING,
+        note: '订单创建',
+        createdAt: new Date('2026-04-27T10:06:00+08:00'),
+      },
+      {
+        fromStatus: OrderStatus.CREATING,
+        toStatus: OrderStatus.PENDING_PAYMENT,
+        note: '等待支付',
+        createdAt: new Date('2026-04-27T10:06:30+08:00'),
+      },
+      {
+        fromStatus: OrderStatus.PENDING_PAYMENT,
+        toStatus: OrderStatus.PAID,
+        note: '微信支付完成',
+        operatorName: '系统',
+        createdAt: new Date('2026-04-27T10:08:00+08:00'),
+      },
+      {
+        fromStatus: OrderStatus.PAID,
+        toStatus: OrderStatus.REFUNDING,
+        note: '顾客申请退款',
+        operatorName: '客服',
+        createdAt: new Date('2026-04-27T10:17:00+08:00'),
+      },
+      {
+        fromStatus: OrderStatus.REFUNDING,
+        toStatus: OrderStatus.REFUNDED,
+        note: '退款成功',
+        operatorName: '财务',
+        createdAt: new Date('2026-04-27T10:26:00+08:00'),
+      },
+    ],
+  },
+  {
+    orderNo: 'LD202604300006',
+    customerName: '周小姐',
+    customerMobile: '13811110006',
+    orderType: OrderType.TAKEOUT,
+    status: OrderStatus.CANCELLED,
+    paymentChannel: PaymentChannel.OTHER,
+    remark: '用户主动取消',
+    createdAt: new Date('2026-04-30T09:40:00+08:00'),
+    updatedAt: new Date('2026-04-30T09:45:00+08:00'),
+    cancelledAt: new Date('2026-04-30T09:45:00+08:00'),
+    items: [
+      {
+        skuKey: 'fries:medium',
+        quantity: 1,
+      },
+      {
+        skuKey: 'cola:medium',
+        quantity: 1,
+        selections: ['ice:regular'],
+      },
+    ],
+    logs: [
+      {
+        fromStatus: null,
+        toStatus: OrderStatus.CREATING,
+        note: '订单创建',
+        createdAt: new Date('2026-04-30T09:40:00+08:00'),
+      },
+      {
+        fromStatus: OrderStatus.CREATING,
+        toStatus: OrderStatus.PENDING_PAYMENT,
+        note: '待付款',
+        createdAt: new Date('2026-04-30T09:41:00+08:00'),
+      },
+      {
+        fromStatus: OrderStatus.PENDING_PAYMENT,
+        toStatus: OrderStatus.CANCELLED,
+        note: '顾客取消订单',
+        operatorName: '顾客',
+        createdAt: new Date('2026-04-30T09:45:00+08:00'),
+      },
+    ],
+  },
+  {
+    orderNo: 'LD202604300007',
+    customerName: '吴先生',
+    customerMobile: '13811110007',
+    orderType: OrderType.DINE_IN,
+    status: OrderStatus.TIMED_OUT,
+    paymentChannel: PaymentChannel.CUSTOMER_SCAN,
+    remark: '超时未支付',
+    createdAt: new Date('2026-04-30T14:03:00+08:00'),
+    updatedAt: new Date('2026-04-30T14:18:00+08:00'),
+    items: [
+      {
+        skuKey: 'spicy-chicken-burger:single',
+        quantity: 1,
+        selections: ['spice:hot', 'veggie:pickles'],
+      },
+    ],
+    logs: [
+      {
+        fromStatus: null,
+        toStatus: OrderStatus.CREATING,
+        note: '订单创建',
+        createdAt: new Date('2026-04-30T14:03:00+08:00'),
+      },
+      {
+        fromStatus: OrderStatus.CREATING,
+        toStatus: OrderStatus.PENDING_PAYMENT,
+        note: '等待顾客扫码支付',
+        createdAt: new Date('2026-04-30T14:03:30+08:00'),
+      },
+      {
+        fromStatus: OrderStatus.PENDING_PAYMENT,
+        toStatus: OrderStatus.TIMED_OUT,
+        note: '超过支付时限自动关闭',
+        operatorName: '系统',
+        createdAt: new Date('2026-04-30T14:18:00+08:00'),
+      },
+    ],
+  },
+  {
+    orderNo: 'LD202604300008',
+    customerName: '郑女士',
+    customerMobile: '13811110008',
+    orderType: OrderType.PICKUP,
+    status: OrderStatus.FAILED,
+    paymentChannel: PaymentChannel.ALIPAY,
+    remark: '下单后库存校验失败',
+    createdAt: new Date('2026-04-30T16:20:00+08:00'),
+    updatedAt: new Date('2026-04-30T16:23:00+08:00'),
+    items: [
+      {
+        skuKey: 'popcorn-chicken:small',
+        quantity: 1,
+      },
+    ],
+    logs: [
+      {
+        fromStatus: null,
+        toStatus: OrderStatus.CREATING,
+        note: '订单创建',
+        createdAt: new Date('2026-04-30T16:20:00+08:00'),
+      },
+      {
+        fromStatus: OrderStatus.CREATING,
+        toStatus: OrderStatus.PENDING_PAYMENT,
+        note: '进入待支付',
+        createdAt: new Date('2026-04-30T16:20:30+08:00'),
+      },
+      {
+        fromStatus: OrderStatus.PENDING_PAYMENT,
+        toStatus: OrderStatus.FAILED,
+        note: '库存不足，订单失败',
+        operatorName: '系统',
+        createdAt: new Date('2026-04-30T16:23:00+08:00'),
+      },
+    ],
+  },
+];
+
+function buildSelectionReferenceMap(selectionGroups) {
+  const map = new Map();
+
+  for (const group of selectionGroups) {
+    for (const option of group.options) {
+      map.set(`${group.name}:${option.name}`, {
+        groupId: group.id,
+        optionId: option.id,
+        groupName: group.name,
+        optionName: option.name,
+        optionType: option.optionType,
+        referencedSkuId: option.referencedSkuId ?? null,
+        referencedSkuName: option.referencedSku?.skuName ?? null,
+        priceDelta: Number(option.priceDelta),
+      });
+    }
+  }
+
+  return map;
+}
+
+function computeOrderAmounts(orderItems) {
+  return orderItems.reduce(
+    (sum, item) => sum + Number(item.subtotal),
+    0,
+  );
+}
+
 async function main() {
   await prisma.$transaction(async (tx) => {
+    await tx.orderStatusLog.deleteMany();
     await tx.orderItemSelection.deleteMany();
     await tx.orderItem.deleteMany();
     await tx.order.deleteMany();
@@ -487,9 +905,130 @@ async function main() {
         },
       ],
     });
+
+    const selectionGroups = await tx.selectionGroup.findMany({
+      where: {
+        storeId: store.id,
+      },
+      include: {
+        options: {
+          include: {
+            referencedSku: true,
+          },
+        },
+      },
+    });
+
+    const selectionReferenceMap = buildSelectionReferenceMap(selectionGroups);
+    const selectionAliasMap = new Map([
+      ['spice:no', selectionReferenceMap.get('Spice Level:No Spice')],
+      ['spice:mild', selectionReferenceMap.get('Spice Level:Mild')],
+      ['spice:hot', selectionReferenceMap.get('Spice Level:Hot')],
+      ['veggie:no-lettuce', selectionReferenceMap.get('Veggie Adjustments:No Lettuce')],
+      ['veggie:no-tomato', selectionReferenceMap.get('Veggie Adjustments:No Tomato')],
+      ['veggie:pickles', selectionReferenceMap.get('Veggie Adjustments:Extra Pickles')],
+      ['addon:cheese', selectionReferenceMap.get('Add-ons:Add Cheese')],
+      ['addon:bacon', selectionReferenceMap.get('Add-ons:Add Bacon')],
+      ['ice:regular', selectionReferenceMap.get('Ice Level:Regular Ice')],
+      ['ice:less', selectionReferenceMap.get('Ice Level:Less Ice')],
+      ['ice:no', selectionReferenceMap.get('Ice Level:No Ice')],
+      ['burger:spicy', selectionReferenceMap.get('Burger Choice:Spicy Chicken Burger')],
+      ['burger:grilled', selectionReferenceMap.get('Burger Choice:Grilled Chicken Burger')],
+      ['burger:beef', selectionReferenceMap.get('Burger Choice:Beef Bacon Burger')],
+      ['snack:fries', selectionReferenceMap.get('Snack Choice:Golden Fries Medium')],
+      ['snack:chicken', selectionReferenceMap.get('Snack Choice:Popcorn Chicken Small')],
+      ['drink:cola', selectionReferenceMap.get('Drink Choice:Cola Medium')],
+      ['drink:fruit', selectionReferenceMap.get('Drink Choice:Fruit Drink Medium')],
+    ]);
+
+    for (const demoOrder of demoOrders) {
+      const orderItems = demoOrder.items.map((item) => {
+        const skuId = skuMap.get(item.skuKey);
+        if (!skuId) {
+          throw new Error(`Missing sku for ${item.skuKey}`);
+        }
+
+        const productKey = item.skuKey.split(':')[0];
+        const product = productMap.get(productKey);
+        if (!product) {
+          throw new Error(`Missing product for ${productKey}`);
+        }
+
+        const sku = product.skus.find((entry) => entry.id === skuId);
+        if (!sku) {
+          throw new Error(`Missing saved sku entity for ${item.skuKey}`);
+        }
+
+        const selections = (item.selections ?? []).map((selectionKey) => {
+          const selection = selectionAliasMap.get(selectionKey);
+          if (!selection) {
+            throw new Error(`Missing selection for ${selectionKey}`);
+          }
+
+          return {
+            selectionGroupId: selection.groupId,
+            selectionOptionId: selection.optionId,
+            groupNameSnapshot: selection.groupName,
+            optionNameSnapshot: selection.optionName,
+            optionType: selection.optionType,
+            referencedSkuId: selection.referencedSkuId,
+            referencedSkuName: selection.referencedSkuName,
+            priceDelta: selection.priceDelta,
+            quantity: 1,
+          };
+        });
+
+        const subtotal =
+          Number(sku.price) * item.quantity +
+          selections.reduce((sum, selection) => sum + Number(selection.priceDelta), 0);
+
+        return {
+          productId: product.id,
+          skuId: sku.id,
+          productName: product.name,
+          skuName: sku.skuName,
+          unitPrice: Number(sku.price),
+          quantity: item.quantity,
+          subtotal,
+          remark: item.remark ?? null,
+          selections: {
+            create: selections,
+          },
+        };
+      });
+
+      const amount = computeOrderAmounts(orderItems);
+
+      await tx.order.create({
+        data: {
+          orderNo: demoOrder.orderNo,
+          storeId: store.id,
+          customerName: demoOrder.customerName,
+          customerMobile: demoOrder.customerMobile,
+          orderType: demoOrder.orderType,
+          status: demoOrder.status,
+          paymentChannel: demoOrder.paymentChannel,
+          totalAmount: amount,
+          payableAmount: amount,
+          remark: demoOrder.remark,
+          createdAt: demoOrder.createdAt,
+          updatedAt: demoOrder.updatedAt,
+          paidAt: demoOrder.paidAt ?? null,
+          cancelledAt: demoOrder.cancelledAt ?? null,
+          refundingAt: demoOrder.refundingAt ?? null,
+          refundedAt: demoOrder.refundedAt ?? null,
+          items: {
+            create: orderItems,
+          },
+          statusLogs: {
+            create: demoOrder.logs,
+          },
+        },
+      });
+    }
   });
 
-  const [stores, categories, products, skus, groups, options, bindings] = await Promise.all([
+  const [stores, categories, products, skus, groups, options, bindings, orders, orderLogs] = await Promise.all([
     prisma.store.count(),
     prisma.category.count(),
     prisma.product.count(),
@@ -497,10 +1036,12 @@ async function main() {
     prisma.selectionGroup.count(),
     prisma.selectionOption.count(),
     prisma.productSelectionGroup.count(),
+    prisma.order.count(),
+    prisma.orderStatusLog.count(),
   ]);
 
   console.log(
-    `Demo seed complete: ${stores} store(s), ${categories} categories, ${products} products, ${skus} skus, ${groups} groups, ${options} options, ${bindings} bindings.`,
+    `Demo seed complete: ${stores} store(s), ${categories} categories, ${products} products, ${skus} skus, ${groups} groups, ${options} options, ${bindings} bindings, ${orders} orders, ${orderLogs} order logs.`,
   );
 }
 
