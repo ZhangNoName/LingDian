@@ -42,9 +42,9 @@ function formatAmount(value: number) {
 
 <style scoped>
 .card {
-  margin: 24rpx;
-  padding: 32rpx;
-  border-radius: 24rpx;
+  margin: var(--ld-page-padding, 24rpx);
+  padding: var(--ld-card-padding, 24rpx);
+  border-radius: var(--ld-radius-16, 16px);
   background: #ffffff;
 }
 
@@ -58,28 +58,28 @@ function formatAmount(value: number) {
 
 .store {
   color: var(--ld-mini-text);
-  font-size: 34rpx;
+  font-size: var(--ld-font-title, 32rpx);
   font-weight: 900;
 }
 
 .actions {
   display: flex;
-  gap: 28rpx;
+  gap: 22rpx;
   color: #b7b7b7;
-  font-size: 38rpx;
+  font-size: var(--ld-font-title, 32rpx);
 }
 
 .item {
   display: grid;
-  grid-template-columns: 132rpx 1fr 108rpx;
-  gap: 20rpx;
-  padding: 34rpx 0 12rpx;
+  grid-template-columns: 112rpx 1fr 96rpx;
+  gap: var(--ld-card-gap, 20rpx);
+  padding: 24rpx 0 10rpx;
 }
 
 .image {
-  width: 120rpx;
-  height: 96rpx;
-  border-radius: 14rpx;
+  width: 104rpx;
+  height: 80rpx;
+  border-radius: var(--ld-radius-8, 8px);
   background: #ffffff;
 }
 
@@ -91,20 +91,20 @@ function formatAmount(value: number) {
 
 .name {
   color: var(--ld-mini-text);
-  font-size: 30rpx;
+  font-size: var(--ld-font-md, 28rpx);
   font-weight: 800;
 }
 
 .tag {
   margin-top: 12rpx;
   color: var(--ld-mini-primary);
-  font-size: 24rpx;
+  font-size: var(--ld-font-sm, 24rpx);
 }
 
 .spec {
   margin-top: 8rpx;
   color: #777777;
-  font-size: 24rpx;
+  font-size: var(--ld-font-sm, 24rpx);
 }
 
 .amount {
@@ -114,40 +114,40 @@ function formatAmount(value: number) {
 .qty {
   display: block;
   color: #999999;
-  font-size: 28rpx;
+  font-size: var(--ld-font-sm, 24rpx);
 }
 
 .price {
   display: block;
-  margin-top: 30rpx;
+  margin-top: 22rpx;
   color: var(--ld-mini-text);
-  font-size: 32rpx;
+  font-size: var(--ld-font-title, 32rpx);
   font-weight: 900;
 }
 
 .divider {
   height: 1rpx;
-  margin: 24rpx 0;
+  margin: 18rpx 0;
   background: #eeeeee;
 }
 
 .amount-row {
-  min-height: 64rpx;
+  min-height: 54rpx;
   color: var(--ld-mini-text);
-  font-size: 30rpx;
+  font-size: var(--ld-font-base, 26rpx);
   font-weight: 800;
 }
 
 .total-row {
   justify-content: flex-end;
-  gap: 16rpx;
-  min-height: 84rpx;
+  gap: 12rpx;
+  min-height: 68rpx;
   color: #999999;
-  font-size: 28rpx;
+  font-size: var(--ld-font-sm, 24rpx);
 }
 
 .total-row strong {
   color: var(--ld-mini-text);
-  font-size: 38rpx;
+  font-size: var(--ld-font-price, 36rpx);
 }
 </style>

@@ -1,6 +1,5 @@
 <template>
   <view class="manage">
-    <text class="title">常用管理</text>
     <view class="grid">
       <view v-for="entry in entries" :key="entry.key" class="entry">
         <SkeletonBox class="icon" radius="round" />
@@ -21,40 +20,43 @@ defineProps<{
 
 <style scoped>
 .manage {
-  margin: 0 32rpx;
-  padding: 32rpx;
-  border-radius: 24rpx;
+  margin: var(--ld-page-padding, 24rpx) var(--ld-page-padding, 24rpx) 0;
+  padding: var(--ld-card-padding, 24rpx);
+  border-radius: var(--ld-radius-16, 16px);
   background: #ffffff;
   box-shadow: var(--ld-mini-shadow-card);
-}
-
-.title {
-  display: block;
-  margin-bottom: 30rpx;
-  color: var(--ld-mini-text);
-  font-size: 34rpx;
-  font-weight: 900;
 }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 18rpx;
+  gap: 0;
 }
 
 .entry {
+  position: relative;
   text-align: center;
 }
 
+.entry:not(:last-child)::after {
+  position: absolute;
+  right: 0;
+  top: 6rpx;
+  width: 1rpx;
+  height: 72rpx;
+  background: rgba(23, 23, 23, 0.08);
+  content: "";
+}
+
 .icon {
-  width: 68rpx;
-  height: 68rpx;
-  margin: 0 auto 14rpx;
+  width: 56rpx;
+  height: 56rpx;
+  margin: 0 auto 12rpx;
 }
 
 .entry text {
   color: var(--ld-mini-text);
-  font-size: 24rpx;
+  font-size: var(--ld-font-sm, 24rpx);
   font-weight: 700;
 }
 </style>

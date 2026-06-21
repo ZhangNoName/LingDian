@@ -19,6 +19,25 @@ $ld-mini-radius-8: 8px;
 $ld-mini-radius-16: 16px;
 $ld-mini-radius-24: 24px;
 
+$ld-mini-font-xs: 22rpx;
+$ld-mini-font-sm: 24rpx;
+$ld-mini-font-base: 26rpx;
+$ld-mini-font-md: 28rpx;
+$ld-mini-font-title: 32rpx;
+$ld-mini-font-title-lg: 36rpx;
+$ld-mini-font-display: 40rpx;
+$ld-mini-font-price: 36rpx;
+$ld-mini-font-price-lg: 40rpx;
+
+$ld-mini-page-padding: 24rpx;
+$ld-mini-card-padding: 24rpx;
+$ld-mini-card-gap: 20rpx;
+$ld-mini-nav-height: 96rpx;
+$ld-mini-tabs-height: 72rpx;
+$ld-mini-tabbar-height: 104rpx;
+$ld-mini-list-row-height: 208rpx;
+$ld-mini-sidebar-row-height: 116rpx;
+
 :root,
 page {
   --ld-mini-primary: #{$ld-mini-primary};
@@ -39,4 +58,21 @@ page {
   --ld-radius-8: #{$ld-mini-radius-8};
   --ld-radius-16: #{$ld-mini-radius-16};
   --ld-radius-24: #{$ld-mini-radius-24};
+  --ld-font-xs: #{$ld-mini-font-xs};
+  --ld-font-sm: #{$ld-mini-font-sm};
+  --ld-font-base: #{$ld-mini-font-base};
+  --ld-font-md: #{$ld-mini-font-md};
+  --ld-font-title: #{$ld-mini-font-title};
+  --ld-font-title-lg: #{$ld-mini-font-title-lg};
+  --ld-font-display: #{$ld-mini-font-display};
+  --ld-font-price: #{$ld-mini-font-price};
+  --ld-font-price-lg: #{$ld-mini-font-price-lg};
+  --ld-page-padding: #{$ld-mini-page-padding};
+  --ld-card-padding: #{$ld-mini-card-padding};
+  --ld-card-gap: #{$ld-mini-card-gap};
+  --ld-nav-height: #{$ld-mini-nav-height};
+  --ld-tabs-height: #{$ld-mini-tabs-height};
+  --ld-tabbar-height: #{$ld-mini-tabbar-height};
+  --ld-list-row-height: #{$ld-mini-list-row-height};
+  --ld-sidebar-row-height: #{$ld-mini-sidebar-row-height};
 }

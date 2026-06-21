@@ -18,4 +18,21 @@ page {
   --ld-radius-8: 8px;
   --ld-radius-16: 16px;
   --ld-radius-24: 24px;
+  --ld-font-xs: 22rpx;
+  --ld-font-sm: 24rpx;
+  --ld-font-base: 26rpx;
+  --ld-font-md: 28rpx;
+  --ld-font-title: 32rpx;
+  --ld-font-title-lg: 36rpx;
+  --ld-font-display: 40rpx;
+  --ld-font-price: 36rpx;
+  --ld-font-price-lg: 40rpx;
+  --ld-page-padding: 24rpx;
+  --ld-card-padding: 24rpx;
+  --ld-card-gap: 20rpx;
+  --ld-nav-height: 96rpx;
+  --ld-tabs-height: 72rpx;
+  --ld-tabbar-height: 104rpx;
+  --ld-list-row-height: 208rpx;
+  --ld-sidebar-row-height: 116rpx;
 }

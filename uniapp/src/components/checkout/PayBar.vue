@@ -24,33 +24,33 @@ defineEmits<{
   right: 0;
   bottom: 0;
   display: grid;
-  grid-template-columns: 1fr 300rpx;
+  grid-template-columns: 1fr 260rpx;
   align-items: center;
-  min-height: 116rpx;
-  padding: 16rpx 24rpx calc(16rpx + env(safe-area-inset-bottom));
+  min-height: 104rpx;
+  padding: 14rpx var(--ld-page-padding, 24rpx) calc(14rpx + env(safe-area-inset-bottom));
   background: #ffffff;
 }
 
 .label {
   color: #777777;
-  font-size: 28rpx;
+  font-size: var(--ld-font-base, 26rpx);
 }
 
 .amount {
   color: var(--ld-mini-text);
-  font-size: 52rpx;
+  font-size: var(--ld-font-price-lg, 40rpx);
   font-weight: 900;
 }
 
 .pay {
-  height: 92rpx;
+  height: 78rpx;
   margin: 0;
   border-radius: 12rpx;
   background: var(--ld-mini-primary);
   color: #ffffff;
-  font-size: 34rpx;
+  font-size: var(--ld-font-title, 32rpx);
   font-weight: 900;
-  line-height: 92rpx;
+  line-height: 78rpx;
 }
 
 .pay::after {

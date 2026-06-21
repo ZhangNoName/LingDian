@@ -34,26 +34,26 @@ defineEmits<{
 
 <style scoped>
 .group {
-  padding: 0 32rpx;
+  padding: 0 var(--ld-page-padding, 24rpx);
 }
 
 .title {
   display: block;
-  margin-bottom: 24rpx;
+  margin-bottom: 18rpx;
   color: #777777;
-  font-size: 28rpx;
+  font-size: var(--ld-font-base, 26rpx);
 }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 20rpx;
+  gap: var(--ld-card-gap, 20rpx);
 }
 
 .card {
   position: relative;
-  min-height: 274rpx;
-  padding: 18rpx 14rpx 60rpx;
+  min-height: 232rpx;
+  padding: 16rpx 12rpx 52rpx;
   border: 1rpx solid #eeeeee;
   border-radius: 14rpx;
   background: #ffffff;
@@ -65,15 +65,15 @@ defineEmits<{
 }
 
 .image {
-  width: 148rpx;
-  height: 108rpx;
-  margin: 0 auto 16rpx;
-  border-radius: 14rpx;
+  width: 128rpx;
+  height: 88rpx;
+  margin: 0 auto 14rpx;
+  border-radius: var(--ld-radius-8, 8px);
 }
 
 .name {
   color: var(--ld-mini-text);
-  font-size: 24rpx;
+  font-size: var(--ld-font-sm, 24rpx);
   line-height: 1.35;
 }
 
@@ -81,14 +81,14 @@ defineEmits<{
   position: absolute;
   right: 20rpx;
   bottom: 20rpx;
-  width: 44rpx;
-  height: 44rpx;
+  width: 40rpx;
+  height: 40rpx;
   border: 4rpx solid #e3e3e3;
   border-radius: 50%;
   color: #ffffff;
-  font-size: 28rpx;
+  font-size: var(--ld-font-base, 26rpx);
   font-weight: 900;
-  line-height: 38rpx;
+  line-height: 34rpx;
 }
 
 .card.active .radio {

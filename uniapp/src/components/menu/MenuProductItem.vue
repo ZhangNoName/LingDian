@@ -27,53 +27,53 @@ defineEmits<{
 .item {
   position: relative;
   display: grid;
-  grid-template-columns: 224rpx 1fr;
-  gap: 24rpx;
-  min-height: 252rpx;
-  padding: 32rpx 0;
+  grid-template-columns: 190rpx 1fr;
+  gap: var(--ld-card-gap, 20rpx);
+  min-height: var(--ld-list-row-height, 208rpx);
+  padding: 24rpx 0;
   border-bottom: 1rpx solid #f1f1f1;
 }
 
 .image {
-  width: 224rpx;
-  height: 176rpx;
-  border-radius: 20rpx;
+  width: 190rpx;
+  height: 144rpx;
+  border-radius: var(--ld-radius-8, 8px);
   background: #ffffff;
 }
 
 .name {
   display: block;
-  margin: 6rpx 0 14rpx;
+  margin: 2rpx 0 10rpx;
   color: var(--ld-mini-text);
-  font-size: 30rpx;
+  font-size: var(--ld-font-md, 28rpx);
   font-weight: 800;
   line-height: 1.25;
 }
 
 .tag {
   display: inline-flex;
-  margin-bottom: 16rpx;
+  margin-bottom: 12rpx;
   padding: 4rpx 10rpx;
   border: 1rpx solid #f3a1a6;
   color: var(--ld-mini-primary);
-  font-size: 22rpx;
+  font-size: var(--ld-font-xs, 22rpx);
   line-height: 1;
 }
 
 .select {
   position: absolute;
   right: 0;
-  bottom: 34rpx;
-  width: 132rpx;
-  height: 60rpx;
+  bottom: 28rpx;
+  width: 118rpx;
+  height: 52rpx;
   margin: 0;
   padding: 0;
   border-radius: 999rpx;
   background: var(--ld-mini-primary);
   color: #ffffff;
-  font-size: 24rpx;
+  font-size: var(--ld-font-xs, 22rpx);
   font-weight: 800;
-  line-height: 60rpx;
+  line-height: 52rpx;
 }
 
 .select::after {

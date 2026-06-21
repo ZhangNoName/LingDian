@@ -32,35 +32,35 @@ function goOrders() {
 <style scoped>
 .page {
   min-height: 100vh;
-  padding-bottom: 160rpx;
+  padding-bottom: 136rpx;
   background: #f6f6f6;
 }
 
 .amount-card {
-  margin: 0 24rpx 24rpx;
-  padding: 0 32rpx 32rpx;
-  border-radius: 20rpx;
+  margin: 0 var(--ld-page-padding, 24rpx) var(--ld-page-padding, 24rpx);
+  padding: 0 var(--ld-card-padding, 24rpx) var(--ld-card-padding, 24rpx);
+  border-radius: var(--ld-radius-16, 16px);
   background: #ffffff;
 }
 
 .amount-line {
   display: flex;
   justify-content: space-between;
-  padding: 32rpx 0;
+  padding: 24rpx 0;
   color: var(--ld-mini-text);
-  font-size: 30rpx;
+  font-size: var(--ld-font-base, 26rpx);
   font-weight: 800;
 }
 
 .coupon-strip {
   display: flex;
   justify-content: space-between;
-  gap: 20rpx;
-  margin: 0 -32rpx;
-  padding: 22rpx 32rpx;
+  gap: var(--ld-card-gap, 20rpx);
+  margin: 0 calc(-1 * var(--ld-card-padding, 24rpx));
+  padding: 18rpx var(--ld-card-padding, 24rpx);
   background: #fff0d1;
   color: var(--ld-mini-primary);
-  font-size: 24rpx;
+  font-size: var(--ld-font-sm, 24rpx);
   font-weight: 800;
 }
 </style>

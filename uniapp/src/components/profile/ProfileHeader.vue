@@ -22,13 +22,13 @@ defineProps<{
 .header {
   display: flex;
   align-items: center;
-  gap: 24rpx;
-  padding: 0 32rpx 28rpx;
+  gap: var(--ld-card-gap, 20rpx);
+  padding: 0 var(--ld-page-padding, 24rpx) 22rpx;
 }
 
 .avatar {
-  width: 112rpx;
-  height: 112rpx;
+  width: 96rpx;
+  height: 96rpx;
 }
 
 .level,
@@ -38,13 +38,13 @@ defineProps<{
 
 .level {
   color: var(--ld-mini-text);
-  font-size: 34rpx;
+  font-size: var(--ld-font-title, 32rpx);
   font-weight: 900;
 }
 
 .phone {
   margin-top: 8rpx;
   color: #777777;
-  font-size: 26rpx;
+  font-size: var(--ld-font-base, 26rpx);
 }
 </style>

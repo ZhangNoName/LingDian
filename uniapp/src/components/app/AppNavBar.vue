@@ -33,27 +33,27 @@ defineEmits<{
   position: relative;
   display: flex;
   align-items: center;
-  min-height: 116rpx;
-  padding: 32rpx 24rpx 12rpx;
+  min-height: var(--ld-nav-height, 96rpx);
+  padding: 24rpx var(--ld-page-padding, 24rpx) 8rpx;
 }
 
 .nav-left {
   position: absolute;
-  left: 24rpx;
-  bottom: 16rpx;
+  left: var(--ld-page-padding, 24rpx);
+  bottom: 14rpx;
   display: flex;
   align-items: center;
-  gap: 22rpx;
+  gap: 18rpx;
 }
 
 .back {
-  font-size: 64rpx;
+  font-size: 48rpx;
   font-weight: 300;
   line-height: 1;
 }
 
 .search {
-  font-size: 48rpx;
+  font-size: 38rpx;
   line-height: 1;
 }
 
@@ -61,8 +61,7 @@ defineEmits<{
   width: 100%;
   text-align: center;
   color: var(--ld-mini-text);
-  font-size: 36rpx;
+  font-size: var(--ld-font-title, 32rpx);
   font-weight: 700;
 }
-
 </style>

@@ -27,17 +27,17 @@ defineEmits<{
 
 <style scoped>
 .card {
-  margin: 0 24rpx 24rpx;
-  padding: 32rpx;
-  border-radius: 20rpx;
+  margin: 0 var(--ld-page-padding, 24rpx) var(--ld-page-padding, 24rpx);
+  padding: var(--ld-card-padding, 24rpx);
+  border-radius: var(--ld-radius-16, 16px);
   background: #ffffff;
 }
 
 .title {
   display: block;
-  margin-bottom: 22rpx;
+  margin-bottom: 16rpx;
   color: var(--ld-mini-text);
-  font-size: 32rpx;
+  font-size: var(--ld-font-title, 32rpx);
   font-weight: 900;
 }
 
@@ -48,11 +48,11 @@ defineEmits<{
 .addon {
   position: relative;
   display: inline-block;
-  width: 224rpx;
-  min-height: 250rpx;
-  margin-right: 20rpx;
-  padding: 36rpx 16rpx 18rpx;
-  border-radius: 16rpx;
+  width: 200rpx;
+  min-height: 214rpx;
+  margin-right: var(--ld-card-gap, 20rpx);
+  padding: 32rpx 14rpx 16rpx;
+  border-radius: var(--ld-radius-8, 8px);
   background: #fff8f3;
   vertical-align: top;
 }
@@ -70,10 +70,10 @@ defineEmits<{
 }
 
 .image {
-  width: 160rpx;
-  height: 104rpx;
-  margin: 0 auto 18rpx;
-  border-radius: 14rpx;
+  width: 138rpx;
+  height: 88rpx;
+  margin: 0 auto 14rpx;
+  border-radius: var(--ld-radius-8, 8px);
   background: #ffffff;
 }
 
@@ -81,15 +81,15 @@ defineEmits<{
   position: absolute;
   right: 16rpx;
   bottom: 16rpx;
-  width: 48rpx;
-  height: 48rpx;
+  width: 42rpx;
+  height: 42rpx;
   margin: 0;
   padding: 0;
   border-radius: 50%;
   background: var(--ld-mini-primary);
   color: #ffffff;
-  font-size: 34rpx;
-  line-height: 44rpx;
+  font-size: var(--ld-font-title, 32rpx);
+  line-height: 38rpx;
 }
 
 .add::after {

@@ -30,8 +30,8 @@ defineEmits<{
 
 <style scoped>
 .recommend {
-  padding: 28rpx;
-  border-radius: 28rpx;
+  padding: var(--ld-card-padding, 24rpx);
+  border-radius: var(--ld-radius-16, 16px);
   background: #ffffff;
   box-shadow: var(--ld-mini-shadow-card);
 }
@@ -39,69 +39,69 @@ defineEmits<{
 .section-title {
   display: flex;
   align-items: center;
-  gap: 18rpx;
-  margin-bottom: 22rpx;
+  gap: 14rpx;
+  margin-bottom: 18rpx;
 }
 
 .section-title text:first-child {
   color: var(--ld-mini-text);
-  font-size: 40rpx;
+  font-size: var(--ld-font-title, 32rpx);
   font-weight: 900;
 }
 
 .tag {
-  padding: 6rpx 18rpx;
+  padding: 4rpx 14rpx;
   border-radius: 999rpx;
   background: #ff9700;
   color: #ffffff;
-  font-size: 24rpx;
+  font-size: var(--ld-font-xs, 22rpx);
   font-weight: 800;
 }
 
 .grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 18rpx;
+  gap: var(--ld-card-gap, 20rpx);
 }
 
 .card {
   position: relative;
-  min-height: 238rpx;
-  padding: 18rpx;
-  border-radius: 18rpx;
+  min-height: 214rpx;
+  padding: 16rpx;
+  border-radius: var(--ld-radius-8, 8px);
   background: #fffaf0;
 }
 
 .image {
   width: 100%;
-  height: 112rpx;
-  border-radius: 14rpx;
+  height: 96rpx;
+  border-radius: var(--ld-radius-8, 8px);
   background: #ffffff;
 }
 
 .name {
   display: block;
-  margin: 14rpx 0 8rpx;
+  margin: 12rpx 0 6rpx;
   color: var(--ld-mini-text);
-  font-size: 26rpx;
+  font-size: var(--ld-font-sm, 24rpx);
   font-weight: 700;
 }
 
 .add {
   position: absolute;
-  right: 18rpx;
-  bottom: 18rpx;
+  right: 16rpx;
+  bottom: 16rpx;
   display: grid;
   place-items: center;
-  width: 48rpx;
-  height: 48rpx;
+  width: 42rpx;
+  height: 42rpx;
   margin: 0;
   padding: 0;
   border-radius: 50%;
   background: var(--ld-mini-primary);
   color: #ffffff;
-  font-size: 34rpx;
-  line-height: 44rpx;
+  font-size: var(--ld-font-title, 32rpx);
+  line-height: 38rpx;
 }
 
 .add::after {

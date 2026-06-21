@@ -29,7 +29,7 @@ function goSpec(_productId: string) {
 
 <style scoped>
 .page {
-  min-height: 100vh;
+  min-height: 100%;
   background: var(--ld-mini-bg);
   padding-top: 24rpx;
 }

@@ -3,26 +3,52 @@
     <view class="page">
       <AppNavBar />
       <ProfileHeader :user="userProfile" :member="member" />
-      <MemberBenefitCard :member="member" />
-      <AssetCards :assets="memberAssets" />
+      <MemberBenefitCard :assets="memberAssets" />
       <ManageGrid :entries="manageEntries" />
+      <button class="service-btn" @tap="showServicePhone">联系客服</button>
     </view>
   </Layout>
 </template>
 
 <script setup lang="ts">
 import AppNavBar from "@/components/app/AppNavBar.vue";
-import AssetCards from "@/components/profile/AssetCards.vue";
 import ManageGrid from "@/components/profile/ManageGrid.vue";
 import MemberBenefitCard from "@/components/profile/MemberBenefitCard.vue";
 import ProfileHeader from "@/components/profile/ProfileHeader.vue";
 import { manageEntries, member, memberAssets, userProfile } from "@/data/mock";
 import Layout from "@/layout/layout.vue";
+
+const servicePhone = "400-888-0123";
+
+function showServicePhone() {
+  uni.showModal({
+    title: "联系客服",
+    content: `客服电话：${servicePhone}`,
+    showCancel: false,
+    confirmText: "知道了",
+  });
+}
 </script>
 
 <style scoped>
 .page {
-  min-height: 100vh;
+  min-height: 100%;
   background: var(--ld-mini-bg);
+}
+
+.service-btn {
+  height: 72rpx;
+  margin: var(--ld-page-padding, 24rpx);
+  border-radius: var(--ld-radius-16, 16px);
+  background: #ffffff;
+  color: var(--ld-mini-text);
+  font-size: var(--ld-font-base, 26rpx);
+  font-weight: 800;
+  line-height: 72rpx;
+  box-shadow: var(--ld-mini-shadow-card);
+}
+
+.service-btn::after {
+  border: 0;
 }
 </style>

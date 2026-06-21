@@ -23,30 +23,30 @@ defineProps<{
 
 <style scoped>
 .card {
-  margin: 0 24rpx 24rpx;
-  padding: 32rpx;
-  border-radius: 20rpx;
+  margin: 0 var(--ld-page-padding, 24rpx) var(--ld-page-padding, 24rpx);
+  padding: var(--ld-card-padding, 24rpx);
+  border-radius: var(--ld-radius-16, 16px);
   background: #ffffff;
 }
 
 .section-title {
   display: block;
-  margin-bottom: 26rpx;
+  margin-bottom: 18rpx;
   color: var(--ld-mini-text);
-  font-size: 34rpx;
+  font-size: var(--ld-font-title, 32rpx);
   font-weight: 900;
 }
 
 .product {
   display: grid;
-  grid-template-columns: 132rpx 1fr 108rpx;
-  gap: 20rpx;
+  grid-template-columns: 112rpx 1fr 96rpx;
+  gap: var(--ld-card-gap, 20rpx);
 }
 
 .image {
-  width: 132rpx;
-  height: 104rpx;
-  border-radius: 14rpx;
+  width: 104rpx;
+  height: 82rpx;
+  border-radius: var(--ld-radius-8, 8px);
   background: #ffffff;
 }
 
@@ -54,7 +54,7 @@ defineProps<{
   display: block;
   margin-bottom: 10rpx;
   color: var(--ld-mini-text);
-  font-size: 30rpx;
+  font-size: var(--ld-font-md, 28rpx);
   font-weight: 800;
 }
 
@@ -62,7 +62,7 @@ defineProps<{
 .expand {
   display: block;
   color: #8a8a8a;
-  font-size: 24rpx;
+  font-size: var(--ld-font-sm, 24rpx);
   line-height: 1.45;
 }
 
@@ -73,7 +73,7 @@ defineProps<{
 .amount text {
   display: block;
   color: var(--ld-mini-text);
-  font-size: 28rpx;
+  font-size: var(--ld-font-base, 26rpx);
   font-weight: 800;
 }
 </style>

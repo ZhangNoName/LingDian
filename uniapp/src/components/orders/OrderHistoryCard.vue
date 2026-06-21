@@ -63,31 +63,31 @@ function emitAction() {
 
 <style scoped>
 .card {
-  margin: 24rpx;
-  padding: 32rpx;
-  border-radius: 24rpx;
+  margin: var(--ld-page-padding, 24rpx);
+  padding: var(--ld-card-padding, 24rpx);
+  border-radius: var(--ld-radius-16, 16px);
   background: #ffffff;
 }
 
 .title-row {
   display: flex;
   align-items: center;
-  gap: 14rpx;
+  gap: 12rpx;
 }
 
 .badge {
-  padding: 6rpx 12rpx;
+  padding: 4rpx 10rpx;
   border-radius: 10rpx;
   background: #00645c;
   color: #ffffff;
-  font-size: 26rpx;
+  font-size: var(--ld-font-xs, 22rpx);
 }
 
 .store {
   flex: 1;
   overflow: hidden;
   color: var(--ld-mini-text);
-  font-size: 34rpx;
+  font-size: var(--ld-font-title, 32rpx);
   font-weight: 900;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -97,60 +97,65 @@ function emitAction() {
 .time,
 .count {
   color: #999999;
-  font-size: 28rpx;
+  font-size: var(--ld-font-sm, 24rpx);
 }
 
 .time {
   display: block;
-  margin: 18rpx 0 34rpx;
+  margin: 14rpx 0 18rpx;
 }
 
 .body {
   display: grid;
-  grid-template-columns: 1fr 190rpx;
-  gap: 20rpx;
+  grid-template-columns: 1fr 164rpx;
+  gap: var(--ld-card-gap, 20rpx);
   align-items: center;
 }
 
 .thumbs {
   display: flex;
-  gap: 24rpx;
+  gap: 18rpx;
 }
 
 .thumb {
-  width: 160rpx;
-  height: 118rpx;
-  border-radius: 18rpx;
+  width: 120rpx;
+  height: 84rpx;
+  border-radius: var(--ld-radius-8, 8px);
   background: #ffffff;
 }
 
 .summary {
+  display: flex;
+  min-height: 88rpx;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-end;
   text-align: right;
 }
 
 .price {
   display: block;
   color: var(--ld-mini-text);
-  font-size: 44rpx;
+  font-size: var(--ld-font-price, 36rpx);
   font-weight: 900;
 }
 
 .count {
   display: block;
-  margin: 10rpx 0 42rpx;
+  margin: 4rpx 0 10rpx;
 }
 
 .again {
-  width: 172rpx;
-  height: 72rpx;
+  width: 148rpx;
+  height: 52rpx;
   margin: 0;
   padding: 0;
   border-radius: 8rpx;
   background: var(--ld-mini-primary);
   color: #ffffff;
-  font-size: 30rpx;
+  font-size: var(--ld-font-sm, 24rpx);
   font-weight: 800;
-  line-height: 72rpx;
+  line-height: 52rpx;
 }
 
 .again::after {

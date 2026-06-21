@@ -1,7 +1,7 @@
 <template>
   <Layout active="orders">
     <view class="page">
-      <AppNavBar show-back @back="goHome" />
+      <AppNavBar title="订单" show-back @back="goHome" />
       <OrderStatusTabs :active="activeTab" @change="activeTab = $event" />
       <OrderHistoryCard
         v-for="order in filteredOrders"
@@ -51,15 +51,15 @@ function goDetail(orderId: string) {
 
 <style scoped>
 .page {
-  min-height: 100vh;
+  min-height: 100%;
   background: #f3f3f3;
 }
 
 .empty {
   display: grid;
   place-items: center;
-  min-height: 360rpx;
+  min-height: 240rpx;
   color: var(--ld-mini-text-muted);
-  font-size: 30rpx;
+  font-size: var(--ld-font-base, 26rpx);
 }
 </style>

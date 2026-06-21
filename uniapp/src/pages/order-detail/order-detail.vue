@@ -71,43 +71,43 @@ function goMenu() {
 <style scoped>
 .page {
   min-height: 100vh;
-  padding-bottom: 128rpx;
+  padding-bottom: 112rpx;
   background: #f3f3f3;
 }
 
 .content {
-  padding-bottom: 24rpx;
+  padding-bottom: var(--ld-page-padding, 24rpx);
 }
 
 .status-block {
   position: relative;
-  padding: 28rpx 48rpx 24rpx;
+  padding: 20rpx 40rpx 18rpx;
 }
 
 .status-title {
   display: block;
   color: var(--ld-mini-text);
-  font-size: 42rpx;
+  font-size: var(--ld-font-title-lg, 36rpx);
   font-weight: 900;
 }
 
 .reward {
   display: inline-flex;
-  margin-top: 18rpx;
-  padding: 10rpx 20rpx;
+  margin-top: 14rpx;
+  padding: 8rpx 16rpx;
   border-radius: 999rpx;
   background: var(--ld-mini-primary);
   color: #ffffff;
-  font-size: 26rpx;
+  font-size: var(--ld-font-sm, 24rpx);
   font-weight: 800;
 }
 
 .promo {
   position: relative;
-  margin: 16rpx 24rpx 24rpx;
-  height: 210rpx;
+  margin: 12rpx var(--ld-page-padding, 24rpx) var(--ld-page-padding, 24rpx);
+  height: 164rpx;
   overflow: hidden;
-  border-radius: 24rpx;
+  border-radius: var(--ld-radius-16, 16px);
   background: #fff4df;
 }
 
@@ -118,8 +118,8 @@ function goMenu() {
 
 .promo-copy {
   position: absolute;
-  left: 46rpx;
-  top: 44rpx;
+  left: 34rpx;
+  top: 32rpx;
   color: #8f3700;
 }
 
@@ -129,21 +129,21 @@ function goMenu() {
 }
 
 .promo-title {
-  font-size: 58rpx;
+  font-size: var(--ld-font-display, 40rpx);
   font-weight: 900;
 }
 
 .promo-subtitle {
-  margin-top: 12rpx;
-  font-size: 24rpx;
+  margin-top: 8rpx;
+  font-size: var(--ld-font-sm, 24rpx);
 }
 
 .empty {
   display: grid;
   place-items: center;
-  min-height: 420rpx;
+  min-height: 320rpx;
   color: var(--ld-mini-text-muted);
-  font-size: 30rpx;
+  font-size: var(--ld-font-md, 28rpx);
 }
 
 .bottom {
@@ -153,20 +153,20 @@ function goMenu() {
   bottom: 0;
   display: flex;
   justify-content: flex-end;
-  padding: 18rpx 24rpx calc(18rpx + env(safe-area-inset-bottom));
+  padding: 14rpx var(--ld-page-padding, 24rpx) calc(14rpx + env(safe-area-inset-bottom));
   background: #ffffff;
 }
 
 .again {
-  width: 176rpx;
-  height: 72rpx;
+  width: 160rpx;
+  height: 64rpx;
   margin: 0;
   border: 1rpx solid #dddddd;
   border-radius: 12rpx;
   background: #ffffff;
   color: #555555;
-  font-size: 30rpx;
-  line-height: 72rpx;
+  font-size: var(--ld-font-base, 26rpx);
+  line-height: 64rpx;
 }
 
 .again::after {

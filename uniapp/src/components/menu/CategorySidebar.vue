@@ -46,11 +46,11 @@ function getNavDomId(categoryId: string) {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 132rpx;
+  min-height: var(--ld-sidebar-row-height, 116rpx);
   padding: 0 20rpx;
   color: #747474;
   text-align: center;
-  font-size: 24rpx;
+  font-size: var(--ld-font-sm, 24rpx);
   line-height: 1.25;
 }
 
@@ -63,9 +63,9 @@ function getNavDomId(categoryId: string) {
 .category.active::before {
   position: absolute;
   left: 0;
-  top: 42rpx;
+  top: 36rpx;
   width: 8rpx;
-  height: 48rpx;
+  height: 44rpx;
   border-radius: 0 8rpx 8rpx 0;
   background: var(--ld-mini-primary);
   content: "";

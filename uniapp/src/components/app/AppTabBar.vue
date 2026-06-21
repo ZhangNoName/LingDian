@@ -43,8 +43,8 @@ const tabs: Array<{ key: AppTabKey; label: string }> = [
   z-index: 20;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  height: 112rpx;
-  padding: 16rpx 24rpx 0;
+  height: var(--ld-tabbar-height, 104rpx);
+  padding: 14rpx var(--ld-page-padding, 24rpx) 0;
   border-top: 1rpx solid var(--ld-mini-border);
   background: #ffffff;
   padding-bottom: env(safe-area-inset-bottom);
@@ -56,7 +56,7 @@ const tabs: Array<{ key: AppTabKey; label: string }> = [
   align-items: center;
   gap: 8rpx;
   color: #b9b9b9;
-  font-size: 22rpx;
+  font-size: var(--ld-font-xs, 22rpx);
 }
 
 .tab-item.active {
@@ -65,8 +65,8 @@ const tabs: Array<{ key: AppTabKey; label: string }> = [
 }
 
 .tab-icon {
-  width: 34rpx;
-  height: 34rpx;
+  width: 30rpx;
+  height: 30rpx;
   border-radius: 10rpx;
   background: currentColor;
 }

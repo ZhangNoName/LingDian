@@ -27,15 +27,15 @@ defineEmits<{
 <style scoped>
 .cart-bar {
   position: fixed;
-  left: 24rpx;
-  right: 24rpx;
-  bottom: 24rpx;
+  left: var(--ld-page-padding, 24rpx);
+  right: var(--ld-page-padding, 24rpx);
+  bottom: var(--ld-page-padding, 24rpx);
   z-index: 15;
   display: grid;
-  grid-template-columns: 118rpx 1fr 200rpx;
+  grid-template-columns: 104rpx 1fr 176rpx;
   align-items: center;
-  min-height: 132rpx;
-  border-radius: 24rpx;
+  min-height: 112rpx;
+  border-radius: var(--ld-radius-16, 16px);
   background: var(--ld-mini-primary);
   color: #ffffff;
   box-shadow: 0 28rpx 56rpx rgba(237, 28, 36, 0.22);
@@ -43,16 +43,16 @@ defineEmits<{
 
 .bag {
   position: relative;
-  width: 96rpx;
-  height: 96rpx;
-  margin-left: 14rpx;
-  border-radius: 22rpx;
+  width: 80rpx;
+  height: 80rpx;
+  margin-left: 12rpx;
+  border-radius: var(--ld-radius-16, 16px);
   background: #fff2d9;
   color: var(--ld-mini-primary);
   text-align: center;
-  font-size: 42rpx;
+  font-size: var(--ld-font-title-lg, 36rpx);
   font-weight: 900;
-  line-height: 96rpx;
+  line-height: 80rpx;
 }
 
 .badge {
@@ -74,7 +74,7 @@ defineEmits<{
 
 .amount {
   display: block;
-  font-size: 44rpx;
+  font-size: var(--ld-font-price-lg, 40rpx);
   font-weight: 900;
 }
 
@@ -83,22 +83,22 @@ defineEmits<{
   overflow: hidden;
   margin-top: 4rpx;
   color: rgba(255, 255, 255, 0.78);
-  font-size: 22rpx;
+  font-size: var(--ld-font-xs, 22rpx);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .checkout {
-  height: 132rpx;
+  height: 112rpx;
   margin: 0;
   padding: 0;
   border-left: 1rpx solid rgba(255, 255, 255, 0.18);
-  border-radius: 0 24rpx 24rpx 0;
+  border-radius: 0 var(--ld-radius-16, 16px) var(--ld-radius-16, 16px) 0;
   background: transparent;
   color: #ffffff;
-  font-size: 36rpx;
+  font-size: var(--ld-font-title, 32rpx);
   font-weight: 900;
-  line-height: 132rpx;
+  line-height: 112rpx;
 }
 
 .checkout::after {

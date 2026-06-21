@@ -31,22 +31,22 @@ defineEmits<{
   right: 0;
   bottom: 0;
   z-index: 20;
-  padding: 20rpx 24rpx calc(20rpx + env(safe-area-inset-bottom));
+  padding: 16rpx var(--ld-page-padding, 24rpx) calc(16rpx + env(safe-area-inset-bottom));
   background: rgba(255, 255, 255, 0.96);
   box-shadow: 0 -20rpx 48rpx rgba(0, 0, 0, 0.06);
 }
 
 .thumbs {
   display: flex;
-  gap: 14rpx;
-  min-height: 88rpx;
-  margin-bottom: 20rpx;
+  gap: 12rpx;
+  min-height: 76rpx;
+  margin-bottom: 16rpx;
 }
 
 .thumb,
 .no-add {
-  width: 88rpx;
-  height: 88rpx;
+  width: 76rpx;
+  height: 76rpx;
   border: 1rpx solid #b9934b;
   border-radius: 14rpx;
 }
@@ -55,24 +55,24 @@ defineEmits<{
   display: grid;
   place-items: center;
   color: var(--ld-mini-primary);
-  font-size: 22rpx;
+  font-size: var(--ld-font-xs, 22rpx);
   font-weight: 800;
 }
 
 .actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20rpx;
+  gap: var(--ld-card-gap, 20rpx);
 }
 
 .outline,
 .solid {
-  height: 92rpx;
+  height: 78rpx;
   margin: 0;
   border-radius: 12rpx;
-  font-size: 34rpx;
+  font-size: var(--ld-font-title, 32rpx);
   font-weight: 900;
-  line-height: 92rpx;
+  line-height: 78rpx;
 }
 
 .outline {

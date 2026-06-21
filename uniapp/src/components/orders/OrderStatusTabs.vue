@@ -19,17 +19,17 @@ defineEmits<{
 .tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  height: 112rpx;
+  height: var(--ld-tabs-height, 72rpx);
   background: #ffffff;
   color: #5f5f5f;
   text-align: center;
-  font-size: 40rpx;
+  font-size: var(--ld-font-title, 32rpx);
   font-weight: 900;
 }
 
 .tab {
   position: relative;
-  line-height: 112rpx;
+  line-height: var(--ld-tabs-height, 72rpx);
 }
 
 .tab.active {
@@ -40,8 +40,8 @@ defineEmits<{
   position: absolute;
   left: 50%;
   bottom: 0;
-  width: 84rpx;
-  height: 8rpx;
+  width: 64rpx;
+  height: 5rpx;
   border-radius: 999rpx;
   background: var(--ld-mini-primary);
   content: "";

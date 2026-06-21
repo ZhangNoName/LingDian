@@ -25,9 +25,9 @@ defineProps<{
 
 <style scoped>
 .card {
-  margin: 0 24rpx 24rpx;
-  padding: 32rpx;
-  border-radius: 20rpx;
+  margin: 0 var(--ld-page-padding, 24rpx) var(--ld-page-padding, 24rpx);
+  padding: var(--ld-card-padding, 24rpx);
+  border-radius: var(--ld-radius-16, 16px);
   background: #ffffff;
 }
 
@@ -40,7 +40,7 @@ defineProps<{
 
 .title {
   color: var(--ld-mini-text);
-  font-size: 38rpx;
+  font-size: var(--ld-font-title, 32rpx);
   font-weight: 900;
 }
 
@@ -52,7 +52,7 @@ defineProps<{
 
 .address {
   display: block;
-  margin: 16rpx 0 30rpx;
+  margin: 12rpx 0 22rpx;
   line-height: 1.45;
 }
 
@@ -64,8 +64,8 @@ defineProps<{
 
 .mode {
   position: relative;
-  min-height: 120rpx;
-  padding: 24rpx 20rpx 20rpx 112rpx;
+  min-height: 104rpx;
+  padding: 20rpx 18rpx 18rpx 96rpx;
   border: 1rpx solid #e2e2e2;
   border-radius: 14rpx;
 }
@@ -76,10 +76,10 @@ defineProps<{
 
 .mode-icon {
   position: absolute;
-  left: 22rpx;
-  top: 28rpx;
-  width: 68rpx;
-  height: 60rpx;
+  left: 18rpx;
+  top: 24rpx;
+  width: 60rpx;
+  height: 52rpx;
 }
 
 .mode-title,
@@ -89,7 +89,7 @@ defineProps<{
 
 .mode-title {
   color: var(--ld-mini-text);
-  font-size: 36rpx;
+  font-size: var(--ld-font-title, 32rpx);
   font-weight: 900;
 }
 
@@ -100,11 +100,11 @@ defineProps<{
 }
 
 .pickup {
-  margin-top: 30rpx;
-  padding-top: 26rpx;
+  margin-top: 22rpx;
+  padding-top: 20rpx;
   border-top: 1rpx solid #f1f1f1;
   color: var(--ld-mini-text);
-  font-size: 30rpx;
+  font-size: var(--ld-font-base, 26rpx);
 }
 
 .tag {

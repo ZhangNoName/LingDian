@@ -657,7 +657,7 @@
 
       .combo-stack img {
         width: 86px;
-        height: 62px;
+        height: 48px;
         border-radius: 8px;
       }
 
@@ -1045,17 +1045,17 @@
         right: 0;
         display: grid;
         grid-template-columns: 1fr 1fr;
-        height: 62px;
+        height: 48px;
         background: #ffffff;
         text-align: center;
         color: #5f5f5f;
-        font-size: 22px;
+        font-size: 18px;
         font-weight: 800;
       }
 
       .order-tabs span {
         position: relative;
-        line-height: 62px;
+        line-height: 48px;
       }
 
       .order-tabs .active {
@@ -1066,8 +1066,8 @@
         position: absolute;
         left: 50%;
         bottom: 0;
-        width: 42px;
-        height: 4px;
+        width: 36px;
+        height: 3px;
         border-radius: 999px;
         background: var(--ld-mini-primary);
         content: "";
@@ -1135,29 +1135,35 @@
       }
 
       .history-price {
+        display: flex;
+        min-height: 56px;
+        flex-direction: column;
+        justify-content: center;
+        align-items: flex-end;
         text-align: right;
       }
 
       .history-price strong {
         display: block;
-        font-size: 24px;
+        font-size: 22px;
       }
 
       .history-price span {
         display: block;
-        margin: 6px 0 28px;
+        margin: 3px 0 6px;
         color: #c2c2c2;
       }
 
       .again-btn {
         width: 86px;
-        height: 36px;
+        height: 30px;
         border: 0;
         border-radius: 4px;
         background: var(--ld-mini-primary);
         color: #ffffff;
         font-size: 16px;
         font-weight: 800;
+        line-height: 30px;
       }
 
       .profile-phone {
@@ -1252,73 +1258,9 @@
         font-size: 24px;
       }
 
-      .asset-row {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 12px;
-        margin-top: 12px;
-      }
-
-      .asset {
-        position: relative;
-        overflow: hidden;
-        min-height: 112px;
-        padding: 18px;
-        border: 1px solid rgba(237, 28, 36, 0.1);
-        background: linear-gradient(135deg, #fff5e6 0%, #ffffff 56%, #fff0f1 100%);
-        box-shadow: 0 10px 22px rgba(44, 24, 18, 0.1);
-      }
-
-      .asset::after {
-        position: absolute;
-        right: -14px;
-        top: -14px;
-        width: 60px;
-        height: 60px;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.48);
-        content: "";
-      }
-
-      .asset:nth-child(2) {
-        background: linear-gradient(135deg, #fff1f1 0%, #ffffff 58%, #fff7df 100%);
-      }
-
-      .asset strong {
-        position: relative;
-        z-index: 1;
-        color: var(--ld-mini-primary, #ed1c24);
-        font-size: 27px;
-      }
-
-      .asset p {
-        position: relative;
-        z-index: 1;
-        margin: 12px 0;
-        font-weight: 700;
-      }
-
-      .pill {
-        position: relative;
-        z-index: 1;
-        display: block;
-        height: 28px;
-        border-radius: 999px;
-        background: rgba(237, 28, 36, 0.1);
-        color: var(--ld-mini-primary, #ed1c24);
-        text-align: center;
-        font-size: 13px;
-        line-height: 28px;
-      }
-
       .manage {
         margin-top: 12px;
         padding: 18px 16px;
-      }
-
-      .manage h4 {
-        margin: 0 0 18px;
-        font-size: 18px;
       }
 
       .manage-grid {
@@ -1328,6 +1270,20 @@
         text-align: center;
         font-size: 13px;
         font-weight: 700;
+      }
+
+      .manage-grid span {
+        position: relative;
+      }
+
+      .manage-grid span:not(:last-child)::after {
+        position: absolute;
+        right: -5px;
+        top: 5px;
+        width: 1px;
+        height: 44px;
+        background: rgba(23, 23, 23, 0.08);
+        content: "";
       }
 
       .manage-grid i {
@@ -1557,12 +1513,10 @@
             <div class="nav"><div class="capsule"><span class="dots"><i></i><i></i><i></i></span><span class="ring"></span></div></div>
             <section class="profile-content">
               <div class="profile-user"><span class="avatar"></span><span>普通会员 176****2528</span></div>
-              <section class="member"><h4>会员权益</h4><p>加入会员，充值就送好礼，充多送多。</p><div class="member-stats"><span>订单数<strong>5</strong></span><span>消费金额<strong>¥147.8</strong></span></div></section>
-              <div class="asset-row">
+              <section class="member"><h4>会员权益</h4><p>加入会员，充值就送好礼，充多送多。</p><div class="member-stats"><span>我的余额<strong>106元</strong></span><span>我的优惠券<strong>0张</strong></span></div></section>
                 <article class="asset card"><strong>106元</strong><p>我的余额 ›</p><span class="pill">去充值</span></article>
                 <article class="asset card"><strong>0张</strong><p>我的优惠券 ›</p><span class="pill">0张 待领取</span></article>
-              </div>
-              <section class="manage card"><h4>常用管理</h4><div class="manage-grid"><span><i></i>我的订单</span><span><i></i>地址管理</span><span><i></i>我的收藏</span><span><i></i>交易记录</span></div></section>
+              <section class="manage card"><div class="manage-grid"><span><i></i>我的订单</span><span><i></i>地址管理</span><span><i></i>我的收藏</span><span><i></i>交易记录</span></div></section>
             </section>
             <div class="tabbar"><div><i class="tab-icon"></i>首页</div><div><i class="tab-icon"></i>点单</div><div><i class="tab-icon"></i>订单</div><div class="active"><i class="tab-icon"></i>我的</div></div>
           </div>

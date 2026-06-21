@@ -63,7 +63,7 @@ function goMenu() {
 <style scoped>
 .page {
   min-height: 100vh;
-  padding-bottom: 260rpx;
+  padding-bottom: 228rpx;
   background: #ffffff;
 }
 
@@ -71,14 +71,14 @@ function goMenu() {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  padding: 36rpx 32rpx 44rpx;
+  padding: 26rpx var(--ld-page-padding, 24rpx) 34rpx;
 }
 
 .name {
   display: block;
-  margin-bottom: 18rpx;
+  margin-bottom: 14rpx;
   color: var(--ld-mini-text);
-  font-size: 44rpx;
+  font-size: var(--ld-font-display, 40rpx);
   font-weight: 900;
 }
 
@@ -87,6 +87,6 @@ function goMenu() {
   padding: 4rpx 10rpx;
   border: 1rpx solid #f3a1a6;
   color: var(--ld-mini-primary);
-  font-size: 24rpx;
+  font-size: var(--ld-font-xs, 22rpx);
 }
 </style>

@@ -41,25 +41,25 @@ function formatAmount(value: number) {
 }
 
 .price--small .price-current {
-  font-size: 28rpx;
+  font-size: var(--ld-font-base, 26rpx);
 }
 
 .price--normal .price-current {
-  font-size: 36rpx;
+  font-size: var(--ld-font-price, 36rpx);
 }
 
 .price--large .price-current {
-  font-size: 52rpx;
+  font-size: var(--ld-font-price-lg, 40rpx);
 }
 
 .price-original {
   color: var(--ld-mini-text-muted);
-  font-size: 24rpx;
+  font-size: var(--ld-font-sm, 24rpx);
   text-decoration: line-through;
 }
 
 .price-suffix {
   color: var(--ld-mini-primary);
-  font-size: 24rpx;
+  font-size: var(--ld-font-sm, 24rpx);
 }
 </style>
