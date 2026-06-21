@@ -1,0 +1,1573 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>零点点餐微信小程序设计稿</title>
+    <style>
+      :root {
+        --ld-mini-primary: #ed1c24;
+        --ld-mini-primary-pressed: #c90012;
+        --ld-mini-primary-soft: #fff1f1;
+        --ld-mini-brand-dark: #2b160f;
+        --ld-mini-cyan: #ed1c24;
+        --ld-mini-bg: #f7f7f7;
+        --ld-mini-surface: #ffffff;
+        --ld-mini-text: #171717;
+        --ld-mini-muted: #8c8c8c;
+        --ld-mini-border: #ececec;
+        --ld-space-8: 8px;
+        --ld-space-12: 12px;
+        --ld-space-16: 16px;
+        --ld-space-24: 24px;
+        --ld-radius-8: 8px;
+        --ld-radius-16: 16px;
+        --ld-radius-24: 24px;
+        --ld-shadow-card: 0 8px 24px rgba(36, 24, 20, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-width: 2840px;
+        background: #f3f5f8;
+        color: var(--ld-mini-text);
+        font-family:
+          "Noto Sans SC",
+          "PingFang SC",
+          "Microsoft YaHei",
+          Arial,
+          sans-serif;
+      }
+
+      .canvas {
+        padding: 48px;
+      }
+
+      .header {
+        margin-bottom: 28px;
+      }
+
+      .header h1 {
+        margin: 0;
+        font-size: 32px;
+        line-height: 1.25;
+      }
+
+      .header p {
+        margin: 8px 0 0;
+        color: #6b7280;
+        font-size: 15px;
+      }
+
+      .board {
+        display: grid;
+        grid-template-columns: 380px repeat(6, 375px);
+        gap: 32px;
+        align-items: start;
+      }
+
+      .brief,
+      .tokens,
+      .phone {
+        box-shadow: var(--ld-shadow-card);
+      }
+
+      .brief {
+        min-height: 812px;
+        padding: 24px;
+        border-radius: var(--ld-radius-24);
+        background: var(--ld-mini-surface);
+      }
+
+      .brief h2,
+      .tokens h2 {
+        margin: 0;
+        font-size: 22px;
+        line-height: 1.35;
+      }
+
+      .brief .sub {
+        margin: 10px 0 22px;
+        color: #6b7280;
+        font-size: 14px;
+        line-height: 1.6;
+      }
+
+      .brief-item {
+        display: grid;
+        grid-template-columns: 70px 1fr;
+        gap: 14px;
+        margin-bottom: 14px;
+        padding: 16px;
+        border: 1px solid var(--ld-mini-border);
+        border-radius: var(--ld-radius-16);
+        background: #fafafa;
+      }
+
+      .brief-item strong {
+        color: var(--ld-mini-primary);
+      }
+
+      .brief-item span {
+        color: #4b5563;
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .tokens {
+        margin-top: 18px;
+        padding: 20px;
+        border-radius: var(--ld-radius-24);
+        background: var(--ld-mini-brand-dark);
+        color: #ffffff;
+      }
+
+      .token-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      .token {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #fff4e5;
+        font-size: 12px;
+      }
+
+      .swatch {
+        width: 22px;
+        height: 22px;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        border-radius: 7px;
+      }
+
+      .screen-wrap h3 {
+        margin: 0 0 14px;
+        text-align: center;
+        font-size: 18px;
+      }
+
+      .phone {
+        position: relative;
+        width: 375px;
+        height: 812px;
+        overflow: hidden;
+        border-radius: 28px;
+        background: var(--ld-mini-bg);
+      }
+
+      .status {
+        position: absolute;
+        inset: 16px 20px auto;
+        z-index: 10;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 15px;
+        font-weight: 700;
+      }
+
+      .bars {
+        display: flex;
+        align-items: end;
+        gap: 3px;
+      }
+
+      .bars i {
+        display: block;
+        width: 4px;
+        border-radius: 4px;
+        background: currentColor;
+      }
+
+      .bars i:nth-child(1) {
+        height: 7px;
+      }
+
+      .bars i:nth-child(2) {
+        height: 10px;
+      }
+
+      .bars i:nth-child(3) {
+        height: 13px;
+      }
+
+      .nav {
+        position: absolute;
+        top: 48px;
+        left: 0;
+        right: 0;
+        z-index: 9;
+        height: 42px;
+        text-align: center;
+        font-size: 21px;
+        font-weight: 700;
+      }
+
+      .back {
+        position: absolute;
+        left: 22px;
+        top: -5px;
+        font-size: 34px;
+        font-weight: 300;
+      }
+
+      .search-mini {
+        position: absolute;
+        left: 62px;
+        top: 2px;
+        font-size: 22px;
+        font-weight: 400;
+      }
+
+      .capsule {
+        position: absolute;
+        right: 22px;
+        top: 0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        width: 86px;
+        height: 34px;
+        padding-left: 24px;
+        border: 1px solid #eeeeee;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.92);
+      }
+
+      .dots {
+        display: flex;
+        gap: 4px;
+      }
+
+      .dots i {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+
+      .ring {
+        width: 15px;
+        height: 15px;
+        border: 3px solid currentColor;
+        border-radius: 50%;
+      }
+
+      .card {
+        border-radius: var(--ld-radius-16);
+        background: var(--ld-mini-surface);
+        box-shadow: var(--ld-shadow-card);
+      }
+
+      .home-phone {
+        background: #f6f6f6;
+      }
+
+      .member-strip {
+        position: absolute;
+        left: 14px;
+        right: 14px;
+        top: 18px;
+        display: grid;
+        grid-template-columns: 1fr 80px 80px;
+        align-items: center;
+        height: 72px;
+        padding: 0 18px;
+        border-radius: 10px 10px 0 0;
+        background: linear-gradient(90deg, #631000, #370700);
+        color: #ffe5b0;
+      }
+
+      .member-strip strong {
+        color: #ffffff;
+        font-size: 17px;
+      }
+
+      .member-strip span {
+        text-align: right;
+      }
+
+      .home-content {
+        position: absolute;
+        top: 104px;
+        left: 0;
+        right: 0;
+        bottom: 92px;
+        overflow: hidden;
+        padding: 12px 14px 16px;
+      }
+
+      .home-mode-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      .home-mode {
+        min-height: 118px;
+        padding: 18px 12px 10px;
+        border-radius: 14px;
+        background: #ffffff;
+        text-align: center;
+        box-shadow: var(--ld-shadow-card);
+      }
+
+      .home-mode strong {
+        display: block;
+        margin-bottom: 10px;
+        font-size: 22px;
+      }
+
+      .home-mode i {
+        display: block;
+        width: 78px;
+        height: 50px;
+        margin: 0 auto;
+        border-radius: 10px;
+        background: linear-gradient(180deg, #ffdb7a, #fff2bf);
+      }
+
+      .recommend {
+        margin-top: 18px;
+        padding: 16px;
+        border-radius: 14px;
+        background: #ffffff;
+        box-shadow: var(--ld-shadow-card);
+      }
+
+      .recommend h3 {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 0 0 12px;
+        text-align: left;
+        font-size: 22px;
+      }
+
+      .recommend h3 span {
+        padding: 3px 10px;
+        border-radius: 999px;
+        background: #ff9700;
+        color: #ffffff;
+        font-size: 13px;
+      }
+
+      .recommend-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      .rec-card {
+        position: relative;
+        min-height: 116px;
+        padding: 10px;
+        border-radius: 10px;
+        background: #fffaf0;
+      }
+
+      .rec-card img {
+        width: 100%;
+        height: 58px;
+        border-radius: 8px;
+        object-fit: cover;
+      }
+
+      .rec-card h4 {
+        margin: 8px 0 4px;
+        font-size: 14px;
+      }
+
+      .rec-card strong {
+        color: var(--ld-mini-primary);
+      }
+
+      .rec-card .mini-plus {
+        position: absolute;
+        right: 10px;
+        bottom: 10px;
+        width: 26px;
+        height: 26px;
+        font-size: 18px;
+      }
+
+      .store-head {
+        position: absolute;
+        top: 102px;
+        left: 0;
+        right: 0;
+        padding: 0 18px 14px 18px;
+        background: var(--ld-mini-surface);
+      }
+
+      .store-name {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: 0;
+        font-size: 19px;
+        font-weight: 800;
+      }
+
+      .store-distance {
+        margin: 6px 0 0;
+        color: var(--ld-mini-muted);
+        font-size: 13px;
+      }
+
+      .dine-tag {
+        position: absolute;
+        right: 18px;
+        top: 4px;
+        width: 64px;
+        height: 46px;
+        border: 1px solid #f0dfc7;
+        border-radius: 10px;
+        background: #fff9ee;
+        color: #7a491e;
+        text-align: center;
+        font-size: 16px;
+        font-weight: 700;
+        line-height: 46px;
+      }
+
+      .menu-area {
+        position: absolute;
+        top: 176px;
+        left: 0;
+        right: 0;
+        bottom: 104px;
+        display: grid;
+        grid-template-columns: 78px 1fr;
+        background: #ffffff;
+      }
+
+      .category-nav {
+        overflow: hidden;
+        background: #f5f5f5;
+      }
+
+      .category-nav span {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 66px;
+        padding: 0 10px;
+        color: #747474;
+        text-align: center;
+        font-size: 13px;
+        line-height: 1.25;
+      }
+
+      .category-nav .active {
+        background: #ffffff;
+        color: #111111;
+        font-weight: 800;
+      }
+
+      .category-nav .active::before {
+        position: absolute;
+        left: 0;
+        top: 21px;
+        width: 4px;
+        height: 24px;
+        border-radius: 0 4px 4px 0;
+        background: var(--ld-mini-primary);
+        content: "";
+      }
+
+      .menu-list {
+        padding: 0 12px 16px 16px;
+      }
+
+      .menu-item {
+        position: relative;
+        display: grid;
+        grid-template-columns: 112px 1fr;
+        gap: 12px;
+        min-height: 126px;
+        padding: 16px 0;
+        border-bottom: 1px solid #f1f1f1;
+      }
+
+      .menu-item img,
+      .spec-hero img,
+      .choice-card img,
+      .thumbs img,
+      .submit-product img,
+      .upsell img {
+        display: block;
+        object-fit: cover;
+        background: #fff;
+      }
+
+      .menu-item img {
+        width: 112px;
+        height: 88px;
+        border-radius: 10px;
+      }
+
+      .menu-item h4 {
+        margin: 3px 0 8px;
+        font-size: 16px;
+        line-height: 1.25;
+      }
+
+      .label-red {
+        display: inline-block;
+        padding: 2px 5px;
+        border: 1px solid #f3a1a6;
+        color: var(--ld-mini-primary);
+        font-size: 11px;
+        line-height: 1;
+      }
+
+      .price {
+        color: #111111;
+        font-size: 24px;
+        font-weight: 900;
+      }
+
+      .old-price {
+        margin-left: 4px;
+        color: #a6a6a6;
+        font-size: 13px;
+        font-weight: 500;
+        text-decoration: line-through;
+      }
+
+      .select-btn,
+      .mini-plus {
+        border: 0;
+        border-radius: 999px;
+        background: var(--ld-mini-primary);
+        color: #ffffff;
+        font-weight: 800;
+      }
+
+      .select-btn {
+        position: absolute;
+        right: 0;
+        bottom: 18px;
+        width: 70px;
+        height: 32px;
+        font-size: 13px;
+      }
+
+      .cart-bar {
+        position: absolute;
+        left: 12px;
+        right: 12px;
+        bottom: 18px;
+        z-index: 8;
+        display: grid;
+        grid-template-columns: 70px 1fr 116px;
+        align-items: center;
+        min-height: 66px;
+        border-radius: 12px;
+        background: var(--ld-mini-primary);
+        color: #ffffff;
+        box-shadow: 0 14px 28px rgba(237, 28, 36, 0.22);
+      }
+
+      .bag {
+        position: relative;
+        width: 58px;
+        height: 58px;
+        margin-left: 8px;
+        border-radius: 12px;
+        background: #fff2d9;
+        color: var(--ld-mini-primary);
+        text-align: center;
+        font-size: 28px;
+        line-height: 58px;
+      }
+
+      .bag::after {
+        position: absolute;
+        right: -6px;
+        top: -8px;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: var(--ld-mini-primary);
+        color: #ffffff;
+        content: "1";
+        font-size: 13px;
+        line-height: 22px;
+      }
+
+      .cart-money {
+        font-size: 27px;
+        font-weight: 900;
+      }
+
+      .cart-money small {
+        margin-left: 6px;
+        color: rgba(255, 255, 255, 0.78);
+        font-size: 13px;
+        font-weight: 500;
+      }
+
+      .checkout-btn {
+        height: 100%;
+        border-left: 1px solid rgba(255, 255, 255, 0.18);
+        text-align: center;
+        font-size: 20px;
+        font-weight: 900;
+        line-height: 66px;
+      }
+
+      .spec-phone {
+        background: #ffffff;
+      }
+
+      .spec-hero {
+        position: absolute;
+        top: 96px;
+        left: 0;
+        right: 0;
+        height: 210px;
+        display: grid;
+        grid-template-columns: 1fr 92px;
+        gap: 6px;
+        padding: 0 18px;
+      }
+
+      .spec-hero .main-food {
+        width: 230px;
+        height: 190px;
+        align-self: end;
+        border-radius: 18px;
+      }
+
+      .combo-stack {
+        display: grid;
+        gap: 6px;
+      }
+
+      .combo-stack img {
+        width: 86px;
+        height: 62px;
+        border-radius: 8px;
+      }
+
+      .spec-info {
+        position: absolute;
+        top: 326px;
+        left: 20px;
+        right: 20px;
+      }
+
+      .spec-info h2 {
+        display: flex;
+        justify-content: space-between;
+        margin: 0 0 12px;
+        font-size: 24px;
+        line-height: 1.25;
+      }
+
+      .stepper {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        font-size: 20px;
+      }
+
+      .round {
+        width: 32px;
+        height: 32px;
+        border: 1px solid #dddddd;
+        border-radius: 50%;
+        background: #ffffff;
+        color: #999999;
+        font-size: 24px;
+        line-height: 28px;
+      }
+
+      .round.plus {
+        border: 0;
+        background: var(--ld-mini-primary);
+        color: #ffffff;
+      }
+
+      .spec-section {
+        position: absolute;
+        top: 422px;
+        left: 20px;
+        right: 20px;
+      }
+
+      .spec-section h4 {
+        margin: 0 0 12px;
+        color: #777777;
+        font-size: 15px;
+        font-weight: 500;
+      }
+
+      .choice-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+      }
+
+      .choice-card {
+        position: relative;
+        min-height: 146px;
+        padding: 10px 8px 36px;
+        border: 1px solid #eeeeee;
+        border-radius: 8px;
+        background: #ffffff;
+        text-align: center;
+      }
+
+      .choice-card.active {
+        border-color: #b9934b;
+      }
+
+      .choice-card img {
+        width: 86px;
+        height: 62px;
+        margin: 0 auto 8px;
+        border-radius: 8px;
+      }
+
+      .choice-card p {
+        margin: 0;
+        font-size: 13px;
+        line-height: 1.35;
+      }
+
+      .choice-card .radio {
+        position: absolute;
+        right: 12px;
+        bottom: 12px;
+        width: 24px;
+        height: 24px;
+        border: 2px solid #e3e3e3;
+        border-radius: 50%;
+      }
+
+      .choice-card.active .radio {
+        border-color: var(--ld-mini-primary);
+        background: var(--ld-mini-primary);
+      }
+
+      .choice-card.active .radio::after {
+        position: absolute;
+        left: 6px;
+        top: 2px;
+        color: #ffffff;
+        content: "✓";
+        font-weight: 800;
+      }
+
+      .spec-bottom {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        padding: 14px 14px 12px;
+        background: rgba(255, 255, 255, 0.96);
+        box-shadow: 0 -10px 24px rgba(0, 0, 0, 0.06);
+      }
+
+      .thumbs {
+        display: flex;
+        gap: 8px;
+        min-height: 54px;
+        margin-bottom: 12px;
+      }
+
+      .thumbs img,
+      .thumbs span {
+        width: 50px;
+        height: 50px;
+        border: 1px solid #b9934b;
+        border-radius: 8px;
+      }
+
+      .thumbs span {
+        display: grid;
+        place-items: center;
+        color: var(--ld-mini-primary);
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .spec-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      .outline-btn,
+      .solid-btn {
+        height: 50px;
+        border-radius: 6px;
+        font-size: 18px;
+        font-weight: 900;
+      }
+
+      .outline-btn {
+        border: 1px solid var(--ld-mini-primary);
+        background: #ffffff;
+        color: var(--ld-mini-primary);
+      }
+
+      .solid-btn {
+        border: 0;
+        background: var(--ld-mini-primary);
+        color: #ffffff;
+      }
+
+      .submit-phone {
+        background: #f6f6f6;
+      }
+
+      .submit-scroll {
+        position: absolute;
+        top: 102px;
+        left: 0;
+        right: 0;
+        bottom: 82px;
+        overflow: hidden;
+        padding: 0 12px 18px;
+      }
+
+      .submit-card {
+        margin-bottom: 12px;
+        padding: 18px;
+        border-radius: 10px;
+        background: #ffffff;
+      }
+
+      .submit-card h3 {
+        text-align: left;
+      }
+
+      .shop-title {
+        display: flex;
+        justify-content: space-between;
+        margin: 0 0 8px;
+        font-size: 20px;
+      }
+
+      .shop-title small {
+        color: #8a8a8a;
+        font-size: 13px;
+        font-weight: 500;
+      }
+
+      .shop-address {
+        margin: 0 0 18px;
+        color: #666666;
+        font-size: 14px;
+        line-height: 1.45;
+      }
+
+      .mode-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      .mode {
+        position: relative;
+        min-height: 62px;
+        padding: 14px 12px 12px 58px;
+        border: 1px solid #e2e2e2;
+        border-radius: 8px;
+      }
+
+      .mode.active {
+        border: 2px solid var(--ld-mini-primary);
+      }
+
+      .mode::before {
+        position: absolute;
+        left: 12px;
+        top: 15px;
+        width: 36px;
+        height: 32px;
+        border-radius: 8px;
+        background: #fff0d7;
+        content: "";
+      }
+
+      .mode strong {
+        display: block;
+        font-size: 19px;
+      }
+
+      .mode span {
+        color: #888888;
+        font-size: 13px;
+      }
+
+      .pickup {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 16px;
+        padding-top: 14px;
+        border-top: 1px solid #f1f1f1;
+        font-size: 16px;
+      }
+
+      .pickup b {
+        color: var(--ld-mini-primary);
+      }
+
+      .submit-product {
+        display: grid;
+        grid-template-columns: 76px 1fr auto;
+        gap: 12px;
+        align-items: start;
+      }
+
+      .submit-product img {
+        width: 76px;
+        height: 58px;
+        border-radius: 8px;
+      }
+
+      .submit-product h4 {
+        margin: 0 0 6px;
+        font-size: 16px;
+      }
+
+      .submit-product p {
+        margin: 2px 0;
+        color: #8a8a8a;
+        font-size: 13px;
+      }
+
+      .upsell-row {
+        display: flex;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .upsell {
+        position: relative;
+        min-width: 116px;
+        padding: 18px 8px 10px;
+        border-radius: 8px;
+        background: #fff8f3;
+      }
+
+      .save-tag {
+        position: absolute;
+        left: 0;
+        top: 0;
+        padding: 3px 9px;
+        border-radius: 8px 0 8px 0;
+        background: #ff4c13;
+        color: #ffffff;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .upsell img {
+        width: 88px;
+        height: 56px;
+        margin: 0 auto 8px;
+        border-radius: 8px;
+      }
+
+      .upsell .mini-plus {
+        position: absolute;
+        right: 8px;
+        bottom: 9px;
+        width: 26px;
+        height: 26px;
+        font-size: 20px;
+      }
+
+      .amount-line {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 16px;
+        font-size: 16px;
+      }
+
+      .coupon-strip {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        height: 48px;
+        margin: -2px -18px 0;
+        padding: 0 16px;
+        background: #fff0d1;
+        color: var(--ld-mini-primary);
+        font-weight: 800;
+      }
+
+      .pay-bar {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: grid;
+        grid-template-columns: 1fr 150px;
+        align-items: center;
+        height: 82px;
+        padding: 12px 14px;
+        background: #ffffff;
+      }
+
+      .pay-bar small {
+        color: #777777;
+        font-size: 15px;
+      }
+
+      .pay-bar strong {
+        font-size: 34px;
+      }
+
+      .orders-phone {
+        background: #f3f3f3;
+      }
+
+      .order-tabs {
+        position: absolute;
+        top: 108px;
+        left: 0;
+        right: 0;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        height: 62px;
+        background: #ffffff;
+        text-align: center;
+        color: #5f5f5f;
+        font-size: 22px;
+        font-weight: 800;
+      }
+
+      .order-tabs span {
+        position: relative;
+        line-height: 62px;
+      }
+
+      .order-tabs .active {
+        color: var(--ld-mini-primary, #ed1c24);
+      }
+
+      .order-tabs .active::after {
+        position: absolute;
+        left: 50%;
+        bottom: 0;
+        width: 42px;
+        height: 4px;
+        border-radius: 999px;
+        background: var(--ld-mini-primary);
+        content: "";
+        transform: translateX(-50%);
+      }
+
+      .history-order-card {
+        position: absolute;
+        top: 196px;
+        left: 14px;
+        right: 14px;
+        min-height: 188px;
+        padding: 18px;
+        border-radius: 12px;
+        background: #ffffff;
+      }
+
+      .history-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+        font-size: 19px;
+        font-weight: 800;
+      }
+
+      .dine-badge {
+        padding: 3px 6px;
+        border-radius: 5px;
+        background: #00645c;
+        color: #ffffff;
+        font-size: 14px;
+      }
+
+      .history-title .done {
+        margin-left: auto;
+        color: #999999;
+        font-size: 15px;
+        font-weight: 500;
+      }
+
+      .order-time {
+        margin: 0 0 18px;
+        color: #999999;
+        font-size: 15px;
+      }
+
+      .history-body {
+        display: grid;
+        grid-template-columns: 1fr 104px;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .order-foods {
+        display: flex;
+        gap: 14px;
+      }
+
+      .order-foods img {
+        width: 88px;
+        height: 64px;
+        border-radius: 10px;
+        object-fit: cover;
+      }
+
+      .history-price {
+        text-align: right;
+      }
+
+      .history-price strong {
+        display: block;
+        font-size: 24px;
+      }
+
+      .history-price span {
+        display: block;
+        margin: 6px 0 28px;
+        color: #c2c2c2;
+      }
+
+      .again-btn {
+        width: 86px;
+        height: 36px;
+        border: 0;
+        border-radius: 4px;
+        background: var(--ld-mini-primary);
+        color: #ffffff;
+        font-size: 16px;
+        font-weight: 800;
+      }
+
+      .profile-phone {
+        background: #f6f6f6;
+      }
+
+      .profile-content {
+        position: absolute;
+        top: 100px;
+        left: 0;
+        right: 0;
+        bottom: 92px;
+        overflow: hidden;
+        padding: 0 16px 16px;
+      }
+
+      .profile-user {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 16px;
+        font-size: 18px;
+        font-weight: 800;
+      }
+
+      .avatar {
+        position: relative;
+        width: 58px;
+        height: 58px;
+        border: 1px solid #e6e6e6;
+        border-radius: 50%;
+        background: #ffffff;
+      }
+
+      .avatar::before,
+      .avatar::after {
+        position: absolute;
+        left: 50%;
+        content: "";
+        background: #d0d0d0;
+        transform: translateX(-50%);
+      }
+
+      .avatar::before {
+        top: 14px;
+        width: 17px;
+        height: 17px;
+        border-radius: 50%;
+      }
+
+      .avatar::after {
+        top: 35px;
+        width: 32px;
+        height: 16px;
+        border-radius: 18px 18px 4px 4px;
+      }
+
+      .member {
+        padding: 20px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #ed1c24, #ff6b35);
+        color: #ffffff;
+      }
+
+      .member h4 {
+        margin: 0;
+        font-size: 22px;
+      }
+
+      .member p {
+        margin: 8px 0 16px;
+        color: rgba(255, 255, 255, 0.86);
+        font-size: 14px;
+      }
+
+      .member-stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+
+      .member-stats span {
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.16);
+        padding: 10px;
+        font-size: 13px;
+      }
+
+      .member-stats strong {
+        display: block;
+        margin-top: 4px;
+        font-size: 24px;
+      }
+
+      .asset-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-top: 12px;
+      }
+
+      .asset {
+        position: relative;
+        overflow: hidden;
+        min-height: 112px;
+        padding: 18px;
+        border: 1px solid rgba(237, 28, 36, 0.1);
+        background: linear-gradient(135deg, #fff5e6 0%, #ffffff 56%, #fff0f1 100%);
+        box-shadow: 0 10px 22px rgba(44, 24, 18, 0.1);
+      }
+
+      .asset::after {
+        position: absolute;
+        right: -14px;
+        top: -14px;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.48);
+        content: "";
+      }
+
+      .asset:nth-child(2) {
+        background: linear-gradient(135deg, #fff1f1 0%, #ffffff 58%, #fff7df 100%);
+      }
+
+      .asset strong {
+        position: relative;
+        z-index: 1;
+        color: var(--ld-mini-primary, #ed1c24);
+        font-size: 27px;
+      }
+
+      .asset p {
+        position: relative;
+        z-index: 1;
+        margin: 12px 0;
+        font-weight: 700;
+      }
+
+      .pill {
+        position: relative;
+        z-index: 1;
+        display: block;
+        height: 28px;
+        border-radius: 999px;
+        background: rgba(237, 28, 36, 0.1);
+        color: var(--ld-mini-primary, #ed1c24);
+        text-align: center;
+        font-size: 13px;
+        line-height: 28px;
+      }
+
+      .manage {
+        margin-top: 12px;
+        padding: 18px 16px;
+      }
+
+      .manage h4 {
+        margin: 0 0 18px;
+        font-size: 18px;
+      }
+
+      .manage-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        text-align: center;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .manage-grid i {
+        display: block;
+        width: 34px;
+        height: 34px;
+        margin: 0 auto 8px;
+        border-radius: 50%;
+        background: var(--ld-mini-primary-soft);
+      }
+
+      .tabbar {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 7;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        height: 92px;
+        padding: 17px 18px 0;
+        border-top: 1px solid #f1f1f1;
+        background: #ffffff;
+        text-align: center;
+        font-size: 12px;
+      }
+
+      .tabbar .active {
+        color: var(--ld-mini-primary);
+        font-weight: 800;
+      }
+
+      .tab-icon {
+        display: block;
+        width: 18px;
+        height: 18px;
+        margin: 0 auto 6px;
+        border-radius: 6px;
+        background: currentColor;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="canvas">
+      <header class="header">
+        <h1>零点点餐微信小程序 PRD 与设计稿</h1>
+        <p>根据注释统一为塔斯汀式点餐交互：左侧分类、商品列表、规格选择、提交订单、红色底部操作栏。</p>
+      </header>
+
+      <section class="board">
+        <aside>
+          <div class="brief">
+            <h2>PRD 摘要</h2>
+            <p class="sub">覆盖首页、点餐、购物车、订单、个人中心。完整文档见 docs/2026-06-20-miniapp-prd.md。</p>
+            <div class="brief-item"><strong>首页</strong><span>门店入口、活动 Banner、会员积分、堂食/外卖入口、快捷功能、堡藏推荐和底部导航。</span></div>
+            <div class="brief-item"><strong>点餐</strong><span>门店信息、堂食标识、左侧分类导航、商品列表、规格按钮和底部购物车结算栏。</span></div>
+            <div class="brief-item"><strong>购物车</strong><span>商品规格选择、套餐选项、数量步进、已选缩略图、立即购买和加入购物车。</span></div>
+            <div class="brief-item"><strong>订单</strong><span>包含提交订单和订单列表：当前/历史切换、订单状态、商品图、金额、数量和再来一单。</span></div>
+            <div class="brief-item"><strong>我的</strong><span>会员权益、余额、优惠券、常用管理和统一底部导航，布局不再互相覆盖。</span></div>
+            <div class="brief-item"><strong>变量</strong><span>统一红色主色、浅灰背景、白色卡片、统一 spacing/radius/type token。</span></div>
+          </div>
+
+          <div class="tokens">
+            <h2>全局环境变量</h2>
+            <div class="token-grid">
+              <div class="token"><i class="swatch" style="background:#ed1c24"></i>--ld-mini-primary</div>
+              <div class="token"><i class="swatch" style="background:#c90012"></i>--ld-mini-primary-pressed</div>
+              <div class="token"><i class="swatch" style="background:#fff1f1"></i>--ld-mini-primary-soft</div>
+              <div class="token"><i class="swatch" style="background:#f7f7f7"></i>--ld-mini-bg</div>
+              <div class="token"><i class="swatch" style="background:#ffffff"></i>--ld-mini-surface</div>
+              <div class="token"><i class="swatch" style="background:#ececec"></i>--ld-mini-border</div>
+            </div>
+          </div>
+        </aside>
+
+        <section class="screen-wrap">
+          <h3>首页</h3>
+          <div class="phone home-phone">
+            <div class="member-strip"><strong>张新阳</strong><span>21 积分</span><span>1 优惠券</span></div>
+            <section class="home-content">
+              <div class="home-mode-grid">
+                <article class="home-mode"><strong>到店堂食</strong><i></i></article>
+                <article class="home-mode"><strong>外卖到家</strong><i></i></article>
+              </div>
+              <section class="recommend">
+                <h3>堡藏推荐 <span>福利满满</span></h3>
+                <div class="recommend-grid">
+                  <article class="rec-card"><img src="./assets/milk-green.jpg" alt="花样随心二加一" /><h4>花样随心2+1</h4><strong>¥23.9</strong><button class="mini-plus">+</button></article>
+                  <article class="rec-card"><img src="./assets/pearl-green.jpg" alt="随心拼人气套餐" /><h4>【随心拼】人气套餐</h4><strong>¥24.9</strong><button class="mini-plus">+</button></article>
+                  <article class="rec-card"><img src="./assets/grapefruit.jpg" alt="双享随心四拼" /><h4>双享随心4拼</h4><strong>¥28.9</strong><button class="mini-plus">+</button></article>
+                  <article class="rec-card"><img src="./assets/lime.jpg" alt="辣堡二个" /><h4>辣堡2个</h4><strong>¥14.8</strong><button class="mini-plus">+</button></article>
+                </div>
+              </section>
+            </section>
+            <div class="tabbar"><div class="active"><i class="tab-icon"></i>首页</div><div><i class="tab-icon"></i>点单</div><div><i class="tab-icon"></i>订单</div><div><i class="tab-icon"></i>我的</div></div>
+          </div>
+        </section>
+
+        <section class="screen-wrap">
+          <h3>点餐 / 菜单列表</h3>
+          <div class="phone">
+            <div class="status"><span>12:21</span><span class="bars"><i></i><i></i><i></i></span></div>
+            <div class="nav"><span class="back">‹</span><span class="search-mini">⌕</span><div class="capsule"><span class="dots"><i></i><i></i><i></i></span><span class="ring"></span></div></div>
+            <section class="store-head">
+              <h2 class="store-name">北京市西城陶然亭物美店 ›</h2>
+              <p class="store-distance">距离您 1.8km</p>
+              <span class="dine-tag">堂食</span>
+            </section>
+            <section class="menu-area">
+              <nav class="category-nav">
+                <span class="active">端午随<br />心拼</span>
+                <span>送抽奖<br />卡</span>
+                <span>鸡虾堡<br />上新</span>
+                <span>人气热<br />卖</span>
+                <span>精选单<br />人餐</span>
+                <span>分享双<br />人餐</span>
+                <span>小食炸<br />鸡桶</span>
+              </nav>
+              <div class="menu-list">
+                <article class="menu-item">
+                  <img src="./assets/milk-green.jpg" alt="双堡随心搭套餐" />
+                  <div><h4>双堡随心搭7件套</h4><span class="label-red">超值自选</span><div class="price">¥38.9 <span class="old-price">¥55.8</span></div><button class="select-btn">选规格</button></div>
+                </article>
+                <article class="menu-item">
+                  <img src="./assets/pearl-green.jpg" alt="花样随心二加一" />
+                  <div><h4>花样随心2+1</h4><span class="label-red">超值自选</span><div class="price">¥23.9 <span class="old-price">¥25.8</span></div><button class="select-btn">选规格</button></div>
+                </article>
+                <article class="menu-item">
+                  <img src="./assets/grapefruit.jpg" alt="端午畅选六拼餐" />
+                  <div><h4>端午畅选6拼餐</h4><span class="label-red">随心畅选</span><div class="price">¥38.9 <span class="old-price">¥40</span></div><button class="select-btn">选规格</button></div>
+                </article>
+                <article class="menu-item">
+                  <img src="./assets/lime.jpg" alt="双堡咸甜随心八拼" />
+                  <div><h4>双堡咸甜随心8拼</h4><span class="label-red">多选/自选</span><div class="price">¥46.9 <span class="old-price">¥62.8</span></div><button class="select-btn">选规格</button></div>
+                </article>
+              </div>
+            </section>
+            <div class="cart-bar"><div class="bag">零</div><div class="cart-money">¥38.9 <small>预估到手 共优惠¥16.9</small></div><div class="checkout-btn">去结算</div></div>
+          </div>
+        </section>
+
+        <section class="screen-wrap">
+          <h3>购物车 / 商品规格</h3>
+          <div class="phone spec-phone">
+            <div class="status"><span>12:21</span><span class="bars"><i></i><i></i><i></i></span></div>
+            <div class="nav"><span class="back">‹</span><div class="capsule"><span class="dots"><i></i><i></i><i></i></span><span class="ring"></span></div></div>
+            <section class="spec-hero">
+              <img class="main-food" src="./assets/milk-green.jpg" alt="招牌套餐" />
+              <div class="combo-stack">
+                <img src="./assets/pearl-green.jpg" alt="可选汉堡" />
+                <img src="./assets/grapefruit.jpg" alt="可选小食" />
+                <img src="./assets/lime.jpg" alt="可选饮品" />
+              </div>
+            </section>
+            <section class="spec-info">
+              <h2>招牌随心3拼 <span class="stepper"><button class="round">−</button>1<button class="round plus">+</button></span></h2>
+              <span class="label-red">超值自选</span>
+            </section>
+            <section class="spec-section">
+              <h4>汉堡（任选1）</h4>
+              <div class="choice-grid">
+                <article class="choice-card active"><img src="./assets/milk-green.jpg" alt="香辣鸡腿中国汉堡" /><p>香辣鸡腿中国汉堡</p><span class="radio"></span></article>
+                <article class="choice-card"><img src="./assets/pearl-green.jpg" alt="藤椒鸡腿中国汉堡" /><p>藤椒鸡腿中国汉堡</p><span class="radio"></span></article>
+                <article class="choice-card"><img src="./assets/grapefruit.jpg" alt="黄金香酥鸡柳中国汉堡" /><p>黄金香酥鸡柳中国汉堡</p><span class="radio"></span></article>
+                <article class="choice-card"><img src="./assets/lime.jpg" alt="培根煎蛋中国汉堡" /><p>培根煎蛋中国汉堡</p><span class="radio"></span></article>
+                <article class="choice-card"><img src="./assets/milk-green.jpg" alt="脆烤鸡排中国汉堡" /><p>脆烤鸡排中国汉堡</p><span class="radio"></span></article>
+                <article class="choice-card"><img src="./assets/pearl-green.jpg" alt="原味鸡腿中国汉堡" /><p>原味鸡腿中国汉堡</p><span class="radio"></span></article>
+              </div>
+            </section>
+            <section class="spec-bottom">
+              <div class="thumbs"><img src="./assets/milk-green.jpg" alt="已选汉堡" /><img src="./assets/grapefruit.jpg" alt="已选小食" /><img src="./assets/lime.jpg" alt="已选饮品" /><span>不加购</span></div>
+              <div class="spec-actions"><button class="outline-btn">立即购买</button><button class="solid-btn">加入购物车</button></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="screen-wrap">
+          <h3>订单 / 提交订单</h3>
+          <div class="phone submit-phone">
+            <div class="status"><span>11:55</span><span class="bars"><i></i><i></i><i></i></span></div>
+            <div class="nav"><span class="back">‹</span>提交订单<div class="capsule"><span class="dots"><i></i><i></i><i></i></span><span class="ring"></span></div></div>
+            <section class="submit-scroll">
+              <article class="submit-card">
+                <h2 class="shop-title">北京市西城陶然亭物美店 <small>距离您1.8km</small></h2>
+                <p class="shop-address">北京市西城区太平街甲6号富力摩根中心DE座1434-F1-B008铺位号</p>
+                <div class="mode-grid"><div class="mode active"><strong>堂食</strong><span>店内就餐</span></div><div class="mode"><strong>外带</strong><span>打包带走</span></div></div>
+                <div class="pickup"><span>取餐时间 <small class="label-red">出餐保障</small></span><b>立即取餐 ›</b></div>
+              </article>
+              <article class="submit-card">
+                <h3>餐品详情</h3>
+                <div class="submit-product"><img src="./assets/milk-green.jpg" alt="双堡随心搭7件套" /><div><h4>双堡随心搭7件套</h4><p>1 x 香辣鸡腿中国汉堡</p><p>1 x 培根煎蛋中国汉堡</p><p>展开⌄</p></div><strong>1份<br />¥38.9</strong></div>
+                <h3>超值换购，单件最多可省¥4.2元</h3>
+                <div class="upsell-row">
+                  <article class="upsell"><span class="save-tag">立省¥3.20</span><img src="./assets/pearl-green.jpg" alt="熊猫点心" /><strong>¥4.8</strong><button class="mini-plus">+</button></article>
+                  <article class="upsell"><span class="save-tag">立省¥2.20</span><img src="./assets/grapefruit.jpg" alt="烤肠" /><strong>¥5.8</strong><button class="mini-plus">+</button></article>
+                  <article class="upsell"><span class="save-tag">立省¥1.20</span><img src="./assets/lime.jpg" alt="饮品" /><strong>¥6.8</strong><button class="mini-plus">+</button></article>
+                </div>
+                <div class="amount-line"><span>商品金额</span><strong>¥38.9</strong></div>
+                <div class="coupon-strip"><span>省钱券包 ¥0.01 购买价值¥40券包</span><span>已优惠39.99元</span></div>
+              </article>
+            </section>
+            <div class="pay-bar"><div><small>合计：</small><strong>¥38.9</strong></div><button class="solid-btn">去支付</button></div>
+          </div>
+        </section>
+
+        <section class="screen-wrap">
+          <h3>订单 / 历史订单</h3>
+          <div class="phone orders-phone">
+            <div class="status"><span>12:35</span><span class="bars"><i></i><i></i><i></i></span></div>
+            <div class="nav"><span class="back">‹</span><div class="capsule"><span class="dots"><i></i><i></i><i></i></span><span class="ring"></span></div></div>
+            <div class="order-tabs"><span>当前订单</span><span class="active">历史订单</span></div>
+            <article class="history-order-card">
+              <div class="history-title"><span class="dine-badge">堂食</span><strong>北京市海淀五道口店</strong><span class="done">已完成 ›</span></div>
+              <p class="order-time">2026-06-15 18:28:27</p>
+              <div class="history-body">
+                <div class="order-foods"><img src="./assets/milk-green.jpg" alt="香辣鸡腿堡" /><img src="./assets/grapefruit.jpg" alt="鸡块桶" /></div>
+                <div class="history-price"><strong>¥21.9</strong><span>共2件</span><button class="again-btn">再来一单</button></div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="screen-wrap">
+          <h3>个人中心</h3>
+          <div class="phone profile-phone">
+            <div class="status"><span>11:55</span><span class="bars"><i></i><i></i><i></i></span></div>
+            <div class="nav"><div class="capsule"><span class="dots"><i></i><i></i><i></i></span><span class="ring"></span></div></div>
+            <section class="profile-content">
+              <div class="profile-user"><span class="avatar"></span><span>普通会员 176****2528</span></div>
+              <section class="member"><h4>会员权益</h4><p>加入会员，充值就送好礼，充多送多。</p><div class="member-stats"><span>订单数<strong>5</strong></span><span>消费金额<strong>¥147.8</strong></span></div></section>
+              <div class="asset-row">
+                <article class="asset card"><strong>106元</strong><p>我的余额 ›</p><span class="pill">去充值</span></article>
+                <article class="asset card"><strong>0张</strong><p>我的优惠券 ›</p><span class="pill">0张 待领取</span></article>
+              </div>
+              <section class="manage card"><h4>常用管理</h4><div class="manage-grid"><span><i></i>我的订单</span><span><i></i>地址管理</span><span><i></i>我的收藏</span><span><i></i>交易记录</span></div></section>
+            </section>
+            <div class="tabbar"><div><i class="tab-icon"></i>首页</div><div><i class="tab-icon"></i>点单</div><div><i class="tab-icon"></i>订单</div><div class="active"><i class="tab-icon"></i>我的</div></div>
+          </div>
+        </section>
+      </section>
+    </main>
+  </body>
+</html>

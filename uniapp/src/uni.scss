@@ -1,5 +1,6 @@
 /* 全局颜色与 uni-app 默认变量统一从 theme/colors.scss 派生 */
 @import '../../theme/colors.scss';
+@import '../../theme/miniapp-tokens.scss';
 
 $uni-font-size-sm: 12px;
 $uni-font-size-base: 14px;

@@ -3,75 +3,40 @@
     <view class="content">
       <slot />
     </view>
-    <view class="tabbar">
-      <view
-        v-for="tab in tabs"
-        :key="tab.key"
-        class="tab-item"
-        :class="{ active: tab.key === activeTab }"
-      >
-        <text class="tab-label">{{ tab.label }}</text>
-      </view>
-    </view>
+    <AppTabBar :active="active" @change="handleTabChange" />
   </view>
 </template>
 
 <script setup lang="ts">
-defineProps<{ activeTab: string }>();
+import AppTabBar from "@/components/app/AppTabBar.vue";
 
-const tabs = [
-  { key: "home", label: "首页" },
-  { key: "order", label: "点餐" },
-  { key: "his", label: "订单" },
-  { key: "user", label: "我的" },
-];
+type AppTabKey = "home" | "menu" | "orders" | "profile";
+
+const props = defineProps<{
+  active: AppTabKey;
+}>();
+
+const routes: Record<AppTabKey, string> = {
+  home: "/pages/home/home",
+  menu: "/pages/order/order",
+  orders: "/pages/his/his",
+  profile: "/pages/user/user",
+};
+
+function handleTabChange(key: AppTabKey) {
+  if (key === props.active) return;
+  uni.redirectTo({ url: routes[key] });
+}
 </script>
 
 <style scoped>
 .layout {
   min-height: 100vh;
-  padding-bottom: 128rpx;
-  background: var(--ld-bg-page);
+  padding-bottom: 120rpx;
+  background: var(--ld-mini-bg);
 }
 
 .content {
-  min-height: calc(100vh - 128rpx);
-}
-
-.tabbar {
-  position: fixed;
-  left: 24rpx;
-  right: 24rpx;
-  bottom: 24rpx;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12rpx;
-  padding: 14rpx;
-  border-radius: 999rpx;
-  border: 1rpx solid var(--ld-border-default);
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 18rpx 40rpx rgba(123, 63, 38, 0.14);
-}
-
-.tab-item {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 72rpx;
-  border-radius: 999rpx;
-}
-
-.tab-item.active {
-  background: var(--ld-accent-bg);
-}
-
-.tab-label {
-  font-size: 24rpx;
-  color: var(--ld-text-muted);
-}
-
-.tab-item.active .tab-label {
-  color: var(--ld-color-primary);
-  font-weight: 600;
+  min-height: calc(100vh - 120rpx);
 }
 </style>

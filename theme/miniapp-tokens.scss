@@ -1,0 +1,42 @@
+$ld-mini-primary: #ed1c24;
+$ld-mini-primary-pressed: #c90012;
+$ld-mini-primary-soft: #fff1f1;
+$ld-mini-brand-dark: #2b160f;
+$ld-mini-cyan: #ed1c24;
+$ld-mini-bg-page: #f7f7f7;
+$ld-mini-bg-surface: #ffffff;
+$ld-mini-text: #171717;
+$ld-mini-text-muted: #8c8c8c;
+$ld-mini-border: #ececec;
+$ld-mini-shadow-card: 0 8px 24px rgba(36, 24, 20, 0.08);
+
+$ld-mini-space-8: 8px;
+$ld-mini-space-12: 12px;
+$ld-mini-space-16: 16px;
+$ld-mini-space-24: 24px;
+
+$ld-mini-radius-8: 8px;
+$ld-mini-radius-16: 16px;
+$ld-mini-radius-24: 24px;
+
+:root,
+page {
+  --ld-mini-primary: #{$ld-mini-primary};
+  --ld-mini-primary-pressed: #{$ld-mini-primary-pressed};
+  --ld-mini-primary-soft: #{$ld-mini-primary-soft};
+  --ld-mini-brand-dark: #{$ld-mini-brand-dark};
+  --ld-mini-cyan: #{$ld-mini-cyan};
+  --ld-mini-bg: #{$ld-mini-bg-page};
+  --ld-mini-surface: #{$ld-mini-bg-surface};
+  --ld-mini-text: #{$ld-mini-text};
+  --ld-mini-text-muted: #{$ld-mini-text-muted};
+  --ld-mini-border: #{$ld-mini-border};
+  --ld-mini-shadow-card: #{$ld-mini-shadow-card};
+  --ld-space-8: #{$ld-mini-space-8};
+  --ld-space-12: #{$ld-mini-space-12};
+  --ld-space-16: #{$ld-mini-space-16};
+  --ld-space-24: #{$ld-mini-space-24};
+  --ld-radius-8: #{$ld-mini-radius-8};
+  --ld-radius-16: #{$ld-mini-radius-16};
+  --ld-radius-24: #{$ld-mini-radius-24};
+}

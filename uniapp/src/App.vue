@@ -8,8 +8,8 @@ onLaunch(() => {
 
 <style>
 page {
-  background: var(--ld-bg-page);
-  color: var(--ld-text-body);
+  background: var(--ld-mini-bg);
+  color: var(--ld-mini-text);
 }
 
 view,

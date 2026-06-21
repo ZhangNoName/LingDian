@@ -13,9 +13,27 @@
       }
     },
     {
+      "path": "pages/spec/spec",
+      "style": {
+        "navigationBarTitleText": "商品规格"
+      }
+    },
+    {
+      "path": "pages/checkout/checkout",
+      "style": {
+        "navigationBarTitleText": "提交订单"
+      }
+    },
+    {
       "path": "pages/his/his",
       "style": {
         "navigationBarTitleText": "订单"
+      }
+    },
+    {
+      "path": "pages/order-detail/order-detail",
+      "style": {
+        "navigationBarTitleText": "订单详情"
       }
     },
     {
@@ -29,7 +47,7 @@
     "navigationStyle": "custom",
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "零点点餐",
-    "navigationBarBackgroundColor": "#FFF8F4",
-    "backgroundColor": "#FFF8F4"
+    "navigationBarBackgroundColor": "#F7F7F7",
+    "backgroundColor": "#F7F7F7"
   }
 }
