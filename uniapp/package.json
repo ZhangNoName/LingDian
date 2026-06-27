@@ -2,6 +2,7 @@
   "name": "@lingdian/uniapp",
   "version": "0.0.0",
   "scripts": {
+    "dev": "uni",
     "dev:custom": "uni -p",
     "dev:h5": "uni",
     "dev:h5:ssr": "uni --ssr",
