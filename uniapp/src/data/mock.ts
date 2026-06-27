@@ -142,6 +142,7 @@ export const cartSummary: CartSummary = {
     {
       id: "cart-1",
       productId: "combo-7",
+      skuId: "mock-sku-1",
       productName: "双堡随心搭7件套",
       imageUrl: productImages.burger,
       quantity: 1,
@@ -157,6 +158,7 @@ export const cartSummary: CartSummary = {
 
 export const productDetail: ProductDetail = {
   ...products[0],
+  skuId: "mock-sku-1",
   comboImages: [productImages.combo, productImages.snack, productImages.drink],
   optionGroups: [
     {

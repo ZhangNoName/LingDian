@@ -1,6 +1,7 @@
 export type ProductSummary = {
   id: string;
   categoryId: string;
+  skuId?: string;
   name: string;
   imageUrl: string;
   price: number;
@@ -31,8 +32,10 @@ export type OptionGroup = {
 };
 
 export type ProductDetail = ProductSummary & {
+  skuId: string;
   optionGroups: OptionGroup[];
   comboImages: string[];
+  description?: string;
 };
 
 export type SelectedOption = {

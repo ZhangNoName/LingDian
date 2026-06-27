@@ -5,6 +5,7 @@
   "description": "LingDian ordering backend powered by NestJS",
   "scripts": {
     "build": "nest build",
+    "test": "node --require ts-node/register --test \"src/**/*.spec.ts\"",
     "prisma:generate": "prisma generate",
     "prisma:studio": "prisma studio",
     "prisma:format": "prisma format",

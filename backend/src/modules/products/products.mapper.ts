@@ -3,8 +3,12 @@ type ProductRecord = {
   storeId: string;
   name: string;
   description: string | null;
+  imageUrl: string | null;
   type: string;
   status: string;
+  price: number | { toString(): string };
+  stock: number;
+  isFeatured: boolean;
   categoryId: string;
   category: { id: string; name: string } | null;
   skus: Array<{
@@ -143,7 +147,11 @@ export function mapProductRecord(product: ProductRecord) {
     store_id: product.storeId,
     name: product.name,
     description: product.description,
+    image_url: product.imageUrl,
     type: product.type,
+    price: toNumber(product.price),
+    stock: product.stock,
+    is_featured: product.isFeatured,
     is_active: product.status === 'ACTIVE',
     status: product.status,
     category: product.category?.name ?? '',

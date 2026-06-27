@@ -1,7 +1,7 @@
 <template>
   <view class="page">
     <AppNavBar show-back show-search @back="goHome" />
-    <StoreHeader :store="currentStore" />
+    <StoreHeader :store="store" />
     <view class="menu-layout">
       <CategorySidebar :categories="menuCategories" :active-id="activeCategoryId" @select="handleCategorySelect" />
       <scroll-view
@@ -17,6 +17,7 @@
           </view>
           <MenuProductItem v-for="product in section.products" :key="product.id" :product="product" @select="goSpec" />
         </view>
+        <view v-if="menuSections.length === 0" class="empty">暂无可售餐品</view>
       </scroll-view>
     </view>
     <CartCheckoutBar :cart="cartSummary" @checkout="goCheckout" />
@@ -25,24 +26,43 @@
 
 <script setup lang="ts">
 import { computed, getCurrentInstance, nextTick, onMounted, onUnmounted, ref } from "vue";
+import { onShow } from "@dcloudio/uni-app";
 import AppNavBar from "@/components/app/AppNavBar.vue";
 import CartCheckoutBar from "@/components/menu/CartCheckoutBar.vue";
 import CategorySidebar from "@/components/menu/CategorySidebar.vue";
 import MenuProductItem from "@/components/menu/MenuProductItem.vue";
 import StoreHeader from "@/components/menu/StoreHeader.vue";
-import { cartSummary, currentStore, menuCategories, products } from "@/data/mock";
+import { fetchMenu, type MenuViewModel } from "@/services/catalog";
+import { getCartSummary } from "@/services/cart";
+import type { CartSummary } from "@/types/cart";
+import type { StoreSummary } from "@/types/store";
 
-const activeCategoryId = ref(menuCategories[0].id);
+const menu = ref<MenuViewModel | null>(null);
+const activeCategoryId = ref("");
 const scrollIntoView = ref("");
 const sectionOffsets = ref<Array<{ id: string; top: number }>>([]);
 const scrollMetrics = ref({ viewportHeight: 0, contentHeight: 0 });
 const isCategoryJumping = ref(false);
+const cartSummary = ref<CartSummary>(getCartSummary());
 const instance = getCurrentInstance();
 let initialMeasureTimer: ReturnType<typeof setTimeout> | undefined;
 let categoryJumpTimer: ReturnType<typeof setTimeout> | undefined;
 
+const fallbackStore: StoreSummary = {
+  id: "",
+  name: "零点点餐",
+  address: "正在加载门店",
+  distanceText: "当前门店",
+  businessStatus: "open",
+  supportModes: ["dineIn", "takeaway"],
+};
+
+const store = computed(() => menu.value?.store ?? fallbackStore);
+const menuCategories = computed(() => menu.value?.categories ?? []);
+const products = computed(() => menu.value?.products ?? []);
+
 const productsByCategory = computed(() => {
-  return products.reduce<Record<string, typeof products>>((groups, product) => {
+  return products.value.reduce<Record<string, typeof products.value>>((groups, product) => {
     groups[product.categoryId] = groups[product.categoryId] || [];
     groups[product.categoryId].push(product);
     return groups;
@@ -50,7 +70,7 @@ const productsByCategory = computed(() => {
 });
 
 const menuSections = computed(() => {
-  return menuCategories
+  return menuCategories.value
     .map((category) => ({
       category,
       products: productsByCategory.value[category.id] || [],
@@ -58,21 +78,31 @@ const menuSections = computed(() => {
     .filter((section) => section.products.length > 0);
 });
 
-onMounted(() => {
-  nextTick(() => {
-    measureSectionOffsets();
-    initialMeasureTimer = setTimeout(measureSectionOffsets, 300);
-  });
+onMounted(async () => {
+  await loadMenu();
+});
+
+onShow(() => {
+  cartSummary.value = getCartSummary();
 });
 
 onUnmounted(() => {
-  if (initialMeasureTimer) {
-    clearTimeout(initialMeasureTimer);
-  }
-  if (categoryJumpTimer) {
-    clearTimeout(categoryJumpTimer);
-  }
+  if (initialMeasureTimer) clearTimeout(initialMeasureTimer);
+  if (categoryJumpTimer) clearTimeout(categoryJumpTimer);
 });
+
+async function loadMenu() {
+  try {
+    menu.value = await fetchMenu();
+    activeCategoryId.value = menu.value.categories[0]?.id ?? "";
+    nextTick(() => {
+      measureSectionOffsets();
+      initialMeasureTimer = setTimeout(measureSectionOffsets, 300);
+    });
+  } catch (error) {
+    uni.showToast({ title: error instanceof Error ? error.message : "菜单加载失败", icon: "none" });
+  }
+}
 
 function getSectionDomId(categoryId: string) {
   return `category-${categoryId}`;
@@ -86,18 +116,14 @@ function handleCategorySelect(categoryId: string) {
     scrollIntoView.value = getSectionDomId(categoryId);
   });
 
-  if (categoryJumpTimer) {
-    clearTimeout(categoryJumpTimer);
-  }
+  if (categoryJumpTimer) clearTimeout(categoryJumpTimer);
   categoryJumpTimer = setTimeout(() => {
     isCategoryJumping.value = false;
   }, 700);
 }
 
 function handleProductScroll(event: { detail: { scrollTop: number } }) {
-  if (isCategoryJumping.value) {
-    return;
-  }
+  if (isCategoryJumping.value) return;
 
   const maxScrollTop = Math.max(0, scrollMetrics.value.contentHeight - scrollMetrics.value.viewportHeight);
   const isNearBottom = event.detail.scrollTop >= maxScrollTop - 12;
@@ -122,10 +148,7 @@ function measureSectionOffsets() {
   query.exec((result) => {
     const listRect = result[0] as UniApp.NodeInfo | null;
     const sectionRects = (result[1] || []) as UniApp.NodeInfo[];
-
-    if (!listRect || !sectionRects.length) {
-      return;
-    }
+    if (!listRect || !sectionRects.length) return;
 
     sectionOffsets.value = sectionRects
       .filter((rect) => typeof rect.id === "string" && typeof rect.top === "number")
@@ -136,9 +159,7 @@ function measureSectionOffsets() {
     scrollMetrics.value = {
       viewportHeight: Number(listRect.height || 0),
       contentHeight: sectionRects.reduce((height, rect) => {
-        if (typeof rect.bottom !== "number") {
-          return height;
-        }
+        if (typeof rect.bottom !== "number") return height;
         return Math.max(height, Number(rect.bottom) - Number(listRect.top));
       }, 0),
     };
@@ -149,11 +170,15 @@ function goHome() {
   uni.redirectTo({ url: "/pages/home/home" });
 }
 
-function goSpec(_productId: string) {
-  uni.navigateTo({ url: "/pages/spec/spec" });
+function goSpec(productId: string) {
+  uni.navigateTo({ url: `/pages/spec/spec?id=${productId}` });
 }
 
 function goCheckout() {
+  if (cartSummary.value.itemCount === 0) {
+    uni.showToast({ title: "请先选择餐品", icon: "none" });
+    return;
+  }
   uni.navigateTo({ url: "/pages/checkout/checkout" });
 }
 </script>
@@ -202,4 +227,12 @@ function goCheckout() {
   font-size: 24rpx;
   font-weight: 700;
 }
+
+.empty {
+  display: grid;
+  place-items: center;
+  min-height: 320rpx;
+  color: var(--ld-mini-text-muted);
+}
 </style>
+

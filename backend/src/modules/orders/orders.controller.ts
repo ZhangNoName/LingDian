@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   Param,
   Patch,
   Post,
@@ -39,14 +40,20 @@ export class OrdersController {
 
   @ApiOperation({ summary: 'Create order using the legacy path' })
   @Post('orders')
-  createOrderCompat(@Body() body: CreateOrderDto) {
-    return this.ordersService.createOrder(body);
+  createOrderCompat(
+    @Body() body: CreateOrderDto,
+    @Headers('authorization') authorization?: string,
+  ) {
+    return this.ordersService.createOrder(body, authorization);
   }
 
   @ApiOperation({ summary: 'Create order' })
   @Post('order/create')
-  createOrder(@Body() body: CreateOrderDto) {
-    return this.ordersService.createOrder(body);
+  createOrder(
+    @Body() body: CreateOrderDto,
+    @Headers('authorization') authorization?: string,
+  ) {
+    return this.ordersService.createOrder(body, authorization);
   }
 
   @ApiOperation({ summary: 'Update order status' })

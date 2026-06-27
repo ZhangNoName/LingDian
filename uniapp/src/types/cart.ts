@@ -3,6 +3,7 @@ import type { SelectedOption } from "./menu";
 export type CartItem = {
   id: string;
   productId: string;
+  skuId: string;
   productName: string;
   imageUrl: string;
   quantity: number;

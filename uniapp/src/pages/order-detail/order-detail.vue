@@ -5,15 +5,7 @@
     <view v-if="detail" class="content">
       <view class="status-block">
         <text class="status-title">{{ statusTitle }}</text>
-        <view class="reward">本单获得{{ detail.rewardPoints }}积分 立即兑换 ›</view>
-      </view>
-
-      <view class="promo">
-        <SkeletonBox class="promo-visual" radius="lg" />
-        <view class="promo-copy">
-          <text class="promo-title">免费送</text>
-          <text class="promo-subtitle">礼卡福利与会员专享</text>
-        </view>
+        <view class="reward">本单获得{{ detail.rewardPoints }}积分</view>
       </view>
 
       <OrderDetailGoodsCard :detail="detail" />
@@ -31,10 +23,9 @@
 import { computed, ref } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
 import AppNavBar from "@/components/app/AppNavBar.vue";
-import SkeletonBox from "@/components/app/SkeletonBox.vue";
 import OrderDetailGoodsCard from "@/components/orders/OrderDetailGoodsCard.vue";
 import OrderInfoCard from "@/components/orders/OrderInfoCard.vue";
-import { orderDetails } from "@/data/mock";
+import { fetchOrderDetail } from "@/services/orders";
 import type { OrderDetail } from "@/types/order";
 
 const detail = ref<OrderDetail | null>(null);
@@ -54,9 +45,13 @@ const statusTitle = computed(() => {
   return labels[detail.value.status];
 });
 
-onLoad((query) => {
-  const id = typeof query?.id === "string" ? query.id : "LD202606150001";
-  detail.value = orderDetails[id] ?? orderDetails.LD202606150001;
+onLoad(async (query) => {
+  const id = typeof query?.id === "string" ? query.id : "";
+  try {
+    detail.value = await fetchOrderDetail(id);
+  } catch (error) {
+    uni.showToast({ title: error instanceof Error ? error.message : "订单加载失败", icon: "none" });
+  }
 });
 
 function goBack() {
@@ -102,42 +97,6 @@ function goMenu() {
   font-weight: 800;
 }
 
-.promo {
-  position: relative;
-  margin: 12rpx var(--ld-page-padding, 24rpx) var(--ld-page-padding, 24rpx);
-  height: 164rpx;
-  overflow: hidden;
-  border-radius: var(--ld-radius-16, 16px);
-  background: #fff4df;
-}
-
-.promo-visual {
-  width: 100%;
-  height: 100%;
-}
-
-.promo-copy {
-  position: absolute;
-  left: 34rpx;
-  top: 32rpx;
-  color: #8f3700;
-}
-
-.promo-title,
-.promo-subtitle {
-  display: block;
-}
-
-.promo-title {
-  font-size: var(--ld-font-display, 40rpx);
-  font-weight: 900;
-}
-
-.promo-subtitle {
-  margin-top: 8rpx;
-  font-size: var(--ld-font-sm, 24rpx);
-}
-
 .empty {
   display: grid;
   place-items: center;
@@ -173,3 +132,4 @@ function goMenu() {
   border: 0;
 }
 </style>
+

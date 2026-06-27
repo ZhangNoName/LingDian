@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   Prisma,
+  ProductStatus,
   ProductType,
   SelectionGroupType,
   SelectionMode,
@@ -12,6 +13,10 @@ import {
   SyncProductConfigDto,
   SyncSelectionOptionDto,
 } from './dto/sync-product-config.dto';
+import { CreateCategoryDto } from './dto/create-category.dto';
+import { CreateProductDto } from './dto/create-product.dto';
+import { UpdateCategoryDto } from './dto/update-category.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
 import { mapProductRecord } from './products.mapper';
 
 const productInclude = {
@@ -102,6 +107,65 @@ const productInclude = {
 export class ProductsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async getCategories() {
+    const store = await this.resolveCurrentStore();
+    const categories = await this.prisma.category.findMany({
+      where: {
+        storeId: store.id,
+      },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+
+    return categories.map((category) => ({
+      id: category.id,
+      store_id: category.storeId,
+      name: category.name,
+      sort_order: category.sortOrder,
+      is_visible: category.isVisible,
+    }));
+  }
+
+  async createCategory(payload: CreateCategoryDto) {
+    const store = await this.resolveCurrentStore();
+    const category = await this.prisma.category.create({
+      data: {
+        storeId: store.id,
+        name: payload.name,
+        sortOrder: payload.sort_order ?? 0,
+        isVisible: payload.is_visible ?? true,
+      },
+    });
+
+    return {
+      id: category.id,
+      store_id: category.storeId,
+      name: category.name,
+      sort_order: category.sortOrder,
+      is_visible: category.isVisible,
+    };
+  }
+
+  async updateCategory(categoryId: string, payload: UpdateCategoryDto) {
+    const category = await this.prisma.category.update({
+      where: {
+        id: categoryId,
+      },
+      data: {
+        ...(payload.name !== undefined ? { name: payload.name } : {}),
+        ...(payload.sort_order !== undefined ? { sortOrder: payload.sort_order } : {}),
+        ...(payload.is_visible !== undefined ? { isVisible: payload.is_visible } : {}),
+      },
+    });
+
+    return {
+      id: category.id,
+      store_id: category.storeId,
+      name: category.name,
+      sort_order: category.sortOrder,
+      is_visible: category.isVisible,
+    };
+  }
+
   async getProducts() {
     const products = await this.prisma.product.findMany({
       include: productInclude,
@@ -111,6 +175,150 @@ export class ProductsService {
     });
 
     return products.map(mapProductRecord);
+  }
+
+  async createProduct(payload: CreateProductDto) {
+    const store = await this.resolveCurrentStore();
+    await this.ensureCategoryBelongsToStore(payload.category_id, store.id);
+
+    const product = await this.prisma.product.create({
+      data: {
+        storeId: store.id,
+        categoryId: payload.category_id,
+        name: payload.name,
+        description: payload.description,
+        imageUrl: payload.image_url,
+        type: ProductType.SINGLE,
+        price: payload.price,
+        stock: payload.stock ?? 0,
+        status: ProductStatus.DRAFT,
+        isFeatured: payload.is_featured ?? false,
+        skus: {
+          create: {
+            skuName: '默认',
+            price: payload.price,
+            stockCount: payload.stock ?? 0,
+            isDefault: true,
+            isActive: true,
+          },
+        },
+      },
+      include: productInclude,
+    });
+
+    return mapProductRecord(product);
+  }
+
+  async updateProduct(productId: string, payload: UpdateProductDto) {
+    const existingProduct = await this.prisma.product.findUnique({
+      where: {
+        id: productId,
+      },
+      include: {
+        skus: {
+          orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+        },
+      },
+    });
+
+    if (!existingProduct) {
+      throw new NotFoundException('商品不存在');
+    }
+
+    if (payload.category_id) {
+      await this.ensureCategoryBelongsToStore(payload.category_id, existingProduct.storeId);
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.product.update({
+        where: {
+          id: productId,
+        },
+        data: {
+          ...(payload.category_id !== undefined ? { categoryId: payload.category_id } : {}),
+          ...(payload.name !== undefined ? { name: payload.name } : {}),
+          ...(payload.description !== undefined ? { description: payload.description } : {}),
+          ...(payload.image_url !== undefined ? { imageUrl: payload.image_url } : {}),
+          ...(payload.price !== undefined ? { price: payload.price } : {}),
+          ...(payload.stock !== undefined ? { stock: payload.stock } : {}),
+          ...(payload.is_featured !== undefined ? { isFeatured: payload.is_featured } : {}),
+          ...(payload.status !== undefined ? { status: payload.status } : {}),
+        },
+      });
+
+      const defaultSku = existingProduct.skus.find((sku) => sku.isDefault) ?? existingProduct.skus[0];
+      if (defaultSku && (payload.price !== undefined || payload.stock !== undefined)) {
+        await tx.productSKU.update({
+          where: {
+            id: defaultSku.id,
+          },
+          data: {
+            ...(payload.price !== undefined ? { price: payload.price } : {}),
+            ...(payload.stock !== undefined ? { stockCount: payload.stock } : {}),
+          },
+        });
+      }
+
+      await this.refreshProductSummary(tx, productId);
+    });
+
+    return this.getProductDetail(productId);
+  }
+
+  async updateProductStatus(productId: string, status: ProductStatus) {
+    await this.prisma.product.update({
+      where: {
+        id: productId,
+      },
+      data: {
+        status,
+      },
+    });
+
+    return this.getProductDetail(productId);
+  }
+
+  async getCurrentMenu() {
+    const store = await this.resolveCurrentStore();
+    const categories = await this.prisma.category.findMany({
+      where: {
+        storeId: store.id,
+        isVisible: true,
+      },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+      include: {
+        products: {
+          where: {
+            status: ProductStatus.ACTIVE,
+          },
+          orderBy: [{ isFeatured: 'desc' }, { updatedAt: 'desc' }],
+          include: productInclude,
+        },
+      },
+    });
+
+    return {
+      store: {
+        id: store.id,
+        code: store.code,
+        name: store.name,
+        status: store.status.toLowerCase(),
+        businessHours: store.businessHours,
+        dineInEnabled: store.dineInEnabled,
+        takeoutEnabled: store.takeoutEnabled,
+        pickupEnabled: store.pickupEnabled,
+      },
+      categories: categories
+        .map((category) => ({
+          id: category.id,
+          name: category.name,
+          sort_order: category.sortOrder,
+          products: category.products
+            .map(mapProductRecord)
+            .filter((product) => product.skus.some((sku) => sku.is_active)),
+        }))
+        .filter((category) => category.products.length > 0),
+    };
   }
 
   async getProductDetail(productId: string) {
@@ -217,6 +425,41 @@ export class ProductsService {
       };
     } catch {
       throw new NotFoundException('SKU 不存在');
+    }
+  }
+
+  private async resolveCurrentStore(tx: Prisma.TransactionClient | PrismaService = this.prisma) {
+    const store = await tx.store.findFirst({
+      orderBy: {
+        createdAt: 'asc',
+      },
+    });
+
+    if (store) {
+      return store;
+    }
+
+    return tx.store.create({
+      data: {
+        code: 'demo-store',
+        name: '零点示范店',
+        contactName: '演示店长',
+        contactPhone: '13800000000',
+        address: '演示地址',
+        businessHours: '09:00-22:00',
+      },
+    });
+  }
+
+  private async ensureCategoryBelongsToStore(categoryId: string, storeId: string) {
+    const category = await this.prisma.category.findUnique({
+      where: {
+        id: categoryId,
+      },
+    });
+
+    if (!category || category.storeId !== storeId) {
+      throw new BadRequestException('分类不存在或不属于当前门店');
     }
   }
 

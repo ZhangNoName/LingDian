@@ -10,6 +10,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
+import { resolveDemoUser } from '../auth/demo-auth';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { QueryOrdersDto } from './dto/query-orders.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
@@ -79,7 +80,11 @@ const orderDetailInclude = {
 export class OrdersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createOrder(body: CreateOrderDto) {
+  async createOrder(body: CreateOrderDto, authorization?: string) {
+    const customer =
+      body.customerName && body.mobile
+        ? { name: body.customerName, mobile: body.mobile }
+        : resolveDemoUser(authorization);
     const normalizedItems = body.items.map((item) => {
       const skuId = item.skuId ?? item.sku_id;
 
@@ -148,22 +153,8 @@ export class OrdersService {
           throw new NotFoundException('Some SKUs do not exist');
         }
 
-        const stockResult = await tx.productSKU.updateMany({
-          where: {
-            id: sku.id,
-            stockCount: {
-              gte: item.quantity,
-            },
-          },
-          data: {
-            stockCount: {
-              decrement: item.quantity,
-            },
-          },
-        });
-
-        if (stockResult.count !== 1) {
-          throw new BadRequestException('Inventory not enough');
+        if (sku.product.status !== 'ACTIVE') {
+          throw new BadRequestException('Product is not available');
         }
 
         const selectionSnapshots = (item.selections ?? []).map((selection) => {
@@ -215,8 +206,8 @@ export class OrdersService {
         data: {
           orderNo: `LD${Date.now()}`,
           storeId: body.storeId,
-          customerName: body.customerName,
-          customerMobile: body.mobile,
+          customerName: customer.name,
+          customerMobile: customer.mobile,
           orderType: orderTypeMap[body.orderType],
           paymentChannel: body.paymentChannel
             ? paymentChannelMap[body.paymentChannel]

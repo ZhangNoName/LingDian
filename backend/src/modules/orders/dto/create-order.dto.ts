@@ -109,19 +109,21 @@ export class CreateOrderDto {
   @IsIn(['cash', 'wechat', 'alipay', 'customer_scan', 'other'])
   paymentChannel?: 'cash' | 'wechat' | 'alipay' | 'customer_scan' | 'other';
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'Customer name',
     example: 'Zhang San',
   })
+  @IsOptional()
   @IsString()
-  customerName!: string;
+  customerName?: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
     description: 'Customer mobile number',
     example: '13800000000',
   })
+  @IsOptional()
   @IsMobilePhone('zh-CN')
-  mobile!: string;
+  mobile?: string;
 
   @ApiProperty({
     description: 'Order items',

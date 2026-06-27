@@ -19,21 +19,31 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { onShow } from "@dcloudio/uni-app";
 import AppNavBar from "@/components/app/AppNavBar.vue";
 import OrderHistoryCard from "@/components/orders/OrderHistoryCard.vue";
 import OrderStatusTabs from "@/components/orders/OrderStatusTabs.vue";
-import { orders } from "@/data/mock";
+import { fetchOrders } from "@/services/orders";
 import Layout from "@/layout/layout.vue";
+import type { OrderSummary } from "@/types/order";
 
 const activeTab = ref<"current" | "history">("current");
-
+const orders = ref<OrderSummary[]>([]);
 const historyStatuses = new Set(["finished", "cancelled", "refunded"]);
 
 const filteredOrders = computed(() => {
-  return orders.filter((order) => {
+  return orders.value.filter((order) => {
     const isHistory = historyStatuses.has(order.status);
     return activeTab.value === "history" ? isHistory : !isHistory;
   });
+});
+
+onShow(async () => {
+  try {
+    orders.value = await fetchOrders();
+  } catch (error) {
+    uni.showToast({ title: error instanceof Error ? error.message : "订单加载失败", icon: "none" });
+  }
 });
 
 function goHome() {
@@ -63,3 +73,4 @@ function goDetail(orderId: string) {
   font-size: var(--ld-font-base, 26rpx);
 }
 </style>
+

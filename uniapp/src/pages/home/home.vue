@@ -4,26 +4,42 @@
       <MemberStrip :member="member" />
       <view class="content">
         <ServiceModeCards :modes="homeServiceModes" @select="goMenu" />
-        <RecommendSection :products="products" @select="goSpec" />
+        <RecommendSection :products="featuredProducts" @select="goSpec" />
       </view>
     </view>
   </Layout>
 </template>
 
 <script setup lang="ts">
+import { computed, onMounted, ref } from "vue";
 import Layout from "@/layout/layout.vue";
 import MemberStrip from "@/components/home/MemberStrip.vue";
 import RecommendSection from "@/components/home/RecommendSection.vue";
 import ServiceModeCards from "@/components/home/ServiceModeCards.vue";
-import { homeServiceModes, member, products } from "@/data/mock";
+import { homeServiceModes, member } from "@/data/mock";
+import { fetchMenu, type MenuViewModel } from "@/services/catalog";
 import type { ServiceMode } from "@/types/store";
+
+const menu = ref<MenuViewModel | null>(null);
+
+const featuredProducts = computed(() => {
+  return (menu.value?.products ?? []).filter((product) => product.tags.includes("推荐")).slice(0, 6);
+});
+
+onMounted(async () => {
+  try {
+    menu.value = await fetchMenu();
+  } catch (error) {
+    uni.showToast({ title: error instanceof Error ? error.message : "菜单加载失败", icon: "none" });
+  }
+});
 
 function goMenu(_mode: ServiceMode) {
   uni.redirectTo({ url: "/pages/order/order" });
 }
 
-function goSpec(_productId: string) {
-  uni.navigateTo({ url: "/pages/spec/spec" });
+function goSpec(productId: string) {
+  uni.navigateTo({ url: `/pages/spec/spec?id=${productId}` });
 }
 </script>
 
@@ -41,5 +57,5 @@ function goSpec(_productId: string) {
 .content :deep(.recommend) {
   margin-top: 28rpx;
 }
-
 </style>
+
