@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { ProductStatus } from '@prisma/client';
+import { ProductStatus } from '@lingdian/db';
 import { ProductsService } from './products.service';
 
 const productRecord = {

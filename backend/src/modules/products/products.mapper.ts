@@ -1,3 +1,5 @@
+import type { ProductRecordContract } from '@lingdian/contracts';
+
 type ProductRecord = {
   id: string;
   storeId: string;
@@ -72,18 +74,18 @@ function toNumber(value: number | { toString(): string }) {
   return Number(value);
 }
 
-export function mapProductRecord(product: ProductRecord) {
+export function mapProductRecord(product: ProductRecord): ProductRecordContract {
   const productBindings = product.selectionBindings.map((binding) => ({
     binding_id: binding.id,
-    scope: binding.scope,
+    scope: binding.scope as ProductRecordContract['selection_groups'][number]['scope'],
     target_variant_id: binding.variantId,
     sort_order: binding.sortOrder,
     is_enabled: binding.isEnabled,
     group: {
       id: binding.group.id,
       name: binding.group.name,
-      group_type: binding.group.groupType,
-      selection_mode: binding.group.selectionMode,
+      group_type: binding.group.groupType as ProductRecordContract['selection_groups'][number]['group']['group_type'],
+      selection_mode: binding.group.selectionMode as ProductRecordContract['selection_groups'][number]['group']['selection_mode'],
       min_select: binding.group.minSelect,
       max_select: binding.group.maxSelect,
       is_required: binding.group.isRequired,
@@ -93,7 +95,7 @@ export function mapProductRecord(product: ProductRecord) {
       options: binding.group.options.map((option) => ({
         id: option.id,
         name: option.name,
-        option_type: option.optionType,
+        option_type: option.optionType as ProductRecordContract['selection_groups'][number]['group']['options'][number]['option_type'],
         price_delta: toNumber(option.priceDelta),
         stock_delta: option.stockDelta,
         is_default: option.isDefault,
@@ -109,15 +111,15 @@ export function mapProductRecord(product: ProductRecord) {
   const variantBindings = product.skus.flatMap((sku) =>
     sku.selectionBindings.map((binding) => ({
       binding_id: binding.id,
-      scope: binding.scope,
+      scope: binding.scope as ProductRecordContract['selection_groups'][number]['scope'],
       target_variant_id: binding.variantId ?? sku.id,
       sort_order: binding.sortOrder,
       is_enabled: binding.isEnabled,
       group: {
         id: binding.group.id,
         name: binding.group.name,
-        group_type: binding.group.groupType,
-        selection_mode: binding.group.selectionMode,
+        group_type: binding.group.groupType as ProductRecordContract['selection_groups'][number]['group']['group_type'],
+        selection_mode: binding.group.selectionMode as ProductRecordContract['selection_groups'][number]['group']['selection_mode'],
         min_select: binding.group.minSelect,
         max_select: binding.group.maxSelect,
         is_required: binding.group.isRequired,
@@ -127,7 +129,7 @@ export function mapProductRecord(product: ProductRecord) {
         options: binding.group.options.map((option) => ({
           id: option.id,
           name: option.name,
-          option_type: option.optionType,
+          option_type: option.optionType as ProductRecordContract['selection_groups'][number]['group']['options'][number]['option_type'],
           price_delta: toNumber(option.priceDelta),
           stock_delta: option.stockDelta,
           is_default: option.isDefault,
@@ -148,12 +150,12 @@ export function mapProductRecord(product: ProductRecord) {
     name: product.name,
     description: product.description,
     image_url: product.imageUrl,
-    type: product.type,
+    type: product.type as ProductRecordContract['type'],
     price: toNumber(product.price),
     stock: product.stock,
     is_featured: product.isFeatured,
     is_active: product.status === 'ACTIVE',
-    status: product.status,
+    status: product.status as ProductRecordContract['status'],
     category: product.category?.name ?? '',
     category_id: product.categoryId,
     skus: product.skus.map((sku) => ({

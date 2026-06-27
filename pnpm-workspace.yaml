@@ -1,0 +1,7 @@
+packages:
+  - backend
+  - admin
+  - uniapp
+  - web
+  - common
+  - packages/*

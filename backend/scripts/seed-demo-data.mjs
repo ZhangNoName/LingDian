@@ -12,7 +12,7 @@ import {
   SelectionOptionType,
   SelectionScope,
   StoreStatus,
-} from '@prisma/client';
+} from '@lingdian/db';
 
 const databaseUrl = process.env.DATABASE_URL;
 

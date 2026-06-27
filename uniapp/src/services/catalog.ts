@@ -1,59 +1,7 @@
+import type { MenuContract, ProductRecordContract } from "@lingdian/contracts";
 import type { ProductDetail, ProductSummary } from "@/types/menu";
 import type { StoreSummary } from "@/types/store";
 import { request, resolveAssetUrl } from "./request";
-
-type ApiSku = {
-  id: string;
-  sku_name: string;
-  price: number;
-  stock_count: number;
-  is_default: boolean;
-  is_active: boolean;
-};
-
-type ApiSelectionGroup = {
-  binding_id: string;
-  group: {
-    id: string;
-    name: string;
-    is_required: boolean;
-    min_select: number;
-    max_select: number;
-    options: Array<{
-      id: string;
-      name: string;
-      price_delta?: number;
-    }>;
-  };
-};
-
-type ApiProduct = {
-  id: string;
-  category_id: string;
-  name: string;
-  description: string | null;
-  image_url: string | null;
-  price: number;
-  is_featured: boolean;
-  skus: ApiSku[];
-  selection_groups: ApiSelectionGroup[];
-};
-
-type ApiCategory = {
-  id: string;
-  name: string;
-  products: ApiProduct[];
-};
-
-type ApiMenu = {
-  store: {
-    id: string;
-    name: string;
-    status: string;
-    businessHours?: string | null;
-  };
-  categories: ApiCategory[];
-};
 
 export type MenuViewModel = {
   store: StoreSummary;
@@ -64,7 +12,7 @@ export type MenuViewModel = {
 
 let cachedMenu: MenuViewModel | null = null;
 
-function mapProduct(product: ApiProduct): ProductDetail {
+function mapProduct(product: ProductRecordContract): ProductDetail {
   const sku = product.skus.find((item) => item.is_default && item.is_active) ?? product.skus.find((item) => item.is_active);
   const imageUrl = resolveAssetUrl(product.image_url);
 
@@ -95,7 +43,7 @@ function mapProduct(product: ApiProduct): ProductDetail {
 }
 
 export async function fetchMenu() {
-  const menu = await request<ApiMenu>("/menu/current");
+  const menu = await request<MenuContract>("/menu/current");
   const productDetails: Record<string, ProductDetail> = {};
   const products = menu.categories.flatMap((category) =>
     category.products.map((product) => {

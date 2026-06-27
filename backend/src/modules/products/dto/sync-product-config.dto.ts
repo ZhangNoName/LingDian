@@ -18,7 +18,7 @@ import {
   SelectionMode,
   SelectionOptionType,
   SelectionScope,
-} from '@prisma/client';
+} from '@lingdian/db';
 
 export class SyncSelectionOptionDto {
   @ApiPropertyOptional({ description: '现有选项 ID' })

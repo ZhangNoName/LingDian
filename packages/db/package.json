@@ -1,0 +1,39 @@
+{
+  "name": "@lingdian/db",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "prisma",
+    "prisma.config.ts",
+    "src",
+    "package.json",
+    "tsconfig.json"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prisma:generate": "prisma generate --config prisma.config.ts",
+    "prisma:studio": "prisma studio --config prisma.config.ts",
+    "prisma:format": "prisma format --config prisma.config.ts",
+    "db:push": "prisma db push --config prisma.config.ts",
+    "db:pull": "prisma db pull --config prisma.config.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^7.8.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.7.2",
+    "dotenv": "^17.4.2",
+    "prisma": "^7.8.0",
+    "typescript": "^5.9.3"
+  }
+}

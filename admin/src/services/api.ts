@@ -1,77 +1,16 @@
+import type {
+  ApiEnvelope,
+  CategoryContract as Category,
+  OrderSummaryContract as OrderSummary,
+  ProductInputContract as ProductInput,
+  ProductRecordContract as Product,
+  ProductSkuContract as ProductSku,
+  ProductStatus,
+} from '@lingdian/contracts'
+
+export type { Category, OrderSummary, Product, ProductInput, ProductSku, ProductStatus }
+
 const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:3000/api'
-
-type ApiEnvelope<T> = {
-  code: number
-  msg: string
-  data: T
-}
-
-export type Category = {
-  id: string
-  store_id: string
-  name: string
-  sort_order: number
-  is_visible: boolean
-}
-
-export type ProductStatus = 'DRAFT' | 'ACTIVE' | 'SOLD_OUT' | 'ARCHIVED'
-
-export type ProductSku = {
-  id: string
-  product_id: string
-  sku_name: string
-  price: number
-  stock_count: number
-  is_default: boolean
-  is_active: boolean
-}
-
-export type Product = {
-  id: string
-  store_id: string
-  category_id: string
-  category: string
-  name: string
-  description: string | null
-  image_url: string | null
-  price: number
-  stock: number
-  status: ProductStatus
-  is_active: boolean
-  is_featured: boolean
-  skus: ProductSku[]
-}
-
-export type ProductInput = {
-  category_id: string
-  name: string
-  description?: string
-  image_url?: string
-  price: number
-  stock?: number
-  is_featured?: boolean
-  status?: ProductStatus
-}
-
-export type OrderSummary = {
-  id: string
-  order_no: string
-  store_name: string
-  customer_name: string
-  customer_mobile: string
-  order_type: string
-  status: string
-  payable_amount: number
-  item_count: number
-  item_summary: Array<{
-    id: string
-    name: string
-    sku_name: string | null
-    quantity: number
-    subtotal: number
-  }>
-  created_at: string
-}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
@@ -155,4 +94,3 @@ export function getOrders() {
 }
 
 export { API_BASE }
-

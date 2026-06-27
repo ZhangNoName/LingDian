@@ -1,35 +1,12 @@
+import type { OrderDetailContract, OrderSummaryContract } from "@lingdian/contracts";
 import type { CartSummary } from "@/types/cart";
 import type { OrderDetail, OrderSummary, OrderStatus } from "@/types/order";
 import { getCurrentStoreId } from "./catalog";
 import { clearCart } from "./cart";
 import { request } from "./request";
 
-type ApiOrder = {
-  id: string;
-  order_no: string;
-  store_id: string;
-  store_name: string;
-  customer_name: string;
-  customer_mobile: string;
-  order_type: string;
-  status: string;
-  payable_amount: number;
-  total_amount: number;
-  item_count?: number;
-  item_summary?: Array<{ id: string; name: string; sku_name: string | null; quantity: number; subtotal: number }>;
-  items?: Array<{
-    id: string;
-    product_name: string;
-    sku_name: string | null;
-    unit_price: number;
-    quantity: number;
-    subtotal: number;
-    selections: Array<{ option_name: string; quantity: number }>;
-  }>;
-  created_at: string;
-  paid_at?: string | null;
-  remark?: string | null;
-};
+type ApiOrder = OrderSummaryContract &
+  Partial<Pick<OrderDetailContract, "items" | "paid_at">>;
 
 const statusMap: Record<string, OrderStatus> = {
   CREATING: "pendingPay",

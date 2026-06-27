@@ -1,13 +1,8 @@
+import type { ApiEnvelope } from "@lingdian/contracts";
 import { getDemoToken } from "./auth";
 
 const API_BASE = "http://localhost:3000/api";
 const ASSET_BASE = API_BASE.replace(/\/api$/, "");
-
-type ApiEnvelope<T> = {
-  code: number;
-  msg: string;
-  data: T;
-};
 
 type RequestConfig = Omit<UniApp.RequestOptions, "url">;
 

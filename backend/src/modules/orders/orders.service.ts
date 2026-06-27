@@ -3,12 +3,17 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import type {
+  OrderDetailContract,
+  OrderSummaryContract,
+  OrderSummaryStatsContract,
+} from '@lingdian/contracts';
 import {
   OrderStatus,
   OrderType,
   PaymentChannel,
   Prisma,
-} from '@prisma/client';
+} from '@lingdian/db';
 import { PrismaService } from '../../prisma/prisma.service';
 import { resolveDemoUser } from '../auth/demo-auth';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -241,7 +246,7 @@ export class OrdersService {
     });
   }
 
-  async getOrderSummary(query: QueryOrdersDto) {
+  async getOrderSummary(query: QueryOrdersDto): Promise<OrderSummaryStatsContract> {
     const scopedWhere = this.buildOrderWhere(query, false);
     const paidStatuses: OrderStatus[] = [
       'PAID',
@@ -302,7 +307,7 @@ export class OrdersService {
     };
   }
 
-  async getOrders(query: QueryOrdersDto) {
+  async getOrders(query: QueryOrdersDto): Promise<OrderSummaryContract[]> {
     const orders = await this.prisma.order.findMany({
       where: this.buildOrderWhere(query),
       include: {
@@ -559,7 +564,9 @@ export class OrdersService {
     }
   }
 
-  private mapOrderDetail(order: Prisma.OrderGetPayload<{ include: typeof orderDetailInclude }>) {
+  private mapOrderDetail(
+    order: Prisma.OrderGetPayload<{ include: typeof orderDetailInclude }>,
+  ): OrderDetailContract {
     return {
       id: order.id,
       order_no: order.orderNo,
@@ -574,6 +581,7 @@ export class OrdersService {
       total_amount: this.toNumber(order.totalAmount),
       payable_amount: this.toNumber(order.payableAmount),
       remark: order.remark,
+      item_count: order.items.reduce((sum, item) => sum + item.quantity, 0),
       is_deleted: order.isDeleted,
       deleted_at: order.deletedAt?.toISOString() ?? null,
       paid_at: order.paidAt?.toISOString() ?? null,

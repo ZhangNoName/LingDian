@@ -1,0 +1,25 @@
+{
+  "name": "lingdian",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.7.0",
+  "scripts": {
+    "dev": "pnpm -r --parallel --filter @lingdian/api --filter @lingdian/admin --filter @lingdian/uniapp dev",
+    "dev:api": "pnpm --filter @lingdian/api dev",
+    "dev:admin": "pnpm --filter @lingdian/admin dev",
+    "dev:uniapp": "pnpm --filter @lingdian/uniapp dev",
+    "dev:web": "pnpm --filter @lingdian/web dev",
+    "postinstall": "pnpm run prisma:generate && pnpm run build:packages",
+    "build": "pnpm run build:packages && pnpm run build:api && pnpm run build:admin && pnpm run build:uniapp && pnpm run build:web",
+    "build:packages": "pnpm --filter @lingdian/common build && pnpm --filter @lingdian/contracts build && pnpm --filter @lingdian/db build",
+    "build:api": "pnpm --filter @lingdian/api build",
+    "build:admin": "pnpm --filter @lingdian/admin build",
+    "build:uniapp": "pnpm --filter @lingdian/uniapp build:h5",
+    "build:web": "pnpm --filter @lingdian/web build",
+    "test": "pnpm --filter @lingdian/api test",
+    "type-check": "pnpm --filter @lingdian/uniapp type-check",
+    "prisma:generate": "pnpm --filter @lingdian/db prisma:generate",
+    "db:push": "pnpm --filter @lingdian/db db:push",
+    "db:seed:demo": "pnpm --filter @lingdian/api db:seed:demo"
+  }
+}

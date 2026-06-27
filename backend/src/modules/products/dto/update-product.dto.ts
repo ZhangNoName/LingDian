@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { ProductStatus } from '@prisma/client';
+import { ProductStatus } from '@lingdian/db';
 import {
   IsBoolean,
   IsEnum,
@@ -53,4 +53,3 @@ export class UpdateProductDto {
   @IsEnum(ProductStatus)
   status?: ProductStatus;
 }
-

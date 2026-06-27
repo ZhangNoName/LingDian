@@ -38,31 +38,33 @@
               <div class="expand-grid">
                 <section>
                   <div class="expand-title">规格列表</div>
-                  <el-table :data="row.skus" row-key="id" border empty-text="暂无 SKU">
+                  <el-table :data="asProduct(row).skus" row-key="id" border empty-text="暂无 SKU">
                     <el-table-column prop="sku_name" label="规格名称" min-width="180" />
                     <el-table-column label="售价" width="160">
                       <template #default="{ row: sku }">
                         <el-input-number
-                          v-model="sku.price"
+                          :model-value="asSku(sku).price"
                           :min="0"
                           :precision="2"
                           :step="1"
                           controls-position="right"
-                          @focus="captureOriginalValue(sku, 'price')"
-                          @change="queueSkuChange(sku, 'price')"
+                          @update:model-value="(value) => updateSkuDraftValue(asSku(sku), 'price', value)"
+                          @focus="captureOriginalValue(asSku(sku), 'price')"
+                          @change="queueSkuChange(asSku(sku), 'price')"
                         />
                       </template>
                     </el-table-column>
                     <el-table-column label="库存" width="160">
                       <template #default="{ row: sku }">
                         <el-input-number
-                          v-model="sku.stock_count"
+                          :model-value="asSku(sku).stock_count"
                           :min="0"
                           :precision="0"
                           :step="1"
                           controls-position="right"
-                          @focus="captureOriginalValue(sku, 'stock_count')"
-                          @change="queueSkuChange(sku, 'stock_count')"
+                          @update:model-value="(value) => updateSkuDraftValue(asSku(sku), 'stock_count', value)"
+                          @focus="captureOriginalValue(asSku(sku), 'stock_count')"
+                          @change="queueSkuChange(asSku(sku), 'stock_count')"
                         />
                       </template>
                     </el-table-column>
@@ -152,12 +154,12 @@
             <template #default="{ row }">{{ row.selection_groups.length }}</template>
           </el-table-column>
           <el-table-column label="总库存" width="110">
-            <template #default="{ row }">{{ getTotalStock(row) }}</template>
+            <template #default="{ row }">{{ getTotalStock(asProduct(row)) }}</template>
           </el-table-column>
           <el-table-column prop="description" label="描述" min-width="260" show-overflow-tooltip />
           <el-table-column label="操作" width="120" fixed="right">
             <template #default="{ row }">
-              <el-button link type="primary" @click="openConfigDialog(row.id)">配置</el-button>
+              <el-button link type="primary" @click="openConfigDialog(asProduct(row).id)">配置</el-button>
             </template>
           </el-table-column>
         </el-table>
@@ -290,6 +292,18 @@ const externalSkuChoices = computed(() =>
     })),
   ),
 )
+
+function asProduct(row: unknown) {
+  return row as ProductRecord
+}
+
+function asSku(row: unknown) {
+  return row as ProductSku
+}
+
+function updateSkuDraftValue(sku: ProductSku, field: SkuField, value: number | undefined) {
+  sku[field] = Number(value ?? 0)
+}
 
 function getTotalStock(product: ProductRecord) {
   return product.skus

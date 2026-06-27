@@ -7,7 +7,7 @@ import {
   SelectionMode,
   SelectionOptionType,
   SelectionScope,
-} from '@prisma/client';
+} from '@lingdian/db';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
   SyncProductConfigDto,

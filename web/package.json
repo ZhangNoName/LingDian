@@ -1,5 +1,5 @@
 {
-  "name": "scaffold-web",
+  "name": "@lingdian/web",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -9,7 +9,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@lingdian/common": "file:../common",
+    "@lingdian/common": "workspace:*",
+    "@lingdian/contracts": "workspace:*",
     "@tanstack/vue-table": "^8.21.3",
     "@element-plus/icons-vue": "^2.3.2",
     "@vueuse/core": "^14.2.1",

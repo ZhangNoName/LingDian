@@ -1,84 +1,110 @@
-# LingDian 本地开发启动：backend / uniapp / web
-# 用法: .\start.ps1 <命令>
-#   backend - 启动 Nest 后端（npm run start:dev）
-#   uniapp  - 启动 uni-app H5 开发（npm run dev:h5）
-#   web     - 启动 web 前端（优先 pnpm，否则 npm）
-#   all     - 在新窗口中同时启动上述三项
-#   help    - 显示说明（默认）
+# LingDian local development launcher.
+# Usage:
+#   .\start.ps1 dev      Start api + admin + uniapp through pnpm workspace
+#   .\start.ps1 api      Start NestJS API service
+#   .\start.ps1 admin    Start admin console
+#   .\start.ps1 uniapp   Start uni-app H5
+#   .\start.ps1 web      Start web app
+#   .\start.ps1 all      Open api/admin/uniapp in separate PowerShell windows
+#   .\start.ps1 help     Show help
 
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('backend', 'uniapp', 'web', 'all', 'help')]
+    [ValidateSet('dev', 'api', 'backend', 'admin', 'uniapp', 'miniapp', 'web', 'all', 'help')]
     [string]$Command = 'help'
 )
 
 $ErrorActionPreference = 'Stop'
 $Root = $PSScriptRoot
-$DirBackend = Join-Path $Root 'backend'
-$DirUni = Join-Path $Root 'uniapp'
-$DirWeb = Join-Path $Root 'web'
 
 function Show-Help {
-    Write-Host 'LingDian 启动脚本'
+    Write-Host 'LingDian launcher'
     Write-Host ''
-    Write-Host '  .\start.ps1 backend  启动 Nest 后端'
-    Write-Host '  .\start.ps1 uniapp   启动 uni-app（H5 开发服务器）'
-    Write-Host '  .\start.ps1 web      启动 web（Vite）'
-    Write-Host '  .\start.ps1 all      在新 PowerShell 窗口中同时启动 backend / uniapp / web'
-    Write-Host '  .\start.ps1 help     显示本说明'
+    Write-Host 'Commands:'
+    Write-Host '  .\start.ps1 dev      Start api + admin + uniapp in this terminal'
+    Write-Host '  .\start.ps1 api      Start API service (backend/)'
+    Write-Host '  .\start.ps1 admin    Start admin console'
+    Write-Host '  .\start.ps1 uniapp   Start uni-app H5'
+    Write-Host '  .\start.ps1 web      Start web app'
+    Write-Host '  .\start.ps1 all      Open api/admin/uniapp in separate PowerShell windows'
+    Write-Host '  .\start.ps1 help     Show this help'
     Write-Host ''
-    Write-Host '首次使用前请在对应目录安装依赖：'
-    Write-Host '  cd backend; npm install'
-    Write-Host '  cd uniapp; npm install'
-    Write-Host '  cd web; pnpm install   （或 npm install）'
+    Write-Host 'Aliases: backend -> api, miniapp -> uniapp'
+    Write-Host ''
+    Write-Host 'First run:'
+    Write-Host '  pnpm install'
+    Write-Host '  pnpm prisma:generate'
 }
 
-function Invoke-BackendDev {
-    Set-Location $DirBackend
-    npm run start:dev
-}
-
-function Invoke-WebDev {
-    if (Test-Path (Join-Path $DirWeb 'pnpm-lock.yaml')) {
-        if (Get-Command pnpm -ErrorAction SilentlyContinue) {
-            Set-Location $DirWeb
-            pnpm run dev
-            return
-        }
+function Assert-Pnpm {
+    if (-not (Get-Command pnpm -ErrorAction SilentlyContinue)) {
+        throw 'pnpm is required. Install it with: corepack enable; corepack prepare pnpm@11.7.0 --activate'
     }
-    Set-Location $DirWeb
-    npm run dev
+}
+
+function Invoke-PnpmScript {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ScriptName
+    )
+
+    Assert-Pnpm
+    Set-Location $Root
+    pnpm run $ScriptName
+}
+
+function Start-DetachedCommand {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ChildCommand
+    )
+
+    $psExe = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+    if (-not (Test-Path -LiteralPath $psExe)) {
+        $psExe = 'powershell.exe'
+    }
+
+    Start-Process $psExe -ArgumentList @(
+        '-NoExit',
+        '-NoProfile',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-File',
+        (Join-Path $Root 'start.ps1'),
+        $ChildCommand
+    )
 }
 
 switch ($Command) {
     'help' {
         Show-Help
     }
+    'dev' {
+        Invoke-PnpmScript 'dev'
+    }
+    'api' {
+        Invoke-PnpmScript 'dev:api'
+    }
     'backend' {
-        Invoke-BackendDev
+        Invoke-PnpmScript 'dev:api'
+    }
+    'admin' {
+        Invoke-PnpmScript 'dev:admin'
     }
     'uniapp' {
-        Set-Location $DirUni
-        npm run dev:h5
+        Invoke-PnpmScript 'dev:uniapp'
+    }
+    'miniapp' {
+        Invoke-PnpmScript 'dev:uniapp'
     }
     'web' {
-        Invoke-WebDev
+        Invoke-PnpmScript 'dev:web'
     }
     'all' {
-        $psExe = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-        if (-not (Test-Path -LiteralPath $psExe)) { $psExe = 'powershell.exe' }
-        Start-Process $psExe -ArgumentList @(
-            '-NoExit', '-NoProfile', '-ExecutionPolicy', 'Bypass',
-            '-File', (Join-Path $Root 'start.ps1'), 'backend'
-        )
-        Start-Process $psExe -ArgumentList @(
-            '-NoExit', '-NoProfile', '-ExecutionPolicy', 'Bypass',
-            '-File', (Join-Path $Root 'start.ps1'), 'uniapp'
-        )
-        Start-Process $psExe -ArgumentList @(
-            '-NoExit', '-NoProfile', '-ExecutionPolicy', 'Bypass',
-            '-File', (Join-Path $Root 'start.ps1'), 'web'
-        )
-        Write-Host '已打开三个窗口：backend、uniapp（H5）与 web。关闭对应窗口即可停止服务。'
+        Assert-Pnpm
+        Start-DetachedCommand 'api'
+        Start-DetachedCommand 'admin'
+        Start-DetachedCommand 'uniapp'
+        Write-Host 'Opened api, admin, and uniapp in separate PowerShell windows.'
     }
 }

@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { ProductStatus } from '@prisma/client';
+import { ProductStatus } from '@lingdian/db';
 import { IsEnum } from 'class-validator';
 
 export class UpdateProductStatusDto {
@@ -7,4 +7,3 @@ export class UpdateProductStatusDto {
   @IsEnum(ProductStatus)
   status!: ProductStatus;
 }
-

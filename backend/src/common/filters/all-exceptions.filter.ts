@@ -6,7 +6,7 @@ import {
   HttpStatus,
   Logger,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '@lingdian/db';
 import {
   RES_CODE,
   type ResCodeValue,
