@@ -6,7 +6,11 @@
 
 - `uniapp/`：用户端小程序/H5，后续可平滑扩展 App
 - `web/`：Web 端门户/运营端基础前端
-- `backend/`：Node.js + NestJS 服务端
+- `backend/`：Node.js + NestJS API 服务端，包名为 `@lingdian/api`
+- `admin/`：轻量运营管理端
+- `common/`：通用响应码与工具
+- `packages/db/`：Prisma schema、Prisma Client 导出与数据库脚本
+- `packages/contracts/`：前后端共享接口类型
 - `theme/`：统一设计令牌，保证 Web 与 uni-app 颜色配置一致
 - `docs/`：PRD、架构说明、开发约定
 
@@ -21,53 +25,73 @@
 
 | 目录 | 说明 |
 | --- | --- |
-| `backend/` | NestJS API 服务、业务模块、接口契约 |
+| `backend/` | NestJS API 服务、业务模块 |
+| `admin/` | 运营管理端 |
 | `web/` | Web 前端基础工程，适合官网、门店展示、运营工作台扩展 |
 | `uniapp/` | C 端点餐入口，默认面向微信小程序/H5 |
+| `common/` | 通用响应码与工具函数 |
+| `packages/db/` | Prisma schema、Prisma Client 导出与数据库脚本 |
+| `packages/contracts/` | 商品、订单、响应等共享接口类型 |
 | `theme/` | 单一主题源，包含 `json/css/scss/ts` 四种消费形式 |
 | `docs/` | 产品文档、PRD、研发协作文档 |
 
 ## 快速开始
 
-### 1. 后端
+### 1. 安装依赖
 
 ```bash
-cd backend
-npm install
-npm run start:dev
-```
-
-### 2. Web 端
-
-```bash
-cd web
 pnpm install
-pnpm run dev
 ```
 
-如本机未安装 `pnpm`，也可以使用：
+首次安装会自动执行 Prisma generate 与基础包构建。也可以手动执行：
 
 ```bash
-cd web
-npm install
-npm run dev
+pnpm run prisma:generate
+pnpm run build:packages
 ```
 
-### 3. uni-app
+### 2. 启动开发服务
 
 ```bash
-cd uniapp
-npm install
-npm run dev:h5
+pnpm dev
 ```
 
-### 4. Windows 一键启动
+默认同时启动 `api`、`admin` 和 `uniapp`。也可以按项目单独启动：
+
+```bash
+pnpm run dev:api
+pnpm run dev:admin
+pnpm run dev:uniapp
+pnpm run dev:web
+```
+
+### 3. Windows 启动脚本
 
 ```powershell
-.\start.ps1 backend
+.\start.ps1 dev
+.\start.ps1 api
+.\start.ps1 admin
 .\start.ps1 web
 .\start.ps1 uniapp
 .\start.ps1 all
+```
+
+`backend` 仍作为 `api` 的兼容别名，`miniapp` 仍作为 `uniapp` 的兼容别名。
+
+### 4. 构建与验证
+
+```bash
+pnpm run test
+pnpm run type-check
+pnpm run build
+```
+
+### 5. 数据库脚本
+
+```bash
+pnpm run prisma:generate
+pnpm run db:push
+pnpm run db:seed:demo
 ```
 
 ## 文档入口
