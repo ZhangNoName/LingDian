@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { AtSign, BookOpenText, Github, MessageCircle, Send, Share2 } from '@lingdian/icons/web'
 import viteLogo from '../assets/vite.svg'
 import heroImg from '../assets/hero.png'
 import vueLogo from '../assets/vue.svg'
@@ -25,9 +26,7 @@ const count = ref(0)
 
   <section id="next-steps">
     <div id="docs">
-      <svg class="icon" role="presentation" aria-hidden="true">
-        <use href="/icons.svg#documentation-icon"></use>
-      </svg>
+      <BookOpenText class="icon" aria-hidden="true" />
       <h2>Documentation</h2>
       <p>Your questions, answered</p>
       <ul>
@@ -46,41 +45,31 @@ const count = ref(0)
       </ul>
     </div>
     <div id="social">
-      <svg class="icon" role="presentation" aria-hidden="true">
-        <use href="/icons.svg#social-icon"></use>
-      </svg>
+      <Share2 class="icon" aria-hidden="true" />
       <h2>Connect with us</h2>
       <p>Join the Vite community</p>
       <ul>
         <li>
           <a href="https://github.com/vitejs/vite" target="_blank">
-            <svg class="button-icon" role="presentation" aria-hidden="true">
-              <use href="/icons.svg#github-icon"></use>
-            </svg>
+            <Github class="button-icon" aria-hidden="true" />
             GitHub
           </a>
         </li>
         <li>
           <a href="https://chat.vite.dev/" target="_blank">
-            <svg class="button-icon" role="presentation" aria-hidden="true">
-              <use href="/icons.svg#discord-icon"></use>
-            </svg>
+            <MessageCircle class="button-icon" aria-hidden="true" />
             Discord
           </a>
         </li>
         <li>
           <a href="https://x.com/vite_js" target="_blank">
-            <svg class="button-icon" role="presentation" aria-hidden="true">
-              <use href="/icons.svg#x-icon"></use>
-            </svg>
+            <AtSign class="button-icon" aria-hidden="true" />
             X.com
           </a>
         </li>
         <li>
           <a href="https://bsky.app/profile/vite.dev" target="_blank">
-            <svg class="button-icon" role="presentation" aria-hidden="true">
-              <use href="/icons.svg#bluesky-icon"></use>
-            </svg>
+            <Send class="button-icon" aria-hidden="true" />
             Bluesky
           </a>
         </li>

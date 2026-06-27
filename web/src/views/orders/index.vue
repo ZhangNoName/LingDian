@@ -4,7 +4,7 @@
 
     <AppFormTable title="订单管理" description="统一查看订单状态、金额、餐品明细与完整流转轨迹。">
       <template #headerActions>
-        <el-button :icon="Refresh" :loading="loading" @click="fetchOrders">刷新</el-button>
+        <el-button :icon="RefreshCw" :loading="loading" @click="fetchOrders">刷新</el-button>
       </template>
 
       <template #form>
@@ -159,7 +159,7 @@ import {
   ElTableColumn,
   ElTag,
 } from 'element-plus'
-import { Refresh } from '@element-plus/icons-vue'
+import { RefreshCw } from '@lingdian/icons/web'
 import AppForm from '@/components/form/AppForm.vue'
 import AppFormTable from '@/components/form-table/AppFormTable.vue'
 import AppTable from '@/components/table/AppTable.vue'

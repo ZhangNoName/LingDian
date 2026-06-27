@@ -7,7 +7,7 @@ import {
   type DialogContentProps,
   useForwardProps,
 } from 'reka-ui'
-import { X } from 'lucide-vue-next'
+import { X } from '@lingdian/icons/web'
 import { cn } from '@/lib/utils'
 import { Button } from '@/baseComponents/button'
 

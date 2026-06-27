@@ -6,15 +6,27 @@
     </view>
     <text class="address">{{ store.address }}</text>
     <view class="mode-grid">
-      <view class="mode active"><SkeletonBox class="mode-icon" radius="md" /><text class="mode-title">堂食</text><text class="mode-subtitle">店内就餐</text></view>
-      <view class="mode"><SkeletonBox class="mode-icon" radius="md" /><text class="mode-title">外带</text><text class="mode-subtitle">打包带走</text></view>
+      <view class="mode active">
+        <view class="mode-icon-shell">
+          <component :is="checkoutModeIcons.dineIn" class="mode-icon" :stroke-width="2.3" />
+        </view>
+        <text class="mode-title">堂食</text>
+        <text class="mode-subtitle">店内就餐</text>
+      </view>
+      <view class="mode">
+        <view class="mode-icon-shell">
+          <component :is="checkoutModeIcons.takeaway" class="mode-icon" :stroke-width="2.3" />
+        </view>
+        <text class="mode-title">外带</text>
+        <text class="mode-subtitle">打包带走</text>
+      </view>
     </view>
     <view class="pickup"><text>取餐时间 <text class="tag">出餐保障</text></text><text class="pickup-time">{{ pickupTimeText }} ›</text></view>
   </view>
 </template>
 
 <script setup lang="ts">
-import SkeletonBox from "@/components/app/SkeletonBox.vue";
+import { checkoutModeIcons } from "@lingdian/icons/miniapp";
 import type { StoreSummary } from "@/types/store";
 
 defineProps<{
@@ -74,12 +86,23 @@ defineProps<{
   border: 4rpx solid var(--ld-mini-primary);
 }
 
-.mode-icon {
+.mode-icon-shell {
   position: absolute;
   left: 18rpx;
   top: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 60rpx;
   height: 52rpx;
+  border-radius: 16rpx;
+  background: rgba(18, 163, 82, 0.1);
+  color: var(--ld-mini-primary);
+}
+
+.mode-icon {
+  width: 34rpx;
+  height: 34rpx;
 }
 
 .mode-title,

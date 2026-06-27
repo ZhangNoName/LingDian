@@ -2,7 +2,9 @@
   <view class="manage">
     <view class="grid">
       <view v-for="entry in entries" :key="entry.key" class="entry">
-        <SkeletonBox class="icon" radius="round" />
+        <view class="icon-shell">
+          <component :is="getEntryIcon(entry.key)" class="icon" :stroke-width="2.2" />
+        </view>
         <text>{{ entry.label }}</text>
       </view>
     </view>
@@ -10,12 +12,16 @@
 </template>
 
 <script setup lang="ts">
-import SkeletonBox from "@/components/app/SkeletonBox.vue";
+import { fallbackManageIcon, manageEntryIcons } from "@lingdian/icons/miniapp";
 import type { ManageEntry } from "@/types/member";
 
 defineProps<{
   entries: ManageEntry[];
 }>();
+
+function getEntryIcon(key: string) {
+  return manageEntryIcons[key] ?? fallbackManageIcon;
+}
 </script>
 
 <style scoped>
@@ -48,10 +54,21 @@ defineProps<{
   content: "";
 }
 
-.icon {
+.icon-shell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 56rpx;
   height: 56rpx;
   margin: 0 auto 12rpx;
+  border-radius: 999rpx;
+  background: rgba(18, 163, 82, 0.1);
+  color: var(--ld-mini-primary);
+}
+
+.icon {
+  width: 32rpx;
+  height: 32rpx;
 }
 
 .entry text {

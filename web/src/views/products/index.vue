@@ -4,7 +4,7 @@
 
     <AppFormTable title="商品管理" description="统一维护 SPU、SKU 与可扩展配置项结构">
       <template #headerActions>
-        <el-button :icon="Refresh" :loading="loading" @click="fetchProducts">刷新</el-button>
+        <el-button :icon="RefreshCw" :loading="loading" @click="fetchProducts">刷新</el-button>
       </template>
 
       <template #form>
@@ -206,7 +206,7 @@ import {
   ElTableColumn,
   ElTag,
 } from 'element-plus'
-import { Refresh } from '@element-plus/icons-vue'
+import { RefreshCw } from '@lingdian/icons/web'
 import AppForm from '@/components/form/AppForm.vue'
 import AppFormTable from '@/components/form-table/AppFormTable.vue'
 import AppTable from '@/components/table/AppTable.vue'

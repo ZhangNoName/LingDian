@@ -29,7 +29,7 @@
 </template>
 
 <script setup lang="ts">
-import { PanelLeft } from 'lucide-vue-next'
+import { PanelLeft } from '@lingdian/icons/web'
 import { Badge } from '@/baseComponents/badge'
 import { Button } from '@/baseComponents/button'
 

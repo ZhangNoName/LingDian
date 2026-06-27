@@ -10,7 +10,7 @@ import {
   ShoppingCart,
   Store,
   Wallet,
-} from 'lucide-vue-next'
+} from '@lingdian/icons/web'
 
 export type NavigationItem = {
   label: string

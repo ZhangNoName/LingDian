@@ -1,0 +1,43 @@
+{
+  "name": "@lingdian/icons",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    },
+    "./web": {
+      "types": "./src/web.ts",
+      "import": "./src/web.ts"
+    },
+    "./miniapp": {
+      "types": "./src/miniapp.ts",
+      "import": "./src/miniapp.ts"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "web": [
+        "src/web.ts"
+      ],
+      "miniapp": [
+        "src/miniapp.ts"
+      ],
+      "*": [
+        "src/index.ts"
+      ]
+    }
+  },
+  "files": [
+    "src",
+    "package.json"
+  ],
+  "dependencies": {
+    "lucide-vue-next": "^1.0.0"
+  },
+  "peerDependencies": {
+    "vue": ">=3.4.0"
+  }
+}
