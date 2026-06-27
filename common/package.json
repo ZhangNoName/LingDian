@@ -2,23 +2,24 @@
   "name": "@lingdian/common",
   "version": "0.1.0",
   "private": true,
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "require": "./dist/index.js",
-      "import": "./dist/index.js"
+      "types": "./dist/esm/index.d.ts",
+      "require": "./dist/cjs/index.js",
+      "import": "./dist/esm/index.js"
     },
     "./response-codes": {
-      "types": "./dist/response-codes/index.d.ts",
-      "require": "./dist/response-codes/index.js",
-      "import": "./dist/response-codes/index.js"
+      "types": "./dist/esm/response-codes/index.d.ts",
+      "require": "./dist/cjs/response-codes/index.js",
+      "import": "./dist/esm/response-codes/index.js"
     },
     "./utils": {
-      "types": "./dist/utils/index.d.ts",
-      "require": "./dist/utils/index.js",
-      "import": "./dist/utils/index.js"
+      "types": "./dist/esm/utils/index.d.ts",
+      "require": "./dist/cjs/utils/index.js",
+      "import": "./dist/esm/utils/index.js"
     }
   },
   "files": [
@@ -28,7 +29,7 @@
     "tsconfig.json"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json && tsc -p tsconfig.cjs.json"
   },
   "devDependencies": {
     "typescript": "^5.9.3"
