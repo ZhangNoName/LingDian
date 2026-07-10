@@ -18,6 +18,17 @@ test("miniapp layout foundation uses safe-area tokens", async () => {
   assert.match(tokens, /--ld-fixed-action-height:/);
 });
 
+test("tab layout stays viewport-bound and home clears the status bar", async () => {
+  const [layout, homePage] = await Promise.all([
+    readProjectFile("src/layout/layout.vue"),
+    readProjectFile("src/pages/home/home.vue"),
+  ]);
+
+  assert.match(layout, /height: 100vh/);
+  assert.doesNotMatch(layout, /min-height: 100vh/);
+  assert.match(homePage, /padding-top: calc\(env\(safe-area-inset-top\) \+ 16rpx\)/);
+});
+
 test("navigation uses static Lucide icons", async () => {
   const navBar = await readProjectFile("src/components/app/AppNavBar.vue");
 

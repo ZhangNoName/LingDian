@@ -32,7 +32,7 @@ function handleTabChange(key: AppTabKey) {
 <style scoped>
 .layout {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
   flex-direction: column;
   overflow: hidden;
   background: var(--ld-mini-bg);
