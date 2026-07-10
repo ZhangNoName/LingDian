@@ -3,8 +3,8 @@
     <view class="store-row">
       <text class="store">{{ detail.storeName }}</text>
       <view class="actions">
-        <text>☎</text>
-        <text>☆</text>
+        <PhoneIcon class="action-icon" :stroke-width="2.2" />
+        <MessageIcon class="action-icon" :stroke-width="2.2" />
       </view>
     </view>
 
@@ -29,6 +29,7 @@
 </template>
 
 <script setup lang="ts">
+import { MessageIcon, PhoneIcon } from "@lingdian/icons/miniapp";
 import type { OrderDetail } from "@/types/order";
 
 defineProps<{
@@ -66,7 +67,11 @@ function formatAmount(value: number) {
   display: flex;
   gap: 22rpx;
   color: #b7b7b7;
-  font-size: var(--ld-font-title, 32rpx);
+}
+
+.action-icon {
+  width: 32rpx;
+  height: 32rpx;
 }
 
 .item {

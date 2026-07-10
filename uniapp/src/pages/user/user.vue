@@ -5,12 +5,16 @@
       <ProfileHeader :user="userProfile" :member="member" />
       <MemberBenefitCard :assets="memberAssets" />
       <ManageGrid :entries="manageEntries" />
-      <button class="service-btn" @tap="showServicePhone">联系客服</button>
+      <button class="service-btn" @tap="showServicePhone">
+        <HelpIcon class="service-icon" :stroke-width="2.2" />
+        <text>联系客服</text>
+      </button>
     </view>
   </Layout>
 </template>
 
 <script setup lang="ts">
+import { HelpIcon } from "@lingdian/icons/miniapp";
 import AppNavBar from "@/components/app/AppNavBar.vue";
 import ManageGrid from "@/components/profile/ManageGrid.vue";
 import MemberBenefitCard from "@/components/profile/MemberBenefitCard.vue";
@@ -37,6 +41,10 @@ function showServicePhone() {
 }
 
 .service-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10rpx;
   height: 72rpx;
   margin: var(--ld-page-padding, 24rpx);
   border-radius: var(--ld-radius-16, 16px);
@@ -46,6 +54,11 @@ function showServicePhone() {
   font-weight: 800;
   line-height: 72rpx;
   box-shadow: var(--ld-mini-shadow-card);
+}
+
+.service-icon {
+  width: 30rpx;
+  height: 30rpx;
 }
 
 .service-btn::after {

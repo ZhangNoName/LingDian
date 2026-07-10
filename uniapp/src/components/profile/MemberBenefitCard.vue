@@ -3,13 +3,13 @@
     <text class="title">会员权益</text>
     <text class="desc">加入会员，充值就送好礼，充多送多。</text>
     <view class="stats">
-      <view>
-        <text>我的余额</text>
-        <strong>{{ assets.balance }}元</strong>
+      <view class="stat">
+        <text class="stat-label">我的余额</text>
+        <text class="stat-value">{{ assets.balance }}元</text>
       </view>
-      <view>
-        <text>我的优惠券</text>
-        <strong>{{ assets.couponCount }}张</strong>
+      <view class="stat">
+        <text class="stat-label">我的优惠券</text>
+        <text class="stat-value">{{ assets.couponCount }}张</text>
       </view>
     </view>
   </view>
@@ -55,18 +55,18 @@ defineProps<{
   margin-top: 22rpx;
 }
 
-.stats view {
+.stat {
   padding: 18rpx;
   border-radius: var(--ld-radius-8, 8px);
   background: rgba(255, 255, 255, 0.16);
 }
 
-.stats text,
-.stats strong {
+.stat-label,
+.stat-value {
   display: block;
 }
 
-.stats strong {
+.stat-value {
   margin-top: 8rpx;
   font-size: var(--ld-font-title-lg, 36rpx);
 }

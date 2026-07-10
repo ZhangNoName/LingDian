@@ -1,7 +1,7 @@
 <template>
   <view class="cart-bar">
     <view class="bag">
-      <text>零</text>
+      <CartIcon class="cart-icon" :stroke-width="2.3" />
       <text v-if="cart.itemCount" class="badge">{{ cart.itemCount }}</text>
     </view>
     <view class="summary">
@@ -13,6 +13,7 @@
 </template>
 
 <script setup lang="ts">
+import { CartIcon } from "@lingdian/icons/miniapp";
 import type { CartSummary } from "@/types/cart";
 
 defineProps<{
@@ -27,15 +28,16 @@ defineEmits<{
 <style scoped>
 .cart-bar {
   position: fixed;
-  left: var(--ld-page-padding, 24rpx);
-  right: var(--ld-page-padding, 24rpx);
-  bottom: var(--ld-page-padding, 24rpx);
+  left: 0;
+  right: 0;
+  bottom: calc(var(--ld-tabbar-height, 104rpx) + env(safe-area-inset-bottom));
   z-index: 15;
   display: grid;
   grid-template-columns: 104rpx 1fr 176rpx;
   align-items: center;
   min-height: 112rpx;
-  border-radius: var(--ld-radius-16, 16px);
+  padding: 0 var(--ld-page-padding, 24rpx);
+  border-radius: 24rpx 24rpx 0 0;
   background: var(--ld-mini-primary);
   color: #ffffff;
   box-shadow: 0 28rpx 56rpx rgba(237, 28, 36, 0.22);
@@ -50,9 +52,11 @@ defineEmits<{
   background: #fff2d9;
   color: var(--ld-mini-primary);
   text-align: center;
-  font-size: var(--ld-font-title-lg, 36rpx);
-  font-weight: 900;
-  line-height: 80rpx;
+}
+
+.cart-icon {
+  width: 40rpx;
+  height: 40rpx;
 }
 
 .badge {
@@ -93,7 +97,7 @@ defineEmits<{
   margin: 0;
   padding: 0;
   border-left: 1rpx solid rgba(255, 255, 255, 0.18);
-  border-radius: 0 var(--ld-radius-16, 16px) var(--ld-radius-16, 16px) 0;
+  border-radius: 0;
   background: transparent;
   color: #ffffff;
   font-size: var(--ld-font-title, 32rpx);

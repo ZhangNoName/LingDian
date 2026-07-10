@@ -7,14 +7,23 @@
       :class="{ active: tab.key === active }"
       @tap="$emit('change', tab.key)"
     >
-      <component :is="tab.icon" class="tab-icon" :stroke-width="2.4" />
+      <TabHomeIcon v-if="tab.key === 'home'" class="tab-icon" :stroke-width="2.4" />
+      <TabMenuIcon v-else-if="tab.key === 'menu'" class="tab-icon" :stroke-width="2.4" />
+      <TabOrdersIcon v-else-if="tab.key === 'orders'" class="tab-icon" :stroke-width="2.4" />
+      <TabProfileIcon v-else class="tab-icon" :stroke-width="2.4" />
       <text>{{ tab.label }}</text>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { tabIcons, type AppTabKey } from "@lingdian/icons/miniapp";
+import {
+  TabHomeIcon,
+  TabMenuIcon,
+  TabOrdersIcon,
+  TabProfileIcon,
+  type AppTabKey,
+} from "@lingdian/icons/miniapp";
 
 defineProps<{
   active: AppTabKey;
@@ -24,24 +33,21 @@ defineEmits<{
   (event: "change", key: AppTabKey): void;
 }>();
 
-const tabs: Array<{ key: AppTabKey; label: string; icon: (typeof tabIcons)[AppTabKey] }> = [
-  { key: "home", label: "首页", icon: tabIcons.home },
-  { key: "menu", label: "点单", icon: tabIcons.menu },
-  { key: "orders", label: "订单", icon: tabIcons.orders },
-  { key: "profile", label: "我的", icon: tabIcons.profile },
+const tabs: Array<{ key: AppTabKey; label: string }> = [
+  { key: "home", label: "首页" },
+  { key: "menu", label: "点单" },
+  { key: "orders", label: "订单" },
+  { key: "profile", label: "我的" },
 ];
 </script>
 
 <style scoped>
 .tabbar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
   z-index: 20;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  height: var(--ld-tabbar-height, 104rpx);
+  flex: 0 0 auto;
+  min-height: var(--ld-tabbar-height, 104rpx);
   padding: 14rpx var(--ld-page-padding, 24rpx) 0;
   border-top: 1rpx solid var(--ld-mini-border);
   background: #ffffff;
@@ -52,7 +58,8 @@ const tabs: Array<{ key: AppTabKey; label: string; icon: (typeof tabIcons)[AppTa
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8rpx;
+  min-height: 76rpx;
+  gap: 6rpx;
   color: #b9b9b9;
   font-size: var(--ld-font-xs, 22rpx);
 }

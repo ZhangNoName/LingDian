@@ -18,14 +18,14 @@ defineProps<{
 <style scoped>
 .hero {
   display: grid;
-  grid-template-columns: 1fr 176rpx;
+  grid-template-columns: minmax(0, 1fr) 164rpx;
   gap: 12rpx;
-  padding: 0 32rpx;
+  padding: 0 var(--ld-page-padding, 24rpx);
 }
 
 .main {
   width: 100%;
-  height: 360rpx;
+  height: 352rpx;
   align-self: end;
   border-radius: 28rpx;
   background: #ffffff;
@@ -37,8 +37,8 @@ defineProps<{
 }
 
 .stack-image {
-  width: 172rpx;
-  height: 112rpx;
+  width: 164rpx;
+  height: 108rpx;
   border-radius: 16rpx;
   background: #ffffff;
 }

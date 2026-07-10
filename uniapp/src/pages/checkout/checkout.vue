@@ -75,13 +75,13 @@ async function submitOrder() {
 <style scoped>
 .page {
   min-height: 100vh;
-  padding-bottom: 136rpx;
+  padding-bottom: calc(var(--ld-fixed-action-height, 128rpx) + var(--ld-page-bottom-safe, 24rpx));
   background: #f6f6f6;
 }
 
 .amount-card {
   margin: 0 var(--ld-page-padding, 24rpx) var(--ld-page-padding, 24rpx);
-  padding: 0 var(--ld-card-padding, 24rpx) var(--ld-card-padding, 24rpx);
+  padding: 0;
   border-radius: var(--ld-radius-16, 16px);
   background: #ffffff;
 }
@@ -89,7 +89,7 @@ async function submitOrder() {
 .amount-line {
   display: flex;
   justify-content: space-between;
-  padding: 24rpx 0;
+  padding: 24rpx var(--ld-card-padding, 24rpx);
   color: var(--ld-mini-text);
   font-size: var(--ld-font-base, 26rpx);
   font-weight: 800;
@@ -99,7 +99,6 @@ async function submitOrder() {
   display: flex;
   justify-content: space-between;
   gap: var(--ld-card-gap, 20rpx);
-  margin: 0 calc(-1 * var(--ld-card-padding, 24rpx));
   padding: 18rpx var(--ld-card-padding, 24rpx);
   background: #fff0d1;
   color: var(--ld-mini-primary);

@@ -3,12 +3,15 @@
     <view class="title-row">
       <text class="badge">堂食</text>
       <text class="store">{{ order.storeName }}</text>
-      <text class="status">{{ statusLabel }} ›</text>
+      <view class="status-wrap">
+        <text class="status">{{ statusLabel }}</text>
+        <ChevronRightIcon class="status-icon" :stroke-width="2.2" />
+      </view>
     </view>
-    <text class="time">{{ order.createdAt }}</text>
+    <text class="time">{{ formatOrderTime(order.createdAt) }}</text>
     <view class="body">
       <view class="thumbs">
-        <image v-for="thumb in order.productThumbs" :key="thumb" class="thumb" :src="thumb" mode="aspectFill" />
+        <image v-for="thumb in order.productThumbs.slice(0, 3)" :key="thumb" class="thumb" :src="thumb" mode="aspectFill" />
       </view>
       <view class="summary">
         <text class="price">¥{{ order.totalAmount.toFixed(1) }}</text>
@@ -21,6 +24,7 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
+import { ChevronRightIcon } from "@lingdian/icons/miniapp";
 import type { OrderSummary } from "@/types/order";
 
 const props = defineProps<{
@@ -59,6 +63,17 @@ function emitAction() {
 
   emit("detail", props.order.id);
 }
+
+function formatOrderTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day} ${hours}:${minutes}`;
+}
 </script>
 
 <style scoped>
@@ -67,6 +82,7 @@ function emitAction() {
   padding: var(--ld-card-padding, 24rpx);
   border-radius: var(--ld-radius-16, 16px);
   background: #ffffff;
+  box-shadow: var(--ld-mini-shadow-float);
 }
 
 .title-row {
@@ -100,6 +116,18 @@ function emitAction() {
   font-size: var(--ld-font-sm, 24rpx);
 }
 
+.status-wrap {
+  display: flex;
+  align-items: center;
+  gap: 2rpx;
+}
+
+.status-icon {
+  width: 26rpx;
+  height: 26rpx;
+  color: #999999;
+}
+
 .time {
   display: block;
   margin: 14rpx 0 18rpx;
@@ -107,18 +135,19 @@ function emitAction() {
 
 .body {
   display: grid;
-  grid-template-columns: 1fr 164rpx;
+  grid-template-columns: minmax(0, 1fr) 148rpx;
   gap: var(--ld-card-gap, 20rpx);
   align-items: center;
 }
 
 .thumbs {
   display: flex;
-  gap: 18rpx;
+  overflow: hidden;
+  gap: 12rpx;
 }
 
 .thumb {
-  width: 120rpx;
+  width: 112rpx;
   height: 84rpx;
   border-radius: var(--ld-radius-8, 8px);
   background: #ffffff;

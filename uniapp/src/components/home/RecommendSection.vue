@@ -1,22 +1,30 @@
 <template>
   <view class="recommend">
     <view class="section-title">
-      <text>堡藏推荐</text>
+      <text class="section-heading">堡藏推荐</text>
       <text class="tag">福利满满</text>
     </view>
     <view class="grid">
       <view v-for="product in products" :key="product.id" class="card" @tap="$emit('select', product.id)">
-        <image class="image" :src="product.imageUrl" mode="aspectFill" />
+        <view class="image-shell">
+          <image v-if="!failedImages.has(product.id)" class="image" :src="product.imageUrl" mode="aspectFill" @error="markImageFailed(product.id)" />
+          <SkeletonBox v-else class="image-placeholder" radius="md" />
+        </view>
         <text class="name">{{ product.name }}</text>
         <PriceText :price="product.price" :original-price="product.originalPrice" suffix="一口价" size="small" />
-        <button class="add">+</button>
+        <button class="add" @tap.stop="$emit('select', product.id)">
+          <PlusIcon class="add-icon" :stroke-width="3" />
+        </button>
       </view>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
+import { ref } from "vue";
+import { PlusIcon } from "@lingdian/icons/miniapp";
 import PriceText from "@/components/app/PriceText.vue";
+import SkeletonBox from "@/components/app/SkeletonBox.vue";
 import type { ProductSummary } from "@/types/menu";
 
 defineProps<{
@@ -26,6 +34,12 @@ defineProps<{
 defineEmits<{
   (event: "select", productId: string): void;
 }>();
+
+const failedImages = ref(new Set<string>());
+
+function markImageFailed(productId: string) {
+  failedImages.value.add(productId);
+}
 </script>
 
 <style scoped>
@@ -33,7 +47,7 @@ defineEmits<{
   padding: var(--ld-card-padding, 24rpx);
   border-radius: var(--ld-radius-16, 16px);
   background: #ffffff;
-  box-shadow: var(--ld-mini-shadow-card);
+  box-shadow: var(--ld-mini-shadow-float);
 }
 
 .section-title {
@@ -43,7 +57,7 @@ defineEmits<{
   margin-bottom: 18rpx;
 }
 
-.section-title text:first-child {
+.section-heading {
   color: var(--ld-mini-text);
   font-size: var(--ld-font-title, 32rpx);
   font-weight: 900;
@@ -66,25 +80,41 @@ defineEmits<{
 
 .card {
   position: relative;
-  min-height: 214rpx;
+  display: grid;
+  grid-template-rows: 148rpx minmax(58rpx, auto) auto 48rpx;
+  min-height: 300rpx;
   padding: 16rpx;
   border-radius: var(--ld-radius-8, 8px);
   background: #fffaf0;
 }
 
-.image {
-  width: 100%;
-  height: 96rpx;
+.image-shell {
+  overflow: hidden;
   border-radius: var(--ld-radius-8, 8px);
   background: #ffffff;
 }
 
+.image {
+  width: 100%;
+  height: 148rpx;
+  background: #ffffff;
+}
+
+.image-placeholder {
+  width: 100%;
+  height: 148rpx;
+}
+
 .name {
   display: block;
+  display: -webkit-box;
+  overflow: hidden;
   margin: 12rpx 0 6rpx;
   color: var(--ld-mini-text);
   font-size: var(--ld-font-sm, 24rpx);
   font-weight: 700;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .add {
@@ -93,15 +123,18 @@ defineEmits<{
   bottom: 16rpx;
   display: grid;
   place-items: center;
-  width: 42rpx;
-  height: 42rpx;
+  width: 48rpx;
+  height: 48rpx;
   margin: 0;
   padding: 0;
   border-radius: 50%;
   background: var(--ld-mini-primary);
   color: #ffffff;
-  font-size: var(--ld-font-title, 32rpx);
-  line-height: 38rpx;
+}
+
+.add-icon {
+  width: 28rpx;
+  height: 28rpx;
 }
 
 .add::after {

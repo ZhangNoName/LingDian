@@ -5,13 +5,14 @@
       <text class="label">{{ row.label }}</text>
       <view class="value-wrap">
         <text class="value">{{ row.value }}</text>
-        <text v-if="row.copyable" class="copy">▢</text>
+        <CopyIcon v-if="row.copyable" class="copy" :stroke-width="2.2" />
       </view>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
+import { CopyIcon } from "@lingdian/icons/miniapp";
 import type { OrderInfoRow } from "@/types/order";
 
 defineProps<{
@@ -66,7 +67,8 @@ defineProps<{
 }
 
 .copy {
+  width: 28rpx;
+  height: 28rpx;
   color: #c4c4c4;
-  font-size: var(--ld-font-title, 32rpx);
 }
 </style>

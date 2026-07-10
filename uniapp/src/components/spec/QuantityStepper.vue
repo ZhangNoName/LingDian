@@ -1,12 +1,17 @@
 <template>
   <view class="stepper">
-    <button class="round" :disabled="modelValue <= min" @tap="emitValue(modelValue - 1)">−</button>
+    <button class="round" :disabled="modelValue <= min" @tap="emitValue(modelValue - 1)">
+      <MinusIcon class="stepper-icon" :stroke-width="2.6" />
+    </button>
     <text class="count">{{ modelValue }}</text>
-    <button class="round plus" :disabled="modelValue >= max" @tap="emitValue(modelValue + 1)">+</button>
+    <button class="round plus" :disabled="modelValue >= max" @tap="emitValue(modelValue + 1)">
+      <PlusIcon class="stepper-icon" :stroke-width="2.6" />
+    </button>
   </view>
 </template>
 
 <script setup lang="ts">
+import { MinusIcon, PlusIcon } from "@lingdian/icons/miniapp";
 const props = withDefaults(
   defineProps<{
     modelValue: number;
@@ -47,8 +52,11 @@ function emitValue(value: number) {
   border-radius: 50%;
   background: #ffffff;
   color: #999999;
-  font-size: 38rpx;
-  line-height: 50rpx;
+}
+
+.stepper-icon {
+  width: 28rpx;
+  height: 28rpx;
 }
 
 .round::after {

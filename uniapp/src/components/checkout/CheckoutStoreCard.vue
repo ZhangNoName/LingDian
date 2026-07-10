@@ -8,14 +8,14 @@
     <view class="mode-grid">
       <view class="mode active">
         <view class="mode-icon-shell">
-          <component :is="checkoutModeIcons.dineIn" class="mode-icon" :stroke-width="2.3" />
+          <CheckoutDineInIcon class="mode-icon" :stroke-width="2.3" />
         </view>
         <text class="mode-title">堂食</text>
         <text class="mode-subtitle">店内就餐</text>
       </view>
       <view class="mode">
         <view class="mode-icon-shell">
-          <component :is="checkoutModeIcons.takeaway" class="mode-icon" :stroke-width="2.3" />
+          <CheckoutTakeawayIcon class="mode-icon" :stroke-width="2.3" />
         </view>
         <text class="mode-title">外带</text>
         <text class="mode-subtitle">打包带走</text>
@@ -26,7 +26,7 @@
 </template>
 
 <script setup lang="ts">
-import { checkoutModeIcons } from "@lingdian/icons/miniapp";
+import { CheckoutDineInIcon, CheckoutTakeawayIcon } from "@lingdian/icons/miniapp";
 import type { StoreSummary } from "@/types/store";
 
 defineProps<{
@@ -41,6 +41,7 @@ defineProps<{
   padding: var(--ld-card-padding, 24rpx);
   border-radius: var(--ld-radius-16, 16px);
   background: #ffffff;
+  box-shadow: var(--ld-mini-shadow-float);
 }
 
 .title-row,
@@ -77,7 +78,8 @@ defineProps<{
 .mode {
   position: relative;
   min-height: 104rpx;
-  padding: 20rpx 18rpx 18rpx 96rpx;
+  min-width: 0;
+  padding: 18rpx 14rpx 18rpx 82rpx;
   border: 1rpx solid #e2e2e2;
   border-radius: 14rpx;
 }
@@ -88,8 +90,8 @@ defineProps<{
 
 .mode-icon-shell {
   position: absolute;
-  left: 18rpx;
-  top: 24rpx;
+  left: 14rpx;
+  top: 22rpx;
   display: flex;
   align-items: center;
   justify-content: center;

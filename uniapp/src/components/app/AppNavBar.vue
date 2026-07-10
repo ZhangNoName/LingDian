@@ -1,8 +1,12 @@
 <template>
   <view class="nav">
     <view class="nav-left">
-      <text v-if="showBack" class="back" @tap="$emit('back')">‹</text>
-      <text v-if="showSearch" class="search">⌕</text>
+      <view v-if="showBack" class="icon-button" @tap="$emit('back')">
+        <BackIcon class="icon" :stroke-width="2.4" />
+      </view>
+      <view v-if="showSearch" class="icon-button">
+        <SearchIcon class="icon" :stroke-width="2.4" />
+      </view>
       <slot name="left" />
     </view>
     <text v-if="title" class="title">{{ title }}</text>
@@ -10,6 +14,8 @@
 </template>
 
 <script setup lang="ts">
+import { BackIcon, SearchIcon } from "@lingdian/icons/miniapp";
+
 withDefaults(
   defineProps<{
     title?: string;
@@ -33,34 +39,46 @@ defineEmits<{
   position: relative;
   display: flex;
   align-items: center;
-  min-height: var(--ld-nav-height, 96rpx);
-  padding: 24rpx var(--ld-page-padding, 24rpx) 8rpx;
+  min-height: var(--ld-nav-safe-height, 112rpx);
+  padding: env(safe-area-inset-top) var(--ld-page-padding, 24rpx) 12rpx;
+  background: var(--ld-mini-surface);
 }
 
 .nav-left {
-  position: absolute;
+  position: relative;
+  z-index: 1;
   left: var(--ld-page-padding, 24rpx);
-  bottom: 14rpx;
   display: flex;
   align-items: center;
-  gap: 18rpx;
+  min-width: 88rpx;
+  gap: 12rpx;
 }
 
-.back {
-  font-size: 48rpx;
-  font-weight: 300;
-  line-height: 1;
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  color: var(--ld-mini-text);
 }
 
-.search {
-  font-size: 38rpx;
-  line-height: 1;
+.icon {
+  width: 36rpx;
+  height: 36rpx;
 }
 
 .title {
+  position: absolute;
+  left: 0;
+  right: 0;
   width: 100%;
+  padding: 0 112rpx;
+  overflow: hidden;
   text-align: center;
   color: var(--ld-mini-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: var(--ld-font-title, 32rpx);
   font-weight: 700;
 }

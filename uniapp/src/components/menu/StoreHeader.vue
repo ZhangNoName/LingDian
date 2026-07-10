@@ -1,14 +1,18 @@
 <template>
   <view class="store-header">
     <view>
-      <text class="name">{{ store.name }} ›</text>
+      <text class="name">{{ store.name }}</text>
       <text class="distance">{{ store.distanceText }}</text>
     </view>
-    <text class="dine-tag">堂食</text>
+    <view class="dine-tag">
+      <StoreLocationIcon class="tag-icon" :stroke-width="2.2" />
+      <text>堂食</text>
+    </view>
   </view>
 </template>
 
 <script setup lang="ts">
+import { StoreLocationIcon } from "@lingdian/icons/miniapp";
 import type { StoreSummary } from "@/types/store";
 
 defineProps<{
@@ -19,7 +23,10 @@ defineProps<{
 <style scoped>
 .store-header {
   position: relative;
-  padding: 12rpx 32rpx 28rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16rpx var(--ld-page-padding, 24rpx) 20rpx;
   background: #ffffff;
 }
 
@@ -29,7 +36,7 @@ defineProps<{
 }
 
 .name {
-  max-width: 520rpx;
+  max-width: 500rpx;
   overflow: hidden;
   color: var(--ld-mini-text);
   font-size: 36rpx;
@@ -45,11 +52,12 @@ defineProps<{
 }
 
 .dine-tag {
-  position: absolute;
-  right: 32rpx;
-  top: 10rpx;
-  min-width: 108rpx;
-  height: 68rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6rpx;
+  min-width: 116rpx;
+  height: 60rpx;
   border: 1rpx solid #f0dfc7;
   border-radius: 18rpx;
   background: #fff9ee;
@@ -57,6 +65,10 @@ defineProps<{
   text-align: center;
   font-size: 30rpx;
   font-weight: 800;
-  line-height: 68rpx;
+}
+
+.tag-icon {
+  width: 28rpx;
+  height: 28rpx;
 }
 </style>

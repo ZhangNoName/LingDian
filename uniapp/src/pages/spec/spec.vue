@@ -90,7 +90,7 @@ function goBack() {
 <style scoped>
 .page {
   min-height: 100vh;
-  padding-bottom: 228rpx;
+  padding-bottom: calc(var(--ld-fixed-action-height, 128rpx) + var(--ld-page-bottom-safe, 24rpx));
   background: #ffffff;
 }
 

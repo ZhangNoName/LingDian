@@ -1,15 +1,19 @@
 <template>
   <view class="mode-grid">
     <view v-for="mode in modes" :key="mode.key" class="mode-card" @tap="$emit('select', mode.key)">
+      <view class="mode-icon-shell">
+        <HomeDineInIcon v-if="mode.key === 'dineIn'" class="mode-icon" :stroke-width="2.2" />
+        <HomeDeliveryIcon v-else-if="mode.key === 'delivery'" class="mode-icon" :stroke-width="2.2" />
+        <HomeTakeawayIcon v-else class="mode-icon" :stroke-width="2.2" />
+      </view>
       <text class="mode-title">{{ mode.title }}</text>
       <text class="mode-subtitle">{{ mode.subtitle }}</text>
-      <SkeletonBox class="mode-visual" radius="md" />
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import SkeletonBox from "@/components/app/SkeletonBox.vue";
+import { HomeDeliveryIcon, HomeDineInIcon, HomeTakeawayIcon } from "@lingdian/icons/miniapp";
 import type { HomeServiceMode, ServiceMode } from "@/types/store";
 
 defineProps<{
@@ -29,12 +33,28 @@ defineEmits<{
 }
 
 .mode-card {
-  min-height: 204rpx;
-  padding: 26rpx var(--ld-card-padding, 24rpx) 18rpx;
+  min-height: 176rpx;
+  padding: 24rpx var(--ld-card-padding, 24rpx);
   border-radius: var(--ld-radius-16, 16px);
   background: #ffffff;
   text-align: center;
-  box-shadow: var(--ld-mini-shadow-card);
+  box-shadow: var(--ld-mini-shadow-float);
+}
+
+.mode-icon-shell {
+  display: grid;
+  place-items: center;
+  width: 64rpx;
+  height: 64rpx;
+  margin: 0 auto 12rpx;
+  border-radius: 50%;
+  background: var(--ld-mini-primary-soft);
+  color: var(--ld-mini-primary);
+}
+
+.mode-icon {
+  width: 36rpx;
+  height: 36rpx;
 }
 
 .mode-title {
@@ -51,9 +71,4 @@ defineEmits<{
   font-size: var(--ld-font-xs, 22rpx);
 }
 
-.mode-visual {
-  width: 140rpx;
-  height: 84rpx;
-  margin: 14rpx auto 0;
-}
 </style>

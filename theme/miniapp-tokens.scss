@@ -37,6 +37,11 @@ $ld-mini-tabs-height: 72rpx;
 $ld-mini-tabbar-height: 104rpx;
 $ld-mini-list-row-height: 208rpx;
 $ld-mini-sidebar-row-height: 116rpx;
+$ld-mini-nav-safe-height: 112rpx;
+$ld-mini-page-bottom-safe: calc(24rpx + env(safe-area-inset-bottom));
+$ld-mini-fixed-action-height: 128rpx;
+$ld-mini-card-border: 1rpx solid #ececec;
+$ld-mini-shadow-float: 0 12rpx 32rpx rgba(23, 23, 23, 0.08);
 
 :root,
 page {
@@ -75,4 +80,9 @@ page {
   --ld-tabbar-height: #{$ld-mini-tabbar-height};
   --ld-list-row-height: #{$ld-mini-list-row-height};
   --ld-sidebar-row-height: #{$ld-mini-sidebar-row-height};
+  --ld-nav-safe-height: #{$ld-mini-nav-safe-height};
+  --ld-page-bottom-safe: #{$ld-mini-page-bottom-safe};
+  --ld-fixed-action-height: #{$ld-mini-fixed-action-height};
+  --ld-card-border: #{$ld-mini-card-border};
+  --ld-mini-shadow-float: #{$ld-mini-shadow-float};
 }

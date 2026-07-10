@@ -26,7 +26,7 @@ defineEmits<{
   display: grid;
   grid-template-columns: 1fr 260rpx;
   align-items: center;
-  min-height: 104rpx;
+  min-height: var(--ld-fixed-action-height, 128rpx);
   padding: 14rpx var(--ld-page-padding, 24rpx) calc(14rpx + env(safe-area-inset-bottom));
   background: #ffffff;
 }

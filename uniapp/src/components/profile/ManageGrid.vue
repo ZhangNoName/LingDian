@@ -1,27 +1,35 @@
 <template>
   <view class="manage">
     <view class="grid">
-      <view v-for="entry in entries" :key="entry.key" class="entry">
+      <view v-for="(entry, index) in entries" :key="entry.key" class="entry">
         <view class="icon-shell">
-          <component :is="getEntryIcon(entry.key)" class="icon" :stroke-width="2.2" />
+          <ManageOrdersIcon v-if="entry.key === 'orders'" class="icon" :stroke-width="2.2" />
+          <ManageAddressIcon v-else-if="entry.key === 'address'" class="icon" :stroke-width="2.2" />
+          <ManageFavoritesIcon v-else-if="entry.key === 'favorites'" class="icon" :stroke-width="2.2" />
+          <ManageTransactionsIcon v-else-if="entry.key === 'transactions'" class="icon" :stroke-width="2.2" />
+          <ManageFallbackIcon v-else class="icon" :stroke-width="2.2" />
         </view>
-        <text>{{ entry.label }}</text>
+        <text class="entry-label">{{ entry.label }}</text>
+        <view v-if="index < entries.length - 1" class="separator" />
       </view>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { fallbackManageIcon, manageEntryIcons } from "@lingdian/icons/miniapp";
+import {
+  ManageAddressIcon,
+  ManageFallbackIcon,
+  ManageFavoritesIcon,
+  ManageOrdersIcon,
+  ManageTransactionsIcon,
+} from "@lingdian/icons/miniapp";
 import type { ManageEntry } from "@/types/member";
 
 defineProps<{
   entries: ManageEntry[];
 }>();
 
-function getEntryIcon(key: string) {
-  return manageEntryIcons[key] ?? fallbackManageIcon;
-}
 </script>
 
 <style scoped>
@@ -44,14 +52,13 @@ function getEntryIcon(key: string) {
   text-align: center;
 }
 
-.entry:not(:last-child)::after {
+.separator {
   position: absolute;
   right: 0;
   top: 6rpx;
   width: 1rpx;
   height: 72rpx;
   background: rgba(23, 23, 23, 0.08);
-  content: "";
 }
 
 .icon-shell {
@@ -71,7 +78,7 @@ function getEntryIcon(key: string) {
   height: 32rpx;
 }
 
-.entry text {
+.entry-label {
   color: var(--ld-mini-text);
   font-size: var(--ld-font-sm, 24rpx);
   font-weight: 700;

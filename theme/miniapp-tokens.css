@@ -35,4 +35,9 @@ page {
   --ld-tabbar-height: 104rpx;
   --ld-list-row-height: 208rpx;
   --ld-sidebar-row-height: 116rpx;
+  --ld-nav-safe-height: 112rpx;
+  --ld-page-bottom-safe: calc(24rpx + env(safe-area-inset-bottom));
+  --ld-fixed-action-height: 128rpx;
+  --ld-card-border: 1rpx solid #ececec;
+  --ld-mini-shadow-float: 0 12rpx 32rpx rgba(23, 23, 23, 0.08);
 }

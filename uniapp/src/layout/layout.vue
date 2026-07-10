@@ -31,13 +31,15 @@ function handleTabChange(key: AppTabKey) {
 
 <style scoped>
 .layout {
-  height: 100vh;
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
   overflow: hidden;
   background: var(--ld-mini-bg);
 }
 
 .content {
-  height: calc(100vh - var(--ld-tabbar-height, 104rpx));
+  flex: 1;
   min-height: 0;
   overflow-y: auto;
 }

@@ -11,7 +11,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, ref } from "vue";
+import { onLoad } from "@dcloudio/uni-app";
 import Layout from "@/layout/layout.vue";
 import MemberStrip from "@/components/home/MemberStrip.vue";
 import RecommendSection from "@/components/home/RecommendSection.vue";
@@ -26,7 +27,7 @@ const featuredProducts = computed(() => {
   return (menu.value?.products ?? []).filter((product) => product.tags.includes("推荐")).slice(0, 6);
 });
 
-onMounted(async () => {
+onLoad(async () => {
   try {
     menu.value = await fetchMenu();
   } catch (error) {
@@ -47,15 +48,13 @@ function goSpec(productId: string) {
 .page {
   min-height: 100%;
   background: var(--ld-mini-bg);
-  padding-top: 24rpx;
+  padding: 16rpx var(--ld-page-padding, 24rpx) var(--ld-page-bottom-safe, 24rpx);
 }
 
 .content {
-  padding: 24rpx;
-}
-
-.content :deep(.recommend) {
-  margin-top: 28rpx;
+  display: grid;
+  gap: var(--ld-card-gap, 20rpx);
+  margin-top: var(--ld-card-gap, 20rpx);
 }
 </style>
 

@@ -1,37 +1,40 @@
 <template>
-  <view class="page">
-    <AppNavBar show-back show-search @back="goHome" />
-    <StoreHeader :store="store" />
-    <view class="menu-layout">
-      <CategorySidebar :categories="menuCategories" :active-id="activeCategoryId" @select="handleCategorySelect" />
-      <scroll-view
-        class="product-list"
-        scroll-y
-        scroll-with-animation
-        :scroll-into-view="scrollIntoView"
-        @scroll="handleProductScroll"
-      >
-        <view v-for="section in menuSections" :id="getSectionDomId(section.category.id)" :key="section.category.id" class="product-section">
-          <view class="section-title">
-            <text>{{ section.category.name }}</text>
+  <Layout active="menu">
+    <view class="page">
+      <AppNavBar title="点单" show-search />
+      <StoreHeader :store="store" />
+      <view class="menu-layout">
+        <CategorySidebar :categories="menuCategories" :active-id="activeCategoryId" @select="handleCategorySelect" />
+        <scroll-view
+          class="product-list"
+          scroll-y
+          scroll-with-animation
+          :scroll-into-view="scrollIntoView"
+          @scroll="handleProductScroll"
+        >
+          <view v-for="section in menuSections" :id="getSectionDomId(section.category.id)" :key="section.category.id" class="product-section">
+            <view class="section-title">
+              <text>{{ section.category.name }}</text>
+            </view>
+            <MenuProductItem v-for="product in section.products" :key="product.id" :product="product" @select="goSpec" />
           </view>
-          <MenuProductItem v-for="product in section.products" :key="product.id" :product="product" @select="goSpec" />
-        </view>
-        <view v-if="menuSections.length === 0" class="empty">暂无可售餐品</view>
-      </scroll-view>
+          <view v-if="menuSections.length === 0" class="empty">暂无可售餐品</view>
+        </scroll-view>
+      </view>
+      <CartCheckoutBar :cart="cartSummary" @checkout="goCheckout" />
     </view>
-    <CartCheckoutBar :cart="cartSummary" @checkout="goCheckout" />
-  </view>
+  </Layout>
 </template>
 
 <script setup lang="ts">
-import { computed, getCurrentInstance, nextTick, onMounted, onUnmounted, ref } from "vue";
-import { onShow } from "@dcloudio/uni-app";
+import { computed, getCurrentInstance, nextTick, ref } from "vue";
+import { onLoad, onShow, onUnload } from "@dcloudio/uni-app";
 import AppNavBar from "@/components/app/AppNavBar.vue";
 import CartCheckoutBar from "@/components/menu/CartCheckoutBar.vue";
 import CategorySidebar from "@/components/menu/CategorySidebar.vue";
 import MenuProductItem from "@/components/menu/MenuProductItem.vue";
 import StoreHeader from "@/components/menu/StoreHeader.vue";
+import Layout from "@/layout/layout.vue";
 import { fetchMenu, type MenuViewModel } from "@/services/catalog";
 import { getCartSummary } from "@/services/cart";
 import type { CartSummary } from "@/types/cart";
@@ -78,15 +81,13 @@ const menuSections = computed(() => {
     .filter((section) => section.products.length > 0);
 });
 
-onMounted(async () => {
-  await loadMenu();
-});
+onLoad(loadMenu);
 
 onShow(() => {
   cartSummary.value = getCartSummary();
 });
 
-onUnmounted(() => {
+onUnload(() => {
   if (initialMeasureTimer) clearTimeout(initialMeasureTimer);
   if (categoryJumpTimer) clearTimeout(categoryJumpTimer);
 });
@@ -166,10 +167,6 @@ function measureSectionOffsets() {
   });
 }
 
-function goHome() {
-  uni.redirectTo({ url: "/pages/home/home" });
-}
-
 function goSpec(productId: string) {
   uni.navigateTo({ url: `/pages/spec/spec?id=${productId}` });
 }
@@ -188,8 +185,8 @@ function goCheckout() {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  height: 100vh;
-  padding-bottom: 180rpx;
+  height: 100%;
+  padding-bottom: calc(var(--ld-fixed-action-height, 128rpx) + var(--ld-page-bottom-safe, 24rpx));
   overflow: hidden;
   background: #ffffff;
 }
@@ -206,13 +203,9 @@ function goCheckout() {
   box-sizing: border-box;
   height: 100%;
   min-height: 0;
-  padding: 0 24rpx 24rpx 32rpx;
+  padding: 0 24rpx 24rpx 28rpx;
   overflow: hidden;
   background: #ffffff;
-}
-
-.product-list :deep(.uni-scroll-view) {
-  height: 100%;
 }
 
 .product-section {

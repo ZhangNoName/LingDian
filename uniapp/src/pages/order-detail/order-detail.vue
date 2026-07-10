@@ -66,7 +66,7 @@ function goMenu() {
 <style scoped>
 .page {
   min-height: 100vh;
-  padding-bottom: 112rpx;
+  padding-bottom: calc(var(--ld-fixed-action-height, 128rpx) + var(--ld-page-bottom-safe, 24rpx));
   background: #f3f3f3;
 }
 

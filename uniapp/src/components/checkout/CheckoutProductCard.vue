@@ -8,7 +8,10 @@
         <text v-for="option in item.selectedOptions" :key="option.optionId" class="spec">1 x {{ option.name }}</text>
         <text class="expand">展开⌄</text>
       </view>
-      <view class="amount"><text>{{ item.quantity }}份</text><text>¥{{ item.unitPrice.toFixed(1) }}</text></view>
+      <view class="amount">
+        <text class="amount-quantity">{{ item.quantity }}份</text>
+        <text class="amount-price">¥{{ item.unitPrice.toFixed(1) }}</text>
+      </view>
     </view>
   </view>
 </template>
@@ -27,6 +30,7 @@ defineProps<{
   padding: var(--ld-card-padding, 24rpx);
   border-radius: var(--ld-radius-16, 16px);
   background: #ffffff;
+  box-shadow: var(--ld-mini-shadow-float);
 }
 
 .section-title {
@@ -39,7 +43,7 @@ defineProps<{
 
 .product {
   display: grid;
-  grid-template-columns: 112rpx 1fr 96rpx;
+  grid-template-columns: 104rpx minmax(0, 1fr) auto;
   gap: var(--ld-card-gap, 20rpx);
 }
 
@@ -52,10 +56,13 @@ defineProps<{
 
 .name {
   display: block;
+  overflow: hidden;
   margin-bottom: 10rpx;
   color: var(--ld-mini-text);
   font-size: var(--ld-font-md, 28rpx);
   font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .spec,
@@ -70,7 +77,8 @@ defineProps<{
   text-align: right;
 }
 
-.amount text {
+.amount-quantity,
+.amount-price {
   display: block;
   color: var(--ld-mini-text);
   font-size: var(--ld-font-base, 26rpx);
