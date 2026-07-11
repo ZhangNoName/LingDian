@@ -2,7 +2,7 @@
   <view class="nav">
     <view class="nav-left">
       <view v-if="showBack" class="icon-button" @tap="$emit('back')">
-        <BackIcon class="icon" :stroke-width="2.4" />
+        <text class="back-glyph">‹</text>
       </view>
       <view v-if="showSearch" class="icon-button">
         <SearchIcon class="icon" :stroke-width="2.4" />
@@ -14,7 +14,7 @@
 </template>
 
 <script setup lang="ts">
-import { BackIcon, SearchIcon } from "@lingdian/icons/miniapp";
+import { SearchIcon } from "@lingdian/icons/miniapp";
 
 withDefaults(
   defineProps<{
@@ -61,6 +61,14 @@ defineEmits<{
   height: 64rpx;
   border-radius: 50%;
   color: var(--ld-mini-text);
+}
+
+.back-glyph {
+  color: #1f2937;
+  font-family: Arial, sans-serif;
+  font-size: 60rpx;
+  font-weight: 400;
+  line-height: 52rpx;
 }
 
 .icon {

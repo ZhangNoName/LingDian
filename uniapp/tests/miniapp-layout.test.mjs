@@ -45,11 +45,12 @@ test("every page is rendered inside Layout", async () => {
   }
 });
 
-test("navigation uses static Lucide icons", async () => {
+test("navigation uses a native miniapp back glyph and static search icon", async () => {
   const navBar = await readProjectFile("src/components/app/AppNavBar.vue");
 
-  assert.match(navBar, /import \{ BackIcon, SearchIcon \}/);
-  assert.match(navBar, /<BackIcon/);
+  assert.match(navBar, /import \{ SearchIcon \} from/);
+  assert.match(navBar, /class="back-glyph"/);
+  assert.doesNotMatch(navBar, /<BackIcon/);
   assert.match(navBar, /<SearchIcon/);
 });
 
@@ -96,7 +97,7 @@ test("menu page uses the shared tab layout and a safe scrolling area", async () 
   const orderPage = await readProjectFile("src/pages/order/order.vue");
 
   assert.match(orderPage, /<Layout active="menu">/);
-  assert.match(orderPage, /padding-bottom: calc\(var\(--ld-fixed-action-height/);
+  assert.match(orderPage, /padding-bottom:\s*calc\(\s*var\(--ld-fixed-action-height/);
   assert.doesNotMatch(orderPage, /height: 100vh|:deep\(/);
 });
 
