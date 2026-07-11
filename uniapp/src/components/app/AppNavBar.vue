@@ -40,7 +40,7 @@ defineEmits<{
   display: flex;
   align-items: center;
   min-height: var(--ld-nav-safe-height, 112rpx);
-  padding: env(safe-area-inset-top) var(--ld-page-padding, 24rpx) 12rpx;
+  padding: 12rpx var(--ld-page-padding, 24rpx);
   background: var(--ld-mini-surface);
 }
 

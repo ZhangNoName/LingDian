@@ -1,33 +1,36 @@
 <template>
-  <view class="page">
-    <AppNavBar show-back @back="goBack" />
-    <template v-if="productDetail">
-      <ProductHero :product="productDetail" />
-      <view class="info">
-        <view>
-          <text class="name">{{ productDetail.name }}</text>
-          <text v-if="productDetail.description" class="tag">{{ productDetail.description }}</text>
+  <Layout :show-tab-bar="false">
+    <view class="page">
+      <AppNavBar show-back @back="goBack" />
+      <template v-if="productDetail">
+        <ProductHero :product="productDetail" />
+        <view class="info">
+          <view>
+            <text class="name">{{ productDetail.name }}</text>
+            <text v-if="productDetail.description" class="tag">{{ productDetail.description }}</text>
+          </view>
+          <QuantityStepper v-model="quantity" />
         </view>
-        <QuantityStepper v-model="quantity" />
-      </view>
-      <OptionGroup
-        v-for="group in productDetail.optionGroups"
-        :key="group.id"
-        :group="group"
-        :selected-id="selected[group.id]"
-        @select="selectOption"
-      />
-      <view v-if="productDetail.optionGroups.length === 0" class="plain">默认规格</view>
-      <SpecActionBar :selected-options="selectedOptions" @buy="buyNow" @add="addOnly" />
-    </template>
-    <view v-else class="empty">未找到餐品</view>
-  </view>
+        <OptionGroup
+          v-for="group in productDetail.optionGroups"
+          :key="group.id"
+          :group="group"
+          :selected-id="selected[group.id]"
+          @select="selectOption"
+        />
+        <view v-if="productDetail.optionGroups.length === 0" class="plain">默认规格</view>
+        <SpecActionBar :selected-options="selectedOptions" @buy="buyNow" @add="addOnly" />
+      </template>
+      <view v-else class="empty">未找到餐品</view>
+    </view>
+  </Layout>
 </template>
 
 <script setup lang="ts">
 import { computed, reactive, ref } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
 import AppNavBar from "@/components/app/AppNavBar.vue";
+import Layout from "@/layout/layout.vue";
 import OptionGroup from "@/components/spec/OptionGroup.vue";
 import ProductHero from "@/components/spec/ProductHero.vue";
 import QuantityStepper from "@/components/spec/QuantityStepper.vue";

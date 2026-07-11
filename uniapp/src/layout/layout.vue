@@ -3,7 +3,7 @@
     <view class="content">
       <slot />
     </view>
-    <AppTabBar :active="active" @change="handleTabChange" />
+    <AppTabBar v-if="showTabBar" :active="active" @change="handleTabChange" />
   </view>
 </template>
 
@@ -12,9 +12,16 @@ import AppTabBar from "@/components/app/AppTabBar.vue";
 
 type AppTabKey = "home" | "menu" | "orders" | "profile";
 
-const props = defineProps<{
-  active: AppTabKey;
-}>();
+const props = withDefaults(
+  defineProps<{
+    active?: AppTabKey;
+    showTabBar?: boolean;
+  }>(),
+  {
+    active: "home",
+    showTabBar: true,
+  },
+);
 
 const routes: Record<AppTabKey, string> = {
   home: "/pages/home/home",
@@ -42,5 +49,6 @@ function handleTabChange(key: AppTabKey) {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  padding-top: env(safe-area-inset-top);
 }
 </style>

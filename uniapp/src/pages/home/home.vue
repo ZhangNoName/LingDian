@@ -49,7 +49,6 @@ function goSpec(productId: string) {
   min-height: 100%;
   background: var(--ld-mini-bg);
   padding: 16rpx var(--ld-page-padding, 24rpx) var(--ld-page-bottom-safe, 24rpx);
-  padding-top: calc(env(safe-area-inset-top) + 16rpx);
 }
 
 .content {

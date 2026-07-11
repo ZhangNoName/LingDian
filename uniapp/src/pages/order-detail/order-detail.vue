@@ -1,28 +1,31 @@
 <template>
-  <view class="page">
-    <AppNavBar title="订单详情" show-back @back="goBack" />
+  <Layout :show-tab-bar="false">
+    <view class="page">
+      <AppNavBar title="订单详情" show-back @back="goBack" />
 
-    <view v-if="detail" class="content">
-      <view class="status-block">
-        <text class="status-title">{{ statusTitle }}</text>
-        <view class="reward">本单获得{{ detail.rewardPoints }}积分</view>
+      <view v-if="detail" class="content">
+        <view class="status-block">
+          <text class="status-title">{{ statusTitle }}</text>
+          <view class="reward">本单获得{{ detail.rewardPoints }}积分</view>
+        </view>
+
+        <OrderDetailGoodsCard :detail="detail" />
+        <OrderInfoCard :rows="detail.infoRows" />
       </view>
 
-      <OrderDetailGoodsCard :detail="detail" />
-      <OrderInfoCard :rows="detail.infoRows" />
+      <view v-else class="empty">未找到订单详情</view>
+      <view v-if="detail?.status === 'finished'" class="bottom">
+        <button class="again" @tap="goMenu">再来一单</button>
+      </view>
     </view>
-
-    <view v-else class="empty">未找到订单详情</view>
-    <view v-if="detail?.status === 'finished'" class="bottom">
-      <button class="again" @tap="goMenu">再来一单</button>
-    </view>
-  </view>
+  </Layout>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
 import AppNavBar from "@/components/app/AppNavBar.vue";
+import Layout from "@/layout/layout.vue";
 import OrderDetailGoodsCard from "@/components/orders/OrderDetailGoodsCard.vue";
 import OrderInfoCard from "@/components/orders/OrderInfoCard.vue";
 import { fetchOrderDetail } from "@/services/orders";

@@ -1,20 +1,23 @@
 <template>
-  <view class="page">
-    <AppNavBar title="提交订单" show-back @back="goBack" />
-    <CheckoutStoreCard :store="checkoutModel.store" :pickup-time-text="checkoutModel.pickupTimeText" />
-    <CheckoutProductCard :items="checkoutModel.items" />
-    <view class="amount-card">
-      <view class="amount-line"><text>商品金额</text><text>¥{{ checkoutModel.amount.goodsAmount.toFixed(1) }}</text></view>
-      <view class="coupon-strip"><text>库存暂不阻断下单</text><text>模拟支付</text></view>
+  <Layout :show-tab-bar="false">
+    <view class="page">
+      <AppNavBar title="提交订单" show-back @back="goBack" />
+      <CheckoutStoreCard :store="checkoutModel.store" :pickup-time-text="checkoutModel.pickupTimeText" />
+      <CheckoutProductCard :items="checkoutModel.items" />
+      <view class="amount-card">
+        <view class="amount-line"><text>商品金额</text><text>¥{{ checkoutModel.amount.goodsAmount.toFixed(1) }}</text></view>
+        <view class="coupon-strip"><text>库存暂不阻断下单</text><text>模拟支付</text></view>
+      </view>
+      <PayBar :amount="checkoutModel.amount" @pay="submitOrder" />
     </view>
-    <PayBar :amount="checkoutModel.amount" @pay="submitOrder" />
-  </view>
+  </Layout>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import AppNavBar from "@/components/app/AppNavBar.vue";
+import Layout from "@/layout/layout.vue";
 import CheckoutProductCard from "@/components/checkout/CheckoutProductCard.vue";
 import CheckoutStoreCard from "@/components/checkout/CheckoutStoreCard.vue";
 import PayBar from "@/components/checkout/PayBar.vue";

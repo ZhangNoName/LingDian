@@ -18,15 +18,30 @@ test("miniapp layout foundation uses safe-area tokens", async () => {
   assert.match(tokens, /--ld-fixed-action-height:/);
 });
 
-test("tab layout stays viewport-bound and home clears the status bar", async () => {
-  const [layout, homePage] = await Promise.all([
+test("layout is the only owner of the top safe area", async () => {
+  const [layout, navBar] = await Promise.all([
     readProjectFile("src/layout/layout.vue"),
-    readProjectFile("src/pages/home/home.vue"),
+    readProjectFile("src/components/app/AppNavBar.vue"),
   ]);
 
   assert.match(layout, /height: 100vh/);
   assert.doesNotMatch(layout, /min-height: 100vh/);
-  assert.match(homePage, /padding-top: calc\(env\(safe-area-inset-top\) \+ 16rpx\)/);
+  assert.match(layout, /<AppTabBar v-if="showTabBar"/);
+  assert.match(layout, /padding-top: env\(safe-area-inset-top\)/);
+  assert.doesNotMatch(navBar, /safe-area-inset-top/);
+});
+
+test("every page is rendered inside Layout", async () => {
+  const pages = ["home/home", "order/order", "his/his", "user/user", "spec/spec", "checkout/checkout", "order-detail/order-detail"];
+  const contents = await Promise.all(pages.map((page) => readProjectFile(`src/pages/${page}.vue`)));
+
+  for (const content of contents) {
+    assert.match(content, /<Layout/);
+  }
+
+  for (const content of contents.slice(4)) {
+    assert.match(content, /<Layout :show-tab-bar="false">/);
+  }
 });
 
 test("navigation uses static Lucide icons", async () => {
