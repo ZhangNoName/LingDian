@@ -1,5 +1,6 @@
 # 依赖与虚拟环境
 node_modules/
+.superpowers/
 .pnp
 .pnp.js
 .venv/
