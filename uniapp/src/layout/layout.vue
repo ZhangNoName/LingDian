@@ -49,6 +49,6 @@ function handleTabChange(key: AppTabKey) {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding-top: env(safe-area-inset-top);
+  padding-top: var(--status-bar-height, 0px);
 }
 </style>

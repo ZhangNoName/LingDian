@@ -27,7 +27,8 @@ test("layout is the only owner of the top safe area", async () => {
   assert.match(layout, /height: 100vh/);
   assert.doesNotMatch(layout, /min-height: 100vh/);
   assert.match(layout, /<AppTabBar v-if="showTabBar"/);
-  assert.match(layout, /padding-top: env\(safe-area-inset-top\)/);
+  assert.match(layout, /padding-top: var\(--status-bar-height, 0px\)/);
+  assert.doesNotMatch(layout, /safe-area-inset-top/);
   assert.doesNotMatch(navBar, /safe-area-inset-top/);
 });
 
