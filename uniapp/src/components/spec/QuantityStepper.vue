@@ -1,11 +1,11 @@
 <template>
   <view class="stepper">
     <button class="round" :disabled="modelValue <= min" @tap="emitValue(modelValue - 1)">
-      <MinusIcon class="stepper-icon" :stroke-width="2.6" />
+      <text class="stepper-icon">{{ MinusIcon }}</text>
     </button>
     <text class="count">{{ modelValue }}</text>
     <button class="round plus" :disabled="modelValue >= max" @tap="emitValue(modelValue + 1)">
-      <PlusIcon class="stepper-icon" :stroke-width="2.6" />
+      <text class="stepper-icon">{{ PlusIcon }}</text>
     </button>
   </view>
 </template>
@@ -55,8 +55,12 @@ function emitValue(value: number) {
 }
 
 .stepper-icon {
+  display: block;
   width: 28rpx;
   height: 28rpx;
+  font-size: 28rpx;
+  font-weight: 800;
+  line-height: 28rpx;
 }
 
 .round::after {

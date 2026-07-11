@@ -5,7 +5,7 @@
       <text class="store">{{ order.storeName }}</text>
       <view class="status-wrap">
         <text class="status">{{ statusLabel }}</text>
-        <ChevronRightIcon class="status-icon" :stroke-width="2.2" />
+        <text class="status-icon">{{ ChevronRightIcon }}</text>
       </view>
     </view>
     <text class="time">{{ formatOrderTime(order.createdAt) }}</text>
@@ -123,9 +123,12 @@ function formatOrderTime(value: string) {
 }
 
 .status-icon {
+  display: block;
   width: 26rpx;
   height: 26rpx;
   color: #999999;
+  font-size: 26rpx;
+  line-height: 26rpx;
 }
 
 .time {

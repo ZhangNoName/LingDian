@@ -7,10 +7,7 @@
       :class="{ active: tab.key === active }"
       @tap="$emit('change', tab.key)"
     >
-      <TabHomeIcon v-if="tab.key === 'home'" class="tab-icon" :stroke-width="2.4" />
-      <TabMenuIcon v-else-if="tab.key === 'menu'" class="tab-icon" :stroke-width="2.4" />
-      <TabOrdersIcon v-else-if="tab.key === 'orders'" class="tab-icon" :stroke-width="2.4" />
-      <TabProfileIcon v-else class="tab-icon" :stroke-width="2.4" />
+      <text class="tab-icon">{{ getTabIcon(tab.key) }}</text>
       <text>{{ tab.label }}</text>
     </view>
   </view>
@@ -18,10 +15,7 @@
 
 <script setup lang="ts">
 import {
-  TabHomeIcon,
-  TabMenuIcon,
-  TabOrdersIcon,
-  TabProfileIcon,
+  tabIcons,
   type AppTabKey,
 } from "@lingdian/icons/miniapp";
 
@@ -39,6 +33,10 @@ const tabs: Array<{ key: AppTabKey; label: string }> = [
   { key: "orders", label: "订单" },
   { key: "profile", label: "我的" },
 ];
+
+function getTabIcon(key: AppTabKey) {
+  return tabIcons[key];
+}
 </script>
 
 <style scoped>
@@ -70,8 +68,11 @@ const tabs: Array<{ key: AppTabKey; label: string }> = [
 }
 
 .tab-icon {
+  display: block;
   width: 30rpx;
   height: 30rpx;
   color: currentColor;
+  font-size: 30rpx;
+  line-height: 30rpx;
 }
 </style>

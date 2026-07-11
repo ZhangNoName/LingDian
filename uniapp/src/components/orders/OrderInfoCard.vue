@@ -5,7 +5,7 @@
       <text class="label">{{ row.label }}</text>
       <view class="value-wrap">
         <text class="value">{{ row.value }}</text>
-        <CopyIcon v-if="row.copyable" class="copy" :stroke-width="2.2" />
+        <text v-if="row.copyable" class="copy">{{ CopyIcon }}</text>
       </view>
     </view>
   </view>
@@ -67,8 +67,11 @@ defineProps<{
 }
 
 .copy {
+  display: block;
   width: 28rpx;
   height: 28rpx;
   color: #c4c4c4;
+  font-size: 28rpx;
+  line-height: 28rpx;
 }
 </style>

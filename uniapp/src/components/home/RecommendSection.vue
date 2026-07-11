@@ -13,7 +13,7 @@
         <text class="name">{{ product.name }}</text>
         <PriceText :price="product.price" :original-price="product.originalPrice" suffix="一口价" size="small" />
         <button class="add" @tap.stop="$emit('select', product.id)">
-          <PlusIcon class="add-icon" :stroke-width="3" />
+          <text class="add-icon">{{ PlusIcon }}</text>
         </button>
       </view>
     </view>
@@ -133,8 +133,12 @@ function markImageFailed(productId: string) {
 }
 
 .add-icon {
+  display: block;
   width: 28rpx;
   height: 28rpx;
+  font-size: 28rpx;
+  font-weight: 900;
+  line-height: 28rpx;
 }
 
 .add::after {

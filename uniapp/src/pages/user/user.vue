@@ -6,7 +6,7 @@
       <MemberBenefitCard :assets="memberAssets" />
       <ManageGrid :entries="manageEntries" />
       <button class="service-btn" @tap="showServicePhone">
-        <HelpIcon class="service-icon" :stroke-width="2.2" />
+        <text class="service-icon">{{ HelpIcon }}</text>
         <text>联系客服</text>
       </button>
     </view>
@@ -57,8 +57,11 @@ function showServicePhone() {
 }
 
 .service-icon {
+  display: block;
   width: 30rpx;
   height: 30rpx;
+  font-size: 30rpx;
+  line-height: 30rpx;
 }
 
 .service-btn::after {

@@ -1,7 +1,7 @@
 <template>
   <view class="cart-bar">
     <view class="bag">
-      <CartIcon class="cart-icon" :stroke-width="2.3" />
+      <text class="cart-icon">{{ CartIcon }}</text>
       <text v-if="cart.itemCount" class="badge">{{ cart.itemCount }}</text>
     </view>
     <view class="summary">
@@ -55,8 +55,11 @@ defineEmits<{
 }
 
 .cart-icon {
+  display: block;
   width: 40rpx;
   height: 40rpx;
+  font-size: 40rpx;
+  line-height: 40rpx;
 }
 
 .badge {

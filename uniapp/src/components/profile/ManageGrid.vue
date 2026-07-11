@@ -3,11 +3,7 @@
     <view class="grid">
       <view v-for="(entry, index) in entries" :key="entry.key" class="entry">
         <view class="icon-shell">
-          <ManageOrdersIcon v-if="entry.key === 'orders'" class="icon" :stroke-width="2.2" />
-          <ManageAddressIcon v-else-if="entry.key === 'address'" class="icon" :stroke-width="2.2" />
-          <ManageFavoritesIcon v-else-if="entry.key === 'favorites'" class="icon" :stroke-width="2.2" />
-          <ManageTransactionsIcon v-else-if="entry.key === 'transactions'" class="icon" :stroke-width="2.2" />
-          <ManageFallbackIcon v-else class="icon" :stroke-width="2.2" />
+          <text class="icon">{{ getEntryIcon(entry.key) }}</text>
         </view>
         <text class="entry-label">{{ entry.label }}</text>
         <view v-if="index < entries.length - 1" class="separator" />
@@ -18,17 +14,18 @@
 
 <script setup lang="ts">
 import {
-  ManageAddressIcon,
-  ManageFallbackIcon,
-  ManageFavoritesIcon,
-  ManageOrdersIcon,
-  ManageTransactionsIcon,
+  fallbackManageIcon,
+  manageEntryIcons,
 } from "@lingdian/icons/miniapp";
 import type { ManageEntry } from "@/types/member";
 
 defineProps<{
   entries: ManageEntry[];
 }>();
+
+function getEntryIcon(key: string) {
+  return manageEntryIcons[key] ?? fallbackManageIcon;
+}
 
 </script>
 
@@ -74,8 +71,11 @@ defineProps<{
 }
 
 .icon {
+  display: block;
   width: 32rpx;
   height: 32rpx;
+  font-size: 32rpx;
+  line-height: 32rpx;
 }
 
 .entry-label {

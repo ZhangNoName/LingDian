@@ -5,7 +5,7 @@
         <text class="back-glyph">‹</text>
       </view>
       <view v-if="showSearch" class="icon-button">
-        <SearchIcon class="icon" :stroke-width="2.4" />
+        <text class="icon">{{ SearchIcon }}</text>
       </view>
       <slot name="left" />
     </view>
@@ -72,8 +72,11 @@ defineEmits<{
 }
 
 .icon {
+  display: block;
   width: 36rpx;
   height: 36rpx;
+  font-size: 36rpx;
+  line-height: 36rpx;
 }
 
 .title {

@@ -3,8 +3,8 @@
     <view class="store-row">
       <text class="store">{{ detail.storeName }}</text>
       <view class="actions">
-        <PhoneIcon class="action-icon" :stroke-width="2.2" />
-        <MessageIcon class="action-icon" :stroke-width="2.2" />
+        <text class="action-icon">{{ PhoneIcon }}</text>
+        <text class="action-icon">{{ MessageIcon }}</text>
       </view>
     </view>
 
@@ -70,8 +70,11 @@ function formatAmount(value: number) {
 }
 
 .action-icon {
+  display: block;
   width: 32rpx;
   height: 32rpx;
+  font-size: 32rpx;
+  line-height: 32rpx;
 }
 
 .item {

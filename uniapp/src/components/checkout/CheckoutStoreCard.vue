@@ -8,14 +8,14 @@
     <view class="mode-grid">
       <view class="mode active">
         <view class="mode-icon-shell">
-          <CheckoutDineInIcon class="mode-icon" :stroke-width="2.3" />
+          <text class="mode-icon">{{ CheckoutDineInIcon }}</text>
         </view>
         <text class="mode-title">堂食</text>
         <text class="mode-subtitle">店内就餐</text>
       </view>
       <view class="mode">
         <view class="mode-icon-shell">
-          <CheckoutTakeawayIcon class="mode-icon" :stroke-width="2.3" />
+          <text class="mode-icon">{{ CheckoutTakeawayIcon }}</text>
         </view>
         <text class="mode-title">外带</text>
         <text class="mode-subtitle">打包带走</text>
@@ -103,8 +103,11 @@ defineProps<{
 }
 
 .mode-icon {
+  display: block;
   width: 34rpx;
   height: 34rpx;
+  font-size: 34rpx;
+  line-height: 34rpx;
 }
 
 .mode-title,

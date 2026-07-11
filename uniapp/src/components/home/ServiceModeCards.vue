@@ -2,9 +2,7 @@
   <view class="mode-grid">
     <view v-for="mode in modes" :key="mode.key" class="mode-card" @tap="$emit('select', mode.key)">
       <view class="mode-icon-shell">
-        <HomeDineInIcon v-if="mode.key === 'dineIn'" class="mode-icon" :stroke-width="2.2" />
-        <HomeDeliveryIcon v-else-if="mode.key === 'delivery'" class="mode-icon" :stroke-width="2.2" />
-        <HomeTakeawayIcon v-else class="mode-icon" :stroke-width="2.2" />
+        <text class="mode-icon">{{ getModeIcon(mode.key) }}</text>
       </view>
       <text class="mode-title">{{ mode.title }}</text>
       <text class="mode-subtitle">{{ mode.subtitle }}</text>
@@ -23,6 +21,12 @@ defineProps<{
 defineEmits<{
   (event: "select", key: ServiceMode): void;
 }>();
+
+function getModeIcon(key: ServiceMode) {
+  if (key === "dineIn") return HomeDineInIcon;
+  if (key === "delivery") return HomeDeliveryIcon;
+  return HomeTakeawayIcon;
+}
 </script>
 
 <style scoped>
@@ -53,8 +57,11 @@ defineEmits<{
 }
 
 .mode-icon {
+  display: block;
   width: 36rpx;
   height: 36rpx;
+  font-size: 36rpx;
+  line-height: 36rpx;
 }
 
 .mode-title {

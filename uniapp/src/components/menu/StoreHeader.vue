@@ -5,7 +5,7 @@
       <text class="distance">{{ store.distanceText }}</text>
     </view>
     <view class="dine-tag">
-      <StoreLocationIcon class="tag-icon" :stroke-width="2.2" />
+      <text class="tag-icon">{{ StoreLocationIcon }}</text>
       <text>堂食</text>
     </view>
   </view>
@@ -68,7 +68,10 @@ defineProps<{
 }
 
 .tag-icon {
+  display: block;
   width: 28rpx;
   height: 28rpx;
+  font-size: 28rpx;
+  line-height: 28rpx;
 }
 </style>
