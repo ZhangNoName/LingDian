@@ -68,6 +68,43 @@ enum SelectionScope {
   VARIANT
 }
 
+enum IdentityProvider {
+  PHONE
+  WECHAT
+  QQ
+  ACCOUNT
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+  MERCHANT
+}
+
+enum AuthAudience {
+  USER_API
+  ADMIN_API
+  MERCHANT_API
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum SessionStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum VerificationPurpose {
+  PHONE_LOGIN
+  PHONE_LINK
+  ADMIN_LOGIN
+  PASSWORD_RESET
+}
+
 enum SelectionOptionType {
   VALUE
   VARIANT
@@ -307,4 +344,130 @@ model OrderItemSelection {
   @@index([orderItemId])
   @@index([selectionOptionId])
   @@map("order_item_selections")
+}
+
+model User {
+  id             String               @id @default(cuid())
+  nickname       String?              @db.VarChar(32)
+  status         UserStatus           @default(ACTIVE)
+  sessionVersion Int                  @default(1)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  identities     AuthIdentity[]
+  roles          UserRoleAssignment[]
+  sessions       AuthSession[]
+
+  @@map("users")
+}
+
+model AuthIdentity {
+  id                 String              @id @default(cuid())
+  userId             String
+  provider           IdentityProvider
+  subject            String
+  accountName        String?             @unique @db.VarChar(191)
+  phoneE164          String?
+  verifiedAt         DateTime?
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  passwordCredential PasswordCredential?
+
+  @@unique([provider, subject])
+  @@unique([phoneE164])
+  @@index([userId])
+  @@map("auth_identities")
+}
+
+model PasswordCredential {
+  id                String       @id @default(cuid())
+  identityId        String       @unique
+  passwordHash      String       @db.Text
+  passwordChangedAt DateTime     @default(now())
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  identity          AuthIdentity @relation(fields: [identityId], references: [id], onDelete: Cascade)
+
+  @@map("password_credentials")
+}
+
+model UserRoleAssignment {
+  id        String     @id @default(cuid())
+  userId    String
+  role      UserRole
+  scopeType String     @default("GLOBAL")
+  scopeId   String     @default("")
+  status    UserStatus @default(ACTIVE)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role, scopeType, scopeId])
+  @@index([userId, status])
+  @@map("user_roles")
+}
+
+model AuthSession {
+  id               String        @id @default(cuid())
+  userId           String
+  audience         AuthAudience
+  refreshTokenHash String        @unique
+  previousRefreshTokenHash String? @unique
+  refreshTokenHistory Json?
+  device           String
+  status           SessionStatus @default(ACTIVE)
+  expiresAt        DateTime
+  revokedAt        DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, audience, device])
+  @@index([userId, status])
+  @@index([expiresAt])
+  @@map("auth_sessions")
+}
+
+model VerificationCode {
+  id          String              @id @default(cuid())
+  purpose     VerificationPurpose
+  targetHash  String
+  codeHash    String
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime            @default(now())
+
+  @@index([purpose, targetHash, expiresAt])
+  @@index([expiresAt])
+  @@map("verification_codes")
+}
+
+model PendingOAuth {
+  id                        String           @id @default(cuid())
+  provider                  IdentityProvider
+  subject                   String
+  stateHash                 String           @unique
+  audience                  AuthAudience
+  providerMetadataEncrypted String           @db.Text
+  expiresAt                 DateTime
+  consumedAt                DateTime?
+  createdAt                 DateTime         @default(now())
+
+  @@index([provider, subject])
+  @@index([expiresAt])
+  @@map("pending_oauth")
+}
+
+model AuthAuditLog {
+  id        String   @id @default(cuid())
+  event     String
+  userId    String?
+  sessionId String?
+  ip        String?
+  device    String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([sessionId, createdAt])
+  @@index([event, createdAt])
+  @@map("auth_audit_logs")
 }

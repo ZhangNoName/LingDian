@@ -92,3 +92,40 @@
 3. 微信与 QQ OAuth、待绑定状态、身份绑定/解绑。
 4. 多端接入、限流与人机校验、监控告警。
 5. 完整单元、集成与端到端测试，并进行安全评审。
+
+## Implemented operations and regression boundary (2026-07-11)
+
+The implementation keeps the access token at 900 seconds and the refresh
+token at 30 days in production. Refresh tokens are opaque random values; only
+their HMAC is stored. Browser refresh is sent as an `HttpOnly`, `SameSite=Lax`
+cookie scoped to `/api/auth`, with `Secure` required in production. No cookie
+`Domain` is configured, so deployment assumes a same-site browser/API topology
+unless a separately reviewed CSRF/CORS change is made.
+
+Web OAuth callback pages are registered with the exact HTTPS
+`WECHAT_REDIRECT_URI` and `QQ_REDIRECT_URI` and relay the exact payload
+`{ "code": "<provider-code>", "state": "<provider-state>", "audience": "user-api" }`
+to `POST /api/auth/oauth/{wechat|qq}/callback`. WeChat and QQ mini-program
+integrations register their mini-program app IDs and permitted server domains,
+then exchange the one-time `uni.login` code with the exact payload
+`{ "code": "<uni.login-code>", "audience": "user-api" }` through
+`POST /api/auth/oauth/{wechat|qq}/miniapp/callback`. Both web and mini-program
+flows stop at a pending binding until a phone code is consumed.
+
+The currently wired SMS implementation is console-only. A real provider must
+implement the `SmsProvider` interface and replace the module binding; setting
+`SMS_PROVIDER` alone is not a production SMS integration. Administrator access
+is bootstrapped only by audited direct database role assignment to an existing
+phone-authenticated user. Secret rotation and a compromise response revoke
+sessions/advance `sessionVersion`, rotate the affected secret, preserve audit
+evidence, and review OAuth callback plus CORS configuration.
+
+`auth.e2e.spec.ts` is a Nest HTTP/service-integrated regression: it uses real
+controllers, verification/auth/session services, refresh-cookie parsing, JWT
+guards, and an admin route. Its stateful Prisma-shaped persistence adapter is
+explicitly used because the suite has no disposable MySQL database; only the
+SMS transport is fake. It issues and consumes real verification codes through
+the `/api` routes, asserts the refresh-cookie policy, proves that one phone
+logged in from a mini-program and a web browser resolves the same user, and
+proves that a revoked administrator session receives `401` for both refresh and
+an admin-protected endpoint.

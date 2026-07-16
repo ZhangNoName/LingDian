@@ -7,10 +7,13 @@ import {
   Post,
   Put,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AccessTokenGuard } from '../../common/auth/access-token.guard';
+import { AdminGuard } from '../../common/auth/admin.guard';
 import { mkdirSync } from 'node:fs';
 import { extname, join } from 'node:path';
 import { CreateCategoryDto } from './dto/create-category.dto';
@@ -53,12 +56,14 @@ export class ProductsController {
   }
 
   @ApiOperation({ summary: 'Create category' })
+  @UseGuards(AccessTokenGuard, AdminGuard)
   @Post('categories')
   createCategory(@Body() body: CreateCategoryDto) {
     return this.productsService.createCategory(body);
   }
 
   @ApiOperation({ summary: 'Update category' })
+  @UseGuards(AccessTokenGuard, AdminGuard)
   @Patch('categories/:id')
   updateCategory(@Param('id') id: string, @Body() body: UpdateCategoryDto) {
     return this.productsService.updateCategory(id, body);
@@ -71,6 +76,7 @@ export class ProductsController {
   }
 
   @ApiOperation({ summary: 'Create product' })
+  @UseGuards(AccessTokenGuard, AdminGuard)
   @Post('products')
   createProduct(@Body() body: CreateProductDto) {
     return this.productsService.createProduct(body);
@@ -83,12 +89,14 @@ export class ProductsController {
   }
 
   @ApiOperation({ summary: 'Update product base information' })
+  @UseGuards(AccessTokenGuard, AdminGuard)
   @Patch('products/:id')
   updateProduct(@Param('id') id: string, @Body() body: UpdateProductDto) {
     return this.productsService.updateProduct(id, body);
   }
 
   @ApiOperation({ summary: 'Update product status' })
+  @UseGuards(AccessTokenGuard, AdminGuard)
   @Patch('products/:id/status')
   updateProductStatus(
     @Param('id') id: string,
@@ -98,6 +106,7 @@ export class ProductsController {
   }
 
   @ApiOperation({ summary: 'Sync product variants and selection configuration' })
+  @UseGuards(AccessTokenGuard, AdminGuard)
   @Put('products/:id/config')
   syncProductConfiguration(
     @Param('id') id: string,
@@ -107,18 +116,21 @@ export class ProductsController {
   }
 
   @ApiOperation({ summary: 'Update SKU stock entry' })
+  @UseGuards(AccessTokenGuard, AdminGuard)
   @Post('sku/update-stock')
   updateSkuStock(@Body() body: UpdateSkuStockDto) {
     return this.productsService.updateSkuStock(String(body.sku_id), body.stock_count);
   }
 
   @ApiOperation({ summary: 'Update SKU price' })
+  @UseGuards(AccessTokenGuard, AdminGuard)
   @Post('sku/update-price')
   updateSkuPrice(@Body() body: UpdateSkuPriceDto) {
     return this.productsService.updateSkuPrice(String(body.sku_id), body.price);
   }
 
   @ApiOperation({ summary: 'Upload product image' })
+  @UseGuards(AccessTokenGuard, AdminGuard)
   @Post('uploads/product-image')
   @UseInterceptors(
     FileInterceptor('file', {

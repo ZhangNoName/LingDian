@@ -8,6 +8,10 @@
         :sidebar-collapsed="isSidebarCollapsed"
         @toggle-sidebar="toggleSidebar"
       />
+      <div class="flex justify-end gap-4 px-4 pt-3 text-sm font-medium text-primary md:px-6">
+        <RouterLink :to="{ name: 'profile-nickname' }" class="hover:underline">设置昵称</RouterLink>
+        <RouterLink :to="{ name: 'change-password' }" class="hover:underline">修改密码</RouterLink>
+      </div>
       <main class="min-h-0 flex-1 overflow-hidden px-4 pb-6 pt-4 md:px-6 md:pb-8">
         <RouterView />
       </main>
@@ -17,7 +21,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { RouterView, useRoute } from 'vue-router'
+import { RouterLink, RouterView, useRoute } from 'vue-router'
 import AppHeader from '@/components/layout/app-header/index.vue'
 import AppSidebar from '@/components/layout/app-sidebar/index.vue'
 

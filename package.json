@@ -19,6 +19,7 @@
     "test": "pnpm --filter @lingdian/api test",
     "type-check": "pnpm --filter @lingdian/uniapp type-check",
     "prisma:generate": "pnpm --filter @lingdian/db prisma:generate",
+    "db:migrate:deploy": "pnpm --filter @lingdian/db migrate:deploy",
     "db:push": "pnpm --filter @lingdian/db db:push",
     "db:seed:demo": "pnpm --filter @lingdian/api db:seed:demo"
   }

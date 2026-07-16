@@ -94,6 +94,29 @@ pnpm run db:push
 pnpm run db:seed:demo
 ```
 
+## 认证账户初始化（灵点点餐系统）
+
+生产或共享开发环境使用 Prisma 迁移部署认证表，不能以 `db:push` 替代：
+
+```bash
+corepack pnpm run db:migrate:deploy
+corepack pnpm --filter @lingdian/api db:seed:auth-bootstrap
+```
+
+初始化命令从部署环境读取以下变量，仓库、文档和日志均不得写入它们的实际密码值：
+
+```dotenv
+AUTH_BOOTSTRAP_SUPER_ADMIN_USERNAME=
+AUTH_BOOTSTRAP_SUPER_ADMIN_PASSWORD=
+AUTH_BOOTSTRAP_SUPER_ADMIN_PHONE=
+AUTH_BOOTSTRAP_MERCHANT_USERNAME=
+AUTH_BOOTSTRAP_MERCHANT_PASSWORD=
+AUTH_BOOTSTRAP_MERCHANT_PHONE=
+AUTH_BOOTSTRAP_MERCHANT_STORE_IDS=
+```
+
+`AUTH_BOOTSTRAP_MERCHANT_STORE_IDS` 为以逗号分隔的既有门店 ID，至少指定一个实际存在的门店。脚本可重复执行，用于同步启动超级管理员和测试商家；配置缺失、启动账户密码少于 8 个字符或门店不存在时会失败且不会创建不完整账户。此 8 字符规则只适用于受控启动初始化；商家 Web 的忘记/修改密码仍要求至少 12 个字符。仅商家 `web/` 提供忘记密码和修改密码页面；`admin/` 只有账号密码登录，`uniapp/` 只提供用户的手机号或第三方登录。
+
 ## 文档入口
 
 - [产品 PRD](./docs/00-prd.md)

@@ -310,3 +310,146 @@ textarea {
   }
 }
 
+.login-page {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+}
+
+.login-card {
+  display: grid;
+  width: min(100%, 390px);
+  gap: 14px;
+  padding: 28px;
+  border: 1px solid #dfe4ea;
+  background: #ffffff;
+  box-shadow: 0 18px 40px rgb(35 48 65 / 8%);
+}
+
+.login-card h1,
+.login-card p {
+  margin: 0;
+}
+
+.hint,
+.merchant-page p,
+.profile-page p,
+.merchant-row span,
+.merchant-row small {
+  color: #687385;
+}
+
+.error {
+  margin: 0;
+  color: #a9271b;
+}
+
+.topbar {
+  grid-template-columns: 1fr auto;
+}
+
+.topbar nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.topbar nav button,
+.page-title button {
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid #ccd5df;
+  background: #ffffff;
+  color: #253041;
+}
+
+.topbar nav button.active {
+  border-color: #c7432f;
+  background: #fff3ef;
+  color: #a83222;
+}
+
+.merchant-page,
+.profile-page {
+  display: grid;
+  gap: 16px;
+  max-width: 1000px;
+  margin: 16px auto 0;
+}
+
+.page-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.page-title p,
+.merchant-page h3,
+.profile-page h2 {
+  margin: 4px 0 0;
+}
+
+.merchant-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.merchant-form h3,
+.merchant-form fieldset,
+.merchant-form .primary {
+  grid-column: 1 / -1;
+}
+
+fieldset {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #dfe4ea;
+}
+
+legend {
+  padding: 0 5px;
+  color: #566173;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.merchant-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 0;
+  border-top: 1px solid #e8edf2;
+}
+
+.merchant-row div {
+  display: grid;
+  gap: 4px;
+}
+
+.inline-form {
+  display: flex;
+  max-width: 520px;
+  gap: 10px;
+}
+
+@media (max-width: 640px) {
+  .shell {
+    padding: 14px;
+  }
+
+  .merchant-form {
+    grid-template-columns: 1fr;
+  }
+
+  .inline-form,
+  .merchant-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+

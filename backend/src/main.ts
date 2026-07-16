@@ -2,9 +2,11 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import cookieParser = require('cookie-parser');
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { AppModule } from './app.module';
+import { corsOptions } from './common/auth/http-security';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { ParamException } from './common/exceptions/app.exception';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
@@ -15,7 +17,8 @@ async function bootstrap() {
   mkdirSync(uploadsDir, { recursive: true });
   app.useStaticAssets(uploadsDir, { prefix: '/uploads/' });
   app.setGlobalPrefix('api');
-  app.enableCors();
+  app.use(cookieParser());
+  app.enableCors(corsOptions());
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -53,3 +56,5 @@ async function bootstrap() {
 }
 
 bootstrap();
+
+export { corsOptions, refreshCookieOptions } from './common/auth/http-security';

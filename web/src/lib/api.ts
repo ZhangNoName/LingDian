@@ -4,6 +4,7 @@ import {
   isResponseEnvelope,
   type ResponseEnvelope,
 } from '@lingdian/common'
+import { authenticatedFetch } from '@/auth/api-client'
 
 async function parseErrorMessage(response: Response) {
   const fallbackMessage = getResCodeMessage(RES_CODE.BUSINESS_ERROR)
@@ -32,7 +33,7 @@ async function parseErrorMessage(response: Response) {
 }
 
 export async function requestData<T>(input: RequestInfo | URL, init?: RequestInit) {
-  const response = await fetch(input, init)
+  const response = await authenticatedFetch(input, init)
 
   if (!response.ok) {
     throw new Error(await parseErrorMessage(response))

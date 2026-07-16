@@ -25,3 +25,12 @@
 - 数据库设计文档
 - 测试用例清单
 - 里程碑与排期文档
+
+## Authentication operations
+
+The [backend authentication runbook](../backend/README.md#authentication-operations)
+covers deployment configuration, WeChat/QQ web and mini-program registration,
+SMS-provider replacement, administrator bootstrap, secret rotation, audit
+review, and incident response. The corresponding
+[authentication design](./superpowers/specs/2026-07-11-authentication-design.md)
+records the implemented cookie and regression-test boundaries.

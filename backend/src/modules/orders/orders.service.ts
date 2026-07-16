@@ -15,7 +15,6 @@ import {
   Prisma,
 } from '@lingdian/db';
 import { PrismaService } from '../../prisma/prisma.service';
-import { resolveDemoUser } from '../auth/demo-auth';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { QueryOrdersDto } from './dto/query-orders.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
@@ -85,11 +84,7 @@ const orderDetailInclude = {
 export class OrdersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createOrder(body: CreateOrderDto, authorization?: string) {
-    const customer =
-      body.customerName && body.mobile
-        ? { name: body.customerName, mobile: body.mobile }
-        : resolveDemoUser(authorization);
+  async createOrder(body: CreateOrderDto, customerUserId?: string) {
     const normalizedItems = body.items.map((item) => {
       const skuId = item.skuId ?? item.sku_id;
 
@@ -104,6 +99,7 @@ export class OrdersService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      const customer = await this.resolveCustomer(tx, body, customerUserId);
       const skuIds = normalizedItems.map((item) => item.skuId as string);
       const skus = await tx.productSKU.findMany({
         where: {
@@ -244,6 +240,29 @@ export class OrdersService {
 
       return this.mapOrderDetail(order);
     });
+  }
+
+  private async resolveCustomer(
+    tx: Prisma.TransactionClient,
+    body: CreateOrderDto,
+    customerUserId: string | undefined,
+  ): Promise<{ name: string; mobile: string }> {
+    if (!customerUserId) {
+      if (!body.customerName || !body.mobile) {
+        throw new BadRequestException('An authenticated customer is required.');
+      }
+      return { name: body.customerName, mobile: body.mobile };
+    }
+
+    const phoneIdentity = await tx.authIdentity.findFirst({
+      where: { userId: customerUserId, provider: 'PHONE', verifiedAt: { not: null } },
+      select: { phoneE164: true },
+    });
+    if (!phoneIdentity?.phoneE164) {
+      throw new BadRequestException('Authenticated customer has no verified phone identity.');
+    }
+
+    return { name: body.customerName ?? 'Customer', mobile: phoneIdentity.phoneE164 };
   }
 
   async getOrderSummary(query: QueryOrdersDto): Promise<OrderSummaryStatsContract> {

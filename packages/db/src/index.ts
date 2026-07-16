@@ -1,4 +1,6 @@
 export {
+  AuthAudience,
+  IdentityProvider,
   OrderStatus,
   OrderType,
   PaymentChannel,
@@ -10,5 +12,19 @@ export {
   SelectionMode,
   SelectionOptionType,
   SelectionScope,
+  SessionStatus,
   StoreStatus,
+  UserRole,
+  UserStatus,
+  VerificationPurpose,
+} from '@prisma/client';
+
+export type {
+  AuthAuditLog,
+  AuthIdentity,
+  AuthSession,
+  PendingOAuth,
+  User,
+  UserRoleAssignment,
+  VerificationCode,
 } from '@prisma/client';
