@@ -58,6 +58,7 @@
     "@lingdian/common": "workspace:*",
     "@lingdian/contracts": "workspace:*",
     "@lingdian/icons": "workspace:*",
+    "@lingdian/observability": "workspace:*",
     "vue": "^3.4.21",
     "vue-i18n": "^9.1.9"
   },

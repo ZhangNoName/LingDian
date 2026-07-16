@@ -14,6 +14,9 @@ export {
   SelectionScope,
   SessionStatus,
   StoreStatus,
+  SystemLogCategory,
+  SystemLogLevel,
+  SystemLogSource,
   UserRole,
   UserStatus,
   VerificationPurpose,
@@ -27,4 +30,5 @@ export type {
   User,
   UserRoleAssignment,
   VerificationCode,
+  SystemLog,
 } from '@prisma/client';

@@ -12,6 +12,7 @@ import {
   type ResCodeValue,
 } from '@lingdian/common';
 import { AppException } from '../exceptions/app.exception';
+import { SystemLogService } from '../../modules/system-log/system-log.service';
 
 type ErrorResponseBody = {
   code: ResCodeValue;
@@ -23,6 +24,8 @@ type ErrorResponseBody = {
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger(AllExceptionsFilter.name);
 
+  constructor(private readonly systemLogs?: SystemLogService) {}
+
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<{
@@ -30,7 +33,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
         json: (body: ErrorResponseBody) => void;
       };
     }>();
-    const request = ctx.getRequest<{ method?: string; url?: string }>();
+    const request = ctx.getRequest<{
+      method?: string;
+      url?: string;
+      ip?: string;
+      user?: { userId?: string };
+    }>();
 
     const { status, body } = this.normalizeException(exception);
 
@@ -39,6 +47,21 @@ export class AllExceptionsFilter implements ExceptionFilter {
         `${request.method} ${request.url}`,
         exception instanceof Error ? exception.stack : JSON.stringify(exception),
       );
+      void this.systemLogs?.record({
+        source: 'SERVER',
+        level: 'ERROR',
+        category: 'HTTP',
+        event: 'HTTP_REQUEST_FAILED',
+        message: body.msg,
+        method: request.method,
+        path: request.url,
+        statusCode: status,
+        ip: request.ip,
+        userId: request.user?.userId,
+        details: {
+          errorType: exception instanceof Error ? exception.name : typeof exception,
+        },
+      }).catch(() => undefined);
     } else {
       this.logger.warn(
         `${request.method} ${request.url} -> ${body.msg}`,

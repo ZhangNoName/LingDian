@@ -1,0 +1,20 @@
+CREATE TABLE `system_logs` (
+  `id` VARCHAR(191) NOT NULL,
+  `source` ENUM('SERVER', 'MINIAPP', 'MERCHANT_WEB', 'ADMIN_WEB') NOT NULL,
+  `level` ENUM('INFO', 'WARN', 'ERROR', 'FATAL') NOT NULL,
+  `category` ENUM('LIFECYCLE', 'HTTP', 'CLIENT', 'SECURITY') NOT NULL,
+  `event` VARCHAR(64) NOT NULL,
+  `message` VARCHAR(512) NOT NULL,
+  `requestId` VARCHAR(64) NULL,
+  `userId` VARCHAR(191) NULL,
+  `method` VARCHAR(16) NULL,
+  `path` VARCHAR(256) NULL,
+  `statusCode` INTEGER NULL,
+  `ip` VARCHAR(64) NULL,
+  `details` JSON NULL,
+  `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`),
+  INDEX `system_logs_source_level_createdAt_idx`(`source`, `level`, `createdAt`),
+  INDEX `system_logs_event_createdAt_idx`(`event`, `createdAt`),
+  INDEX `system_logs_createdAt_idx`(`createdAt`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

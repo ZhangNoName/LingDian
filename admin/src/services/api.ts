@@ -7,6 +7,8 @@ import type {
   ProductSkuContract as ProductSku,
   ProductStatus,
 } from '@lingdian/contracts'
+import type { SystemLogLevel, SystemLogPage, SystemLogSource } from '@lingdian/contracts'
+import { adminRequest } from '../auth/api-client'
 
 export type { Category, OrderSummary, Product, ProductInput, ProductSku, ProductStatus }
 
@@ -91,6 +93,14 @@ export function uploadProductImage(file: File) {
 
 export function getOrders() {
   return request<OrderSummary[]>('/orders')
+}
+
+export function getSystemLogs(query: { source?: SystemLogSource; level?: SystemLogLevel; cursor?: string }) {
+  const search = new URLSearchParams({ limit: '50' })
+  if (query.source) search.set('source', query.source)
+  if (query.level) search.set('level', query.level)
+  if (query.cursor) search.set('cursor', query.cursor)
+  return adminRequest<SystemLogPage>(`/admin/system-logs?${search.toString()}`)
 }
 
 export { API_BASE }

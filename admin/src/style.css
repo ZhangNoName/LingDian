@@ -437,6 +437,18 @@ legend {
   gap: 10px;
 }
 
+.logs-nav { margin-top: 16px; }
+.logs-page { display: grid; gap: 16px; max-width: 1100px; margin: 16px auto 0; }
+.log-filters { display: flex; gap: 14px; }
+.log-filters label { min-width: 180px; }
+.log-table { display: grid; gap: 10px; }
+.log-row { display: grid; gap: 6px; padding: 12px 0; border-top: 1px solid #e8edf2; }
+.log-row div { display: flex; flex-wrap: wrap; gap: 10px; color: #687385; font-size: 13px; }
+.log-row strong { color: #1d6b3a; }
+.log-row strong[data-level='ERROR'], .log-row strong[data-level='FATAL'] { color: #a9271b; }
+.log-row p { margin: 0; }
+.log-row code, .log-row small { color: #566173; }
+
 @media (max-width: 640px) {
   .shell {
     padding: 14px;

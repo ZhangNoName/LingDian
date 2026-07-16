@@ -227,3 +227,20 @@ or secret compromise: disable the user or revoke all sessions, advance its
 session version, rotate the affected secret, preserve audit evidence, and
 review the affected provider callback and CORS configuration before restoring
 access.
+
+### System observability
+
+The additive `20260716_add_system_logs` migration creates the operational log
+table. Apply it with the normal production migration procedure before deploying
+this API version. The API keeps logs for 30 days and removes expired rows at
+most once per process per hour; it never stores cookies, authorization headers,
+passwords, token-like query values, raw stacks, or client-controlled user IDs.
+
+`POST /api/system-logs/client-events` accepts only bounded `WARN` and `ERROR`
+events from an authenticated session whose audience matches `MINIAPP`,
+`MERCHANT_WEB`, or `ADMIN_WEB`, with a per-source/IP limit of 20 events per
+minute. `GET /api/admin/system-logs` requires an
+`admin-api` access token with `SUPER_ADMIN`; the Admin Web system-log page is
+the intended operator interface. Startup, graceful stop, uncaught exceptions,
+unhandled rejections, HTTP 5xx responses, and registered client errors share
+this endpoint's structured store.

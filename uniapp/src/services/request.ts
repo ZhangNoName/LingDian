@@ -1,8 +1,6 @@
 import type { ApiEnvelope } from "@lingdian/contracts";
 import { customerAuth } from "./auth";
-
-const API_BASE = "http://localhost:3000/api";
-const ASSET_BASE = API_BASE.replace(/\/api$/, "");
+import { API_BASE, ASSET_BASE } from "../config/api";
 
 type RequestMethod = NonNullable<UniApp.RequestOptions["method"]> | "PATCH";
 

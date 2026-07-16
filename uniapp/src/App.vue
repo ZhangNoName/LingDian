@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { onLaunch } from "@dcloudio/uni-app";
+import { installMiniAppErrorReporter } from "./logging/reporter";
 
 onLaunch(() => {
-  console.log("LingDian app launched");
+  installMiniAppErrorReporter();
 });
 </script>
 

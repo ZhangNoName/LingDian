@@ -13,6 +13,7 @@
     "@lingdian/common": "workspace:*",
     "@lingdian/contracts": "workspace:*",
     "@lingdian/icons": "workspace:*",
+    "@lingdian/observability": "workspace:*",
     "@tanstack/vue-table": "^8.21.3",
     "@vueuse/core": "^14.2.1",
     "class-variance-authority": "^0.7.1",

@@ -9,6 +9,7 @@ import { MerchantModule } from './modules/merchant/merchant.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { ProductsModule } from './modules/products/products.module';
 import { StoresModule } from './modules/stores/stores.module';
+import { SystemLogModule } from './modules/system-log/system-log.module';
 import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
@@ -27,6 +28,7 @@ import { PrismaModule } from './prisma/prisma.module';
     MenuModule,
     ProductsModule,
     OrdersModule,
+    SystemLogModule,
   ],
 })
 export class AppModule {}

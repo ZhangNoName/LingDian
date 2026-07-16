@@ -105,6 +105,27 @@ enum VerificationPurpose {
   PASSWORD_RESET
 }
 
+enum SystemLogSource {
+  SERVER
+  MINIAPP
+  MERCHANT_WEB
+  ADMIN_WEB
+}
+
+enum SystemLogLevel {
+  INFO
+  WARN
+  ERROR
+  FATAL
+}
+
+enum SystemLogCategory {
+  LIFECYCLE
+  HTTP
+  CLIENT
+  SECURITY
+}
+
 enum SelectionOptionType {
   VALUE
   VARIANT
@@ -470,4 +491,26 @@ model AuthAuditLog {
   @@index([sessionId, createdAt])
   @@index([event, createdAt])
   @@map("auth_audit_logs")
+}
+
+model SystemLog {
+  id         String            @id @default(cuid())
+  source     SystemLogSource
+  level      SystemLogLevel
+  category   SystemLogCategory
+  event      String            @db.VarChar(64)
+  message    String            @db.VarChar(512)
+  requestId  String?           @db.VarChar(64)
+  userId     String?           @db.VarChar(191)
+  method     String?           @db.VarChar(16)
+  path       String?           @db.VarChar(256)
+  statusCode Int?
+  ip         String?           @db.VarChar(64)
+  details    Json?
+  createdAt  DateTime          @default(now())
+
+  @@index([source, level, createdAt])
+  @@index([event, createdAt])
+  @@index([createdAt])
+  @@map("system_logs")
 }

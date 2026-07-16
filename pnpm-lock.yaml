@@ -19,6 +19,9 @@ importers:
       '@lingdian/icons':
         specifier: workspace:*
         version: link:../packages/icons
+      '@lingdian/observability':
+        specifier: workspace:*
+        version: link:../packages/observability
       vue:
         specifier: ^3.5.30
         version: 3.5.39(typescript@5.9.3)
@@ -176,6 +179,12 @@ importers:
         specifier: '>=3.4.0'
         version: 3.5.39(typescript@5.9.3)
 
+  packages/observability:
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
   uniapp:
     dependencies:
       '@dcloudio/uni-app':
@@ -235,6 +244,9 @@ importers:
       '@lingdian/icons':
         specifier: workspace:*
         version: link:../packages/icons
+      '@lingdian/observability':
+        specifier: workspace:*
+        version: link:../packages/observability
       vue:
         specifier: ^3.4.21
         version: 3.5.39(typescript@4.9.4)
@@ -287,6 +299,9 @@ importers:
       '@lingdian/icons':
         specifier: workspace:*
         version: link:../packages/icons
+      '@lingdian/observability':
+        specifier: workspace:*
+        version: link:../packages/observability
       '@tanstack/vue-table':
         specifier: ^8.21.3
         version: 8.21.3(vue@3.5.39(typescript@5.9.3))
