@@ -23,6 +23,11 @@ export class AdminUsersController {
     return this.users.list(query);
   }
 
+  @Get('options/stores')
+  listStoreOptions() {
+    return this.users.listStoreOptions();
+  }
+
   @Get(':userId')
   get(@Param('userId') userId: string) {
     return this.users.get(userId);

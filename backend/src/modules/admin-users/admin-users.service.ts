@@ -35,6 +35,10 @@ export class AdminUsersService {
     return this.mapUser(user);
   }
 
+  async listStoreOptions(): Promise<Array<{ id: string; name: string }>> {
+    return this.prisma.store.findMany({ where: { status: { not: 'CLOSED' } }, select: { id: true, name: true }, orderBy: { name: 'asc' } });
+  }
+
   async setStatus(operator: AuthenticatedUser, userId: string, status: PlatformUserStatus): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
       const target = await tx.user.findUnique({ where: { id: userId }, include: { roles: true } });

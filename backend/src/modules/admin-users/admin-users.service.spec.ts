@@ -127,3 +127,9 @@ test('administrator password reset forces next-login change and revokes sessions
 
   assert.deepEqual(writes, ['password', 'user', 'sessions', 'audit']);
 });
+
+test('returns active store options for merchant scope editing', async () => {
+  const prisma = { store: { findMany: async () => [{ id: 'store-1', name: '旗舰店' }] } };
+  const service = new AdminUsersService(prisma as never, { hash: async () => 'hashed' } as never);
+  assert.deepEqual(await service.listStoreOptions(), [{ id: 'store-1', name: '旗舰店' }]);
+});
