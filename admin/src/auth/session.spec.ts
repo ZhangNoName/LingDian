@@ -31,6 +31,13 @@ it('logs a super administrator in using admin-api', async () => {
   expect(adminSession.getAccessToken()).toBe('admin-access-token')
 })
 
+it('reports an unavailable API instead of exposing a JSON parser error', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('', { status: 502, statusText: 'Bad Gateway' })))
+
+  await expect(adminSession.login('admin', 'long-password-123'))
+    .rejects.toThrow('后端服务暂时不可用，请确认 API 已在 9000 端口启动')
+})
+
 it('uses the HttpOnly refresh cookie without persisting the access token', async () => {
   const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
     code: 0,

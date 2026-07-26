@@ -1,17 +1,10 @@
 import type { AuthTokens, AuthenticatedUser } from '@lingdian/contracts'
 import { ref } from 'vue'
-
-type ApiEnvelope<T> = { code: number; msg: string; data: T }
+import { readApiEnvelope } from './api-response'
 
 const accessToken = ref<string>()
 const currentUser = ref<AuthenticatedUser>()
 const API_BASE = import.meta.env.VITE_API_BASE ?? '/api'
-
-async function readEnvelope<T>(response: Response): Promise<T> {
-  const envelope = (await response.json()) as ApiEnvelope<T>
-  if (!response.ok || envelope.code !== 0) throw new Error(envelope.msg || '请求失败')
-  return envelope.data
-}
 
 async function postTokens(path: string, body: object): Promise<AuthTokens> {
   const response = await fetch(`${API_BASE}${path}`, {
@@ -20,7 +13,7 @@ async function postTokens(path: string, body: object): Promise<AuthTokens> {
     credentials: 'include',
     body: JSON.stringify(body),
   })
-  return readEnvelope<AuthTokens>(response)
+  return readApiEnvelope<AuthTokens>(response)
 }
 
 export const adminSession = {

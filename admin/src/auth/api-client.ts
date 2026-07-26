@@ -1,6 +1,5 @@
 import { adminSession } from './session'
-
-type ApiEnvelope<T> = { code: number; msg: string; data: T }
+import { readApiEnvelope } from './api-response'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? '/api'
 
@@ -28,7 +27,5 @@ async function requestWithRecovery<T>(path: string, init: RequestInit, canRefres
     return requestWithRecovery<T>(path, init, false)
   }
 
-  const envelope = (await response.json()) as ApiEnvelope<T>
-  if (!response.ok || envelope.code !== 0) throw new Error(envelope.msg || '请求失败')
-  return envelope.data
+  return readApiEnvelope<T>(response)
 }
