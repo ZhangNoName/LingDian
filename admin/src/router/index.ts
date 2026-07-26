@@ -6,13 +6,17 @@ import AdminLayout from '../layouts/AdminLayout.vue'
 import LoginView from '../views/LoginView.vue'
 import PasswordChangeView from '../views/PasswordChangeView.vue'
 import { mandatoryPasswordRoute } from './access'
-declare module 'vue-router' { interface RouteMeta { title?: string; permission?: AdminPermission; public?: boolean; layout?: 'list' | 'scroll' } }
+import type { PlatformAccountType } from '@lingdian/contracts'
+declare module 'vue-router' { interface RouteMeta { title?: string; permission?: AdminPermission; public?: boolean; layout?: 'list' | 'scroll'; accountType?: PlatformAccountType } }
 const routes: RouteRecordRaw[] = [
   { path: '/login', component: LoginView, meta: { public: true, title: '登录' } },
   { path: '/password-change', component: PasswordChangeView, meta: { title: '修改临时密码' } },
   { path: '/', component: AdminLayout, children: [
-    { path: '', redirect: '/users' },
-    { path: 'users', component: () => import('../views/users/UserManagementView.vue'), meta: { title: '用户管理', permission: 'users:read', layout: 'list' } },
+    { path: '', redirect: '/accounts/admins' },
+    { path: 'users', redirect: '/accounts/admins' },
+    { path: 'accounts/admins', component: () => import('../views/users/UserManagementView.vue'), meta: { title: '管理员账号', permission: 'users:read', layout: 'list', accountType: 'ADMINISTRATOR' } },
+    { path: 'accounts/merchants', component: () => import('../views/users/UserManagementView.vue'), meta: { title: '商家账号', permission: 'users:read', layout: 'list', accountType: 'MERCHANT' } },
+    { path: 'accounts/users', component: () => import('../views/users/UserManagementView.vue'), meta: { title: '普通用户', permission: 'users:read', layout: 'list', accountType: 'USER' } },
     { path: 'system/logs', component: () => import('../views/logs/SystemLogsView.vue'), meta: { title: '系统日志', permission: 'logs:read', layout: 'list' } },
     { path: 'profile', component: () => import('../views/ProfileView.vue'), meta: { title: '个人设置', permission: 'profile:write', layout: 'scroll' } },
   ] },

@@ -118,6 +118,22 @@ export class AdminUsersService {
 
   private where(query: PlatformUserQuery): Prisma.UserWhereInput {
     const keyword = query.keyword?.trim();
+    const and: Prisma.UserWhereInput[] = [];
+    if (query.accountType === 'ADMINISTRATOR') {
+      and.push({ roles: { some: { role: { in: ['ADMIN', 'SUPER_ADMIN'] }, status: 'ACTIVE' } } });
+    } else if (query.accountType === 'MERCHANT') {
+      and.push(
+        { roles: { none: { role: { in: ['ADMIN', 'SUPER_ADMIN'] }, status: 'ACTIVE' } } },
+        { roles: { some: { role: 'MERCHANT', status: 'ACTIVE' } } },
+      );
+    } else if (query.accountType === 'USER') {
+      and.push(
+        { roles: { none: { role: { in: ['ADMIN', 'SUPER_ADMIN', 'MERCHANT'] }, status: 'ACTIVE' } } },
+        { roles: { some: { role: 'USER', status: 'ACTIVE' } } },
+      );
+    }
+    if (query.role) and.push({ roles: { some: { role: query.role as UserRole, status: 'ACTIVE' } } });
+    if (query.storeId) and.push({ roles: { some: { role: 'MERCHANT', scopeType: 'STORE', scopeId: query.storeId, status: 'ACTIVE' } } });
     return {
       ...(query.status ? { status: query.status as UserStatus } : {}),
       ...(keyword ? { OR: [
@@ -125,8 +141,7 @@ export class AdminUsersService {
         { identities: { some: { accountName: { contains: keyword } } } },
         { identities: { some: { phoneE164: { contains: keyword } } } },
       ] } : {}),
-      ...(query.role ? { roles: { some: { role: query.role as UserRole, status: 'ACTIVE' } } } : {}),
-      ...(query.storeId ? { roles: { some: { role: 'MERCHANT', scopeType: 'STORE', scopeId: query.storeId, status: 'ACTIVE' } } } : {}),
+      ...(and.length ? { AND: and } : {}),
     };
   }
 

@@ -14,7 +14,7 @@ export function hasPermission(roles: AuthRole[], permission: AdminPermission): b
 }
 
 export function firstAccessibleRoute(roles: AuthRole[]): string {
-  if (hasPermission(roles, 'users:read')) return '/users'
+  if (hasPermission(roles, 'users:read')) return '/accounts/admins'
   if (hasPermission(roles, 'logs:read')) return '/system/logs'
   return '/profile'
 }

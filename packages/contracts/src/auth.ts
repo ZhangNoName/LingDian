@@ -53,6 +53,7 @@ export interface MerchantSummary {
 }
 
 export type PlatformUserStatus = 'ACTIVE' | 'DISABLED';
+export type PlatformAccountType = 'ADMINISTRATOR' | 'MERCHANT' | 'USER';
 
 export interface PlatformUserSummary {
   userId: string;
@@ -78,6 +79,7 @@ export interface PlatformUserPage {
 
 export interface PlatformUserQuery {
   keyword?: string;
+  accountType?: PlatformAccountType;
   role?: AuthRole;
   status?: PlatformUserStatus;
   storeId?: string;

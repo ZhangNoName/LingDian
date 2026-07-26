@@ -2,6 +2,7 @@
 import type {
   AuthRole,
   CreatePlatformUserRequest,
+  PlatformAccountType,
   PlatformUserQuery,
   PlatformUserStatus,
   PlatformUserSummary,
@@ -9,7 +10,8 @@ import type {
 } from '@lingdian/contracts'
 import { CircleCheck, CircleClose, Edit, Key } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { adminSession } from '../../auth/session'
 import {
   SchemaTableActions,
@@ -19,12 +21,15 @@ import {
 } from '../../components/schema-table'
 import { DICTIONARY_CODES, dictionaryRegistry, type DictionaryOption } from '../../dictionaries'
 import { createUser, listStoreOptions, listUsers, resetUserPassword, setUserStatus, updateUser } from '../../services/admin-users'
-import PageHeader from '../../components/common/PageHeader.vue'
 import UserEditorDrawer from './UserEditorDrawer.vue'
 import UserPasswordResetDialog from './UserPasswordResetDialog.vue'
 import { createUserColumns } from './user-columns'
+import { accountPageConfig } from './account-page-config'
 
-const query = reactive<PlatformUserQuery>({ page: 1, pageSize: 20 })
+const route = useRoute()
+const accountType = computed<PlatformAccountType>(() => route.meta.accountType ?? 'ADMINISTRATOR')
+const pageConfig = computed(() => accountPageConfig(accountType.value))
+const query = reactive<PlatformUserQuery>({ page: 1, pageSize: 20, accountType: accountType.value })
 const users = ref<PlatformUserSummary[]>([])
 const stores = ref<Array<{ id: string; name: string }>>([])
 const roleOptions = ref<readonly DictionaryOption[]>([])
@@ -37,7 +42,7 @@ const editorOpen = ref(false)
 const passwordOpen = ref(false)
 const selected = ref<PlatformUserSummary>()
 const rank: Record<AuthRole, number> = { USER: 0, MERCHANT: 1, ADMIN: 2, SUPER_ADMIN: 3 }
-const columns = computed(() => createUserColumns(stores.value))
+const columns = computed(() => createUserColumns(accountType.value, stores.value))
 const schemaQuery = computed<QueryRecord>({
   get: () => ({ ...query }),
   set: (value) => Object.assign(query, value),
@@ -70,6 +75,7 @@ function resetFilters() {
     status: undefined as PlatformUserStatus | undefined,
     storeId: undefined,
     page: 1,
+    accountType: accountType.value,
   })
   void load()
 }
@@ -181,14 +187,15 @@ onMounted(async () => {
   roleOptions.value = roles
   statusOptions.value = statuses
 })
+
+watch(accountType, (value) => {
+  Object.assign(query, { keyword: undefined, role: undefined, status: undefined, storeId: undefined, page: 1, accountType: value })
+  void load()
+})
 </script>
 
 <template>
   <div class="list-page">
-    <PageHeader title="用户管理" description="统一查看和管理全平台账号、角色与状态。">
-      <template #actions><el-button type="primary" @click="openCreate">新建用户</el-button></template>
-    </PageHeader>
-
     <SchemaTablePage
       v-model:query="schemaQuery"
       :columns="columns"
@@ -204,6 +211,9 @@ onMounted(async () => {
       @page-change="changePage"
       @page-size-change="changePageSize"
     >
+      <template #search-actions>
+        <el-button type="primary" @click="openCreate">{{ pageConfig.createLabel }}</el-button>
+      </template>
       <template #cell-identity="{ row }">
         <div class="identity-cell">
           <el-avatar>{{ (row.nickname || row.username || '用').slice(0, 1) }}</el-avatar>
@@ -225,7 +235,7 @@ onMounted(async () => {
       </template>
     </SchemaTablePage>
 
-    <UserEditorDrawer v-model="editorOpen" :user="selected" :stores="stores" :saving="saving" @submit="submitUser" />
+    <UserEditorDrawer v-model="editorOpen" :user="selected" :stores="stores" :saving="saving" :account-type="accountType" @submit="submitUser" />
     <UserPasswordResetDialog v-model="passwordOpen" :user="selected" :saving="saving" @submit="submitPassword" />
   </div>
 </template>

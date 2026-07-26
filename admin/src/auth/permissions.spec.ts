@@ -13,5 +13,6 @@ describe('admin permissions', () => {
     expect(hasPermission(['ADMIN'], 'logs:read')).toBe(false)
     expect(hasPermission(['MERCHANT'], 'profile:write')).toBe(true)
     expect(firstAccessibleRoute(['MERCHANT'])).toBe('/profile')
+    expect(firstAccessibleRoute(['ADMIN'])).toBe('/accounts/admins')
   })
 })

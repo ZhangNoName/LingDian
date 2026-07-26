@@ -45,6 +45,37 @@ test('clamps platform user page size to one hundred', async () => {
   assert.equal(take, 100);
 });
 
+test('uses exclusive account-type filters for both count and page queries', async () => {
+  const calls: Array<{ operation: string; where: unknown }> = [];
+  const prisma = {
+    user: {
+      count: async ({ where }: { where: unknown }) => { calls.push({ operation: 'count', where }); return 0; },
+      findMany: async ({ where }: { where: unknown }) => { calls.push({ operation: 'findMany', where }); return []; },
+    },
+  };
+  const service = new AdminUsersService(prisma as never, { hash: async () => 'hashed' } as never);
+
+  const cases = [
+    ['ADMINISTRATOR', [{ roles: { some: { role: { in: ['ADMIN', 'SUPER_ADMIN'] }, status: 'ACTIVE' } } }]],
+    ['MERCHANT', [
+      { roles: { none: { role: { in: ['ADMIN', 'SUPER_ADMIN'] }, status: 'ACTIVE' } } },
+      { roles: { some: { role: 'MERCHANT', status: 'ACTIVE' } } },
+    ]],
+    ['USER', [
+      { roles: { none: { role: { in: ['ADMIN', 'SUPER_ADMIN', 'MERCHANT'] }, status: 'ACTIVE' } } },
+      { roles: { some: { role: 'USER', status: 'ACTIVE' } } },
+    ]],
+  ] as const;
+
+  for (const [accountType, expectedAnd] of cases) {
+    calls.length = 0;
+    await service.list({ page: 1, pageSize: 20, accountType });
+    assert.equal(calls.length, 2);
+    assert.deepEqual(calls[0]?.where, { AND: expectedAnd });
+    assert.deepEqual(calls[1]?.where, calls[0]?.where);
+  }
+});
+
 test('disabling an account revokes sessions and increments its session version', async () => {
   const writes: string[] = [];
   const tx = {

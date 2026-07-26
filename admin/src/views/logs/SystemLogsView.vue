@@ -2,7 +2,6 @@
 import type { SystemLogPage, SystemLogQuery, SystemLogRecord } from '@lingdian/contracts'
 import { View } from '@element-plus/icons-vue'
 import { computed, onMounted, reactive, ref } from 'vue'
-import PageHeader from '../../components/common/PageHeader.vue'
 import {
   SchemaTableActions,
   SchemaTablePage,
@@ -77,10 +76,6 @@ onMounted(load)
 
 <template>
   <div class="list-page">
-    <PageHeader title="系统日志" description="查看平台生命周期、请求与客户端异常记录。">
-      <template #actions><el-button :loading="loading" @click="load">刷新</el-button></template>
-    </PageHeader>
-
     <SchemaTablePage
       v-model:query="schemaQuery"
       :columns="columns"
@@ -96,6 +91,7 @@ onMounted(load)
       @page-change="changePage"
       @page-size-change="changePageSize"
     >
+      <template #search-actions><el-button :loading="loading" @click="load">刷新</el-button></template>
       <template #cell-level="{ row }">
         <el-tag :type="row.level === 'ERROR' || row.level === 'FATAL' ? 'danger' : row.level === 'WARN' ? 'warning' : 'success'">
           {{ row.level }}

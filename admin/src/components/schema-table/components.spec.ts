@@ -21,8 +21,11 @@ describe('schema table components', () => {
   it('emits search/reset and exposes collapsible search state', async () => {
     const wrapper = mount(SchemaSearchForm<Row>, {
       props: { columns, query: { keyword: 'zero', status: 'ACTIVE' } },
+      slots: { 'search-actions': () => h('button', { 'data-testid': 'create-account' }, '新建用户') },
       global: { plugins: [ElementPlus] },
     })
+
+    expect(wrapper.get('.schema-search__buttons').find('[data-testid="create-account"]').exists()).toBe(true)
 
     await wrapper.get('[data-testid="schema-search-submit"]').trigger('click')
     expect(wrapper.emitted('search')).toHaveLength(1)

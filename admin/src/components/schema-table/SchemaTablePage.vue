@@ -60,6 +60,7 @@ watch([() => props.data, () => props.columns], refreshFormattedValues, { immedia
       @search="emit('search')"
       @reset="emit('reset')"
     >
+      <template v-if="$slots['search-actions']" #search-actions><slot name="search-actions" /></template>
       <template v-for="column in columns" #[`search-${columnKey(column)}`]="slotProps">
         <slot
           v-if="$slots[`search-${columnKey(column)}`]"

@@ -116,6 +116,7 @@ watch(() => props.columns, loadOptions)
         <el-button data-testid="schema-search-reset" @click="reset">
           <el-icon><Refresh /></el-icon>重置
         </el-button>
+        <slot name="search-actions" />
       </div>
     </el-form>
   </section>
