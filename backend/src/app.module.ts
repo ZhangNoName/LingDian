@@ -11,6 +11,7 @@ import { ProductsModule } from './modules/products/products.module';
 import { StoresModule } from './modules/stores/stores.module';
 import { SystemLogModule } from './modules/system-log/system-log.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { AdminUsersModule } from './modules/admin-users/admin-users.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { PrismaModule } from './prisma/prisma.module';
       validate: validateEnv,
     }),
     PrismaModule,
+    AdminUsersModule,
     AuthModule,
     MerchantModule,
     HealthModule,
