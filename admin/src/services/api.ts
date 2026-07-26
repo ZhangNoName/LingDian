@@ -96,11 +96,15 @@ export function getOrders() {
 }
 
 export function getSystemLogs(query: { source?: SystemLogSource; level?: SystemLogLevel; cursor?: string }) {
+  return adminRequest<SystemLogPage>(buildSystemLogPath(query))
+}
+
+export function buildSystemLogPath(query: { source?: SystemLogSource; level?: SystemLogLevel; cursor?: string }) {
   const search = new URLSearchParams({ limit: '50' })
   if (query.source) search.set('source', query.source)
   if (query.level) search.set('level', query.level)
   if (query.cursor) search.set('cursor', query.cursor)
-  return adminRequest<SystemLogPage>(`/admin/system-logs?${search.toString()}`)
+  return `/admin/system-logs?${search.toString()}`
 }
 
 export { API_BASE }
