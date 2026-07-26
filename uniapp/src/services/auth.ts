@@ -1,7 +1,7 @@
 import type { AuthTokens, AuthenticatedUser, PendingOAuthResponse } from "@lingdian/contracts";
 
 function apiBase(): string {
-  return import.meta.env.VITE_API_BASE ?? "http://localhost:3000/api";
+  return import.meta.env.VITE_API_BASE ?? "http://localhost:9000/api";
 }
 const DEMO_TOKEN_KEY = "lingdian_demo_token";
 

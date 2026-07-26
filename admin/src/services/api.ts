@@ -12,7 +12,7 @@ import { adminRequest } from '../auth/api-client'
 
 export type { Category, OrderSummary, Product, ProductInput, ProductSku, ProductStatus }
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:3000/api'
+const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:9000/api'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {

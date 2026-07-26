@@ -37,7 +37,7 @@ const database = String(mysql.db);
 const databaseUrl = `mysql://${user}:${password}@${host}:${port}/${database}`;
 
 const envContent = [
-  `PORT=${process.env.PORT ?? '3000'}`,
+  `PORT=${process.env.PORT ?? '9000'}`,
   `API_PREFIX=${process.env.API_PREFIX ?? 'api'}`,
   `NODE_ENV=${process.env.NODE_ENV ?? 'development'}`,
   `DATABASE_URL=${databaseUrl}`,

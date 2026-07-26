@@ -53,7 +53,7 @@ async function bootstrap() {
     },
   });
 
-  const port = Number(process.env.PORT ?? 3000);
+  const port = Number(process.env.PORT ?? 9000);
   await app.listen(port);
   void systemLogs.record({
     source: 'SERVER',

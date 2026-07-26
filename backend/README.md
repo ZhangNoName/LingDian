@@ -61,7 +61,7 @@ npm run prisma:studio
 参考 `.env.example`：
 
 ```env
-PORT=3000
+PORT=9000
 API_PREFIX=api
 NODE_ENV=development
 ```
