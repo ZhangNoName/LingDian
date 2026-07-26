@@ -118,6 +118,11 @@ class StatefulAuthPersistence {
       this.phoneUserIds.set(data.identities.create.subject, id);
       return user;
     },
+    update: async ({ where }: { where: { id: string }; data: { lastLoginAt?: Date } }) => {
+      const user = this.users.get(where.id);
+      if (!user) throw new Error(`Unknown test user: ${where.id}`);
+      return user;
+    },
   };
 
   readonly authSession = {
