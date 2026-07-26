@@ -1,25 +1,25 @@
 <template>
   <view class="member">
     <text class="title">会员权益</text>
-    <text class="desc">加入会员，充值就送好礼，充多送多。</text>
+    <text class="desc">资产服务暂未开通，后续可在这里查看余额与优惠券。</text>
     <view class="stats">
       <view class="stat">
         <text class="stat-label">我的余额</text>
-        <text class="stat-value">{{ assets.balance }}元</text>
+        <text class="stat-value">{{ presentation.balanceText }}</text>
       </view>
       <view class="stat">
         <text class="stat-label">我的优惠券</text>
-        <text class="stat-value">{{ assets.couponCount }}张</text>
+        <text class="stat-value">{{ presentation.couponText }}</text>
       </view>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import type { MemberAssets } from "@/types/member";
+import type { CustomerPresentation } from "@/services/customer-presentation";
 
 defineProps<{
-  assets: MemberAssets;
+  presentation: CustomerPresentation;
 }>();
 </script>
 

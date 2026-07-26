@@ -21,4 +21,6 @@ export type MemberAssets = {
 export type ManageEntry = {
   key: string;
   label: string;
+  available: boolean;
+  route?: string;
 };

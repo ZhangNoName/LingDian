@@ -6,20 +6,24 @@
     </view>
 
     <view class="form-card">
-      <input v-model="phone" class="field" type="number" maxlength="11" placeholder="请输入手机号" />
+      <text id="phone-label" class="field-label">手机号</text>
+      <input v-model="phone" class="field" type="tel" maxlength="11" placeholder="请输入手机号" aria-label="手机号" />
       <view class="code-row">
-        <input v-model="code" class="field code-field" type="number" maxlength="6" placeholder="请输入验证码" />
-        <button class="code-button" :disabled="cooldown > 0 || sendingCode" @tap="sendCode">
+        <view class="code-input">
+          <text id="code-label" class="field-label">验证码</text>
+          <input v-model="code" class="field code-field" type="tel" maxlength="6" placeholder="请输入验证码" aria-label="验证码" />
+        </view>
+        <button class="code-button" role="button" tabindex="0" :disabled="cooldown > 0 || sendingCode" @keydown.enter="sendCode" @tap="sendCode">
           {{ cooldown > 0 ? `${cooldown}s 后重试` : "获取验证码" }}
         </button>
       </view>
-      <button class="submit-button" :loading="submitting" @tap="submit">{{ pendingOauthId ? "完成绑定并登录" : "登录" }}</button>
+      <button class="submit-button" role="button" tabindex="0" :loading="submitting" @keydown.enter="submit" @tap="submit">{{ pendingOauthId ? "完成绑定并登录" : "登录" }}</button>
     </view>
 
     <view v-if="providers.length" class="third-party">
       <text class="divider">其他登录方式</text>
       <view class="provider-row">
-        <button v-for="provider in providers" :key="provider" class="provider-button" :disabled="submitting" @tap="beginThirdPartyLogin(provider)">
+        <button v-for="provider in providers" :key="provider" class="provider-button" role="button" tabindex="0" :disabled="submitting" @keydown.enter="beginThirdPartyLogin(provider)" @tap="beginThirdPartyLogin(provider)">
           {{ provider === "WECHAT" ? "微信登录" : "QQ 登录" }}
         </button>
       </view>
@@ -29,7 +33,10 @@
 
 <script setup lang="ts">
 import { computed, onUnmounted, ref } from "vue";
+import { onLoad } from "@dcloudio/uni-app";
 import { customerAuth, type ThirdPartyProvider } from "@/services/auth";
+import { getCustomerAuthMessage } from "@/services/auth-message";
+import { resolveCustomerReturnUrl } from "@/services/auth-navigation";
 
 const phone = ref("");
 const code = ref("");
@@ -37,13 +44,18 @@ const pendingOauthId = ref("");
 const cooldown = ref(0);
 const sendingCode = ref(false);
 const submitting = ref(false);
+const returnUrl = ref("/pages/user/user");
 const providers = computed(() => customerAuth.getSupportedThirdPartyProviders());
 
 let cooldownTimer: ReturnType<typeof setInterval> | undefined;
 
 function showError(error: unknown) {
-  uni.showToast({ title: error instanceof Error ? error.message : "登录失败，请稍后重试", icon: "none" });
+  uni.showToast({ title: getCustomerAuthMessage(error), icon: "none" });
 }
+
+onLoad((options) => {
+  returnUrl.value = resolveCustomerReturnUrl(typeof options?.redirect === "string" ? options.redirect : undefined);
+});
 
 async function sendCode() {
   if (!phone.value) {
@@ -80,7 +92,7 @@ async function submit() {
     } else {
       await customerAuth.phoneLogin(phone.value, code.value);
     }
-    uni.reLaunch({ url: "/pages/user/user" });
+    uni.reLaunch({ url: returnUrl.value });
   } catch (error) {
     showError(error);
   } finally {
@@ -142,6 +154,14 @@ onUnmounted(() => {
   box-shadow: var(--ld-mini-shadow-card);
 }
 
+.field-label {
+  display: block;
+  margin-bottom: 10rpx;
+  color: var(--ld-mini-text);
+  font-size: 24rpx;
+  font-weight: 800;
+}
+
 .field {
   width: 100%;
   height: 92rpx;
@@ -154,13 +174,18 @@ onUnmounted(() => {
 
 .code-row {
   display: flex;
+  align-items: flex-end;
   gap: 16rpx;
   margin-top: 20rpx;
 }
 
-.code-field {
-  flex: 1;
+.code-input {
   min-width: 0;
+  flex: 1;
+}
+
+.code-field {
+  box-sizing: border-box;
 }
 
 .code-button,

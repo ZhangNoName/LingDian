@@ -29,6 +29,7 @@ import Layout from "@/layout/layout.vue";
 import OrderDetailGoodsCard from "@/components/orders/OrderDetailGoodsCard.vue";
 import OrderInfoCard from "@/components/orders/OrderInfoCard.vue";
 import { fetchOrderDetail } from "@/services/orders";
+import { requireCustomerAuth } from "@/services/auth-navigation";
 import type { OrderDetail } from "@/types/order";
 
 const detail = ref<OrderDetail | null>(null);
@@ -50,6 +51,8 @@ const statusTitle = computed(() => {
 
 onLoad(async (query) => {
   const id = typeof query?.id === "string" ? query.id : "";
+  const returnUrl = id ? `/pages/order-detail/order-detail?id=${encodeURIComponent(id)}` : "/pages/his/his";
+  if (!(await requireCustomerAuth(returnUrl))) return;
   try {
     detail.value = await fetchOrderDetail(id);
   } catch (error) {

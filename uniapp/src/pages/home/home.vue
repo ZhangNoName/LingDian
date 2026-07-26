@@ -1,10 +1,10 @@
 <template>
   <Layout active="home">
     <view class="page">
-      <MemberStrip :member="member" />
+      <MemberStrip :presentation="customerPresentation" @login="goLogin" />
       <view class="content">
         <ServiceModeCards :modes="homeServiceModes" @select="goMenu" />
-        <RecommendSection :products="featuredProducts" @select="goSpec" />
+        <RecommendSection :products="featuredProducts" @browse="goMenu" @select="goSpec" />
       </view>
     </view>
   </Layout>
@@ -12,20 +12,25 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { onLoad } from "@dcloudio/uni-app";
+import { onLoad, onShow } from "@dcloudio/uni-app";
+import type { AuthenticatedUser } from "@lingdian/contracts";
 import Layout from "@/layout/layout.vue";
 import MemberStrip from "@/components/home/MemberStrip.vue";
 import RecommendSection from "@/components/home/RecommendSection.vue";
 import ServiceModeCards from "@/components/home/ServiceModeCards.vue";
-import { homeServiceModes, member } from "@/data/mock";
+import { homeServiceModes } from "@/data/mock";
+import { customerAuth } from "@/services/auth";
 import { fetchMenu, type MenuViewModel } from "@/services/catalog";
+import { buildCustomerPresentation } from "@/services/customer-presentation";
 import type { ServiceMode } from "@/types/store";
 
 const menu = ref<MenuViewModel | null>(null);
+const currentUser = ref<AuthenticatedUser | undefined>(customerAuth.getUser());
 
 const featuredProducts = computed(() => {
   return (menu.value?.products ?? []).filter((product) => product.tags.includes("推荐")).slice(0, 6);
 });
+const customerPresentation = computed(() => buildCustomerPresentation(currentUser.value));
 
 onLoad(async () => {
   try {
@@ -35,12 +40,21 @@ onLoad(async () => {
   }
 });
 
-function goMenu(_mode: ServiceMode) {
+onShow(async () => {
+  if (!customerAuth.isSignedIn()) await customerAuth.refresh();
+  currentUser.value = customerAuth.getUser();
+});
+
+function goMenu(_mode?: ServiceMode) {
   uni.redirectTo({ url: "/pages/order/order" });
 }
 
 function goSpec(productId: string) {
   uni.navigateTo({ url: `/pages/spec/spec?id=${productId}` });
+}
+
+function goLogin() {
+  uni.navigateTo({ url: "/pages/auth/login?redirect=%2Fpages%2Fhome%2Fhome" });
 }
 </script>
 
@@ -57,4 +71,3 @@ function goSpec(productId: string) {
   margin-top: var(--ld-card-gap, 20rpx);
 }
 </style>
-

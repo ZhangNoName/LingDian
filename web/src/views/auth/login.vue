@@ -34,7 +34,7 @@
           />
         </label>
 
-        <p v-if="statusMessage" class="text-sm text-red-600">{{ statusMessage }}</p>
+        <p v-if="statusMessage" class="text-sm text-red-600" role="alert" aria-live="assertive">{{ statusMessage }}</p>
 
         <button
           type="submit"
@@ -57,6 +57,7 @@ import { ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { merchantSession } from '@/auth/session'
 import { merchantLoginPasswordMinimum } from '@/auth/password-policy'
+import { getMerchantAuthMessage } from '@/auth/user-message'
 
 const router = useRouter()
 const route = useRoute()
@@ -74,7 +75,7 @@ async function login(): Promise<void> {
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
     await router.replace(redirect)
   } catch (error) {
-    statusMessage.value = error instanceof Error ? error.message : '登录失败，请稍后重试。'
+    statusMessage.value = getMerchantAuthMessage(error)
   } finally {
     loggingIn.value = false
   }

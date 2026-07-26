@@ -24,6 +24,8 @@ import PayBar from "@/components/checkout/PayBar.vue";
 import { fetchMenu } from "@/services/catalog";
 import { getCartSummary } from "@/services/cart";
 import { createOrderFromCart } from "@/services/orders";
+import { requireCustomerAuth } from "@/services/auth-navigation";
+import { canCheckout } from "@/services/checkout-state";
 import type { CartSummary } from "@/types/cart";
 import type { StoreSummary } from "@/types/store";
 
@@ -52,7 +54,13 @@ const checkoutModel = computed(() => ({
 }));
 
 onShow(async () => {
+  if (!(await requireCustomerAuth("/pages/checkout/checkout"))) return;
   cart.value = getCartSummary();
+  if (!canCheckout(cart.value)) {
+    uni.showToast({ title: "购物车为空，请先选择餐品", icon: "none" });
+    uni.redirectTo({ url: "/pages/order/order" });
+    return;
+  }
   try {
     store.value = (await fetchMenu()).store;
   } catch {

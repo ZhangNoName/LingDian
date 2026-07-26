@@ -5,7 +5,7 @@
         <CardTitle class="text-xl">门店列表</CardTitle>
         <div class="flex flex-wrap items-center gap-2">
           <Input class="w-64 rounded-md" placeholder="搜索门店名称 / 编号 / 区域" />
-          <Button class="rounded-md">新建门店</Button>
+          <Button class="rounded-md" disabled title="门店创建功能开发中">新建门店（开发中）</Button>
         </div>
       </CardHeader>
       <CardContent>
@@ -27,7 +27,7 @@
                 <TableCell>{{ store.mode }}</TableCell>
                 <TableCell>{{ store.orders }}</TableCell>
                 <TableCell>
-                  <Button variant="link" class="px-0">查看详情</Button>
+                  <Button variant="link" class="px-0" disabled title="门店详情功能开发中">开发中</Button>
                 </TableCell>
               </TableRow>
             </TableBody>

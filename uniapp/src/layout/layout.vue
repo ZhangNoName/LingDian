@@ -9,6 +9,7 @@
 
 <script setup lang="ts">
 import AppTabBar from "@/components/app/AppTabBar.vue";
+import { isProtectedCustomerRoute, requireCustomerAuth } from "@/services/auth-navigation";
 
 type AppTabKey = "home" | "menu" | "orders" | "profile";
 
@@ -30,9 +31,11 @@ const routes: Record<AppTabKey, string> = {
   profile: "/pages/user/user",
 };
 
-function handleTabChange(key: AppTabKey) {
+async function handleTabChange(key: AppTabKey) {
   if (key === props.active) return;
-  uni.redirectTo({ url: routes[key] });
+  const target = routes[key];
+  if (isProtectedCustomerRoute(target) && !(await requireCustomerAuth(target))) return;
+  uni.redirectTo({ url: target });
 }
 </script>
 

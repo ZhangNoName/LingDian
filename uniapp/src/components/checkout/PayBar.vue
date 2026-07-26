@@ -1,7 +1,7 @@
 <template>
   <view class="pay-bar">
     <view><text class="label">合计：</text><text class="amount">¥{{ amount.payableAmount.toFixed(1) }}</text></view>
-    <button class="pay" @tap="$emit('pay')">去支付</button>
+    <button class="pay" role="button" tabindex="0" @keydown.enter="$emit('pay')" @tap="$emit('pay')">去支付</button>
   </view>
 </template>
 

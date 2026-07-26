@@ -1,15 +1,15 @@
 {
   "pages": [
     {
-      "path": "pages/auth/login",
-      "style": {
-        "navigationBarTitleText": "登录"
-      }
-    },
-    {
       "path": "pages/home/home",
       "style": {
         "navigationBarTitleText": "首页"
+      }
+    },
+    {
+      "path": "pages/auth/login",
+      "style": {
+        "navigationBarTitleText": "登录"
       }
     },
     {

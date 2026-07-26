@@ -2,9 +2,10 @@
   "name": "@lingdian/observability",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "exports": { ".": { "types": "./dist/index.d.ts", "require": "./dist/index.js", "import": "./dist/index.js" } },
-  "scripts": { "build": "tsc -p tsconfig.json" },
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "scripts": { "build": "tsc -p tsconfig.json", "test": "node --test test/module-format.test.mjs" },
   "devDependencies": { "typescript": "^5.9.3" }
 }
