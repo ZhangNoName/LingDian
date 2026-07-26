@@ -18,26 +18,52 @@ const columns: SchemaColumn<Row>[] = [
 ]
 
 describe('schema table components', () => {
-  it('emits search/reset and exposes collapsible search state', async () => {
+  it('emits search on form submit and exposes collapsible search state', async () => {
     const wrapper = mount(SchemaSearchForm<Row>, {
       props: { columns, query: { keyword: 'zero', status: 'ACTIVE' } },
-      slots: { 'search-actions': () => h('button', { 'data-testid': 'create-account' }, '新建用户') },
       global: { plugins: [ElementPlus] },
     })
 
-    expect(wrapper.get('.schema-search__buttons').find('[data-testid="create-account"]').exists()).toBe(true)
-
-    await wrapper.get('[data-testid="schema-search-submit"]').trigger('click')
+    await wrapper.get('form').trigger('submit')
     expect(wrapper.emitted('search')).toHaveLength(1)
-
-    await wrapper.get('[data-testid="schema-search-reset"]').trigger('click')
-    expect(wrapper.emitted('update:query')?.at(-1)?.[0]).toEqual({ keyword: undefined, status: undefined })
-    expect(wrapper.emitted('reset')).toHaveLength(1)
 
     const collapse = wrapper.get('[data-testid="schema-search-collapse"]')
     expect(collapse.attributes('aria-expanded')).toBe('true')
     await collapse.trigger('click')
     expect(collapse.attributes('aria-expanded')).toBe('false')
+  })
+
+  it('renders business actions on the left and search controls on the right', async () => {
+    const wrapper = mount(SchemaTablePage<Row>, {
+      props: { columns, query: { keyword: 'zero' }, data: [], pagination: { page: 1, pageSize: 20, total: 0 } },
+      slots: { 'toolbar-actions': () => h('button', { 'data-testid': 'create-account' }, '新建用户') },
+      global: { plugins: [ElementPlus] },
+    })
+
+    expect(wrapper.get('.schema-table-page__toolbar-left').find('[data-testid="create-account"]').exists()).toBe(true)
+    expect(wrapper.get('.schema-table-page__toolbar-right').find('[data-testid="schema-search-submit"]').exists()).toBe(true)
+    await wrapper.get('[data-testid="schema-search-submit"]').trigger('click')
+    await wrapper.get('[data-testid="schema-search-reset"]').trigger('click')
+    expect(wrapper.emitted('search')).toHaveLength(1)
+    expect(wrapper.emitted('reset')).toHaveLength(1)
+  })
+
+  it('omits search UI without searchable columns and keeps an actions-only toolbar', () => {
+    const plainColumns: SchemaColumn<Row>[] = [{ dataIndex: 'id', label: '编号' }]
+    const withAction = mount(SchemaTablePage<Row>, {
+      props: { columns: plainColumns, query: {}, data: [], pagination: { page: 1, pageSize: 20, total: 0 } },
+      slots: { 'toolbar-actions': () => h('button', { 'data-testid': 'batch-import' }, '批量导入') },
+      global: { plugins: [ElementPlus] },
+    })
+    expect(withAction.find('.schema-search').exists()).toBe(false)
+    expect(withAction.find('.schema-table-page__toolbar-right').exists()).toBe(false)
+    expect(withAction.get('.schema-table-page__toolbar-left').find('[data-testid="batch-import"]').exists()).toBe(true)
+
+    const withoutAction = mount(SchemaTablePage<Row>, {
+      props: { columns: plainColumns, query: {}, data: [], pagination: { page: 1, pageSize: 20, total: 0 } },
+      global: { plugins: [ElementPlus] },
+    })
+    expect(withoutAction.find('.schema-table-page__toolbar').exists()).toBe(false)
   })
 
   it('renders accessible icon actions and honors disabled callbacks', async () => {

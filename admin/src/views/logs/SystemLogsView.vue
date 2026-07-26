@@ -91,7 +91,7 @@ onMounted(load)
       @page-change="changePage"
       @page-size-change="changePageSize"
     >
-      <template #search-actions><el-button :loading="loading" @click="load">刷新</el-button></template>
+      <template #toolbar-actions><el-button :loading="loading" @click="load">刷新</el-button></template>
       <template #cell-level="{ row }">
         <el-tag :type="row.level === 'ERROR' || row.level === 'FATAL' ? 'danger' : row.level === 'WARN' ? 'warning' : 'success'">
           {{ row.level }}

@@ -1,6 +1,7 @@
 <script setup lang="ts" generic="Row extends object">
-import { computed, ref, watch } from 'vue'
-import { columnKey, formatCellValue } from './schema'
+import { Refresh, Search } from '@element-plus/icons-vue'
+import { computed, ref, useSlots, watch } from 'vue'
+import { columnKey, createResetPatch, formatCellValue } from './schema'
 import SchemaSearchForm from './SchemaSearchForm.vue'
 import type { QueryRecord, SchemaColumn, SchemaPagination } from './types'
 
@@ -33,7 +34,15 @@ const emit = defineEmits<{
 }>()
 
 const formatted = ref<Record<string, string>>({})
+const slots = useSlots()
 const visibleColumns = computed(() => props.columns.filter((column) => !column.hidden))
+const hasSearchColumns = computed(() => props.searchable && props.columns.some((column) => column.isSearch))
+const hasToolbarActions = computed(() => Boolean(slots['toolbar-actions'] || slots.toolbar))
+
+function resetSearch(): void {
+  emit('update:query', { ...props.query, ...createResetPatch(props.columns) })
+  emit('reset')
+}
 
 function formattedKey(rowIndex: number, column: SchemaColumn<Row>): string {
   return `${rowIndex}:${columnKey(column)}`
@@ -53,14 +62,12 @@ watch([() => props.data, () => props.columns], refreshFormattedValues, { immedia
 <template>
   <div class="schema-table-page">
     <SchemaSearchForm
-      v-if="searchable"
+      v-if="hasSearchColumns"
       :columns="columns"
       :query="query"
       @update:query="emit('update:query', $event)"
       @search="emit('search')"
-      @reset="emit('reset')"
     >
-      <template v-if="$slots['search-actions']" #search-actions><slot name="search-actions" /></template>
       <template v-for="column in columns" #[`search-${columnKey(column)}`]="slotProps">
         <slot
           v-if="$slots[`search-${columnKey(column)}`]"
@@ -70,7 +77,20 @@ watch([() => props.data, () => props.columns], refreshFormattedValues, { immedia
       </template>
     </SchemaSearchForm>
 
-    <div v-if="$slots.toolbar" class="schema-table-page__toolbar"><slot name="toolbar" /></div>
+    <div v-if="hasSearchColumns || hasToolbarActions" class="schema-table-page__toolbar">
+      <div v-if="hasToolbarActions" class="schema-table-page__toolbar-left">
+        <slot v-if="$slots['toolbar-actions']" name="toolbar-actions" />
+        <slot v-else name="toolbar" />
+      </div>
+      <div v-if="hasSearchColumns" class="schema-table-page__toolbar-right">
+        <el-button type="primary" data-testid="schema-search-submit" @click="emit('search')">
+          <el-icon><Search /></el-icon>搜索
+        </el-button>
+        <el-button data-testid="schema-search-reset" @click="resetSearch">
+          <el-icon><Refresh /></el-icon>重置
+        </el-button>
+      </div>
+    </div>
 
     <el-alert
       v-if="error"

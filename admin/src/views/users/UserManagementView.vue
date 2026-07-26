@@ -211,7 +211,7 @@ watch(accountType, (value) => {
       @page-change="changePage"
       @page-size-change="changePageSize"
     >
-      <template #search-actions>
+      <template #toolbar-actions>
         <el-button type="primary" @click="openCreate">{{ pageConfig.createLabel }}</el-button>
       </template>
       <template #cell-identity="{ row }">

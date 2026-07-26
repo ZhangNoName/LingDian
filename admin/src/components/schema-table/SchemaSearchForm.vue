@@ -1,8 +1,8 @@
 <script setup lang="ts" generic="Row extends object">
-import { ArrowDown, ArrowUp, Refresh, Search } from '@element-plus/icons-vue'
+import { ArrowDown, ArrowUp } from '@element-plus/icons-vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { dictionaryRegistry, type DictionaryOption } from '../../dictionaries'
-import { columnKey, createResetPatch } from './schema'
+import { columnKey } from './schema'
 import type { QueryRecord, SchemaColumn } from './types'
 
 const props = withDefaults(defineProps<{
@@ -13,7 +13,6 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   'update:query': [value: QueryRecord]
   search: []
-  reset: []
 }>()
 
 const expanded = ref(props.defaultExpanded)
@@ -28,11 +27,6 @@ function queryKey(column: SchemaColumn<Row>): string {
 
 function updateField(column: SchemaColumn<Row>, value: unknown): void {
   emit('update:query', { ...props.query, [queryKey(column)]: value })
-}
-
-function reset(): void {
-  emit('update:query', { ...props.query, ...createResetPatch(props.columns) })
-  emit('reset')
 }
 
 async function loadOptions(): Promise<void> {
@@ -109,15 +103,6 @@ watch(() => props.columns, loadOptions)
           />
         </slot>
       </el-form-item>
-      <div class="schema-search__buttons">
-        <el-button type="primary" data-testid="schema-search-submit" @click="emit('search')">
-          <el-icon><Search /></el-icon>搜索
-        </el-button>
-        <el-button data-testid="schema-search-reset" @click="reset">
-          <el-icon><Refresh /></el-icon>重置
-        </el-button>
-        <slot name="search-actions" />
-      </div>
     </el-form>
   </section>
 </template>
