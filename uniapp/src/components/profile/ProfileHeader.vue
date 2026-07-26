@@ -2,19 +2,18 @@
   <view class="header">
     <SkeletonBox class="avatar" radius="round" />
     <view>
-      <text class="level">{{ member.levelName }}</text>
-      <text class="phone">{{ user.maskedPhone }}</text>
+      <text class="level">{{ presentation.displayName }}</text>
+      <text class="phone">{{ presentation.secondaryText }}</text>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
 import SkeletonBox from "@/components/app/SkeletonBox.vue";
-import type { MemberSummary, UserProfile } from "@/types/member";
+import type { CustomerPresentation } from "@/services/customer-presentation";
 
 defineProps<{
-  user: UserProfile;
-  member: MemberSummary;
+  presentation: CustomerPresentation;
 }>();
 </script>
 
@@ -44,7 +43,7 @@ defineProps<{
 
 .phone {
   margin-top: 8rpx;
-  color: #777777;
+  color: #666666;
   font-size: var(--ld-font-base, 26rpx);
 }
 </style>

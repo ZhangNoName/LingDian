@@ -43,7 +43,7 @@ function mapProduct(product: ProductRecordContract): ProductDetail {
 }
 
 export async function fetchMenu() {
-  const menu = await request<MenuContract>("/menu/current");
+  const menu = await request<MenuContract>("/menu/current", { requiresAuth: false });
   const productDetails: Record<string, ProductDetail> = {};
   const products = menu.categories.flatMap((category) =>
     category.products.map((product) => {

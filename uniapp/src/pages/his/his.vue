@@ -11,7 +11,9 @@
         @reorder="goMenu"
       />
       <view v-if="filteredOrders.length === 0" class="empty">
-        <text>{{ activeTab === "current" ? "暂无当前订单" : "暂无历史订单" }}</text>
+        <text class="empty-title">{{ activeTab === "current" ? "暂无当前订单" : "暂无历史订单" }}</text>
+        <text class="empty-copy">挑选喜欢的餐品，下单后可在这里查看进度</text>
+        <button class="empty-action" role="button" tabindex="0" @keydown.enter="goMenu" @tap="goMenu">去点餐</button>
       </view>
     </view>
   </Layout>
@@ -23,8 +25,9 @@ import { onShow } from "@dcloudio/uni-app";
 import AppNavBar from "@/components/app/AppNavBar.vue";
 import OrderHistoryCard from "@/components/orders/OrderHistoryCard.vue";
 import OrderStatusTabs from "@/components/orders/OrderStatusTabs.vue";
-import { fetchOrders } from "@/services/orders";
 import Layout from "@/layout/layout.vue";
+import { requireCustomerAuth } from "@/services/auth-navigation";
+import { fetchOrders } from "@/services/orders";
 import type { OrderSummary } from "@/types/order";
 
 const activeTab = ref<"current" | "history">("current");
@@ -39,6 +42,7 @@ const filteredOrders = computed(() => {
 });
 
 onShow(async () => {
+  if (!(await requireCustomerAuth("/pages/his/his"))) return;
   try {
     orders.value = await fetchOrders();
   } catch (error) {
@@ -68,9 +72,36 @@ function goDetail(orderId: string) {
 .empty {
   display: grid;
   place-items: center;
-  min-height: 240rpx;
-  color: var(--ld-mini-text-muted);
-  font-size: var(--ld-font-base, 26rpx);
+  min-height: 320rpx;
+  padding: 32rpx;
+  text-align: center;
+}
+
+.empty-title {
+  color: var(--ld-mini-text);
+  font-size: 28rpx;
+  font-weight: 800;
+}
+
+.empty-copy {
+  margin-top: 12rpx;
+  color: #666666;
+  font-size: 24rpx;
+}
+
+.empty-action {
+  height: 68rpx;
+  margin-top: 28rpx;
+  padding: 0 34rpx;
+  border-radius: 999rpx;
+  background: var(--ld-mini-primary);
+  color: #ffffff;
+  font-size: 26rpx;
+  font-weight: 800;
+  line-height: 68rpx;
+}
+
+.empty-action::after {
+  border: 0;
 }
 </style>
-

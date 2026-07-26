@@ -19,6 +19,11 @@ export type NavigationItem = {
   icon: Component
 }
 
+export type DashboardAction = {
+  label: string
+  to: string
+}
+
 export const navigationItems: NavigationItem[] = [
   {
     label: '工作台',
@@ -80,4 +85,11 @@ export const navigationItems: NavigationItem[] = [
     to: '/settings',
     icon: Settings,
   },
+]
+
+export const dashboardActions: DashboardAction[] = [
+  { label: '管理商品', to: '/products' },
+  { label: '查看订单', to: '/orders' },
+  { label: '查看库存', to: '/warehouse' },
+  { label: '进入经营分析', to: '/analytics' },
 ]

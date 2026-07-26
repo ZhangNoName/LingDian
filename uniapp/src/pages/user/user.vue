@@ -2,18 +2,18 @@
   <Layout active="profile">
     <view class="page">
       <AppNavBar />
-      <ProfileHeader :user="userProfile" :member="member" />
+      <ProfileHeader :presentation="customerPresentation" />
       <view class="nickname-card">
         <view>
           <text class="nickname-label">昵称</text>
           <text class="nickname-hint">昵称可重复，用于向商家展示</text>
         </view>
-        <input v-model="nickname" class="nickname-input" maxlength="32" placeholder="设置昵称" />
-        <button class="nickname-save" @tap="saveNickname">保存</button>
+        <input v-model="nickname" class="nickname-input" maxlength="32" placeholder="设置昵称" aria-label="昵称" />
+        <button class="nickname-save" role="button" tabindex="0" @keydown.enter="saveNickname" @tap="saveNickname">保存</button>
       </view>
-      <MemberBenefitCard :assets="memberAssets" />
-      <ManageGrid :entries="manageEntries" />
-      <button class="service-btn" @tap="showServicePhone">
+      <MemberBenefitCard :presentation="customerPresentation" />
+      <ManageGrid :entries="manageEntries" @select="handleManageEntry" />
+      <button class="service-btn" role="button" tabindex="0" @keydown.enter="showServicePhone" @tap="showServicePhone">
         <text class="service-icon">{{ HelpIcon }}</text>
         <text>联系客服</text>
       </button>
@@ -23,24 +23,39 @@
 
 <script setup lang="ts">
 import { HelpIcon } from "@lingdian/icons/miniapp";
+import type { AuthenticatedUser } from "@lingdian/contracts";
 import { onShow } from "@dcloudio/uni-app";
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import AppNavBar from "@/components/app/AppNavBar.vue";
 import ManageGrid from "@/components/profile/ManageGrid.vue";
 import MemberBenefitCard from "@/components/profile/MemberBenefitCard.vue";
 import ProfileHeader from "@/components/profile/ProfileHeader.vue";
-import { manageEntries, member, memberAssets, userProfile } from "@/data/mock";
 import Layout from "@/layout/layout.vue";
 import { customerAuth } from "@/services/auth";
+import { requireCustomerAuth } from "@/services/auth-navigation";
+import { buildCustomerPresentation } from "@/services/customer-presentation";
 import { profile } from "@/services/profile";
+import type { ManageEntry } from "@/types/member";
 
 const servicePhone = "400-888-0123";
 const nickname = ref("");
+const currentUser = ref<AuthenticatedUser | undefined>(customerAuth.getUser());
+const customerPresentation = computed(() => buildCustomerPresentation(currentUser.value));
+const manageEntries: ManageEntry[] = [
+  { key: "orders", label: "我的订单", available: true, route: "/pages/his/his" },
+  { key: "address", label: "地址管理", available: false },
+  { key: "favorites", label: "我的收藏", available: false },
+  { key: "transactions", label: "交易记录", available: false },
+];
 
 onShow(async () => {
-  if (customerAuth.isSignedIn() || (await customerAuth.refresh())) return;
-  uni.redirectTo({ url: "/pages/auth/login" });
+  if (!(await requireCustomerAuth("/pages/user/user"))) return;
+  currentUser.value = customerAuth.getUser();
 });
+
+function handleManageEntry(entry: ManageEntry) {
+  if (entry.route) uni.redirectTo({ url: entry.route });
+}
 
 function showServicePhone() {
   uni.showModal({
@@ -108,7 +123,7 @@ async function saveNickname() {
 
 .nickname-hint {
   margin-top: 6rpx;
-  color: #777777;
+  color: #666666;
   font-size: 22rpx;
 }
 
@@ -132,7 +147,8 @@ async function saveNickname() {
   line-height: 56rpx;
 }
 
-.nickname-save::after {
+.nickname-save::after,
+.service-btn::after {
   border: 0;
 }
 
@@ -142,9 +158,5 @@ async function saveNickname() {
   height: 30rpx;
   font-size: 30rpx;
   line-height: 30rpx;
-}
-
-.service-btn::after {
-  border: 0;
 }
 </style>

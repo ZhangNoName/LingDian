@@ -4,18 +4,32 @@
       <text class="section-heading">堡藏推荐</text>
       <text class="tag">福利满满</text>
     </view>
-    <view class="grid">
-      <view v-for="product in products" :key="product.id" class="card" @tap="$emit('select', product.id)">
+    <view v-if="products.length" class="grid">
+      <view
+        v-for="product in products"
+        :key="product.id"
+        class="card"
+        role="button"
+        tabindex="0"
+        :aria-label="`查看${product.name}`"
+        @keydown.enter="$emit('select', product.id)"
+        @tap="$emit('select', product.id)"
+      >
         <view class="image-shell">
           <image v-if="!failedImages.has(product.id)" class="image" :src="product.imageUrl" mode="aspectFill" @error="markImageFailed(product.id)" />
           <SkeletonBox v-else class="image-placeholder" radius="md" />
         </view>
         <text class="name">{{ product.name }}</text>
         <PriceText :price="product.price" :original-price="product.originalPrice" suffix="一口价" size="small" />
-        <button class="add" @tap.stop="$emit('select', product.id)">
+        <button class="add" role="button" tabindex="0" :aria-label="`选择${product.name}`" @keydown.enter.stop="$emit('select', product.id)" @tap.stop="$emit('select', product.id)">
           <text class="add-icon">{{ PlusIcon }}</text>
         </button>
       </view>
+    </view>
+    <view v-else class="empty">
+      <text class="empty-title">推荐餐品正在准备中</text>
+      <text class="empty-copy">完整菜单里还有更多选择</text>
+      <button class="browse" role="button" tabindex="0" @keydown.enter="$emit('browse')" @tap="$emit('browse')">去菜单看看</button>
     </view>
   </view>
 </template>
@@ -33,6 +47,7 @@ defineProps<{
 
 defineEmits<{
   (event: "select", productId: string): void;
+  (event: "browse"): void;
 }>();
 
 const failedImages = ref(new Set<string>());
@@ -76,6 +91,42 @@ function markImageFailed(productId: string) {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: var(--ld-card-gap, 20rpx);
+}
+
+.empty {
+  display: grid;
+  justify-items: center;
+  min-height: 200rpx;
+  padding: 28rpx 16rpx 12rpx;
+  text-align: center;
+}
+
+.empty-title {
+  color: var(--ld-mini-text);
+  font-size: 28rpx;
+  font-weight: 800;
+}
+
+.empty-copy {
+  margin-top: 10rpx;
+  color: #666666;
+  font-size: 24rpx;
+}
+
+.browse {
+  height: 64rpx;
+  margin-top: 24rpx;
+  padding: 0 28rpx;
+  border-radius: 999rpx;
+  background: var(--ld-mini-primary);
+  color: #ffffff;
+  font-size: 24rpx;
+  font-weight: 800;
+  line-height: 64rpx;
+}
+
+.browse::after {
+  border: 0;
 }
 
 .card {

@@ -38,10 +38,9 @@
         </CardHeader>
         <CardContent>
           <div class="grid gap-2">
-            <Button variant="outline" class="justify-start rounded-md">新建商品</Button>
-            <Button variant="outline" class="justify-start rounded-md">查看异常订单</Button>
-            <Button variant="outline" class="justify-start rounded-md">处理低库存</Button>
-            <Button variant="outline" class="justify-start rounded-md">进入经营分析</Button>
+            <Button v-for="action in dashboardActions" :key="action.to" as-child variant="outline" class="justify-start rounded-md">
+              <RouterLink :to="action.to">{{ action.label }}</RouterLink>
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -53,6 +52,8 @@
 import { Badge } from '@/baseComponents/badge'
 import { Button } from '@/baseComponents/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/baseComponents/card'
+import { RouterLink } from 'vue-router'
+import { dashboardActions } from '@/config/navigation'
 
 const cards = [
   { label: '今日销售额', value: '¥ 28,640', trend: '较昨日 +12.4%' },

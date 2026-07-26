@@ -1,10 +1,16 @@
 <template>
-  <view class="tabbar">
+  <view class="tabbar" role="tablist" aria-label="主导航">
     <view
       v-for="tab in tabs"
       :key="tab.key"
       class="tab-item"
       :class="{ active: tab.key === active }"
+      role="tab"
+      tabindex="0"
+      :aria-label="tab.label"
+      :aria-selected="tab.key === active"
+      @keydown.enter="$emit('change', tab.key)"
+      @keydown.space.prevent="$emit('change', tab.key)"
       @tap="$emit('change', tab.key)"
     >
       <text class="tab-icon">{{ getTabIcon(tab.key) }}</text>
@@ -58,7 +64,7 @@ function getTabIcon(key: AppTabKey) {
   align-items: center;
   min-height: 76rpx;
   gap: 6rpx;
-  color: #b9b9b9;
+  color: #666666;
   font-size: var(--ld-font-xs, 22rpx);
 }
 

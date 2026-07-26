@@ -1,6 +1,16 @@
 <template>
   <view class="mode-grid">
-    <view v-for="mode in modes" :key="mode.key" class="mode-card" @tap="$emit('select', mode.key)">
+    <view
+      v-for="mode in modes"
+      :key="mode.key"
+      class="mode-card"
+      role="button"
+      tabindex="0"
+      :aria-label="`${mode.title}，${mode.subtitle}`"
+      @keydown.enter="$emit('select', mode.key)"
+      @keydown.space.prevent="$emit('select', mode.key)"
+      @tap="$emit('select', mode.key)"
+    >
       <view class="mode-icon-shell">
         <text class="mode-icon">{{ getModeIcon(mode.key) }}</text>
       </view>

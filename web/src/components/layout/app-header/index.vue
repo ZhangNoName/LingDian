@@ -2,7 +2,24 @@
   <header class="sticky top-0 z-20 border-b border-border/70 bg-background/85 px-4 py-4 backdrop-blur md:px-6">
     <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
       <div class="flex items-start gap-3">
-        <Button variant="outline" size="icon" class="size-10 rounded-xl" @click="$emit('toggle-sidebar')">
+        <Button
+          variant="outline"
+          size="icon"
+          class="size-10 rounded-xl md:hidden"
+          aria-label="打开导航菜单"
+          aria-controls="merchant-mobile-navigation"
+          :aria-expanded="mobileNavigationOpen"
+          @click="$emit('open-mobile-navigation')"
+        >
+          <PanelLeft class="size-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          class="hidden size-10 rounded-xl md:inline-flex"
+          :aria-label="sidebarCollapsed ? '展开侧栏' : '收起侧栏'"
+          @click="$emit('toggle-desktop-sidebar')"
+        >
           <PanelLeft class="size-4" />
         </Button>
 
@@ -17,12 +34,12 @@
       <div class="flex flex-wrap items-center gap-2">
         <Badge variant="secondary" class="rounded-full px-3 py-1 text-xs">
           <span class="mr-1 inline-block size-2 rounded-full bg-emerald-500"></span>
-          今日营业 18 家门店
+          {{ storeCount > 0 ? `可管理 ${storeCount} 家门店` : '商家工作台' }}
         </Badge>
-        <Badge variant="outline" class="rounded-full px-3 py-1 text-xs text-muted-foreground">
+        <Badge variant="outline" class="hidden rounded-full px-3 py-1 text-xs text-muted-foreground md:inline-flex">
           {{ sidebarCollapsed ? '侧栏已收起' : '侧栏已展开' }}
         </Badge>
-        <Button variant="outline" size="sm" class="rounded-full">运营管理员</Button>
+        <Badge variant="outline" class="rounded-full px-3 py-1 text-xs text-muted-foreground">{{ userLabel }}</Badge>
       </div>
     </div>
   </header>
@@ -34,11 +51,15 @@ import { Badge } from '@/baseComponents/badge'
 import { Button } from '@/baseComponents/button'
 
 defineEmits<{
-  (event: 'toggle-sidebar'): void
+  (event: 'toggle-desktop-sidebar'): void
+  (event: 'open-mobile-navigation'): void
 }>()
 
 defineProps<{
   title: string
   sidebarCollapsed: boolean
+  mobileNavigationOpen: boolean
+  storeCount: number
+  userLabel: string
 }>()
 </script>

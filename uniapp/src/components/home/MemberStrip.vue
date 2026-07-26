@@ -1,22 +1,30 @@
 <template>
   <view class="member-strip">
-    <text class="name">张新阳</text>
+    <view class="account">
+      <text class="name">{{ presentation.displayName }}</text>
+      <button v-if="!presentation.isSignedIn" class="login-action" role="button" tabindex="0" @keydown.enter="$emit('login')" @tap="$emit('login')">立即登录</button>
+      <text v-else class="account-status">{{ presentation.secondaryText }}</text>
+    </view>
     <view class="metric">
-      <text class="metric-value">{{ member.points }}</text>
+      <text class="metric-value">{{ presentation.pointsText }}</text>
       <text class="metric-label">积分</text>
     </view>
     <view class="metric">
-      <text class="metric-value">{{ member.couponCount }}</text>
+      <text class="metric-value">{{ presentation.couponText }}</text>
       <text class="metric-label">优惠券</text>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import type { MemberSummary } from "@/types/member";
+import type { CustomerPresentation } from "@/services/customer-presentation";
 
 defineProps<{
-  member: MemberSummary;
+  presentation: CustomerPresentation;
+}>();
+
+defineEmits<{
+  (event: "login"): void;
 }>();
 </script>
 
@@ -38,6 +46,30 @@ defineProps<{
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+}
+
+.account-status {
+  display: block;
+  margin-top: 6rpx;
+  color: rgba(255, 229, 176, 0.88);
+  font-size: 22rpx;
+}
+
+.login-action {
+  display: inline-flex;
+  height: 44rpx;
+  margin: 6rpx 0 0;
+  padding: 0 16rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.5);
+  border-radius: 999rpx;
+  background: transparent;
+  color: #ffffff;
+  font-size: 22rpx;
+  line-height: 42rpx;
+}
+
+.login-action::after {
+  border: 0;
 }
 
 .metric-value {

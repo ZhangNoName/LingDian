@@ -1,7 +1,25 @@
 <template>
-  <view class="tabs">
-    <view class="tab" :class="{ active: active === 'current' }" @tap="$emit('change', 'current')">当前订单</view>
-    <view class="tab" :class="{ active: active === 'history' }" @tap="$emit('change', 'history')">历史订单</view>
+  <view class="tabs" role="tablist" aria-label="订单分类">
+    <view
+      class="tab"
+      :class="{ active: active === 'current' }"
+      role="tab"
+      tabindex="0"
+      :aria-selected="active === 'current'"
+      @keydown.enter="$emit('change', 'current')"
+      @keydown.space.prevent="$emit('change', 'current')"
+      @tap="$emit('change', 'current')"
+    >当前订单</view>
+    <view
+      class="tab"
+      :class="{ active: active === 'history' }"
+      role="tab"
+      tabindex="0"
+      :aria-selected="active === 'history'"
+      @keydown.enter="$emit('change', 'history')"
+      @keydown.space.prevent="$emit('change', 'history')"
+      @tap="$emit('change', 'history')"
+    >历史订单</view>
   </view>
 </template>
 

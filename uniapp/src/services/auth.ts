@@ -1,4 +1,5 @@
 import type { AuthTokens, AuthenticatedUser, PendingOAuthResponse } from "@lingdian/contracts";
+import { getCustomerAuthMessage } from "./auth-message";
 
 function apiBase(): string {
   return import.meta.env.VITE_API_BASE ?? "http://localhost:9000/api";
@@ -29,7 +30,7 @@ function forgetDemoToken(): void {
 }
 
 function readErrorMessage(body: ApiEnvelope<unknown> | undefined): string {
-  return body?.msg || "Authentication request failed.";
+  return getCustomerAuthMessage(new Error(body?.msg || "Authentication request failed."));
 }
 
 function authRequest<T>(path: string, options: Omit<UniApp.RequestOptions, "url"> = {}): Promise<T> {
@@ -55,7 +56,7 @@ function authRequest<T>(path: string, options: Omit<UniApp.RequestOptions, "url"
         reject(new Error(readErrorMessage(envelope)));
       },
       fail(error) {
-        reject(new Error(error.errMsg || "Network request failed."));
+        reject(new Error(getCustomerAuthMessage(new Error(error.errMsg || "Network request failed."))));
       },
     });
   });

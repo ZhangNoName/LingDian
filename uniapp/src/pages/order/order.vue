@@ -1,7 +1,7 @@
 <template>
   <Layout active="menu">
     <view class="page">
-      <AppNavBar title="点单" show-search />
+      <AppNavBar title="点单" />
       <StoreHeader :store="store" />
       <view class="menu-layout">
         <CategorySidebar :categories="menuCategories" :active-id="activeCategoryId" @select="handleCategorySelect" />
@@ -37,6 +37,8 @@ import StoreHeader from "@/components/menu/StoreHeader.vue";
 import Layout from "@/layout/layout.vue";
 import { fetchMenu, type MenuViewModel } from "@/services/catalog";
 import { getCartSummary } from "@/services/cart";
+import { requireCustomerAuth } from "@/services/auth-navigation";
+import { canCheckout } from "@/services/checkout-state";
 import type { CartSummary } from "@/types/cart";
 import type { StoreSummary } from "@/types/store";
 
@@ -171,11 +173,12 @@ function goSpec(productId: string) {
   uni.navigateTo({ url: `/pages/spec/spec?id=${productId}` });
 }
 
-function goCheckout() {
-  if (cartSummary.value.itemCount === 0) {
+async function goCheckout() {
+  if (!canCheckout(cartSummary.value)) {
     uni.showToast({ title: "请先选择餐品", icon: "none" });
     return;
   }
+  if (!(await requireCustomerAuth("/pages/checkout/checkout"))) return;
   uni.navigateTo({ url: "/pages/checkout/checkout" });
 }
 </script>

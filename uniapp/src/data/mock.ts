@@ -1,6 +1,5 @@
 import type { CartSummary } from "@/types/cart";
 import type { ProductDetail, ProductSummary } from "@/types/menu";
-import type { MemberAssets, MemberSummary, UserProfile, ManageEntry } from "@/types/member";
 import type { AddOnProduct, CheckoutViewModel, OrderDetail, OrderSummary } from "@/types/order";
 import type { HomeServiceMode, StoreSummary } from "@/types/store";
 
@@ -106,32 +105,6 @@ export const products: ProductSummary[] = [
     tags: ["热门小食"],
     hasSpec: true,
   },
-];
-
-export const member: MemberSummary = {
-  levelName: "普通会员",
-  points: 21,
-  couponCount: 1,
-  orderCount: 5,
-  consumptionAmount: 147.8,
-};
-
-export const userProfile: UserProfile = {
-  id: "user-001",
-  maskedPhone: "176****2528",
-  loggedIn: true,
-};
-
-export const memberAssets: MemberAssets = {
-  balance: 106,
-  couponCount: 0,
-};
-
-export const manageEntries: ManageEntry[] = [
-  { key: "orders", label: "我的订单" },
-  { key: "address", label: "地址管理" },
-  { key: "favorites", label: "我的收藏" },
-  { key: "transactions", label: "交易记录" },
 ];
 
 export const cartSummary: CartSummary = {

@@ -7,6 +7,7 @@ type RequestMethod = NonNullable<UniApp.RequestOptions["method"]> | "PATCH";
 type RequestConfig = Omit<UniApp.RequestOptions, "url" | "header" | "method"> & {
   header?: Record<string, string>;
   method?: RequestMethod;
+  requiresAuth?: boolean;
 };
 
 class RequestError extends Error {
@@ -27,7 +28,7 @@ function redirectToLogin(): void {
 
 function requestOnce<T>(path: string, options: RequestConfig): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const { method, ...requestOptions } = options;
+    const { method, requiresAuth: _requiresAuth, ...requestOptions } = options;
     const token = customerAuth.getAccessToken();
     const header: Record<string, string> = {
       "Content-Type": "application/json",
@@ -47,10 +48,13 @@ function requestOnce<T>(path: string, options: RequestConfig): Promise<T> {
           resolve(envelope.data);
           return;
         }
-        reject(new RequestError(envelope?.msg || "Request failed.", response.statusCode));
+        const message = response.statusCode === 401
+          ? "登录状态已失效，请重新登录。"
+          : toRequestMessage(envelope?.msg);
+        reject(new RequestError(message, response.statusCode));
       },
       fail(error) {
-        reject(new RequestError(error.errMsg || "Network request failed."));
+        reject(new RequestError(toRequestMessage(error.errMsg, true)));
       },
     });
   });
@@ -61,6 +65,10 @@ export async function request<T>(path: string, options: RequestConfig = {}): Pro
     return await requestOnce<T>(path, options);
   } catch (error) {
     if (!(error instanceof RequestError) || error.statusCode !== 401) throw error;
+    if (options.requiresAuth === false) {
+      customerAuth.clear();
+      throw error;
+    }
 
     if (!(await customerAuth.refresh())) {
       redirectToLogin();
@@ -77,4 +85,20 @@ export async function request<T>(path: string, options: RequestConfig = {}): Pro
       throw retryError;
     }
   }
+}
+
+function toRequestMessage(message?: string, networkFailure = false): string {
+  const source = message?.trim() ?? "";
+  const normalized = source.toLowerCase();
+  if (
+    networkFailure ||
+    normalized.includes("request:fail") ||
+    normalized.includes("network request failed") ||
+    normalized.includes("failed to fetch")
+  ) {
+    return "网络连接异常，请检查网络后重试。";
+  }
+  if (/[\u3400-\u9fff]/.test(source)) return source;
+  if (normalized.includes("unauthorized")) return "当前内容暂时无法加载，请稍后重试。";
+  return "请求失败，请稍后重试。";
 }

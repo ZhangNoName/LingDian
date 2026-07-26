@@ -1,7 +1,7 @@
 <template>
   <view class="nav">
     <view class="nav-left">
-      <view v-if="showBack" class="icon-button" @tap="$emit('back')">
+      <view v-if="showBack" class="icon-button" role="button" tabindex="0" aria-label="返回" @keydown.enter="$emit('back')" @keydown.space.prevent="$emit('back')" @tap="$emit('back')">
         <text class="back-glyph">‹</text>
       </view>
       <view v-if="showSearch" class="icon-button">

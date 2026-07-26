@@ -1,11 +1,22 @@
 <template>
   <view class="manage">
     <view class="grid">
-      <view v-for="(entry, index) in entries" :key="entry.key" class="entry">
+      <view
+        v-for="(entry, index) in entries"
+        :key="entry.key"
+        class="entry"
+        :class="{ unavailable: !entry.available }"
+        :role="entry.available ? 'button' : undefined"
+        :tabindex="entry.available ? 0 : -1"
+        :aria-disabled="!entry.available"
+        @keydown.enter="selectEntry(entry)"
+        @tap="selectEntry(entry)"
+      >
         <view class="icon-shell">
           <text class="icon">{{ getEntryIcon(entry.key) }}</text>
         </view>
         <text class="entry-label">{{ entry.label }}</text>
+        <text v-if="!entry.available" class="entry-status">开发中</text>
         <view v-if="index < entries.length - 1" class="separator" />
       </view>
     </view>
@@ -23,8 +34,16 @@ defineProps<{
   entries: ManageEntry[];
 }>();
 
+const emit = defineEmits<{
+  (event: "select", entry: ManageEntry): void;
+}>();
+
 function getEntryIcon(key: string) {
   return manageEntryIcons[key] ?? fallbackManageIcon;
+}
+
+function selectEntry(entry: ManageEntry) {
+  if (entry.available) emit("select", entry);
 }
 
 </script>
@@ -47,6 +66,10 @@ function getEntryIcon(key: string) {
 .entry {
   position: relative;
   text-align: center;
+}
+
+.entry.unavailable {
+  opacity: 0.55;
 }
 
 .separator {
@@ -82,5 +105,12 @@ function getEntryIcon(key: string) {
   color: var(--ld-mini-text);
   font-size: var(--ld-font-sm, 24rpx);
   font-weight: 700;
+}
+
+.entry-status {
+  display: block;
+  margin-top: 4rpx;
+  color: #666666;
+  font-size: 20rpx;
 }
 </style>
