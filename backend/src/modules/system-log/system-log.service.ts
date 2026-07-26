@@ -31,8 +31,8 @@ export type SystemLogQuery = {
   level?: SystemLogLevel;
   from?: Date;
   to?: Date;
-  cursor?: string;
-  limit?: number;
+  page?: number;
+  pageSize?: number;
 };
 
 @Injectable()
@@ -96,19 +96,23 @@ export class SystemLogService implements OnModuleInit, OnModuleDestroy {
   }
 
   async query(query: SystemLogQuery): Promise<SystemLogPage> {
-    const limit = Math.min(Math.max(query.limit ?? 50, 1), 100);
-    const records = await this.prisma.systemLog.findMany({
-      where: {
-        ...(query.source ? { source: query.source } : {}),
-        ...(query.level ? { level: query.level } : {}),
-        ...((query.from || query.to) ? { createdAt: { ...(query.from ? { gte: query.from } : {}), ...(query.to ? { lte: query.to } : {}) } } : {}),
-      },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      ...(query.cursor ? { cursor: { id: query.cursor }, skip: 1 } : {}),
-      take: limit + 1,
-    });
-    const hasMore = records.length > limit;
-    const items = records.slice(0, limit).map((record) => ({
+    const page = Math.max(query.page ?? 1, 1);
+    const pageSize = Math.min(Math.max(query.pageSize ?? 20, 1), 100);
+    const where: Prisma.SystemLogWhereInput = {
+      ...(query.source ? { source: query.source } : {}),
+      ...(query.level ? { level: query.level } : {}),
+      ...((query.from || query.to) ? { createdAt: { ...(query.from ? { gte: query.from } : {}), ...(query.to ? { lte: query.to } : {}) } } : {}),
+    };
+    const [total, records] = await Promise.all([
+      this.prisma.systemLog.count({ where }),
+      this.prisma.systemLog.findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    ]);
+    const items = records.map((record) => ({
       ...record,
       source: record.source as SystemLogSource,
       level: record.level as SystemLogLevel,
@@ -117,7 +121,7 @@ export class SystemLogService implements OnModuleInit, OnModuleDestroy {
       createdAt: record.createdAt.toISOString(),
     }));
 
-    return { items, nextCursor: hasMore && items.length > 0 ? items[items.length - 1].id : null };
+    return { items, total, page, pageSize };
   }
 
   private acceptClientEvent(source: SystemLogSource, ip?: string): boolean {

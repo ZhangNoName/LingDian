@@ -1,13 +1,111 @@
 <script setup lang="ts">
-import type { SystemLogLevel, SystemLogPage, SystemLogRecord, SystemLogSource } from '@lingdian/contracts'
-import { onMounted, ref } from 'vue'
-import PageError from '../../components/common/PageError.vue'
+import type { SystemLogPage, SystemLogQuery, SystemLogRecord } from '@lingdian/contracts'
+import { View } from '@element-plus/icons-vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import PageHeader from '../../components/common/PageHeader.vue'
+import {
+  SchemaTableActions,
+  SchemaTablePage,
+  type QueryRecord,
+  type SchemaAction,
+} from '../../components/schema-table'
 import { getSystemLogs } from '../../services/api'
-const source = ref<SystemLogSource | ''>(''); const level = ref<SystemLogLevel | ''>(''); const page = ref<SystemLogPage>({ items: [], nextCursor: null }); const loading = ref(false); const error = ref(''); const selected = ref<SystemLogRecord>(); const drawer = ref(false)
-const sourceLabels: Record<SystemLogSource, string> = { SERVER: '服务端', MINIAPP: '小程序', MERCHANT_WEB: '商家端', ADMIN_WEB: '管理端' }
-async function load(cursor?: string) { loading.value = true; error.value = ''; try { const result = await getSystemLogs({ source: source.value || undefined, level: level.value || undefined, cursor }); page.value = cursor ? { items: [...page.value.items, ...result.items], nextCursor: result.nextCursor } : result } catch (cause) { error.value = cause instanceof Error ? cause.message : '日志加载失败' } finally { loading.value = false } }
-function details(row: SystemLogRecord) { selected.value = row; drawer.value = true }
-onMounted(() => void load())
+import LogDetailDrawer from './LogDetailDrawer.vue'
+import { createLogColumns } from './log-columns'
+
+const query = reactive<SystemLogQuery>({ page: 1, pageSize: 20 })
+const result = ref<SystemLogPage>({ items: [], total: 0, page: 1, pageSize: 20 })
+const loading = ref(false)
+const error = ref('')
+const selected = ref<SystemLogRecord>()
+const drawer = ref(false)
+const columns = createLogColumns()
+const schemaQuery = computed<QueryRecord>({
+  get: () => ({ ...query }),
+  set: (value) => Object.assign(query, value),
+})
+const pagination = computed(() => ({
+  page: query.page,
+  pageSize: query.pageSize,
+  total: result.value.total,
+}))
+
+async function load() {
+  loading.value = true
+  error.value = ''
+  try {
+    result.value = await getSystemLogs(query)
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : '日志加载失败'
+  } finally {
+    loading.value = false
+  }
+}
+
+function search() {
+  query.page = 1
+  void load()
+}
+
+function resetFilters() {
+  Object.assign(query, { source: undefined, level: undefined, from: undefined, to: undefined, page: 1 })
+  void load()
+}
+
+function changePage(page: number) {
+  query.page = page
+  void load()
+}
+
+function changePageSize(pageSize: number) {
+  query.pageSize = pageSize
+  query.page = 1
+  void load()
+}
+
+function details(row: SystemLogRecord) {
+  selected.value = row
+  drawer.value = true
+}
+
+function rowActions(): SchemaAction<SystemLogRecord>[] {
+  return [{ key: 'details', label: '查看详情', icon: View, onClick: details }]
+}
+
+onMounted(load)
 </script>
-<template><div class="page-stack"><PageHeader title="系统日志" description="查看平台生命周期、请求与客户端异常记录。"><template #actions><el-button :loading="loading" @click="load()">刷新</el-button></template></PageHeader><el-card shadow="never"><el-form inline class="filter-form"><el-form-item label="来源"><el-select v-model="source" clearable placeholder="全部来源" @change="load()"><el-option v-for="(label, value) in sourceLabels" :key="value" :label="label" :value="value" /></el-select></el-form-item><el-form-item label="级别"><el-select v-model="level" clearable placeholder="全部级别" @change="load()"><el-option v-for="value in ['INFO','WARN','ERROR','FATAL']" :key="value" :label="value" :value="value" /></el-select></el-form-item></el-form></el-card><PageError v-if="error" :message="error" @retry="load()" /><el-card class="table-card" shadow="never"><el-table v-loading="loading" :data="page.items"><el-table-column label="级别" width="95"><template #default="{ row }"><el-tag :type="row.level === 'ERROR' || row.level === 'FATAL' ? 'danger' : row.level === 'WARN' ? 'warning' : 'success'">{{ row.level }}</el-tag></template></el-table-column><el-table-column label="来源" width="110"><template #default="{ row }">{{ sourceLabels[row.source as SystemLogSource] }}</template></el-table-column><el-table-column prop="event" label="事件" min-width="170" /><el-table-column prop="message" label="消息" min-width="280" show-overflow-tooltip /><el-table-column label="时间" min-width="180"><template #default="{ row }">{{ new Date(row.createdAt).toLocaleString() }}</template></el-table-column><el-table-column label="操作" width="80"><template #default="{ row }"><el-button link type="primary" @click="details(row)">详情</el-button></template></el-table-column><template #empty><el-empty description="暂无符合条件的日志" /></template></el-table><div v-if="page.nextCursor" class="load-more"><el-button :loading="loading" @click="load(page.nextCursor!)">加载更多</el-button></div></el-card><el-drawer v-model="drawer" title="日志详情" size="min(480px, 100%)"><el-descriptions v-if="selected" :column="1" border><el-descriptions-item label="事件">{{ selected.event }}</el-descriptions-item><el-descriptions-item label="消息">{{ selected.message }}</el-descriptions-item><el-descriptions-item label="请求">{{ selected.method }} {{ selected.path }}</el-descriptions-item><el-descriptions-item label="请求 ID">{{ selected.requestId || '—' }}</el-descriptions-item><el-descriptions-item label="用户 ID">{{ selected.userId || '—' }}</el-descriptions-item><el-descriptions-item label="详情"><pre>{{ JSON.stringify(selected.details, null, 2) }}</pre></el-descriptions-item></el-descriptions></el-drawer></div></template>
+
+<template>
+  <div class="list-page">
+    <PageHeader title="系统日志" description="查看平台生命周期、请求与客户端异常记录。">
+      <template #actions><el-button :loading="loading" @click="load">刷新</el-button></template>
+    </PageHeader>
+
+    <SchemaTablePage
+      v-model:query="schemaQuery"
+      :columns="columns"
+      :data="result.items"
+      :pagination="pagination"
+      :loading="loading"
+      :error="error"
+      row-key="id"
+      empty-text="暂无符合条件的日志"
+      @search="search"
+      @reset="resetFilters"
+      @retry="load"
+      @page-change="changePage"
+      @page-size-change="changePageSize"
+    >
+      <template #cell-level="{ row }">
+        <el-tag :type="row.level === 'ERROR' || row.level === 'FATAL' ? 'danger' : row.level === 'WARN' ? 'warning' : 'success'">
+          {{ row.level }}
+        </el-tag>
+      </template>
+      <template #cell-actions="{ row }">
+        <SchemaTableActions :row="row" :actions="rowActions()" />
+      </template>
+    </SchemaTablePage>
+
+    <LogDetailDrawer v-model="drawer" :log="selected" />
+  </div>
+</template>

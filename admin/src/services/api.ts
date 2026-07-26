@@ -7,7 +7,7 @@ import type {
   ProductSkuContract as ProductSku,
   ProductStatus,
 } from '@lingdian/contracts'
-import type { SystemLogLevel, SystemLogPage, SystemLogSource } from '@lingdian/contracts'
+import type { SystemLogPage, SystemLogQuery } from '@lingdian/contracts'
 import { adminRequest } from '../auth/api-client'
 
 export type { Category, OrderSummary, Product, ProductInput, ProductSku, ProductStatus }
@@ -95,15 +95,16 @@ export function getOrders() {
   return request<OrderSummary[]>('/orders')
 }
 
-export function getSystemLogs(query: { source?: SystemLogSource; level?: SystemLogLevel; cursor?: string }) {
+export function getSystemLogs(query: SystemLogQuery) {
   return adminRequest<SystemLogPage>(buildSystemLogPath(query))
 }
 
-export function buildSystemLogPath(query: { source?: SystemLogSource; level?: SystemLogLevel; cursor?: string }) {
-  const search = new URLSearchParams({ limit: '50' })
+export function buildSystemLogPath(query: SystemLogQuery) {
+  const search = new URLSearchParams({ page: String(query.page), pageSize: String(query.pageSize) })
   if (query.source) search.set('source', query.source)
   if (query.level) search.set('level', query.level)
-  if (query.cursor) search.set('cursor', query.cursor)
+  if (query.from) search.set('from', query.from)
+  if (query.to) search.set('to', query.to)
   return `/admin/system-logs?${search.toString()}`
 }
 

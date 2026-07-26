@@ -34,5 +34,16 @@ export type SystemLogRecord = {
 
 export type SystemLogPage = {
   items: SystemLogRecord[];
-  nextCursor: string | null;
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export type SystemLogQuery = {
+  source?: SystemLogSource;
+  level?: SystemLogLevel;
+  from?: string;
+  to?: string;
+  page: number;
+  pageSize: number;
 };
