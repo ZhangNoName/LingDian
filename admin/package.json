@@ -10,11 +10,14 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@element-plus/icons-vue": "2.3.2",
     "@lingdian/common": "workspace:*",
     "@lingdian/contracts": "workspace:*",
     "@lingdian/icons": "workspace:*",
     "@lingdian/observability": "workspace:*",
-    "vue": "^3.5.30"
+    "element-plus": "2.11.8",
+    "vue": "^3.5.30",
+    "vue-router": "4.6.4"
   },
   "devDependencies": {
     "@types/node": "^24.12.0",

@@ -1,0 +1,18 @@
+<script setup lang="ts">
+import { Fold, User } from '@element-plus/icons-vue'
+import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { adminSession } from '../../auth/session'
+import ThemeSwitcher from './ThemeSwitcher.vue'
+defineEmits<{ toggle: [] }>()
+const route = useRoute(); const router = useRouter()
+const title = computed(() => String(route.meta.title ?? '管理后台'))
+async function command(value: string) { if (value === 'logout') { await adminSession.logout(); await router.replace('/login') } else await router.push(value) }
+</script>
+
+<template>
+  <header class="admin-header">
+    <div class="header-leading"><el-button text circle aria-label="收起侧栏" @click="$emit('toggle')"><el-icon><Fold /></el-icon></el-button><el-breadcrumb separator="/"><el-breadcrumb-item>零点平台</el-breadcrumb-item><el-breadcrumb-item>{{ title }}</el-breadcrumb-item></el-breadcrumb></div>
+    <div class="header-actions"><ThemeSwitcher /><el-divider direction="vertical" /><el-dropdown @command="command"><button class="user-trigger"><span class="avatar"><el-icon><User /></el-icon></span><span class="user-copy"><strong>管理员</strong><small>{{ adminSession.currentUser.value?.roles.join(' / ') }}</small></span></button><template #dropdown><el-dropdown-menu><el-dropdown-item command="/profile">个人设置</el-dropdown-item><el-dropdown-item divided command="logout">退出登录</el-dropdown-item></el-dropdown-menu></template></el-dropdown></div>
+  </header>
+</template>
