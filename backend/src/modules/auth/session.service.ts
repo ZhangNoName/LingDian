@@ -11,6 +11,7 @@ export type SessionUser = {
   id: string;
   sessionVersion: number;
   roles: AuthRole[];
+  mustChangePassword?: boolean;
   merchantStoreIds?: string[];
 };
 
@@ -29,6 +30,7 @@ type AccessTokenClaims = {
   aud: AuthAudience;
   sv: number;
   roles: AuthRole[];
+  mustChangePassword?: boolean;
   merchantStoreIds?: string[];
 };
 
@@ -138,6 +140,7 @@ export class SessionService {
         roles: session.user.roles
           .filter((assignment) => assignment.status === 'ACTIVE')
           .map((assignment) => assignment.role),
+        ...(session.user.mustChangePassword ? { mustChangePassword: true } : {}),
         merchantStoreIds: activeMerchantStoreIds(session.user.roles),
       },
       session.id,
@@ -181,6 +184,7 @@ export class SessionService {
       aud: user.audience,
       sv: sessionVersion,
       roles: user.roles,
+      ...(user.mustChangePassword ? { mustChangePassword: true } : {}),
       ...(user.merchantStoreIds?.length ? { merchantStoreIds: user.merchantStoreIds } : {}),
     };
     return this.jwt.signAsync(claims, { expiresIn: this.accessTokenTtlSeconds });
@@ -205,6 +209,7 @@ function toAuthenticatedUser(user: SessionUser, sessionId: string, audience: Aut
     sessionId,
     audience,
     roles: user.roles,
+    ...(user.mustChangePassword ? { mustChangePassword: true } : {}),
     ...(audience === 'merchant-api' && user.merchantStoreIds?.length
       ? { merchantStoreIds: normalizeStoreIds(user.merchantStoreIds) }
       : {}),

@@ -39,6 +39,7 @@ import { PasswordResetDto } from './dto/password-reset.dto';
 import { PasswordChangeDto } from './dto/password-change.dto';
 import { UpdateNicknameDto } from './dto/update-nickname.dto';
 import { ProfileService } from './profile.service';
+import { CurrentPasswordChangeDto } from './dto/current-password-change.dto';
 
 type AuthRequest = {
   ip?: string;
@@ -109,6 +110,19 @@ export class AuthController {
   @Post('password/reset')
   async resetPassword(@Body() body: PasswordResetDto, @Req() request: AuthRequest) {
     await this.accountAuth.resetPassword(body, requestContext(request));
+    return { ok: true };
+  }
+
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Change the current account password' })
+  @UseGuards(AccessTokenGuard)
+  @Post('account/password-change')
+  async changeCurrentPassword(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() body: CurrentPasswordChangeDto,
+    @Req() request: AuthRequest,
+  ) {
+    await this.accountAuth.changeCurrentPassword(user, body, requestContext(request));
     return { ok: true };
   }
 

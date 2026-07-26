@@ -28,7 +28,7 @@ function merchantAccount(overrides: Record<string, unknown> = {}) {
 test('issues a merchant session only for an account with a store-scoped merchant role', async () => {
   const calls: unknown[] = [];
   const accountAuth = new AccountAuthService(
-    { authIdentity: { findUnique: async () => merchantAccount() } } as never,
+    { authIdentity: { findUnique: async () => merchantAccount() }, user: { update: async () => ({}) } } as never,
     { consume: async () => undefined, issue: async () => ({ messageId: 'message-1' }) } as never,
     {
       create: async (...args: unknown[]) => {
@@ -50,6 +50,28 @@ test('issues a merchant session only for an account with a store-scoped merchant
   assert.deepEqual((calls[0] as unknown[])[0], {
     id: 'merchant-user', sessionVersion: 1, roles: ['MERCHANT'], merchantStoreIds: ['store-1'],
   });
+});
+
+test('successful account login records last login time and carries mandatory password-change state', async () => {
+  let updatedUserId = '';
+  let sessionInput: Record<string, unknown> | undefined;
+  const account = merchantAccount();
+  account.user = { ...account.user, mustChangePassword: true } as typeof account.user;
+  const accountAuth = new AccountAuthService(
+    {
+      authIdentity: { findUnique: async () => account },
+      user: { update: async ({ where }: { where: { id: string } }) => { updatedUserId = where.id; return {}; } },
+    } as never,
+    {} as never,
+    { create: async (input: Record<string, unknown>) => { sessionInput = input; return { accessToken: 'access', refreshToken: 'refresh', expiresIn: 900, user: { audience: 'merchant-api' } }; } } as never,
+    { verify: async () => true } as never,
+    { record: async () => undefined } as never,
+  );
+
+  await accountAuth.login({ username: 'merchant-one', password: 'merchant-password-123', audience: 'merchant-api' }, context);
+
+  assert.equal(updatedUserId, 'merchant-user');
+  assert.equal(sessionInput?.mustChangePassword, true);
 });
 
 test('rejects merchant account login without an active store-scoped merchant role', async () => {
@@ -193,6 +215,33 @@ test('password-change code is issued only for the signed-in merchant account pho
   );
 
   assert.deepEqual(issued, [{ purpose: 'PASSWORD_RESET', phone: '+8613800000000', ip: '127.0.0.1', deviceId: 'web' }]);
+});
+
+test('current account password change verifies the old password and clears mandatory-change state', async () => {
+  const effects: string[] = [];
+  const accountAuth = new AccountAuthService(
+    {
+      user: {
+        findUnique: async () => ({
+          id: 'admin-user', status: 'ACTIVE', sessionVersion: 1, mustChangePassword: true, roles: [],
+          identities: [{ id: 'account-1', provider: 'ACCOUNT', phoneE164: null, verifiedAt: null, passwordCredential: { passwordHash: 'old-hash' } }],
+        }),
+        update: async () => { effects.push('clear'); return {}; },
+      },
+    } as never,
+    {} as never,
+    {} as never,
+    { verify: async (password: string) => password === 'old-password', replace: async () => { effects.push('replace'); } } as never,
+    { record: async () => undefined } as never,
+  );
+
+  await accountAuth.changeCurrentPassword(
+    { userId: 'admin-user', sessionId: 'session-1', audience: 'admin-api', roles: ['ADMIN'], mustChangePassword: true },
+    { currentPassword: 'old-password', password: 'new-password-123' },
+    context,
+  );
+
+  assert.deepEqual(effects, ['replace', 'clear']);
 });
 
 async function rejection(operation: () => Promise<unknown>): Promise<unknown> {

@@ -11,6 +11,7 @@ type AccessTokenClaims = {
   sv?: unknown;
   roles?: unknown;
   merchantStoreIds?: unknown;
+  mustChangePassword?: unknown;
 };
 
 @Injectable()
@@ -70,7 +71,8 @@ function validateClaims(claims: AccessTokenClaims): AuthenticatedUser {
     !Number.isInteger(claims.sv) ||
     !Array.isArray(claims.roles) ||
     claims.roles.some((role) => role !== 'USER' && role !== 'ADMIN' && role !== 'SUPER_ADMIN' && role !== 'MERCHANT') ||
-    !validMerchantStoreIds(claims.merchantStoreIds, claims.aud)
+    !validMerchantStoreIds(claims.merchantStoreIds, claims.aud) ||
+    (claims.mustChangePassword !== undefined && typeof claims.mustChangePassword !== 'boolean')
   ) {
     throw new UnauthorizedException('Access token claims are invalid.');
   }
@@ -80,6 +82,7 @@ function validateClaims(claims: AccessTokenClaims): AuthenticatedUser {
     sessionId: claims.sid,
     audience: claims.aud,
     roles: claims.roles as AuthRole[],
+    ...(claims.mustChangePassword === true ? { mustChangePassword: true } : {}),
     ...(Array.isArray(claims.merchantStoreIds) && claims.merchantStoreIds.length > 0
       ? { merchantStoreIds: claims.merchantStoreIds as string[] }
       : {}),

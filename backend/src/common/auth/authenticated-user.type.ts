@@ -9,5 +9,6 @@ export type AuthenticatedUser = {
   sessionId: string;
   audience: AuthAudience;
   roles: AuthRole[];
+  mustChangePassword?: boolean;
   merchantStoreIds?: string[];
 };

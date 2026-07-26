@@ -9,6 +9,7 @@ import { VerificationService } from './verification.service';
 
 type PasswordForgotInput = Pick<PasswordResetRequest, 'username' | 'audience'>;
 type PasswordChangeInput = Pick<PasswordResetRequest, 'code' | 'password'>;
+type CurrentPasswordChangeInput = { currentPassword: string; password: string };
 
 // A valid, fixed scrypt encoding makes rejected account lookups consume the
 // same expensive password-verification path as an incorrect real password.
@@ -24,6 +25,7 @@ type AccountUser = {
   id: string;
   status: 'ACTIVE' | 'DISABLED';
   sessionVersion: number;
+  mustChangePassword: boolean;
   roles: Array<{ role: 'USER' | 'ADMIN' | 'SUPER_ADMIN' | 'MERCHANT'; scopeType: string; scopeId: string; status: 'ACTIVE' | 'DISABLED' }>;
   identities: Array<{ id: string; provider: 'PHONE' | 'WECHAT' | 'QQ' | 'ACCOUNT'; phoneE164: string | null; verifiedAt: Date | null }>;
 };
@@ -51,11 +53,14 @@ export class AccountAuthService {
         throw invalidCredentials();
       }
 
+      await this.prisma.user.update({ where: { id: account.user.id }, data: { lastLoginAt: new Date() } });
+
       const tokens = await this.sessions.create(
         {
           id: account.user.id,
           sessionVersion: account.user.sessionVersion,
           roles: activeRoles(account.user),
+          ...(account.user.mustChangePassword ? { mustChangePassword: true } : {}),
           merchantStoreIds: activeMerchantStoreIds(account.user),
         },
         input.audience,
@@ -142,6 +147,20 @@ export class AccountAuthService {
       });
       throw error;
     }
+  }
+
+  async changeCurrentPassword(user: AuthenticatedUser, input: CurrentPasswordChangeInput, context: AuthRequestContext): Promise<void> {
+    const current = await this.prisma.user.findUnique({
+      where: { id: user.userId },
+      include: { identities: { include: { passwordCredential: true } } },
+    }) as unknown as { identities: Array<{ id: string; provider: string; passwordCredential: { passwordHash: string } | null }> } | null;
+    const account = current?.identities.find((identity) => identity.provider === 'ACCOUNT' && identity.passwordCredential);
+    if (!account?.passwordCredential || !await this.passwords.verify(input.currentPassword, account.passwordCredential.passwordHash)) {
+      throw new UnauthorizedException('Current password is invalid.');
+    }
+    await this.passwords.replace(account.id, input.password, user.userId, context);
+    await this.prisma.user.update({ where: { id: user.userId }, data: { mustChangePassword: false } });
+    await this.audit.record({ event: 'CURRENT_PASSWORD_CHANGED', userId: user.userId, sessionId: user.sessionId, ip: context.ip, device: context.deviceId });
   }
 
   private async performPasswordReset(

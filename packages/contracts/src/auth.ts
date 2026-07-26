@@ -7,6 +7,7 @@ export interface AuthenticatedUser {
   sessionId: string;
   audience: AuthAudience;
   roles: AuthRole[];
+  mustChangePassword?: boolean;
   /** Present only for merchant sessions; derived from active MERCHANT/STORE assignments. */
   merchantStoreIds?: string[];
 }
