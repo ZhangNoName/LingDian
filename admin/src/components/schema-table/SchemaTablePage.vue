@@ -1,6 +1,7 @@
 <script setup lang="ts" generic="Row extends object">
 import { Refresh, Search } from '@element-plus/icons-vue'
 import { computed, ref, useSlots, watch } from 'vue'
+import AppIconButton from '../common/AppIconButton.vue'
 import { columnKey, createResetPatch, formatCellValue } from './schema'
 import SchemaSearchForm from './SchemaSearchForm.vue'
 import type { QueryRecord, SchemaColumn, SchemaPagination } from './types'
@@ -83,12 +84,8 @@ watch([() => props.data, () => props.columns], refreshFormattedValues, { immedia
         <slot v-else name="toolbar" />
       </div>
       <div v-if="hasSearchColumns" class="schema-table-page__toolbar-right">
-        <el-button type="primary" data-testid="schema-search-submit" @click="emit('search')">
-          <el-icon><Search /></el-icon>搜索
-        </el-button>
-        <el-button data-testid="schema-search-reset" @click="resetSearch">
-          <el-icon><Refresh /></el-icon>重置
-        </el-button>
+        <AppIconButton :icon="Search" type="primary" data-testid="schema-search-submit" @click="emit('search')">搜索</AppIconButton>
+        <AppIconButton :icon="Refresh" data-testid="schema-search-reset" @click="resetSearch">重置</AppIconButton>
       </div>
     </div>
 

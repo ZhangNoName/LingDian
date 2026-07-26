@@ -1,6 +1,7 @@
 <script setup lang="ts" generic="Row extends object">
 import { ArrowDown, ArrowUp } from '@element-plus/icons-vue'
 import { computed, onMounted, ref, watch } from 'vue'
+import AppIconButton from '../common/AppIconButton.vue'
 import { dictionaryRegistry, type DictionaryOption } from '../../dictionaries'
 import { columnKey } from './schema'
 import type { QueryRecord, SchemaColumn } from './types'
@@ -50,16 +51,16 @@ watch(() => props.columns, loadOptions)
   <section class="schema-search" :class="{ 'is-collapsed': !expanded }">
     <div class="schema-search__heading">
       <strong>筛选条件</strong>
-      <el-button
+      <AppIconButton
+        :icon="expanded ? ArrowUp : ArrowDown"
         text
         type="primary"
         data-testid="schema-search-collapse"
         :aria-expanded="expanded"
         @click="expanded = !expanded"
       >
-        <el-icon><ArrowUp v-if="expanded" /><ArrowDown v-else /></el-icon>
         {{ expanded ? '收起' : '展开' }}
-      </el-button>
+      </AppIconButton>
     </div>
     <el-form v-show="expanded" class="schema-search__form" @submit.prevent="emit('search')">
       <el-form-item v-for="column in searchColumns" :key="columnKey(column)" :label="column.label">
