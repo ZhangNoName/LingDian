@@ -32,7 +32,8 @@ wait_for_health() {
 }
 
 release_frontend() {
-  local name=$1 port=$2 app=$3 image="lingdian-$name:$SHA" old_image
+  local name=$1 port=$2 app=$3 image old_image
+  image="lingdian-$name:$SHA"
   docker build --pull -f Dockerfile.frontend --build-arg "APP=$app" -t "$image" .
   old_image=$(docker inspect -f '{{.Config.Image}}' "lingdian-$name" 2>/dev/null || true)
   docker rm -f "lingdian-$name-candidate" >/dev/null 2>&1 || true
