@@ -43,7 +43,7 @@ it('logs a merchant in using merchant-api and receives the browser refresh cooki
   await merchantSession.login('merchant-demo', 'merchant-password-123')
 
   expect(merchantSession.getAccessToken()).toBe('new-jwt')
-  expect(fetchMock).toHaveBeenCalledWith('/api/auth/account/login', {
+  expect(fetchMock).toHaveBeenCalledWith('https://api.zsf.shopping/api/auth/account/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
@@ -69,7 +69,7 @@ it('refreshes access with the HTTP-only browser cookie', async () => {
   await expect(merchantSession.refresh()).resolves.toBe(true)
 
   expect(merchantSession.getAccessToken()).toBe('refreshed-jwt')
-  expect(fetchMock).toHaveBeenCalledWith('/api/auth/refresh', {
+  expect(fetchMock).toHaveBeenCalledWith('https://api.zsf.shopping/api/auth/refresh', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
@@ -107,7 +107,7 @@ it('logs out with the bearer token and clears in-memory access', async () => {
 
   await merchantSession.logout()
 
-  expect(fetchMock).toHaveBeenCalledWith('/api/auth/logout', {
+  expect(fetchMock).toHaveBeenCalledWith('https://api.zsf.shopping/api/auth/logout', {
     method: 'POST',
     headers: { Authorization: 'Bearer logout-jwt' },
     credentials: 'include',
@@ -134,13 +134,13 @@ it('uses the password-reset code flow for forgotten merchant passwords', async (
   await merchantSession.requestPasswordReset('merchant-demo')
   await merchantSession.resetPassword('merchant-demo', '123456', 'replacement-password-123')
 
-  expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/auth/password/forgot', {
+  expect(fetchMock).toHaveBeenNthCalledWith(1, 'https://api.zsf.shopping/api/auth/password/forgot', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify({ username: 'merchant-demo', audience: 'merchant-api' }),
   })
-  expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/auth/password/reset', {
+  expect(fetchMock).toHaveBeenNthCalledWith(2, 'https://api.zsf.shopping/api/auth/password/reset', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
@@ -156,12 +156,12 @@ it('changes the signed-in merchant password using the same code and clears its i
   await merchantSession.requestPasswordChangeCode()
   await merchantSession.changePassword('123456', 'replacement-password-123')
 
-  expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/auth/password/change/code', {
+  expect(fetchMock).toHaveBeenNthCalledWith(1, 'https://api.zsf.shopping/api/auth/password/change/code', {
     method: 'POST',
     headers: { Authorization: 'Bearer merchant-jwt' },
     credentials: 'include',
   })
-  expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/auth/password/change', {
+  expect(fetchMock).toHaveBeenNthCalledWith(2, 'https://api.zsf.shopping/api/auth/password/change', {
     method: 'POST',
     headers: { Authorization: 'Bearer merchant-jwt', 'Content-Type': 'application/json' },
     credentials: 'include',

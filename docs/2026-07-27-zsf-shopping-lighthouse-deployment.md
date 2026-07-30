@@ -251,6 +251,12 @@ API 从进程工作目录下的 `uploads` 提供 `/uploads/` 静态文件。Dock
 VITE_API_BASE=https://api.zsf.shopping/api
 ```
 
+前端的认证与业务请求必须全部通过该构建变量生成 URL，不能在生产代码中直接请求
+当前站点的相对 `/api` 路径。临时联调环境可以用 `NODE_ENV=development` 和
+`SMS_PROVIDER=console` 启动 API，但仍须设置 `AUTH_COOKIE_SECURE=true`，并将
+`CORS_ALLOWED_ORIGINS` 限制为实际使用的 HTTPS 站点。API 与 MariaDB 容器统一加入
+`lingdian-network` 私有 Docker 网络，数据库端口不映射到公网。
+
 构建产物和站点对应关系：
 
 | 项目 | 构建命令 | 生产站点 |

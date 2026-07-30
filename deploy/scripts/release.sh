@@ -65,12 +65,13 @@ release_frontend() {
 release_api() {
   [[ -r "$ENV_FILE" ]] || { echo "Missing production environment: $ENV_FILE" >&2; return 1; }
   local image="lingdian-api:$SHA" old_image
+  docker network inspect lingdian-network >/dev/null 2>&1 || docker network create lingdian-network >/dev/null
   docker build --pull -f Dockerfile.api -t "$image" .
   mkdir -p "$UPLOADS"
-  docker run --rm --env-file "$ENV_FILE" "$image" corepack pnpm run db:migrate:deploy
+  docker run --rm --network lingdian-network --env-file "$ENV_FILE" "$image" corepack pnpm run db:migrate:deploy
   old_image=$(docker inspect -f '{{.Config.Image}}' lingdian-api 2>/dev/null || true)
   docker rm -f lingdian-api-candidate >/dev/null 2>&1 || true
-  docker run -d --name lingdian-api-candidate --env-file "$ENV_FILE" -p 127.0.0.1:19000:9000 -v "$UPLOADS:/workspace/uploads" "$image" >/dev/null
+  docker run -d --name lingdian-api-candidate --network lingdian-network --env-file "$ENV_FILE" -p 127.0.0.1:19000:9000 -v "$UPLOADS:/workspace/uploads" "$image" >/dev/null
   if ! wait_for_health http://127.0.0.1:19000/api/health 45; then
     docker logs lingdian-api-candidate >&2 || true
     docker rm -f lingdian-api-candidate >/dev/null 2>&1 || true
@@ -78,14 +79,14 @@ release_api() {
   fi
   docker rm -f lingdian-api-candidate >/dev/null
   docker rm -f lingdian-api >/dev/null 2>&1 || true
-  if ! docker run -d --name lingdian-api --restart unless-stopped --env-file "$ENV_FILE" -p 127.0.0.1:9000:9000 -v "$UPLOADS:/workspace/uploads" "$image" >/dev/null; then
-    [[ -n "$old_image" ]] && docker run -d --name lingdian-api --restart unless-stopped --env-file "$ENV_FILE" -p 127.0.0.1:9000:9000 -v "$UPLOADS:/workspace/uploads" "$old_image" >/dev/null
+  if ! docker run -d --name lingdian-api --restart unless-stopped --network lingdian-network --env-file "$ENV_FILE" -p 127.0.0.1:9000:9000 -v "$UPLOADS:/workspace/uploads" "$image" >/dev/null; then
+    [[ -n "$old_image" ]] && docker run -d --name lingdian-api --restart unless-stopped --network lingdian-network --env-file "$ENV_FILE" -p 127.0.0.1:9000:9000 -v "$UPLOADS:/workspace/uploads" "$old_image" >/dev/null
     return 1
   fi
   if ! wait_for_health http://127.0.0.1:9000/api/health 20; then
     docker logs lingdian-api >&2 || true
     docker rm -f lingdian-api >/dev/null 2>&1 || true
-    [[ -n "$old_image" ]] && docker run -d --name lingdian-api --restart unless-stopped --env-file "$ENV_FILE" -p 127.0.0.1:9000:9000 -v "$UPLOADS:/workspace/uploads" "$old_image" >/dev/null
+    [[ -n "$old_image" ]] && docker run -d --name lingdian-api --restart unless-stopped --network lingdian-network --env-file "$ENV_FILE" -p 127.0.0.1:9000:9000 -v "$UPLOADS:/workspace/uploads" "$old_image" >/dev/null
     return 1
   fi
 }

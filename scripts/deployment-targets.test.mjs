@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFile } from 'node:fs/promises';
 
 import { detectDeploymentTargets } from './deployment-targets.mjs';
 
@@ -48,4 +49,12 @@ test('documentation-only changes do not redeploy services', () => {
     admin: false,
     api: false,
   });
+});
+
+test('API release joins the private application network', async () => {
+  const releaseScript = await readFile(new URL('../deploy/scripts/release.sh', import.meta.url), 'utf8');
+  const apiRuns = releaseScript.match(/docker run[^\n]+--env-file "\$ENV_FILE"[^\n]*/g) ?? [];
+
+  assert.ok(apiRuns.length >= 4, 'expected migration, candidate, production, and rollback API runs');
+  assert.ok(apiRuns.every((command) => command.includes('--network lingdian-network')));
 });

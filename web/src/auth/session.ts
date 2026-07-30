@@ -1,5 +1,6 @@
 import { RES_CODE, isResponseEnvelope, type ResponseEnvelope } from '@lingdian/common'
 import type { AuthTokens, AuthenticatedUser } from '@lingdian/contracts'
+import { apiUrl } from '../config/api'
 
 let accessToken: string | undefined
 let accessTokenExpiresAt = 0
@@ -42,7 +43,7 @@ export const merchantSession = {
   },
 
   async login(username: string, password: string): Promise<void> {
-    const response = await fetch('/api/auth/account/login', {
+    const response = await fetch(apiUrl('/auth/account/login'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -53,7 +54,7 @@ export const merchantSession = {
   },
 
   async requestPasswordReset(username: string): Promise<void> {
-    const response = await fetch('/api/auth/password/forgot', {
+    const response = await fetch(apiUrl('/auth/password/forgot'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -64,7 +65,7 @@ export const merchantSession = {
   },
 
   async resetPassword(username: string, code: string, password: string): Promise<void> {
-    const response = await fetch('/api/auth/password/reset', {
+    const response = await fetch(apiUrl('/auth/password/reset'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -79,7 +80,7 @@ export const merchantSession = {
     const token = this.getAccessToken()
     if (!token) throw new Error('Please sign in again.')
 
-    const response = await fetch('/api/auth/password/change/code', {
+    const response = await fetch(apiUrl('/auth/password/change/code'), {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       credentials: 'include',
@@ -92,7 +93,7 @@ export const merchantSession = {
     const token = this.getAccessToken()
     if (!token) throw new Error('Please sign in again.')
 
-    const response = await fetch('/api/auth/password/change', {
+    const response = await fetch(apiUrl('/auth/password/change'), {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -107,7 +108,7 @@ export const merchantSession = {
     const token = this.getAccessToken()
     if (!token) throw new Error('Please sign in again.')
 
-    const response = await fetch('/api/auth/profile/nickname', {
+    const response = await fetch(apiUrl('/auth/profile/nickname'), {
       method: 'PATCH',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -124,7 +125,7 @@ export const merchantSession = {
   },
 
   async refresh(): Promise<boolean> {
-    const response = await fetch('/api/auth/refresh', {
+    const response = await fetch(apiUrl('/auth/refresh'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -151,7 +152,7 @@ export const merchantSession = {
 
     try {
       if (token) {
-        await fetch('/api/auth/logout', {
+        await fetch(apiUrl('/auth/logout'), {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
           credentials: 'include',

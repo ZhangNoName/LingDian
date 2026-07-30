@@ -21,6 +21,7 @@ it('adds the in-memory bearer token and includes browser credentials', async () 
 
   await authenticatedFetch('/api/products')
 
+  expect(fetchMock.mock.calls[0]?.[0]).toBe('https://api.zsf.shopping/api/products')
   const init = fetchMock.mock.calls[0]?.[1]
   expect(new Headers(init?.headers).get('Authorization')).toBe('Bearer api-jwt')
   expect(init?.credentials).toBe('include')
@@ -38,5 +39,6 @@ it('refreshes once and retries a rejected authenticated request', async () => {
   await expect(authenticatedFetch('/api/products')).resolves.toMatchObject({ status: 200 })
 
   expect(fetchMock).toHaveBeenCalledTimes(3)
+  expect(fetchMock.mock.calls[2]?.[0]).toBe('https://api.zsf.shopping/api/products')
   expect(new Headers(fetchMock.mock.calls[2]?.[1]?.headers).get('Authorization')).toBe('Bearer refreshed-jwt')
 })
