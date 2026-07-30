@@ -90,7 +90,7 @@ release_api() {
   fi
 }
 
-wants app && release_frontend app 8082 app
-wants merchant && release_frontend merchant 8083 merchant
-wants admin && release_frontend admin 8084 admin
-wants api && release_api
+if wants app; then release_frontend app 8082 app; fi
+if wants merchant; then release_frontend merchant 8083 merchant; fi
+if wants admin; then release_frontend admin 8084 admin; fi
+if wants api; then release_api; fi
