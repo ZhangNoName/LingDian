@@ -11,7 +11,13 @@ LOCK=/tmp/lingdian-release.lock
 exec 9>"$LOCK"
 flock -n 9 || { echo 'Another LingDian release is running' >&2; exit 75; }
 cd "$ROOT"
-git fetch --prune origin main
+if ! git cat-file -e "$SHA^{commit}" 2>/dev/null; then
+  for attempt in 1 2 3; do
+    git -c http.version=HTTP/1.1 fetch --prune origin main && break
+    [[ "$attempt" -lt 3 ]] || { echo "Unable to fetch $SHA from origin" >&2; exit 69; }
+    sleep $((attempt * 2))
+  done
+fi
 git cat-file -e "$SHA^{commit}"
 git checkout --detach "$SHA"
 
