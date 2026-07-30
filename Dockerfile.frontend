@@ -3,6 +3,7 @@ WORKDIR /workspace
 ENV DATABASE_URL=mysql://build:build@127.0.0.1:3306/build
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates openssl && rm -rf /var/lib/apt/lists/*
 RUN corepack enable
 ARG PNPM_REGISTRY=https://registry.npmmirror.com
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./

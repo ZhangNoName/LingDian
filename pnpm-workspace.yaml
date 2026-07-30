@@ -5,3 +5,10 @@ packages:
   - web
   - common
   - packages/*
+
+onlyBuiltDependencies:
+  - '@prisma/engines'
+  - core-js
+  - esbuild
+  - prisma
+  - vue-demi
