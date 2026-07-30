@@ -8,6 +8,11 @@ SHA=${1:?usage: release.sh <git-sha> [app,merchant,admin,api|all]}
 SELECTION=${2:-all}
 LOCK=/tmp/lingdian-release.lock
 
+if ! docker info >/dev/null 2>&1; then
+  sudo -n docker info >/dev/null
+  docker() { sudo docker "$@"; }
+fi
+
 exec 9>"$LOCK"
 flock -n 9 || { echo 'Another LingDian release is running' >&2; exit 75; }
 cd "$ROOT"
