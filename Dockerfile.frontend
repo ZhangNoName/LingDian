@@ -1,5 +1,6 @@
 FROM node:24-bookworm-slim AS build
 WORKDIR /workspace
+ENV DATABASE_URL=mysql://build:build@127.0.0.1:3306/build
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 RUN corepack enable
