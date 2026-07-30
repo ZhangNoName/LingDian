@@ -6,9 +6,9 @@ packages:
   - common
   - packages/*
 
-onlyBuiltDependencies:
-  - '@prisma/engines'
-  - core-js
-  - esbuild
-  - prisma
-  - vue-demi
+allowBuilds:
+  '@prisma/engines': true
+  core-js: true
+  esbuild: true
+  prisma: true
+  vue-demi: true
