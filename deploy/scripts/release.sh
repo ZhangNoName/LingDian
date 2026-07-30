@@ -94,3 +94,5 @@ if wants app; then release_frontend app 8082 app; fi
 if wants merchant; then release_frontend merchant 8083 merchant; fi
 if wants admin; then release_frontend admin 8084 admin; fi
 if wants api; then release_api; fi
+
+exit 0
