@@ -1,0 +1,19 @@
+FROM node:24-bookworm-slim AS build
+WORKDIR /workspace
+RUN corepack enable
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY common ./common
+COPY packages ./packages
+COPY backend ./backend
+RUN corepack pnpm install --frozen-lockfile
+RUN corepack pnpm run prisma:generate && corepack pnpm run build:packages && corepack pnpm run build:api
+
+FROM node:24-bookworm-slim
+WORKDIR /workspace
+ENV NODE_ENV=production PORT=9000
+RUN corepack enable
+COPY --from=build /workspace /workspace
+EXPOSE 9000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 CMD node -e "fetch('http://127.0.0.1:9000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+CMD ["node", "backend/dist/main.js"]
+

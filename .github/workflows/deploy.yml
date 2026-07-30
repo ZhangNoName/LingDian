@@ -1,0 +1,56 @@
+name: Deploy LingDian
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      targets:
+        description: Comma-separated app,merchant,admin,api or all
+        required: true
+        default: all
+
+concurrency:
+  group: lingdian-production
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run check:deployment
+      - run: pnpm run build
+      - run: pnpm test
+
+  deploy:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - id: targets
+        env:
+          MANUAL_TARGETS: ${{ inputs.targets }}
+        run: |
+          if [ -n "$MANUAL_TARGETS" ]; then
+            echo "value=$MANUAL_TARGETS" >> "$GITHUB_OUTPUT"
+          else
+            git diff --name-only HEAD^ HEAD | node scripts/print-deployment-targets.mjs >> "$GITHUB_OUTPUT"
+          fi
+      - uses: appleboy/ssh-action@v1.2.2
+        if: steps.targets.outputs.value != 'none'
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: bash /home/lighthouse/apps/lingdian/deploy/scripts/release.sh ${{ github.sha }} '${{ steps.targets.outputs.value }}'

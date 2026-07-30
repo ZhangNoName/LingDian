@@ -1,0 +1,26 @@
+FROM node:24-bookworm-slim AS build
+WORKDIR /workspace
+RUN corepack enable
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY common ./common
+COPY packages ./packages
+COPY theme ./theme
+COPY admin ./admin
+COPY web ./web
+COPY uniapp ./uniapp
+RUN corepack pnpm install --frozen-lockfile
+ARG APP
+ARG VITE_API_BASE=https://api.zsf.shopping/api
+ENV VITE_API_BASE=$VITE_API_BASE
+RUN case "$APP" in \
+      app) corepack pnpm run build:uniapp && mkdir -p /output && cp -a uniapp/dist/build/h5/. /output/ ;; \
+      merchant) corepack pnpm run build:web && mkdir -p /output && cp -a web/dist/. /output/ ;; \
+      admin) corepack pnpm run build:admin && mkdir -p /output && cp -a admin/dist/. /output/ ;; \
+      *) echo "Unsupported APP=$APP" >&2; exit 2 ;; \
+    esac
+
+FROM nginx:1.28-alpine
+COPY deploy/frontend/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /output/ /usr/share/nginx/html/
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 CMD wget -qO- http://127.0.0.1/healthz || exit 1
+
