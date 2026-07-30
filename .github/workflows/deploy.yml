@@ -39,7 +39,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
       - id: targets
         env:
           MANUAL_TARGETS: ${{ inputs.targets }}
@@ -49,10 +49,27 @@ jobs:
           else
             git diff --name-only HEAD^ HEAD | node scripts/print-deployment-targets.mjs >> "$GITHUB_OUTPUT"
           fi
+      - name: Bundle verified revision
+        if: steps.targets.outputs.value != 'none'
+        run: |
+          git branch deployment-bundle "${{ github.sha }}"
+          git bundle create lingdian-deploy.bundle deployment-bundle
+      - uses: appleboy/scp-action@v1
+        if: steps.targets.outputs.value != 'none'
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          source: lingdian-deploy.bundle
+          target: /home/lighthouse/apps
       - uses: appleboy/ssh-action@v1.2.2
         if: steps.targets.outputs.value != 'none'
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          script: bash /home/lighthouse/apps/lingdian/deploy/scripts/release.sh ${{ github.sha }} '${{ steps.targets.outputs.value }}'
+          script: |
+            set -eu
+            git -C /home/lighthouse/apps/lingdian fetch /home/lighthouse/apps/lingdian-deploy.bundle deployment-bundle
+            rm -f /home/lighthouse/apps/lingdian-deploy.bundle
+            bash /home/lighthouse/apps/lingdian/deploy/scripts/release.sh ${{ github.sha }} '${{ steps.targets.outputs.value }}'
