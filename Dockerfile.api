@@ -1,11 +1,17 @@
 FROM node:24-bookworm-slim AS build
 WORKDIR /workspace
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
 RUN corepack enable
+ARG PNPM_REGISTRY=https://registry.npmmirror.com
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY common ./common
 COPY packages ./packages
 COPY backend ./backend
-RUN corepack pnpm install --frozen-lockfile
+RUN corepack pnpm config set registry "$PNPM_REGISTRY"
+RUN --mount=type=cache,id=lingdian-pnpm,target=/pnpm/store \
+    corepack pnpm config set store-dir /pnpm/store && \
+    corepack pnpm install --frozen-lockfile --fetch-retries=5 --fetch-timeout=120000
 RUN corepack pnpm run prisma:generate && corepack pnpm run build:packages && corepack pnpm run build:api
 
 FROM node:24-bookworm-slim
@@ -16,4 +22,3 @@ COPY --from=build /workspace /workspace
 EXPOSE 9000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 CMD node -e "fetch('http://127.0.0.1:9000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 CMD ["node", "backend/dist/main.js"]
-
