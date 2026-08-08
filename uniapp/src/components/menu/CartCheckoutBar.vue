@@ -140,6 +140,11 @@ function handleCheckout() {
   color: rgba(255, 255, 255, 0.9);
 }
 
+.cart-bar.is-disabled .checkout[disabled] {
+  background: transparent;
+  opacity: 1;
+}
+
 .checkout::after {
   border: 0;
 }
