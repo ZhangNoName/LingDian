@@ -55,6 +55,7 @@ Desktop.ini
 
 # 编辑器与 IDE
 .idea/
+.worktrees/
 *.suo
 *.ntvs*
 *.njsproj
