@@ -1,11 +1,11 @@
 <template>
   <view class="stepper">
-    <button class="round" :disabled="modelValue <= min" @tap="emitValue(modelValue - 1)">
-      <MinusIcon class="stepper-icon" />
+    <button class="round" :disabled="modelValue <= min" aria-label="减少数量" @tap="emitValue(modelValue - 1)">
+      <MinusIcon class="stepper-icon" aria-hidden="true" />
     </button>
     <text class="count">{{ modelValue }}</text>
-    <button class="round plus" :disabled="modelValue >= max" @tap="emitValue(modelValue + 1)">
-      <PlusIcon class="stepper-icon" />
+    <button class="round plus" :disabled="modelValue >= max" aria-label="增加数量" @tap="emitValue(modelValue + 1)">
+      <PlusIcon class="stepper-icon" aria-hidden="true" />
     </button>
   </view>
 </template>
