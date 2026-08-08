@@ -65,7 +65,7 @@
 - [ ] Change the member layout to `minmax(0, 1fr) 116rpx 116rpx`, clamp the account text, and prevent the login control from colliding with metrics.
 - [ ] Raise service-card minimum height to about `196rpx`, icon shell to `72rpx`, and strengthen title/subtitle rhythm without moving the main actions below the first useful viewport.
 - [ ] Reduce recommendation empty-state dead space while retaining its description and `去菜单看看` CTA.
-- [ ] Run uni-app type checking and the existing layout tests.
+- [ ] Run uni-app type checking and compare the existing layout test against its known 5-failure source-string baseline; this task must add no new failure.
 - [ ] Commit with `style: refine miniapp home hierarchy`.
 
 ### Task 4: Enlarge and Normalize the Bottom Tab Bar
