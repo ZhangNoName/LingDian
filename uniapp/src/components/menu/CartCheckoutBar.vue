@@ -38,16 +38,16 @@ function handleCheckout() {
 <style scoped>
 .cart-bar {
   position: fixed;
-  left: 0;
-  right: 0;
-  bottom: calc(var(--ld-tabbar-height, 104rpx) + env(safe-area-inset-bottom));
+  left: var(--ld-page-padding, 24rpx);
+  right: var(--ld-page-padding, 24rpx);
+  bottom: calc(var(--ld-tabbar-height, 104rpx) + env(safe-area-inset-bottom) + var(--ld-page-padding, 24rpx));
   z-index: 15;
   display: grid;
-  grid-template-columns: 104rpx 1fr 176rpx;
+  grid-template-columns: 88rpx minmax(0, 1fr) 164rpx;
   align-items: center;
   min-height: 112rpx;
-  padding: 0 var(--ld-page-padding, 24rpx);
-  border-radius: 24rpx 24rpx 0 0;
+  padding: 0;
+  border-radius: 999rpx;
   background: var(--ld-mini-primary);
   color: #ffffff;
   box-shadow: 0 28rpx 56rpx rgba(237, 28, 36, 0.22);
@@ -66,9 +66,10 @@ function handleCheckout() {
   position: relative;
   display: grid;
   place-items: center;
-  width: 80rpx;
-  height: 80rpx;
-  margin-left: 12rpx;
+  justify-self: center;
+  width: 76rpx;
+  height: 76rpx;
+  margin: 0;
   border-radius: var(--ld-radius-16, 16px);
   background: #fff2d9;
   color: var(--ld-mini-primary);
@@ -97,13 +98,17 @@ function handleCheckout() {
 }
 
 .summary {
+  min-width: 0;
   overflow: hidden;
 }
 
 .amount {
   display: block;
+  overflow: hidden;
   font-size: var(--ld-font-price-lg, 40rpx);
   font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .discount {
@@ -117,6 +122,7 @@ function handleCheckout() {
 }
 
 .checkout {
+  min-width: 0;
   height: 112rpx;
   margin: 0;
   padding: 0;
@@ -127,6 +133,7 @@ function handleCheckout() {
   font-size: var(--ld-font-title, 32rpx);
   font-weight: 900;
   line-height: 112rpx;
+  white-space: nowrap;
 }
 
 .checkout[disabled] {

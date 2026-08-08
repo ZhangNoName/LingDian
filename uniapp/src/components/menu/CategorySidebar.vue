@@ -35,6 +35,7 @@ function getNavDomId(categoryId: string) {
 
 <style scoped>
 .sidebar {
+  display: block;
   width: 156rpx;
   height: 100%;
   min-height: 0;
@@ -56,18 +57,19 @@ function getNavDomId(categoryId: string) {
 
 .category.active {
   background: #ffffff;
-  color: #111111;
+  color: var(--ld-mini-text);
   font-weight: 900;
 }
 
 .category.active::before {
   position: absolute;
-  left: 0;
-  top: 36rpx;
-  width: 8rpx;
-  height: 44rpx;
-  border-radius: 0 8rpx 8rpx 0;
+  left: 12rpx;
+  top: 50%;
+  width: 6rpx;
+  height: 40rpx;
+  border-radius: 999rpx;
   background: var(--ld-mini-primary);
   content: "";
+  transform: translateY(-50%);
 }
 </style>

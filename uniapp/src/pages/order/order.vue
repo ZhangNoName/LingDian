@@ -12,13 +12,28 @@
           :scroll-into-view="scrollIntoView"
           @scroll="handleProductScroll"
         >
-          <view v-for="section in menuSections" :id="getSectionDomId(section.category.id)" :key="section.category.id" class="product-section">
-            <view class="section-title">
-              <text>{{ section.category.name }}</text>
-            </view>
-            <MenuProductItem v-for="product in section.products" :key="product.id" :product="product" @select="goSpec" />
+          <view v-if="menuState === 'loading'" class="menu-state menu-state--loading" aria-live="polite">
+            <SkeletonBox class="loading-title" radius="sm" />
+            <SkeletonBox v-for="index in 3" :key="index" class="loading-item" radius="lg" />
           </view>
-          <view v-if="menuSections.length === 0" class="empty">暂无可售餐品</view>
+          <view v-else-if="menuState === 'error'" class="menu-state">
+            <text class="state-title">菜单加载失败</text>
+            <text class="state-copy">暂时无法加载菜单，请检查网络后重试</text>
+            <button class="retry-button" role="button" tabindex="0" aria-label="重新加载菜单" @keydown.enter="retryLoadMenu" @tap="retryLoadMenu">重新加载</button>
+          </view>
+          <view v-else-if="menuState === 'empty'" class="menu-state menu-state--empty">
+            <image class="empty-logo" src="/static/logo-xsf-red-yellow.png" mode="aspectFit" aria-label="零食坊品牌标志" />
+            <text class="state-title">暂无可售餐品</text>
+            <text class="state-copy">餐品正在准备中，稍后再来看看吧</text>
+          </view>
+          <template v-else>
+            <view v-for="section in menuSections" :id="getSectionDomId(section.category.id)" :key="section.category.id" class="product-section">
+              <view class="section-title">
+                <text>{{ section.category.name }}</text>
+              </view>
+              <MenuProductItem v-for="product in section.products" :key="product.id" :product="product" @select="goSpec" />
+            </view>
+          </template>
         </scroll-view>
       </view>
       <CartCheckoutBar :cart="cartSummary" @checkout="goCheckout" />
@@ -34,15 +49,19 @@ import CartCheckoutBar from "@/components/menu/CartCheckoutBar.vue";
 import CategorySidebar from "@/components/menu/CategorySidebar.vue";
 import MenuProductItem from "@/components/menu/MenuProductItem.vue";
 import StoreHeader from "@/components/menu/StoreHeader.vue";
+import SkeletonBox from "@/components/app/SkeletonBox.vue";
 import Layout from "@/layout/layout.vue";
 import { fetchMenu, type MenuViewModel } from "@/services/catalog";
 import { getCartSummary } from "@/services/cart";
 import { requireCustomerAuth } from "@/services/auth-navigation";
 import { canCheckout } from "@/services/checkout-state";
+import { resolveMenuViewState, type MenuViewState } from "@/services/menu-view-state";
 import type { CartSummary } from "@/types/cart";
 import type { StoreSummary } from "@/types/store";
 
 const menu = ref<MenuViewModel | null>(null);
+const loading = ref(false);
+const failed = ref(false);
 const activeCategoryId = ref("");
 const scrollIntoView = ref("");
 const sectionOffsets = ref<Array<{ id: string; top: number }>>([]);
@@ -83,6 +102,14 @@ const menuSections = computed(() => {
     .filter((section) => section.products.length > 0);
 });
 
+const menuState = computed<MenuViewState>(() =>
+  resolveMenuViewState({
+    loading: loading.value,
+    failed: failed.value,
+    sectionCount: menuSections.value.length,
+  }),
+);
+
 onLoad(loadMenu);
 
 onShow(() => {
@@ -95,6 +122,8 @@ onUnload(() => {
 });
 
 async function loadMenu() {
+  loading.value = true;
+  failed.value = false;
   try {
     menu.value = await fetchMenu();
     activeCategoryId.value = menu.value.categories[0]?.id ?? "";
@@ -103,8 +132,16 @@ async function loadMenu() {
       initialMeasureTimer = setTimeout(measureSectionOffsets, 300);
     });
   } catch (error) {
+    failed.value = true;
     uni.showToast({ title: error instanceof Error ? error.message : "菜单加载失败", icon: "none" });
+  } finally {
+    loading.value = false;
   }
+}
+
+async function retryLoadMenu() {
+  if (loading.value) return;
+  await loadMenu();
 }
 
 function getSectionDomId(categoryId: string) {
@@ -189,7 +226,7 @@ async function goCheckout() {
   flex-direction: column;
   box-sizing: border-box;
   height: 100%;
-  padding-bottom: calc(var(--ld-fixed-action-height, 128rpx) + var(--ld-page-bottom-safe, 24rpx));
+  padding-bottom: calc(112rpx + var(--ld-page-padding, 24rpx));
   overflow: hidden;
   background: #ffffff;
 }
@@ -198,7 +235,7 @@ async function goCheckout() {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 156rpx 1fr;
+  grid-template-columns: 156rpx minmax(0, 1fr);
   overflow: hidden;
 }
 
@@ -209,6 +246,74 @@ async function goCheckout() {
   padding: 0 24rpx 24rpx 28rpx;
   overflow: hidden;
   background: #ffffff;
+}
+
+.menu-state {
+  display: grid;
+  min-height: 480rpx;
+  align-content: center;
+  justify-items: center;
+  gap: 16rpx;
+  padding: 48rpx 24rpx;
+  text-align: center;
+}
+
+.menu-state--loading {
+  align-content: start;
+  gap: 20rpx;
+  padding-top: 32rpx;
+}
+
+.loading-title,
+.loading-item {
+  width: 100%;
+}
+
+.loading-title {
+  width: 168rpx;
+  height: 32rpx;
+  justify-self: start;
+}
+
+.loading-item {
+  height: 168rpx;
+}
+
+.menu-state--empty {
+  gap: 14rpx;
+}
+
+.empty-logo {
+  width: 112rpx;
+  height: 112rpx;
+  margin-bottom: 8rpx;
+}
+
+.state-title {
+  color: var(--ld-mini-text);
+  font-size: var(--ld-font-title, 32rpx);
+  font-weight: 800;
+}
+
+.state-copy {
+  color: var(--ld-mini-text-muted);
+  font-size: var(--ld-font-sm, 24rpx);
+}
+
+.retry-button {
+  height: 68rpx;
+  margin: 12rpx 0 0;
+  padding: 0 32rpx;
+  border-radius: 999rpx;
+  background: var(--ld-mini-primary);
+  color: #ffffff;
+  font-size: var(--ld-font-sm, 24rpx);
+  font-weight: 800;
+  line-height: 68rpx;
+}
+
+.retry-button::after {
+  border: 0;
 }
 
 .product-section {
@@ -224,11 +329,5 @@ async function goCheckout() {
   font-weight: 700;
 }
 
-.empty {
-  display: grid;
-  place-items: center;
-  min-height: 320rpx;
-  color: var(--ld-mini-text-muted);
-}
 </style>
 
