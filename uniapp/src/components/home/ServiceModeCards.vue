@@ -47,7 +47,10 @@ function getModeIcon(key: ServiceMode) {
 }
 
 .mode-card {
-  min-height: 176rpx;
+  display: flex;
+  min-height: 196rpx;
+  flex-direction: column;
+  align-items: center;
   padding: 24rpx var(--ld-card-padding, 24rpx);
   border-radius: var(--ld-radius-16, 16px);
   background: #ffffff;
@@ -58,9 +61,9 @@ function getModeIcon(key: ServiceMode) {
 .mode-icon-shell {
   display: grid;
   place-items: center;
-  width: 64rpx;
-  height: 64rpx;
-  margin: 0 auto 12rpx;
+  width: 72rpx;
+  height: 72rpx;
+  margin: 0 auto 16rpx;
   border-radius: 50%;
   background: var(--ld-mini-primary-soft);
   color: var(--ld-mini-primary);
@@ -83,7 +86,7 @@ function getModeIcon(key: ServiceMode) {
 
 .mode-subtitle {
   display: block;
-  margin-top: 6rpx;
+  margin-top: 8rpx;
   color: #c08f3c;
   font-size: var(--ld-font-xs, 22rpx);
 }

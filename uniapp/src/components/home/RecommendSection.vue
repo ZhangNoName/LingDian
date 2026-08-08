@@ -96,8 +96,8 @@ function markImageFailed(productId: string) {
 .empty {
   display: grid;
   justify-items: center;
-  min-height: 200rpx;
-  padding: 28rpx 16rpx 12rpx;
+  min-height: 164rpx;
+  padding: 20rpx 16rpx 8rpx;
   text-align: center;
 }
 
@@ -115,7 +115,7 @@ function markImageFailed(productId: string) {
 
 .browse {
   height: 64rpx;
-  margin-top: 24rpx;
+  margin-top: 16rpx;
   padding: 0 28rpx;
   border-radius: 999rpx;
   background: var(--ld-mini-primary);

@@ -31,7 +31,7 @@ defineEmits<{
 <style scoped>
 .member-strip {
   display: grid;
-  grid-template-columns: 1fr 160rpx 160rpx;
+  grid-template-columns: minmax(0, 1fr) 116rpx 116rpx;
   align-items: center;
   min-height: 112rpx;
   margin: 0;
@@ -42,21 +42,33 @@ defineEmits<{
   font-size: var(--ld-font-base, 26rpx);
 }
 
+.account {
+  min-width: 0;
+  overflow: hidden;
+}
+
 .metric {
   display: flex;
+  min-width: 0;
   flex-direction: column;
   align-items: flex-end;
 }
 
 .account-status {
   display: block;
+  overflow: hidden;
   margin-top: 6rpx;
   color: rgba(255, 229, 176, 0.88);
   font-size: 22rpx;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .login-action {
+  box-sizing: border-box;
   display: inline-flex;
+  max-width: 100%;
+  overflow: hidden;
   height: 44rpx;
   margin: 6rpx 0 0;
   padding: 0 16rpx;
@@ -66,6 +78,8 @@ defineEmits<{
   color: #ffffff;
   font-size: 22rpx;
   line-height: 42rpx;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .login-action::after {
@@ -86,8 +100,12 @@ defineEmits<{
 }
 
 .name {
+  display: block;
+  overflow: hidden;
   color: #ffffff;
   text-align: left !important;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-weight: 800;
 }
 </style>
