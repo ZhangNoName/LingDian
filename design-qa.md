@@ -57,6 +57,7 @@ The home comparison also includes the exact generated implementation asset becau
 - Login review found low-contrast focus and control text; fixed and re-reviewed clean.
 - Browser QA found long category data wrapping in the sidebar; fixed, reloaded, and confirmed with final screenshot and geometry evidence.
 - The first WeChat target build exposed unsupported dynamic `<component :is>` usage in the tab bar and profile management grid. Both were replaced with static conditional Lucide components; the subsequent `build:mp-weixin` completed successfully.
+- Final review found the remaining back affordance still used a text glyph. It was replaced with a static Lucide `ChevronLeft` export and rechecked on both H5 and WeChat targets.
 - Final automated pass before browser QA: Vitest `8` files / `29` tests passed, layout tests `13/13` passed, type-check passed, and H5 build passed.
 
 No actionable P0, P1, or P2 design findings remain.

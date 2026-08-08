@@ -1,6 +1,7 @@
 import type { Component } from "vue"
 import {
   Bike,
+  ChevronLeft,
   ChevronRight,
   CircleHelp,
   CircleUserRound,
@@ -25,7 +26,7 @@ export type AppTabKey = "home" | "menu" | "orders" | "profile"
 
 export type MiniappIcon = Component
 
-export const BackIcon = "‹"
+export const BackIcon = ChevronLeft
 export const ChevronRightIcon = ChevronRight
 export const SearchIcon = Search
 export const CartIcon = ShoppingBag

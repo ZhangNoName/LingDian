@@ -45,12 +45,11 @@ test("every page is rendered inside Layout", async () => {
   }
 });
 
-test("navigation uses a native miniapp back glyph and static search icon", async () => {
+test("navigation uses static Lucide back and search icons", async () => {
   const navBar = await readProjectFile("src/components/app/AppNavBar.vue");
 
-  assert.match(navBar, /import \{ SearchIcon \} from/);
-  assert.match(navBar, /class="back-glyph"/);
-  assert.doesNotMatch(navBar, /<BackIcon/);
+  assert.match(navBar, /import \{ BackIcon, SearchIcon \} from/);
+  assert.match(navBar, /<BackIcon/);
   assert.match(navBar, /<SearchIcon/);
 });
 

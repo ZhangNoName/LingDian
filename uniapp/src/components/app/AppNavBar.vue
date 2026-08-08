@@ -2,7 +2,7 @@
   <view class="nav">
     <view class="nav-left">
       <view v-if="showBack" class="icon-button" role="button" tabindex="0" aria-label="返回" @keydown.enter="$emit('back')" @keydown.space.prevent="$emit('back')" @tap="$emit('back')">
-        <text class="back-glyph">‹</text>
+        <BackIcon class="back-icon" aria-hidden="true" />
       </view>
       <view v-if="showSearch" class="icon-button">
         <SearchIcon class="icon" />
@@ -14,7 +14,7 @@
 </template>
 
 <script setup lang="ts">
-import { SearchIcon } from "@lingdian/icons/miniapp";
+import { BackIcon, SearchIcon } from "@lingdian/icons/miniapp";
 
 withDefaults(
   defineProps<{
@@ -63,12 +63,11 @@ defineEmits<{
   color: var(--ld-mini-text);
 }
 
-.back-glyph {
+.back-icon {
+  display: block;
+  width: 48rpx;
+  height: 48rpx;
   color: #1f2937;
-  font-family: Arial, sans-serif;
-  font-size: 60rpx;
-  font-weight: 400;
-  line-height: 52rpx;
 }
 
 .icon {
