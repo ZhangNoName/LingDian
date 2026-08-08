@@ -13,7 +13,11 @@
         @tap="selectEntry(entry)"
       >
         <view class="icon-shell">
-          <component :is="getEntryIcon(entry.key)" class="icon" aria-hidden="true" />
+          <ManageOrdersIcon v-if="entry.key === 'orders'" class="icon" aria-hidden="true" />
+          <ManageAddressIcon v-else-if="entry.key === 'address'" class="icon" aria-hidden="true" />
+          <ManageFavoritesIcon v-else-if="entry.key === 'favorites'" class="icon" aria-hidden="true" />
+          <ManageTransactionsIcon v-else-if="entry.key === 'transactions'" class="icon" aria-hidden="true" />
+          <ManageFallbackIcon v-else class="icon" aria-hidden="true" />
         </view>
         <text class="entry-label">{{ entry.label }}</text>
         <text v-if="!entry.available" class="entry-status">开发中</text>
@@ -24,7 +28,13 @@
 </template>
 
 <script setup lang="ts">
-import { fallbackManageIcon, manageEntryIcons } from "@lingdian/icons/miniapp";
+import {
+  ManageAddressIcon,
+  ManageFallbackIcon,
+  ManageFavoritesIcon,
+  ManageOrdersIcon,
+  ManageTransactionsIcon,
+} from "@lingdian/icons/miniapp";
 import type { ManageEntry } from "@/types/member";
 
 defineProps<{
@@ -34,10 +44,6 @@ defineProps<{
 const emit = defineEmits<{
   (event: "select", entry: ManageEntry): void;
 }>();
-
-function getEntryIcon(key: string) {
-  return manageEntryIcons[key] ?? fallbackManageIcon;
-}
 
 function selectEntry(entry: ManageEntry) {
   if (entry.available) emit("select", entry);

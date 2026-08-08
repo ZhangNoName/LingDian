@@ -13,14 +13,23 @@
       @keydown.space.prevent="$emit('change', tab.key)"
       @tap="$emit('change', tab.key)"
     >
-      <component :is="getTabIcon(tab.key)" class="tab-icon" aria-hidden="true" />
+      <TabHomeIcon v-if="tab.key === 'home'" class="tab-icon" aria-hidden="true" />
+      <TabMenuIcon v-else-if="tab.key === 'menu'" class="tab-icon" aria-hidden="true" />
+      <TabOrdersIcon v-else-if="tab.key === 'orders'" class="tab-icon" aria-hidden="true" />
+      <TabProfileIcon v-else class="tab-icon" aria-hidden="true" />
       <text>{{ tab.label }}</text>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { tabIcons, type AppTabKey } from "@lingdian/icons/miniapp";
+import {
+  TabHomeIcon,
+  TabMenuIcon,
+  TabOrdersIcon,
+  TabProfileIcon,
+  type AppTabKey,
+} from "@lingdian/icons/miniapp";
 
 defineProps<{
   active: AppTabKey;
@@ -37,9 +46,6 @@ const tabs: Array<{ key: AppTabKey; label: string }> = [
   { key: "profile", label: "我的" },
 ];
 
-function getTabIcon(key: AppTabKey) {
-  return tabIcons[key];
-}
 </script>
 
 <style scoped>
