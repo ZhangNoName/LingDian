@@ -1,34 +1,38 @@
 <template>
-  <view class="page">
-    <view class="hero">
+  <scroll-view class="login-scroll" scroll-y>
+    <view class="login-shell">
+      <view class="login-content">
+        <view class="hero">
       <text class="title">登录零点点餐</text>
       <text class="subtitle">{{ pendingOauthId ? "验证手机号以完成第三方账号绑定" : "手机号验证后即可继续" }}</text>
-    </view>
+        </view>
 
-    <view class="form-card">
+        <view class="form-card">
       <text id="phone-label" class="field-label">手机号</text>
-      <input v-model="phone" class="field" type="tel" maxlength="11" placeholder="请输入手机号" aria-label="手机号" />
+      <input v-model="phone" :class="['field', { 'is-focused': phoneFocused }]" type="tel" maxlength="11" placeholder="请输入手机号" aria-label="手机号" @focus="phoneFocused = true" @blur="phoneFocused = false" />
       <view class="code-row">
         <view class="code-input">
           <text id="code-label" class="field-label">验证码</text>
-          <input v-model="code" class="field code-field" type="tel" maxlength="6" placeholder="请输入验证码" aria-label="验证码" />
+          <input v-model="code" :class="['field', 'code-field', { 'is-focused': codeFocused }]" type="tel" maxlength="6" placeholder="请输入验证码" aria-label="验证码" @focus="codeFocused = true" @blur="codeFocused = false" />
         </view>
-        <button class="code-button" role="button" tabindex="0" :disabled="cooldown > 0 || sendingCode" @keydown.enter="sendCode" @tap="sendCode">
+        <button :class="['code-button', { 'is-disabled': cooldown > 0 || sendingCode }]" role="button" tabindex="0" :disabled="cooldown > 0 || sendingCode" @keydown.enter="sendCode" @tap="sendCode">
           {{ cooldown > 0 ? `${cooldown}s 后重试` : "获取验证码" }}
         </button>
       </view>
-      <button class="submit-button" role="button" tabindex="0" :loading="submitting" @keydown.enter="submit" @tap="submit">{{ pendingOauthId ? "完成绑定并登录" : "登录" }}</button>
+      <button :class="['submit-button', { 'is-disabled': submitting }]" role="button" tabindex="0" :loading="submitting" :disabled="submitting" @keydown.enter="submit" @tap="submit">{{ pendingOauthId ? "完成绑定并登录" : "登录" }}</button>
     </view>
 
-    <view v-if="providers.length" class="third-party">
+        <view v-if="providers.length" class="third-party">
       <text class="divider">其他登录方式</text>
       <view class="provider-row">
-        <button v-for="provider in providers" :key="provider" class="provider-button" role="button" tabindex="0" :disabled="submitting" @keydown.enter="beginThirdPartyLogin(provider)" @tap="beginThirdPartyLogin(provider)">
+        <button v-for="provider in providers" :key="provider" :class="['provider-button', { 'is-disabled': submitting }]" role="button" tabindex="0" :disabled="submitting" @keydown.enter="beginThirdPartyLogin(provider)" @tap="beginThirdPartyLogin(provider)">
           {{ provider === "WECHAT" ? "微信登录" : "QQ 登录" }}
         </button>
       </view>
     </view>
-  </view>
+      </view>
+    </view>
+  </scroll-view>
 </template>
 
 <script setup lang="ts">
@@ -40,6 +44,8 @@ import { resolveCustomerReturnUrl } from "@/services/auth-navigation";
 
 const phone = ref("");
 const code = ref("");
+const phoneFocused = ref(false);
+const codeFocused = ref(false);
 const pendingOauthId = ref("");
 const cooldown = ref(0);
 const sendingCode = ref(false);
@@ -120,14 +126,29 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.page {
-  min-height: 100vh;
-  padding: 160rpx 48rpx 80rpx;
-  background: linear-gradient(180deg, #effaf3 0, #f7f7f7 360rpx);
+.login-scroll {
+  height: 100vh;
+  background: var(--ld-mini-bg);
+}
+
+.login-shell {
+  display: flex;
+  min-height: 100%;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  padding: calc(var(--status-bar-height, 0px) + 64rpx) 48rpx calc(env(safe-area-inset-bottom) + 64rpx);
+}
+
+.login-content {
+  width: 100%;
+  max-width: 680rpx;
+  margin: auto 0;
+  padding-bottom: 48rpx;
 }
 
 .hero {
-  margin-bottom: 72rpx;
+  margin-bottom: 56rpx;
 }
 
 .title,
@@ -143,7 +164,7 @@ onUnmounted(() => {
 
 .subtitle {
   margin-top: 16rpx;
-  color: #777;
+  color: var(--ld-mini-text-muted);
   font-size: 28rpx;
 }
 
@@ -151,6 +172,7 @@ onUnmounted(() => {
   padding: 32rpx;
   border-radius: 24rpx;
   background: #fff;
+  box-sizing: border-box;
   box-shadow: var(--ld-mini-shadow-card);
 }
 
@@ -166,10 +188,16 @@ onUnmounted(() => {
   width: 100%;
   height: 92rpx;
   padding: 0 24rpx;
+  box-sizing: border-box;
   border-radius: 12rpx;
-  background: #f5f6f5;
+  background: #f6f3f3;
   color: var(--ld-mini-text);
   font-size: 30rpx;
+}
+
+.field.is-focused {
+  background: #fff;
+  box-shadow: 0 0 0 4rpx var(--ld-mini-primary-soft);
 }
 
 .code-row {
@@ -185,7 +213,7 @@ onUnmounted(() => {
 }
 
 .code-field {
-  box-sizing: border-box;
+  width: 100%;
 }
 
 .code-button,
@@ -200,7 +228,7 @@ onUnmounted(() => {
   height: 92rpx;
   margin: 0;
   border-radius: 12rpx;
-  background: #e9f8ee;
+  background: var(--ld-mini-primary-soft);
   color: var(--ld-mini-primary);
   font-size: 24rpx;
   line-height: 92rpx;
@@ -215,6 +243,17 @@ onUnmounted(() => {
   color: #fff;
   font-size: 30rpx;
   line-height: 96rpx;
+}
+
+.code-button.is-disabled,
+.provider-button.is-disabled {
+  background: #f1e8e8;
+  color: #b59b9c;
+}
+
+.submit-button.is-disabled {
+  background: #d8b5b7;
+  color: #fff7f7;
 }
 
 .third-party {
