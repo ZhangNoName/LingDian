@@ -8,7 +8,7 @@
       :class="{ active: category.id === activeId }"
       @tap="$emit('select', category.id)"
     >
-      <text>{{ category.name }}</text>
+      <text class="category-label">{{ category.name }}</text>
     </view>
   </scroll-view>
 </template>
@@ -59,6 +59,14 @@ function getNavDomId(categoryId: string) {
   background: #ffffff;
   color: var(--ld-mini-text);
   font-weight: 900;
+}
+
+.category-label {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .category.active::before {
