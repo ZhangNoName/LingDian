@@ -1,12 +1,15 @@
 <template>
   <Layout active="home">
-    <view class="page">
-      <MemberStrip :presentation="customerPresentation" @login="goLogin" />
+    <scroll-view class="page" scroll-y>
+      <view class="home-header">
+        <HomeHero />
+        <MemberStrip :presentation="customerPresentation" @login="goLogin" />
+      </view>
       <view class="content">
         <ServiceModeCards :modes="homeServiceModes" @select="goMenu" />
         <RecommendSection :products="featuredProducts" @browse="goMenu" @select="goSpec" />
       </view>
-    </view>
+    </scroll-view>
   </Layout>
 </template>
 
@@ -15,6 +18,7 @@ import { computed, ref } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import type { AuthenticatedUser } from "@lingdian/contracts";
 import Layout from "@/layout/layout.vue";
+import HomeHero from "@/components/home/HomeHero.vue";
 import MemberStrip from "@/components/home/MemberStrip.vue";
 import RecommendSection from "@/components/home/RecommendSection.vue";
 import ServiceModeCards from "@/components/home/ServiceModeCards.vue";
@@ -60,9 +64,15 @@ function goLogin() {
 
 <style scoped>
 .page {
-  min-height: 100%;
+  box-sizing: border-box;
+  height: 100%;
   background: var(--ld-mini-bg);
-  padding: 16rpx var(--ld-page-padding, 24rpx) var(--ld-page-bottom-safe, 24rpx);
+  padding: 16rpx var(--ld-page-padding, 24rpx) calc(var(--ld-tabbar-height, 104rpx) + var(--ld-page-bottom-safe, 24rpx));
+}
+
+.home-header {
+  display: grid;
+  gap: var(--ld-card-gap, 20rpx);
 }
 
 .content {
