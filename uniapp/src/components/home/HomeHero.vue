@@ -23,7 +23,7 @@ function markImageFailed() {
   height: 240rpx;
   overflow: hidden;
   border-radius: 24rpx;
-  background: #fff1dc;
+  background: var(--ld-mini-surface);
 }
 
 .hero-image {
@@ -38,7 +38,7 @@ function markImageFailed() {
   align-content: center;
   justify-items: center;
   gap: 10rpx;
-  background: #fff1dc;
+  background: var(--ld-mini-surface);
 }
 
 .fallback-logo {
@@ -47,7 +47,7 @@ function markImageFailed() {
 }
 
 .fallback-copy {
-  color: #8a3b18;
+  color: var(--ld-mini-brand-dark);
   font-size: var(--ld-font-xs, 22rpx);
 }
 </style>
