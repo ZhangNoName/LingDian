@@ -197,7 +197,7 @@ onUnmounted(() => {
 
 .field.is-focused {
   background: #fff;
-  box-shadow: 0 0 0 4rpx var(--ld-mini-primary-soft);
+  box-shadow: 0 0 0 3rpx var(--ld-mini-primary);
 }
 
 .code-row {
@@ -229,7 +229,7 @@ onUnmounted(() => {
   margin: 0;
   border-radius: 12rpx;
   background: var(--ld-mini-primary-soft);
-  color: var(--ld-mini-primary);
+  color: var(--ld-mini-primary-pressed);
   font-size: 24rpx;
   line-height: 92rpx;
 }
@@ -248,7 +248,7 @@ onUnmounted(() => {
 .code-button.is-disabled,
 .provider-button.is-disabled {
   background: #f1e8e8;
-  color: #b59b9c;
+  color: #705357;
 }
 
 .submit-button.is-disabled {
