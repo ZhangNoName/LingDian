@@ -68,24 +68,26 @@
 - [ ] Run uni-app type checking and compare the existing layout test against its known 5-failure source-string baseline; this task must add no new failure.
 - [ ] Commit with `style: refine miniapp home hierarchy`.
 
-### Task 4: Enlarge and Normalize the Bottom Tab Bar
+### Task 4: Replace Target-Screen Glyphs and Enlarge the Bottom Tab Bar
 
 **Files:**
+- Modify: `packages/icons/src/miniapp.ts`
 - Modify: `theme/miniapp-tokens.scss`
 - Modify: `theme/miniapp-tokens.css`
 - Modify: `theme/miniapp-tokens.json`
 - Modify: `uniapp/src/components/app/AppTabBar.vue`
-- Modify if required for actual component rendering: `packages/icons/src/miniapp.ts`
+- Modify: miniapp icon consumers that currently interpolate icon exports as Unicode text, including target-screen home, menu, tab, navigation, quantity, checkout, order, profile, and user components.
+- Modify: `uniapp/tests/miniapp-layout.test.mjs` only to remove assertions made stale by real component rendering and the existing `onLoad, onShow` import.
 
 **Interfaces:**
 - Preserve `change(key: AppTabKey)` and the four existing routes.
 - Add synchronized token values for `42rpx` icon size and `80rpx` item touch height.
 
-- [ ] Inspect the icon exports and render the icons as actual Vue components rather than interpolated component objects or text glyphs.
+- [ ] Convert the Unicode icon exports to the existing `lucide-vue-next` components and render them as actual Vue components rather than interpolated objects or text glyphs.
 - [ ] Apply `42rpx` visual icon size, at least `80rpx` touch height, `8rpx` icon-label gap, selected brand red, and neutral inactive gray.
 - [ ] Keep safe-area bottom padding and avoid drawing a system Home Indicator.
-- [ ] Run type checking and existing layout tests.
-- [ ] Commit with `style: enlarge miniapp bottom navigation`.
+- [ ] Run type checking, H5 build, layout tests with zero failures, and diff check.
+- [ ] Commit with `style: enlarge miniapp navigation icons`.
 
 ### Task 5: Integrate Menu States and a Safe Floating Cart Bar
 
