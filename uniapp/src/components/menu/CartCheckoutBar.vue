@@ -1,7 +1,7 @@
 <template>
   <view class="cart-bar" :class="{ 'is-disabled': disabled }">
     <view class="bag">
-      <text class="cart-icon">{{ CartIcon }}</text>
+      <CartIcon class="cart-icon" aria-hidden="true" />
       <text v-if="cart.itemCount" class="badge">{{ cart.itemCount }}</text>
     </view>
     <view class="summary">
@@ -64,6 +64,8 @@ function handleCheckout() {
 
 .bag {
   position: relative;
+  display: grid;
+  place-items: center;
   width: 80rpx;
   height: 80rpx;
   margin-left: 12rpx;

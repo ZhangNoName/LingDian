@@ -33,6 +33,8 @@ page {
   --ld-nav-height: 96rpx;
   --ld-tabs-height: 72rpx;
   --ld-tabbar-height: 104rpx;
+  --ld-tab-icon-size: 42rpx;
+  --ld-tab-touch-height: 80rpx;
   --ld-list-row-height: 208rpx;
   --ld-sidebar-row-height: 116rpx;
   --ld-nav-safe-height: 112rpx;

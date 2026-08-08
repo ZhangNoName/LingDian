@@ -8,14 +8,14 @@
     <view class="mode-grid">
       <view class="mode active">
         <view class="mode-icon-shell">
-          <text class="mode-icon">{{ CheckoutDineInIcon }}</text>
+          <CheckoutDineInIcon class="mode-icon" aria-hidden="true" />
         </view>
         <text class="mode-title">堂食</text>
         <text class="mode-subtitle">店内就餐</text>
       </view>
       <view class="mode">
         <view class="mode-icon-shell">
-          <text class="mode-icon">{{ CheckoutTakeawayIcon }}</text>
+          <CheckoutTakeawayIcon class="mode-icon" aria-hidden="true" />
         </view>
         <text class="mode-title">外带</text>
         <text class="mode-subtitle">打包带走</text>

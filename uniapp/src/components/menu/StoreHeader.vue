@@ -5,7 +5,7 @@
       <text class="distance">{{ store.distanceText }}</text>
     </view>
     <view class="dine-tag">
-      <text class="tag-icon">{{ StoreLocationIcon }}</text>
+      <StoreLocationIcon class="tag-icon" aria-hidden="true" />
       <text>堂食</text>
     </view>
   </view>

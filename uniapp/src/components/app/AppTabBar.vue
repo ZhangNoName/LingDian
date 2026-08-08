@@ -13,17 +13,14 @@
       @keydown.space.prevent="$emit('change', tab.key)"
       @tap="$emit('change', tab.key)"
     >
-      <text class="tab-icon">{{ getTabIcon(tab.key) }}</text>
+      <component :is="getTabIcon(tab.key)" class="tab-icon" aria-hidden="true" />
       <text>{{ tab.label }}</text>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import {
-  tabIcons,
-  type AppTabKey,
-} from "@lingdian/icons/miniapp";
+import { tabIcons, type AppTabKey } from "@lingdian/icons/miniapp";
 
 defineProps<{
   active: AppTabKey;
@@ -62,8 +59,8 @@ function getTabIcon(key: AppTabKey) {
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-height: 76rpx;
-  gap: 6rpx;
+  min-height: var(--ld-tab-touch-height, 80rpx);
+  gap: 8rpx;
   color: #666666;
   font-size: var(--ld-font-xs, 22rpx);
 }
@@ -75,10 +72,8 @@ function getTabIcon(key: AppTabKey) {
 
 .tab-icon {
   display: block;
-  width: 30rpx;
-  height: 30rpx;
+  width: var(--ld-tab-icon-size, 42rpx);
+  height: var(--ld-tab-icon-size, 42rpx);
   color: currentColor;
-  font-size: 30rpx;
-  line-height: 30rpx;
 }
 </style>

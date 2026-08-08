@@ -1,11 +1,11 @@
 <template>
   <view class="stepper">
     <button class="round" :disabled="modelValue <= min" @tap="emitValue(modelValue - 1)">
-      <text class="stepper-icon">{{ MinusIcon }}</text>
+      <MinusIcon class="stepper-icon" />
     </button>
     <text class="count">{{ modelValue }}</text>
     <button class="round plus" :disabled="modelValue >= max" @tap="emitValue(modelValue + 1)">
-      <text class="stepper-icon">{{ PlusIcon }}</text>
+      <PlusIcon class="stepper-icon" />
     </button>
   </view>
 </template>

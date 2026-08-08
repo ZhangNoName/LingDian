@@ -5,7 +5,7 @@
       <text class="store">{{ order.storeName }}</text>
       <view class="status-wrap">
         <text class="status">{{ statusLabel }}</text>
-        <text class="status-icon">{{ ChevronRightIcon }}</text>
+        <ChevronRightIcon class="status-icon" aria-hidden="true" />
       </view>
     </view>
     <text class="time">{{ formatOrderTime(order.createdAt) }}</text>

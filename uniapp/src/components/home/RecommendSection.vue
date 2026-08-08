@@ -22,7 +22,7 @@
         <text class="name">{{ product.name }}</text>
         <PriceText :price="product.price" :original-price="product.originalPrice" suffix="一口价" size="small" />
         <button class="add" role="button" tabindex="0" :aria-label="`选择${product.name}`" @keydown.enter.stop="$emit('select', product.id)" @tap.stop="$emit('select', product.id)">
-          <text class="add-icon">{{ PlusIcon }}</text>
+          <PlusIcon class="add-icon" aria-hidden="true" />
         </button>
       </view>
     </view>

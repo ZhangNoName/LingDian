@@ -3,8 +3,8 @@
     <view class="store-row">
       <text class="store">{{ detail.storeName }}</text>
       <view class="actions">
-        <text class="action-icon">{{ PhoneIcon }}</text>
-        <text class="action-icon">{{ MessageIcon }}</text>
+        <PhoneIcon class="action-icon" />
+        <MessageIcon class="action-icon" />
       </view>
     </view>
 

@@ -12,7 +12,9 @@
       @tap="$emit('select', mode.key)"
     >
       <view class="mode-icon-shell">
-        <text class="mode-icon">{{ getModeIcon(mode.key) }}</text>
+        <HomeDineInIcon v-if="mode.key === 'dineIn'" class="mode-icon" aria-hidden="true" />
+        <HomeDeliveryIcon v-else-if="mode.key === 'delivery'" class="mode-icon" aria-hidden="true" />
+        <HomeTakeawayIcon v-else class="mode-icon" aria-hidden="true" />
       </view>
       <text class="mode-title">{{ mode.title }}</text>
       <text class="mode-subtitle">{{ mode.subtitle }}</text>
@@ -31,12 +33,6 @@ defineProps<{
 defineEmits<{
   (event: "select", key: ServiceMode): void;
 }>();
-
-function getModeIcon(key: ServiceMode) {
-  if (key === "dineIn") return HomeDineInIcon;
-  if (key === "delivery") return HomeDeliveryIcon;
-  return HomeTakeawayIcon;
-}
 </script>
 
 <style scoped>

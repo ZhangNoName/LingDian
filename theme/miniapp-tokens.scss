@@ -35,6 +35,8 @@ $ld-mini-card-gap: 20rpx;
 $ld-mini-nav-height: 96rpx;
 $ld-mini-tabs-height: 72rpx;
 $ld-mini-tabbar-height: 104rpx;
+$ld-mini-tab-icon-size: 42rpx;
+$ld-mini-tab-touch-height: 80rpx;
 $ld-mini-list-row-height: 208rpx;
 $ld-mini-sidebar-row-height: 116rpx;
 $ld-mini-nav-safe-height: 112rpx;
@@ -78,6 +80,8 @@ page {
   --ld-nav-height: #{$ld-mini-nav-height};
   --ld-tabs-height: #{$ld-mini-tabs-height};
   --ld-tabbar-height: #{$ld-mini-tabbar-height};
+  --ld-tab-icon-size: #{$ld-mini-tab-icon-size};
+  --ld-tab-touch-height: #{$ld-mini-tab-touch-height};
   --ld-list-row-height: #{$ld-mini-list-row-height};
   --ld-sidebar-row-height: #{$ld-mini-sidebar-row-height};
   --ld-nav-safe-height: #{$ld-mini-nav-safe-height};

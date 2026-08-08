@@ -66,7 +66,7 @@ test("order page uses uni-app lifecycle hooks", async () => {
 test("home page does not use Vue mounted lifecycle", async () => {
   const homePage = await readProjectFile("src/pages/home/home.vue");
 
-  assert.match(homePage, /import \{ onLoad \} from "@dcloudio\/uni-app"/);
+  assert.match(homePage, /import \{ onLoad, onShow \} from "@dcloudio\/uni-app"/);
   assert.match(homePage, /onLoad\(/);
   assert.doesNotMatch(homePage, /onMounted\(/);
 });

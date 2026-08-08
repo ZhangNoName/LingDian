@@ -5,7 +5,7 @@
       <text class="label">{{ row.label }}</text>
       <view class="value-wrap">
         <text class="value">{{ row.value }}</text>
-        <text v-if="row.copyable" class="copy">{{ CopyIcon }}</text>
+        <CopyIcon v-if="row.copyable" class="copy" aria-hidden="true" />
       </view>
     </view>
   </view>

@@ -1,26 +1,49 @@
-export type AppTabKey = 'home' | 'menu' | 'orders' | 'profile'
+import type { Component } from "vue"
+import {
+  Bike,
+  ChevronRight,
+  CircleHelp,
+  CircleUserRound,
+  Coffee,
+  Copy,
+  Grid2X2,
+  Heart,
+  House,
+  ListOrdered,
+  MapPin,
+  MessageCircle,
+  Minus,
+  Phone,
+  Plus,
+  Search,
+  ShoppingBag,
+  Soup,
+  WalletCards,
+} from "lucide-vue-next"
 
-export type MiniappIcon = string
+export type AppTabKey = "home" | "menu" | "orders" | "profile"
 
-export const BackIcon = '‹'
-export const ChevronRightIcon = '›'
-export const SearchIcon = '⌕'
-export const CartIcon = '▣'
-export const StoreLocationIcon = '⌖'
-export const HelpIcon = '?'
-export const MinusIcon = '−'
-export const PlusIcon = '+'
-export const CopyIcon = '⧉'
-export const PhoneIcon = '☎'
-export const MessageIcon = '✉'
-export const HomeDineInIcon = '♨'
-export const HomeTakeawayIcon = '▣'
-export const HomeDeliveryIcon = '↗'
+export type MiniappIcon = Component
 
-export const TabHomeIcon = '⌂'
-export const TabMenuIcon = '☕'
-export const TabOrdersIcon = '☷'
-export const TabProfileIcon = '◉'
+export const BackIcon = "‹"
+export const ChevronRightIcon = ChevronRight
+export const SearchIcon = Search
+export const CartIcon = ShoppingBag
+export const StoreLocationIcon = MapPin
+export const HelpIcon = CircleHelp
+export const MinusIcon = Minus
+export const PlusIcon = Plus
+export const CopyIcon = Copy
+export const PhoneIcon = Phone
+export const MessageIcon = MessageCircle
+export const HomeDineInIcon = Soup
+export const HomeTakeawayIcon = ShoppingBag
+export const HomeDeliveryIcon = Bike
+
+export const TabHomeIcon = House
+export const TabMenuIcon = Coffee
+export const TabOrdersIcon = ListOrdered
+export const TabProfileIcon = CircleUserRound
 
 export const tabIcons: Record<AppTabKey, MiniappIcon> = {
   home: TabHomeIcon,
@@ -29,11 +52,11 @@ export const tabIcons: Record<AppTabKey, MiniappIcon> = {
   profile: TabProfileIcon,
 }
 
-export const ManageOrdersIcon = '☷'
-export const ManageAddressIcon = '⌖'
-export const ManageFavoritesIcon = '♡'
-export const ManageTransactionsIcon = '¥'
-export const ManageFallbackIcon = '▣'
+export const ManageOrdersIcon = ListOrdered
+export const ManageAddressIcon = MapPin
+export const ManageFavoritesIcon = Heart
+export const ManageTransactionsIcon = WalletCards
+export const ManageFallbackIcon = Grid2X2
 
 export const manageEntryIcons: Record<string, MiniappIcon> = {
   orders: ManageOrdersIcon,

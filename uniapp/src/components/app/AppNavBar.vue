@@ -5,7 +5,7 @@
         <text class="back-glyph">‹</text>
       </view>
       <view v-if="showSearch" class="icon-button">
-        <text class="icon">{{ SearchIcon }}</text>
+        <SearchIcon class="icon" />
       </view>
       <slot name="left" />
     </view>

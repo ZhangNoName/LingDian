@@ -14,7 +14,7 @@
       <MemberBenefitCard :presentation="customerPresentation" />
       <ManageGrid :entries="manageEntries" @select="handleManageEntry" />
       <button class="service-btn" role="button" tabindex="0" @keydown.enter="showServicePhone" @tap="showServicePhone">
-        <text class="service-icon">{{ HelpIcon }}</text>
+        <HelpIcon class="service-icon" aria-hidden="true" />
         <text>联系客服</text>
       </button>
     </view>

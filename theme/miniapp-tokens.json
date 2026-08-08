@@ -51,5 +51,9 @@
       "lineHeight": "34px",
       "fontWeight": 700
     }
+  },
+  "component": {
+    "tabIconSize": "42rpx",
+    "tabTouchHeight": "80rpx"
   }
 }

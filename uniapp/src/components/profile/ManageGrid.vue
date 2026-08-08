@@ -13,7 +13,7 @@
         @tap="selectEntry(entry)"
       >
         <view class="icon-shell">
-          <text class="icon">{{ getEntryIcon(entry.key) }}</text>
+          <component :is="getEntryIcon(entry.key)" class="icon" aria-hidden="true" />
         </view>
         <text class="entry-label">{{ entry.label }}</text>
         <text v-if="!entry.available" class="entry-status">开发中</text>
@@ -24,10 +24,7 @@
 </template>
 
 <script setup lang="ts">
-import {
-  fallbackManageIcon,
-  manageEntryIcons,
-} from "@lingdian/icons/miniapp";
+import { fallbackManageIcon, manageEntryIcons } from "@lingdian/icons/miniapp";
 import type { ManageEntry } from "@/types/member";
 
 defineProps<{
