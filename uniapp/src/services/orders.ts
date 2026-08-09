@@ -26,7 +26,10 @@ function mapStatus(status: string): OrderStatus {
   return statusMap[status] ?? "pendingPay";
 }
 
-export async function createOrderFromCart(cart: CartSummary) {
+export async function createOrderFromCart(
+  cart: CartSummary,
+  options: { serviceMode: "takeaway" | "delivery"; addressId?: string } = { serviceMode: "takeaway" },
+) {
   if (cart.items.length === 0) {
     throw new Error("购物车为空");
   }
@@ -36,7 +39,8 @@ export async function createOrderFromCart(cart: CartSummary) {
     method: "POST",
     data: {
       storeId,
-      orderType: "pickup",
+      orderType: options.serviceMode === "delivery" ? "takeout" : "pickup",
+      ...(options.serviceMode === "delivery" ? { addressId: options.addressId } : {}),
       paymentChannel: "cash",
       items: cart.items.map((item) => ({
         sku_id: item.skuId,
@@ -58,7 +62,7 @@ export async function fetchOrders() {
   return orders.map<OrderSummary>((order) => ({
     id: order.id,
     storeName: order.store_name,
-    serviceMode: "takeaway",
+    serviceMode: order.order_type === "TAKEOUT" ? "delivery" : "takeaway",
     status: mapStatus(order.status),
     createdAt: order.created_at,
     totalAmount: order.payable_amount,
@@ -75,7 +79,7 @@ export async function fetchOrderDetail(orderId: string) {
   return {
     id: order.id,
     storeName: order.store_name,
-    serviceMode: "takeaway",
+    serviceMode: order.order_type === "TAKEOUT" ? "delivery" : "takeaway",
     status: mapStatus(order.status),
     createdAt: order.created_at,
     totalAmount: order.payable_amount,
@@ -103,7 +107,8 @@ export async function fetchOrderDetail(orderId: string) {
       ],
     })),
     infoRows: [
-      { label: "订单类型", value: "自取" },
+      { label: "订单类型", value: order.order_type === "TAKEOUT" ? "配送" : "自取" },
+      ...(order.delivery_address ? [{ label: "配送地址", value: order.delivery_address }] : []),
       { label: "取餐号", value: order.order_no.slice(-3) },
       { label: "订单编号", value: order.order_no, copyable: true },
       { label: "下单时间", value: order.created_at },

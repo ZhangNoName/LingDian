@@ -1,7 +1,7 @@
 <template>
   <view class="pay-bar">
     <view><text class="label">合计：</text><text class="amount">¥{{ amount.payableAmount.toFixed(1) }}</text></view>
-    <button class="pay" role="button" tabindex="0" @keydown.enter="$emit('pay')" @tap="$emit('pay')">去支付</button>
+    <button :class="['pay', { disabled }]" role="button" tabindex="0" :disabled="disabled" @keydown.enter="$emit('pay')" @tap="$emit('pay')">去支付</button>
   </view>
 </template>
 
@@ -10,6 +10,7 @@ import type { OrderAmount } from "@/types/order";
 
 defineProps<{
   amount: OrderAmount;
+  disabled?: boolean;
 }>();
 
 defineEmits<{
@@ -55,5 +56,10 @@ defineEmits<{
 
 .pay::after {
   border: 0;
+}
+
+.pay.disabled {
+  background: #c9c9c9;
+  color: #ffffff;
 }
 </style>

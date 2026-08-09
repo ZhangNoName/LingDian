@@ -6,32 +6,40 @@
     </view>
     <text class="address">{{ store.address }}</text>
     <view class="mode-grid">
-      <view class="mode active">
-        <view class="mode-icon-shell">
-          <CheckoutDineInIcon class="mode-icon" aria-hidden="true" />
-        </view>
-        <text class="mode-title">堂食</text>
-        <text class="mode-subtitle">店内就餐</text>
-      </view>
-      <view class="mode">
+      <view :class="['mode', { active: serviceMode === 'takeaway' }]" role="button" tabindex="0" @tap="$emit('select-mode', 'takeaway')">
         <view class="mode-icon-shell">
           <CheckoutTakeawayIcon class="mode-icon" aria-hidden="true" />
         </view>
-        <text class="mode-title">外带</text>
-        <text class="mode-subtitle">打包带走</text>
+        <text class="mode-title">门店自取</text>
+        <text class="mode-subtitle">到店打包带走</text>
+      </view>
+      <view :class="['mode', { active: serviceMode === 'delivery' }]" role="button" tabindex="0" @tap="$emit('select-mode', 'delivery')">
+        <view class="mode-icon-shell">
+          <HomeDeliveryIcon class="mode-icon" aria-hidden="true" />
+        </view>
+        <text class="mode-title">配送到家</text>
+        <text class="mode-subtitle">送到收货地址</text>
       </view>
     </view>
-    <view class="pickup"><text>取餐时间 <text class="tag">出餐保障</text></text><text class="pickup-time">{{ pickupTimeText }} ›</text></view>
+    <view class="pickup">
+      <text>{{ serviceMode === "delivery" ? "配送时间" : "取餐时间" }} <text class="tag">出餐保障</text></text>
+      <text class="pickup-time">{{ serviceMode === "delivery" ? "尽快送达" : pickupTimeText }} ›</text>
+    </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { CheckoutDineInIcon, CheckoutTakeawayIcon } from "@lingdian/icons/miniapp";
+import { CheckoutTakeawayIcon, HomeDeliveryIcon } from "@lingdian/icons/miniapp";
 import type { StoreSummary } from "@/types/store";
 
 defineProps<{
   store: StoreSummary;
   pickupTimeText: string;
+  serviceMode: "takeaway" | "delivery";
+}>();
+
+defineEmits<{
+  (event: "select-mode", value: "takeaway" | "delivery"): void;
 }>();
 </script>
 

@@ -2,13 +2,19 @@
   <Layout :show-tab-bar="false">
     <view class="page">
       <AppNavBar title="提交订单" show-back @back="goBack" />
-      <CheckoutStoreCard :store="checkoutModel.store" :pickup-time-text="checkoutModel.pickupTimeText" />
+      <CheckoutStoreCard
+        :store="checkoutModel.store"
+        :pickup-time-text="checkoutModel.pickupTimeText"
+        :service-mode="serviceMode"
+        @select-mode="selectMode"
+      />
+      <CheckoutAddressCard v-if="serviceMode === 'delivery'" :address="selectedAddress" @manage="manageAddresses" />
       <CheckoutProductCard :items="checkoutModel.items" />
       <view class="amount-card">
         <view class="amount-line"><text>商品金额</text><text>¥{{ checkoutModel.amount.goodsAmount.toFixed(1) }}</text></view>
         <view class="coupon-strip"><text>库存暂不阻断下单</text><text>模拟支付</text></view>
       </view>
-      <PayBar :amount="checkoutModel.amount" @pay="submitOrder" />
+      <PayBar :amount="checkoutModel.amount" :disabled="!submitAllowed" @pay="submitOrder" />
     </view>
   </Layout>
 </template>
@@ -21,15 +27,26 @@ import Layout from "@/layout/layout.vue";
 import CheckoutProductCard from "@/components/checkout/CheckoutProductCard.vue";
 import CheckoutStoreCard from "@/components/checkout/CheckoutStoreCard.vue";
 import PayBar from "@/components/checkout/PayBar.vue";
+import CheckoutAddressCard from "@/components/checkout/CheckoutAddressCard.vue";
 import { fetchMenu } from "@/services/catalog";
 import { getCartSummary } from "@/services/cart";
 import { createOrderFromCart } from "@/services/orders";
 import { requireCustomerAuth } from "@/services/auth-navigation";
-import { canCheckout } from "@/services/checkout-state";
+import { canCheckout, canSubmitCheckout } from "@/services/checkout-state";
+import { addresses } from "@/services/addresses";
 import type { CartSummary } from "@/types/cart";
 import type { StoreSummary } from "@/types/store";
+import type { UserAddress } from "@lingdian/contracts";
 
 const cart = ref<CartSummary>(getCartSummary());
+const serviceMode = ref<"takeaway" | "delivery">("takeaway");
+const addressList = ref<UserAddress[]>([]);
+const selectedAddress = computed(() => addressList.value.find((address) => address.isDefault) ?? addressList.value[0]);
+const submitAllowed = computed(() => canSubmitCheckout({
+  itemCount: cart.value.itemCount,
+  serviceMode: serviceMode.value,
+  addressId: selectedAddress.value?.id,
+}));
 const store = ref<StoreSummary>({
   id: "",
   name: "零点点餐",
@@ -41,7 +58,7 @@ const store = ref<StoreSummary>({
 
 const checkoutModel = computed(() => ({
   store: store.value,
-  serviceMode: "takeaway" as const,
+  serviceMode: serviceMode.value,
   pickupTimeText: "立即取餐",
   items: cart.value.items,
   addOns: [],
@@ -66,6 +83,11 @@ onShow(async () => {
   } catch {
     // 结算页仍允许展示本地购物车，提交时会给出接口错误。
   }
+  try {
+    addressList.value = await addresses.list();
+  } catch {
+    addressList.value = [];
+  }
 });
 
 function goBack() {
@@ -73,13 +95,28 @@ function goBack() {
 }
 
 async function submitOrder() {
+  if (!submitAllowed.value) {
+    uni.showToast({ title: serviceMode.value === "delivery" ? "请先选择收货地址" : "购物车为空", icon: "none" });
+    return;
+  }
   try {
-    const order = await createOrderFromCart(cart.value);
+    const order = await createOrderFromCart(cart.value, {
+      serviceMode: serviceMode.value,
+      addressId: selectedAddress.value?.id,
+    });
     cart.value = getCartSummary();
     uni.redirectTo({ url: `/pages/order-detail/order-detail?id=${order.id}` });
   } catch (error) {
     uni.showToast({ title: error instanceof Error ? error.message : "下单失败", icon: "none" });
   }
+}
+
+function selectMode(mode: "takeaway" | "delivery") {
+  serviceMode.value = mode;
+}
+
+function manageAddresses() {
+  uni.navigateTo({ url: "/pages/address/address" });
 }
 </script>
 
