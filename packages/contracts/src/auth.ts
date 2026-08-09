@@ -120,3 +120,33 @@ export interface PendingOAuthResponse {
   pending_oauth_id: string;
   expires_in: number;
 }
+
+export interface WechatMiniProgramPhoneLoginRequest {
+  loginCode: string;
+  phoneCode: string;
+  audience: 'user-api';
+}
+
+export interface CustomerProfile {
+  nickname: string | null;
+  avatar_data_url: string | null;
+}
+
+export interface CreateUserAddressRequest {
+  recipientName: string;
+  phoneNumber: string;
+  provinceName: string;
+  cityName: string;
+  countyName: string;
+  streetName: string;
+  detailInfo: string;
+  postalCode: string;
+  nationalCode: string;
+}
+
+export interface UserAddress extends CreateUserAddressRequest {
+  id: string;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+}

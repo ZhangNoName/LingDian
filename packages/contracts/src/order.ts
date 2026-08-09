@@ -30,6 +30,7 @@ export type OrderSummaryContract = {
   store_name: string;
   customer_name: string;
   customer_mobile: string;
+  delivery_address: string | null;
   order_type: OrderType;
   status: OrderStatus;
   payment_channel?: PaymentChannel;
