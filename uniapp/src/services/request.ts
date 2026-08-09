@@ -43,6 +43,10 @@ function requestOnce<T>(path: string, options: RequestConfig): Promise<T> {
       withCredentials: true,
       header,
       success(response) {
+        if (response.statusCode === 204) {
+          resolve(undefined as T);
+          return;
+        }
         const envelope = response.data as ApiEnvelope<T>;
         if (response.statusCode >= 200 && response.statusCode < 300 && envelope.code === 0) {
           resolve(envelope.data);

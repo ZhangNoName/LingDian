@@ -123,3 +123,30 @@ test("sends a uni.login code to the mini-program callback endpoint and receives 
   assert.deepEqual(request.mock.calls[0][0].data, { code: "mini-login-code", audience: "user-api" });
   assert.equal(customerAuth.getAccessToken(), undefined);
 });
+
+test("exchanges distinct WeChat login and phone codes for a customer session", async () => {
+  const request = vi.fn((options: UniApp.RequestOptions) => {
+    options.success?.({
+      statusCode: 201,
+      data: { code: 0, data: { access_token: "wechat-jwt", expires_in: 900, user: userProfile } },
+    } as unknown as UniApp.RequestSuccessCallbackResult);
+    return { abort() {} } as UniApp.RequestTask;
+  });
+  Object.assign(uni, {
+    request,
+    login(options: UniApp.LoginOptions) {
+      options.success?.({ code: "wx-login-code", errMsg: "login:ok" } as UniApp.LoginRes);
+      return {} as UniApp.LoginRes;
+    },
+  });
+
+  await customerAuth.wechatPhoneLogin("wx-phone-code");
+
+  assert.equal(customerAuth.getAccessToken(), "wechat-jwt");
+  assert.match(request.mock.calls[0][0].url, /\/auth\/wechat\/miniapp\/phone-login$/);
+  assert.deepEqual(request.mock.calls[0][0].data, {
+    loginCode: "wx-login-code",
+    phoneCode: "wx-phone-code",
+    audience: "user-api",
+  });
+});

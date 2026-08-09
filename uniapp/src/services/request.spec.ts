@@ -77,3 +77,13 @@ test("does not force a guest to login when a public request returns 401", async 
   expect(requestMock).toHaveBeenCalledTimes(1);
   expect(reLaunch).not.toHaveBeenCalled();
 });
+
+test("accepts an empty 204 response for delete operations", async () => {
+  const requestMock = vi.fn((options: UniApp.RequestOptions) => {
+    options.success?.({ statusCode: 204, data: undefined } as unknown as UniApp.RequestSuccessCallbackResult);
+    return { abort() {} } as UniApp.RequestTask;
+  });
+  Object.assign(uni, { request: requestMock });
+
+  await expect(request<void>("/addresses/address-1", { method: "DELETE" })).resolves.toBeUndefined();
+});

@@ -141,6 +141,15 @@ export const customerAuth = {
     return beginMiniProgramThirdPartyLogin(provider);
   },
 
+  async wechatPhoneLogin(phoneCode: string): Promise<void> {
+    const loginCode = await loginWithProvider("WECHAT");
+    const tokens = await authRequest<AuthTokens>("/auth/wechat/miniapp/phone-login", {
+      method: "POST",
+      data: { loginCode, phoneCode, audience: "user-api" },
+    });
+    this.acceptLogin(tokens);
+  },
+
   async completePhoneLink(pendingOauthId: string, phone: string, code: string): Promise<void> {
     const tokens = await authRequest<AuthTokens>("/auth/oauth/link-phone", {
       method: "POST",
