@@ -18,6 +18,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { QueryOrdersDto } from './dto/query-orders.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
+import { AddressesService } from '../addresses/addresses.service';
+import type { UserAddress } from '@lingdian/contracts';
 
 const orderTypeMap: Record<CreateOrderDto['orderType'], OrderType> = {
   dine_in: 'DINE_IN',
@@ -82,9 +84,13 @@ const orderDetailInclude = {
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly addresses: AddressesService,
+  ) {}
 
   async createOrder(body: CreateOrderDto, customerUserId?: string) {
+    const delivery = await this.resolveDelivery(body, customerUserId);
     const normalizedItems = body.items.map((item) => {
       const skuId = item.skuId ?? item.sku_id;
 
@@ -99,7 +105,7 @@ export class OrdersService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const customer = await this.resolveCustomer(tx, body, customerUserId);
+      const customer = await this.resolveCustomer(tx, body, customerUserId, delivery?.address);
       const skuIds = normalizedItems.map((item) => item.skuId as string);
       const skus = await tx.productSKU.findMany({
         where: {
@@ -209,6 +215,7 @@ export class OrdersService {
           storeId: body.storeId,
           customerName: customer.name,
           customerMobile: customer.mobile,
+          deliveryAddress: delivery?.snapshot,
           orderType: orderTypeMap[body.orderType],
           paymentChannel: body.paymentChannel
             ? paymentChannelMap[body.paymentChannel]
@@ -246,7 +253,11 @@ export class OrdersService {
     tx: Prisma.TransactionClient,
     body: CreateOrderDto,
     customerUserId: string | undefined,
+    deliveryAddress?: UserAddress,
   ): Promise<{ name: string; mobile: string }> {
+    if (deliveryAddress) {
+      return { name: deliveryAddress.recipientName, mobile: deliveryAddress.phoneNumber };
+    }
     if (!customerUserId) {
       if (!body.customerName || !body.mobile) {
         throw new BadRequestException('An authenticated customer is required.');
@@ -263,6 +274,17 @@ export class OrdersService {
     }
 
     return { name: body.customerName ?? 'Customer', mobile: phoneIdentity.phoneE164 };
+  }
+
+  private async resolveDelivery(
+    body: CreateOrderDto,
+    customerUserId: string | undefined,
+  ): Promise<{ address: UserAddress; snapshot: string } | undefined> {
+    if (body.orderType !== 'takeout') return undefined;
+    if (!body.addressId) throw new BadRequestException('Delivery address is required.');
+    if (!customerUserId) throw new BadRequestException('An authenticated customer is required for delivery.');
+    const address = await this.addresses.findOwnedAddress(customerUserId, body.addressId);
+    return { address, snapshot: formatDeliveryAddress(address) };
   }
 
   async getOrderSummary(query: QueryOrdersDto): Promise<OrderSummaryStatsContract> {
@@ -652,4 +674,8 @@ export class OrdersService {
 
     return Number(value);
   }
+}
+
+function formatDeliveryAddress(address: UserAddress): string {
+  return `${address.recipientName} ${address.phoneNumber} ${address.provinceName}${address.cityName}${address.countyName}${address.streetName}${address.detailInfo}`;
 }

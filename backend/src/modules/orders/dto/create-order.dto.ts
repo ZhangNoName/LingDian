@@ -101,6 +101,14 @@ export class CreateOrderDto {
   orderType!: 'dine_in' | 'takeout' | 'pickup';
 
   @ApiPropertyOptional({
+    description: 'Owned customer address id, required for takeout delivery',
+    example: 'cmofp2address12345',
+  })
+  @IsOptional()
+  @IsString()
+  addressId?: string;
+
+  @ApiPropertyOptional({
     description: 'Payment channel',
     enum: ['cash', 'wechat', 'alipay', 'customer_scan', 'other'],
     example: 'wechat',
