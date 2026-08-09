@@ -12,6 +12,7 @@ import { StoresModule } from './modules/stores/stores.module';
 import { SystemLogModule } from './modules/system-log/system-log.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AdminUsersModule } from './modules/admin-users/admin-users.module';
+import { AddressesModule } from './modules/addresses/addresses.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { AdminUsersModule } from './modules/admin-users/admin-users.module';
     }),
     PrismaModule,
     AdminUsersModule,
+    AddressesModule,
     AuthModule,
     MerchantModule,
     HealthModule,
