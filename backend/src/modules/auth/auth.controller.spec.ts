@@ -8,6 +8,7 @@ import { MerchantGuard } from '../../common/auth/merchant.guard';
 import { UserApiGuard } from '../../common/auth/user-api.guard';
 import { AuthController } from './auth.controller';
 import { AccountLoginDto } from './dto/account-login.dto';
+import { WechatMiniProgramPhoneLoginDto } from './dto/wechat-mini-program-phone-login.dto';
 
 test('account login validation accepts a bootstrap-compatible nine-character password', async () => {
   const dto = plainToInstance(AccountLoginDto, {
@@ -65,6 +66,65 @@ test('mini-program callback forwards a uni.login code and returns only the pendi
 
   assert.deepEqual(calls, [{ provider: 'wechat', code: 'uni-login-code', audience: 'user-api', ip: '127.0.0.1', device: 'device-1' }]);
   assert.deepEqual(result, { pending_oauth_id: 'pending-1', expires_in: 600 });
+});
+
+test('WeChat mini-program phone login DTO rejects empty or non-user credentials', async () => {
+  const invalid = plainToInstance(WechatMiniProgramPhoneLoginDto, {
+    loginCode: '',
+    phoneCode: '',
+    audience: 'admin-api',
+  });
+  const valid = plainToInstance(WechatMiniProgramPhoneLoginDto, {
+    loginCode: 'login-code',
+    phoneCode: 'phone-code',
+    audience: 'user-api',
+  });
+
+  assert.equal((await validate(invalid)).length, 3);
+  assert.deepEqual(await validate(valid), []);
+});
+
+test('WeChat mini-program phone login issues a session and refresh cookie', async () => {
+  const oauthCalls: unknown[] = [];
+  const cookieCalls: unknown[][] = [];
+  const controller = new AuthController(
+    {} as never,
+    {} as never,
+    {
+      create: async () => ({
+        accessToken: 'access-token',
+        refreshToken: 'refresh-token',
+        expiresIn: 900,
+        user: { userId: 'user-1', sessionId: 'session-1', audience: 'user-api', roles: ['USER'] },
+      }),
+    } as never,
+    {
+      miniProgramPhoneLogin: async (input: unknown) => {
+        oauthCalls.push(input);
+        return { id: 'user-1', sessionVersion: 1, roles: [{ role: 'USER', status: 'ACTIVE' }] };
+      },
+    } as never,
+    { getOrThrow: () => false } as never,
+    {} as never,
+    {} as never,
+  );
+
+  const result = await (controller as any).wechatMiniProgramPhoneLogin(
+    { loginCode: 'login-code', phoneCode: 'phone-code', audience: 'user-api' },
+    { ip: '127.0.0.1', headers: { 'x-device-id': 'mini-device' } },
+    { cookie: (...args: unknown[]) => cookieCalls.push(args), clearCookie: () => undefined },
+  );
+
+  assert.deepEqual(oauthCalls, [{
+    loginCode: 'login-code', phoneCode: 'phone-code', audience: 'user-api',
+    ip: '127.0.0.1', device: 'mini-device',
+  }]);
+  assert.equal(cookieCalls[0]?.[0], 'refresh_token');
+  assert.deepEqual(result, {
+    access_token: 'access-token',
+    expires_in: 900,
+    user: { userId: 'user-1', sessionId: 'session-1', audience: 'user-api', roles: ['USER'] },
+  });
 });
 
 test('does not return a raw refresh credential when an HTTPS request spoofs the native-secure header', async () => {

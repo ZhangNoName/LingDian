@@ -275,3 +275,134 @@ test('linkPhone rejects a disabled phone user before a session can be issued', a
     /user is inactive/i,
   );
 });
+
+test('mini-program phone login creates one phone user and binds the WeChat identity', async () => {
+  const createdIdentities: any[] = [];
+  const user = {
+    id: 'user-1',
+    status: 'ACTIVE' as const,
+    sessionVersion: 1,
+    roles: [{ role: 'USER' as const, status: 'ACTIVE' as const }],
+  };
+  const tx = {
+    authIdentity: {
+      findUnique: async () => null,
+      create: async ({ data }: any) => { createdIdentities.push(data); return data; },
+    },
+    user: {
+      create: async ({ data }: any) => {
+        assert.deepEqual(data.identities.create, {
+          provider: 'PHONE',
+          subject: '+8613800000000',
+          phoneE164: '+8613800000000',
+          verifiedAt: data.identities.create.verifiedAt,
+        });
+        return user;
+      },
+    },
+  };
+  const provider = {
+    provider: 'WECHAT',
+    appId: 'web-wx',
+    miniProgramAppId: 'mini-wx',
+    redirectUri: 'https://client.example/oauth',
+    buildAuthorizationUrl: () => '',
+    exchange: async () => ({ openId: 'unused' }),
+    exchangeMiniProgramCode: async ({ code }: { code: string }) => {
+      assert.equal(code, 'login-code');
+      return { openId: 'openid-1', unionId: 'unionid-1' };
+    },
+    exchangeMiniProgramPhoneCode: async ({ code }: { code: string }) => {
+      assert.equal(code, 'phone-code');
+      return { phoneNumber: '13800000000' };
+    },
+  };
+  const service = new OAuthService(
+    { $transaction: async (callback: any) => callback(tx) } as never,
+    [provider] as never,
+    { consume: async () => undefined } as never,
+    { record: async () => undefined } as never,
+  );
+
+  const result = await (service as any).miniProgramPhoneLogin({
+    loginCode: 'login-code',
+    phoneCode: 'phone-code',
+    audience: 'user-api',
+  });
+
+  assert.equal(result.id, 'user-1');
+  assert.deepEqual(createdIdentities, [{
+    userId: 'user-1',
+    provider: 'WECHAT',
+    subject: 'unionid-1',
+    verifiedAt: createdIdentities[0]?.verifiedAt,
+  }]);
+});
+
+test('mini-program phone login reuses the verified phone user', async () => {
+  const user = {
+    id: 'user-1',
+    status: 'ACTIVE' as const,
+    sessionVersion: 2,
+    roles: [{ role: 'USER' as const, status: 'ACTIVE' as const }],
+  };
+  let userCreates = 0;
+  const tx = {
+    authIdentity: {
+      findUnique: async ({ where }: any) => where.provider_subject.provider === 'PHONE'
+        ? { userId: user.id, user }
+        : null,
+      create: async () => undefined,
+    },
+    user: { create: async () => { userCreates += 1; return user; } },
+  };
+  const provider = {
+    provider: 'WECHAT', appId: 'web-wx', miniProgramAppId: 'mini-wx', redirectUri: 'https://client',
+    buildAuthorizationUrl: () => '', exchange: async () => ({ openId: 'unused' }),
+    exchangeMiniProgramCode: async () => ({ openId: 'openid-1' }),
+    exchangeMiniProgramPhoneCode: async () => ({ phoneNumber: '13800000000' }),
+  };
+  const service = new OAuthService(
+    { $transaction: async (callback: any) => callback(tx) } as never,
+    [provider] as never,
+    { consume: async () => undefined } as never,
+    { record: async () => undefined } as never,
+  );
+
+  const result = await (service as any).miniProgramPhoneLogin({ loginCode: 'login-code', phoneCode: 'phone-code', audience: 'user-api' });
+
+  assert.equal(result.id, user.id);
+  assert.equal(userCreates, 0);
+});
+
+test('mini-program phone login rejects a WeChat identity owned by another user', async () => {
+  const user = {
+    id: 'user-1', status: 'ACTIVE' as const, sessionVersion: 1,
+    roles: [{ role: 'USER' as const, status: 'ACTIVE' as const }],
+  };
+  const tx = {
+    authIdentity: {
+      findUnique: async ({ where }: any) => where.provider_subject.provider === 'PHONE'
+        ? { userId: user.id, user }
+        : { userId: 'user-2' },
+      create: async () => undefined,
+    },
+  };
+  const provider = {
+    provider: 'WECHAT', appId: 'web-wx', miniProgramAppId: 'mini-wx', redirectUri: 'https://client',
+    buildAuthorizationUrl: () => '', exchange: async () => ({ openId: 'unused' }),
+    exchangeMiniProgramCode: async () => ({ openId: 'openid-1' }),
+    exchangeMiniProgramPhoneCode: async () => ({ phoneNumber: '13800000000' }),
+  };
+  const service = new OAuthService(
+    { $transaction: async (callback: any) => callback(tx) } as never,
+    [provider] as never,
+    { consume: async () => undefined } as never,
+    { record: async () => undefined } as never,
+  );
+
+  await assert.rejects(
+    () => (service as any).miniProgramPhoneLogin({ loginCode: 'login-code', phoneCode: 'phone-code', audience: 'user-api' }),
+    /identity already linked/i,
+  );
+});

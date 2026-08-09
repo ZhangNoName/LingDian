@@ -105,6 +105,73 @@ export class OAuthService {
     }
   }
 
+  async miniProgramPhoneLogin(input: {
+    loginCode: string;
+    phoneCode: string;
+    audience: string;
+    ip?: string;
+    device?: string;
+  }): Promise<OAuthUser> {
+    try {
+      this.requireUserAudience(input.audience);
+      const provider = this.provider('WECHAT');
+      if (!provider.exchangeMiniProgramPhoneCode) {
+        throw new BadRequestException('WeChat phone login is unavailable.');
+      }
+      const [wechatProfile, phoneProfile] = await Promise.all([
+        provider.exchangeMiniProgramCode({ code: input.loginCode }),
+        provider.exchangeMiniProgramPhoneCode({ code: input.phoneCode }),
+      ]);
+      const phoneE164 = normalizeChinesePhone(phoneProfile.phoneNumber);
+      const subject = wechatProfile.unionId
+        ? wechatProfile.unionId
+        : `${provider.miniProgramAppId}:${wechatProfile.openId}`;
+
+      const user = await this.transactionWithRetry(async (tx) => {
+        const phoneIdentity = await tx.authIdentity.findUnique({
+          where: { provider_subject: { provider: 'PHONE', subject: phoneE164 } },
+          include: { user: { include: { roles: true } } },
+        });
+        const resolvedUser = phoneIdentity?.user ?? await tx.user.create({
+          data: {
+            identities: {
+              create: {
+                provider: 'PHONE',
+                subject: phoneE164,
+                phoneE164,
+                verifiedAt: new Date(),
+              },
+            },
+            roles: { create: { role: 'USER' } },
+          },
+          include: { roles: true },
+        });
+        if (resolvedUser.status !== 'ACTIVE') throw new UnauthorizedException('User is inactive.');
+        await this.linkIdentityInTransaction(tx, {
+          userId: resolvedUser.id,
+          provider: 'WECHAT',
+          subject,
+        });
+        return resolvedUser;
+      });
+
+      await this.audit.record({
+        event: 'OAUTH_MINIAPP_PHONE_LOGIN_SUCCEEDED',
+        userId: user.id,
+        ip: input.ip,
+        device: input.device,
+      });
+      return user;
+    } catch (error) {
+      await this.audit.record({
+        event: 'OAUTH_MINIAPP_PHONE_LOGIN_REJECTED',
+        ip: input.ip,
+        device: input.device,
+      });
+      throw error;
+    }
+  }
+
   async linkPhone(input: { pendingOauthId: string; phone: string; code: string }): Promise<OAuthUser> {
     try {
       const phoneE164 = normalizeChinesePhone(input.phone);

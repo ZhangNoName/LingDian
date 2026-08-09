@@ -40,6 +40,7 @@ import { PasswordChangeDto } from './dto/password-change.dto';
 import { UpdateNicknameDto } from './dto/update-nickname.dto';
 import { ProfileService } from './profile.service';
 import { CurrentPasswordChangeDto } from './dto/current-password-change.dto';
+import { WechatMiniProgramPhoneLoginDto } from './dto/wechat-mini-program-phone-login.dto';
 
 type AuthRequest = {
   ip?: string;
@@ -86,6 +87,33 @@ export class AuthController {
     @Res({ passthrough: true }) response: AuthResponse,
   ) {
     const issued = await this.auth.phoneLogin(body, requestContext(request));
+    return this.respondWithRefresh(response, issued);
+  }
+
+  @ApiOperation({ summary: 'Sign in with WeChat mini-program phone authorization' })
+  @Post('wechat/miniapp/phone-login')
+  async wechatMiniProgramPhoneLogin(
+    @Body() body: WechatMiniProgramPhoneLoginDto,
+    @Req() request: AuthRequest,
+    @Res({ passthrough: true }) response: AuthResponse,
+  ) {
+    const user = await this.oauth.miniProgramPhoneLogin({
+      ...body,
+      ip: request.ip,
+      device: deviceId(request),
+    });
+    const issued = await this.sessions.create(
+      {
+        id: user.id,
+        sessionVersion: user.sessionVersion,
+        roles: user.roles
+          .filter((role) => role.status === 'ACTIVE')
+          .map((role) => role.role),
+      },
+      'user-api',
+      deviceId(request),
+      requestContext(request),
+    );
     return this.respondWithRefresh(response, issued);
   }
 
