@@ -33,4 +33,12 @@ describe('customer presentation', () => {
       balanceText: '—',
     })
   })
+
+  it('prefers a saved customer nickname over the generated user label', () => {
+    const user: AuthenticatedUser = {
+      userId: 'customer-abc123', sessionId: 'session-1', audience: 'user-api', roles: ['USER'],
+    }
+
+    expect(buildCustomerPresentation(user, { nickname: '零点用户', avatar_data_url: null }).displayName).toBe('零点用户')
+  })
 })

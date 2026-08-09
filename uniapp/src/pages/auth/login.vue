@@ -8,6 +8,15 @@
         </view>
 
         <view class="form-card">
+      <button
+        v-if="supportsWechatQuickLogin"
+        :class="['wechat-login-button', { 'is-disabled': submitting }]"
+        open-type="getPhoneNumber"
+        :loading="submitting"
+        :disabled="submitting"
+        @getphonenumber="wechatPhoneLogin"
+      >微信手机号快捷登录</button>
+      <view v-if="supportsWechatQuickLogin" class="phone-divider"><text>或使用短信验证码</text></view>
       <text id="phone-label" class="field-label">手机号</text>
       <input v-model="phone" :class="['field', { 'is-focused': phoneFocused }]" type="tel" maxlength="11" placeholder="请输入手机号" aria-label="手机号" @focus="phoneFocused = true" @blur="phoneFocused = false" />
       <view class="code-row">
@@ -51,7 +60,9 @@ const cooldown = ref(0);
 const sendingCode = ref(false);
 const submitting = ref(false);
 const returnUrl = ref("/pages/user/user");
-const providers = computed(() => customerAuth.getSupportedThirdPartyProviders());
+const supportedProviders = computed(() => customerAuth.getSupportedThirdPartyProviders());
+const supportsWechatQuickLogin = computed(() => supportedProviders.value.includes("WECHAT"));
+const providers = computed(() => supportedProviders.value.filter((provider) => provider !== "WECHAT"));
 
 let cooldownTimer: ReturnType<typeof setInterval> | undefined;
 
@@ -113,6 +124,24 @@ async function beginThirdPartyLogin(provider: ThirdPartyProvider) {
     pendingOauthId.value = pending.pending_oauth_id;
     code.value = "";
     uni.showToast({ title: "请验证手机号以完成登录", icon: "none" });
+  } catch (error) {
+    showError(error);
+  } finally {
+    submitting.value = false;
+  }
+}
+
+async function wechatPhoneLogin(event: { detail?: { code?: string; errMsg?: string } }) {
+  const phoneCode = event.detail?.code;
+  if (!phoneCode) {
+    uni.showToast({ title: "已取消，可继续使用手机号登录", icon: "none" });
+    return;
+  }
+
+  submitting.value = true;
+  try {
+    await customerAuth.wechatPhoneLogin(phoneCode);
+    uni.reLaunch({ url: returnUrl.value });
   } catch (error) {
     showError(error);
   } finally {
@@ -218,9 +247,42 @@ onUnmounted(() => {
 
 .code-button,
 .submit-button,
-.provider-button {
+.provider-button,
+.wechat-login-button {
   border: 0;
   font-weight: 800;
+}
+
+.wechat-login-button {
+  width: 100%;
+  height: 96rpx;
+  margin: 0;
+  border-radius: 48rpx;
+  background: #07c160;
+  color: #ffffff;
+  font-size: 30rpx;
+  line-height: 96rpx;
+}
+
+.wechat-login-button.is-disabled {
+  background: #8bd8ac;
+}
+
+.phone-divider {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin: 30rpx 0;
+  color: #888888;
+  font-size: 22rpx;
+}
+
+.phone-divider::before,
+.phone-divider::after {
+  height: 1rpx;
+  background: #eeeeee;
+  content: "";
+  flex: 1;
 }
 
 .code-button {

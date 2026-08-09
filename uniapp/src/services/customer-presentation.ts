@@ -1,4 +1,4 @@
-import type { AuthenticatedUser } from '@lingdian/contracts'
+import type { AuthenticatedUser, CustomerProfile } from '@lingdian/contracts'
 
 export type CustomerPresentation = {
   isSignedIn: boolean
@@ -10,7 +10,7 @@ export type CustomerPresentation = {
   balanceText: string
 }
 
-export function buildCustomerPresentation(user: AuthenticatedUser | undefined): CustomerPresentation {
+export function buildCustomerPresentation(user: AuthenticatedUser | undefined, profile?: CustomerProfile): CustomerPresentation {
   if (!user) {
     return {
       isSignedIn: false,
@@ -25,7 +25,7 @@ export function buildCustomerPresentation(user: AuthenticatedUser | undefined): 
 
   return {
     isSignedIn: true,
-    displayName: `用户 ${user.userId.slice(-6)}`,
+    displayName: profile?.nickname?.trim() || `用户 ${user.userId.slice(-6)}`,
     secondaryText: '账号已登录',
     membershipText: '已登录用户',
     pointsText: '—',

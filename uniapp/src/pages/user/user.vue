@@ -2,14 +2,18 @@
   <Layout active="profile">
     <view class="page">
       <AppNavBar />
-      <ProfileHeader :presentation="customerPresentation" />
+      <ProfileHeader
+        :presentation="customerPresentation"
+        :avatar-url="customerProfile?.avatar_data_url"
+        @choose-avatar="chooseAvatar"
+      />
       <view class="nickname-card">
         <view>
           <text class="nickname-label">昵称</text>
           <text class="nickname-hint">昵称可重复，用于向商家展示</text>
         </view>
-        <input v-model="nickname" class="nickname-input" maxlength="32" placeholder="设置昵称" aria-label="昵称" />
-        <button class="nickname-save" role="button" tabindex="0" @keydown.enter="saveNickname" @tap="saveNickname">保存</button>
+        <input v-model="nickname" class="nickname-input" type="nickname" maxlength="32" placeholder="设置昵称" aria-label="昵称" />
+        <button class="nickname-save" role="button" tabindex="0" :loading="savingNickname" :disabled="savingNickname" @keydown.enter="saveNickname" @tap="saveNickname">保存</button>
       </view>
       <MemberBenefitCard :presentation="customerPresentation" />
       <ManageGrid :entries="manageEntries" @select="handleManageEntry" />
@@ -23,7 +27,7 @@
 
 <script setup lang="ts">
 import { HelpIcon } from "@lingdian/icons/miniapp";
-import type { AuthenticatedUser } from "@lingdian/contracts";
+import type { AuthenticatedUser, CustomerProfile } from "@lingdian/contracts";
 import { onShow } from "@dcloudio/uni-app";
 import { computed, ref } from "vue";
 import AppNavBar from "@/components/app/AppNavBar.vue";
@@ -39,11 +43,14 @@ import type { ManageEntry } from "@/types/member";
 
 const servicePhone = "400-888-0123";
 const nickname = ref("");
+const savingNickname = ref(false);
+const uploadingAvatar = ref(false);
 const currentUser = ref<AuthenticatedUser | undefined>(customerAuth.getUser());
-const customerPresentation = computed(() => buildCustomerPresentation(currentUser.value));
+const customerProfile = ref<CustomerProfile>();
+const customerPresentation = computed(() => buildCustomerPresentation(currentUser.value, customerProfile.value));
 const manageEntries: ManageEntry[] = [
   { key: "orders", label: "我的订单", available: true, route: "/pages/his/his" },
-  { key: "address", label: "地址管理", available: false },
+  { key: "address", label: "地址管理", available: true, route: "/pages/address/address" },
   { key: "favorites", label: "我的收藏", available: false },
   { key: "transactions", label: "交易记录", available: false },
 ];
@@ -51,6 +58,12 @@ const manageEntries: ManageEntry[] = [
 onShow(async () => {
   if (!(await requireCustomerAuth("/pages/user/user"))) return;
   currentUser.value = customerAuth.getUser();
+  try {
+    customerProfile.value = await profile.get();
+    nickname.value = customerProfile.value.nickname ?? "";
+  } catch (error) {
+    uni.showToast({ title: error instanceof Error ? error.message : "资料加载失败", icon: "none" });
+  }
 });
 
 function handleManageEntry(entry: ManageEntry) {
@@ -67,12 +80,39 @@ function showServicePhone() {
 }
 
 async function saveNickname() {
+  if (!nickname.value.trim()) {
+    uni.showToast({ title: "请输入昵称", icon: "none" });
+    return;
+  }
+  savingNickname.value = true;
   try {
     const updated = await profile.updateNickname(nickname.value);
     nickname.value = updated.nickname;
+    customerProfile.value = {
+      nickname: updated.nickname,
+      avatar_data_url: customerProfile.value?.avatar_data_url ?? null,
+    };
     uni.showToast({ title: "昵称已保存", icon: "success" });
   } catch (error) {
     uni.showToast({ title: error instanceof Error ? error.message : "昵称保存失败", icon: "none" });
+  } finally {
+    savingNickname.value = false;
+  }
+}
+
+async function chooseAvatar(event: unknown) {
+  if (uploadingAvatar.value) return;
+  const avatarUrl = (event as { detail?: { avatarUrl?: string } })?.detail?.avatarUrl;
+  if (!avatarUrl) return;
+  uploadingAvatar.value = true;
+  try {
+    customerProfile.value = await profile.uploadAvatar(avatarUrl);
+    nickname.value = customerProfile.value.nickname ?? nickname.value;
+    uni.showToast({ title: "头像已更新", icon: "success" });
+  } catch (error) {
+    uni.showToast({ title: error instanceof Error ? error.message : "头像上传失败", icon: "none" });
+  } finally {
+    uploadingAvatar.value = false;
   }
 }
 </script>
