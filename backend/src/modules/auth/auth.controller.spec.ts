@@ -25,6 +25,32 @@ test('nickname endpoint accepts every authenticated audience through only the ac
   assert.deepEqual(guards, [AccessTokenGuard]);
 });
 
+test('customer profile read and avatar upload require the user-api audience', () => {
+  for (const endpoint of ['getProfile', 'uploadAvatar'] as const) {
+    const handler = (AuthController.prototype as any)[endpoint];
+    const guards = Reflect.getMetadata(GUARDS_METADATA, handler) as unknown[];
+    assert.ok(guards.includes(AccessTokenGuard));
+    assert.ok(guards.includes(UserApiGuard));
+  }
+});
+
+test('customer profile endpoints use the authenticated user id', async () => {
+  const calls: unknown[] = [];
+  const controller = new AuthController(
+    {} as never, {} as never, {} as never, {} as never, {} as never, {} as never,
+    {
+      get: async (userId: string) => { calls.push(['get', userId]); return { nickname: '零点用户', avatar_data_url: null }; },
+      setAvatar: async (userId: string, file: unknown) => { calls.push(['avatar', userId, file]); return { nickname: '零点用户', avatar_data_url: 'data:image/png;base64,eA==' }; },
+    } as never,
+  );
+  const user = { userId: 'user-1' } as never;
+  const file = { buffer: Buffer.from('x'), mimetype: 'image/png', size: 1 };
+
+  assert.deepEqual(await (controller as any).getProfile(user), { nickname: '零点用户', avatar_data_url: null });
+  assert.deepEqual(await (controller as any).uploadAvatar(user, file), { nickname: '零点用户', avatar_data_url: 'data:image/png;base64,eA==' });
+  assert.deepEqual(calls, [['get', 'user-1'], ['avatar', 'user-1', file]]);
+});
+
 test('identity bind and unlink endpoints require the user-api audience guard', () => {
   for (const endpoint of ['bindIdentity', 'unlinkIdentity'] as const) {
     const guards = Reflect.getMetadata(GUARDS_METADATA, AuthController.prototype[endpoint]) as unknown[];

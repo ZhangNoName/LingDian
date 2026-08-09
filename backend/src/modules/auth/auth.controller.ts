@@ -11,7 +11,9 @@ import {
   Req,
   Res,
   UnauthorizedException,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -41,6 +43,7 @@ import { UpdateNicknameDto } from './dto/update-nickname.dto';
 import { ProfileService } from './profile.service';
 import { CurrentPasswordChangeDto } from './dto/current-password-change.dto';
 import { WechatMiniProgramPhoneLoginDto } from './dto/wechat-mini-program-phone-login.dto';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 type AuthRequest = {
   ip?: string;
@@ -181,6 +184,26 @@ export class AuthController {
   @Patch('profile/nickname')
   async updateNickname(@CurrentUser() user: AuthenticatedUser, @Body() body: UpdateNicknameDto) {
     return this.profile.setNickname(user.userId, body.nickname);
+  }
+
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get the current customer profile' })
+  @UseGuards(AccessTokenGuard, UserApiGuard)
+  @Get('profile')
+  getProfile(@CurrentUser() user: AuthenticatedUser) {
+    return this.profile.get(user.userId);
+  }
+
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Upload the current customer avatar' })
+  @UseGuards(AccessTokenGuard, UserApiGuard)
+  @UseInterceptors(FileInterceptor('avatar', { limits: { fileSize: 512 * 1024 } }))
+  @Post('profile/avatar')
+  uploadAvatar(
+    @CurrentUser() user: AuthenticatedUser,
+    @UploadedFile() file: { buffer: Buffer; mimetype: string; size: number } | undefined,
+  ) {
+    return this.profile.setAvatar(user.userId, file);
   }
 
   @ApiOperation({ summary: 'Start a user OAuth authorization flow' })
