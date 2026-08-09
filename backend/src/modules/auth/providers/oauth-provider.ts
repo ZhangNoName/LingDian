@@ -16,4 +16,7 @@ export interface OAuthProvider {
     unionId?: string;
     displayName?: string;
   }>;
+  exchangeMiniProgramPhoneCode?(input: { code: string }): Promise<{
+    phoneNumber: string;
+  }>;
 }
