@@ -1,4 +1,4 @@
-import type { AuthTokens, AuthenticatedUser, PendingOAuthResponse } from "@lingdian/contracts";
+import type { AuthTokens, AuthenticatedUser, LegalConsentInput, PendingOAuthResponse } from "@lingdian/contracts";
 import { getCustomerAuthMessage } from "./auth-message";
 
 function apiBase(): string {
@@ -125,10 +125,10 @@ export const customerAuth = {
     });
   },
 
-  async phoneLogin(phone: string, code: string): Promise<void> {
+  async phoneLogin(phone: string, code: string, legalConsent: LegalConsentInput): Promise<void> {
     const tokens = await authRequest<AuthTokens>("/auth/phone/login", {
       method: "POST",
-      data: { phone, code, audience: "user-api" },
+      data: { phone, code, audience: "user-api", legalConsent },
     });
     this.acceptLogin(tokens);
   },
@@ -141,19 +141,24 @@ export const customerAuth = {
     return beginMiniProgramThirdPartyLogin(provider);
   },
 
-  async wechatPhoneLogin(phoneCode: string): Promise<void> {
+  async wechatPhoneLogin(phoneCode: string, legalConsent: LegalConsentInput): Promise<void> {
     const loginCode = await loginWithProvider("WECHAT");
     const tokens = await authRequest<AuthTokens>("/auth/wechat/miniapp/phone-login", {
       method: "POST",
-      data: { loginCode, phoneCode, audience: "user-api" },
+      data: { loginCode, phoneCode, audience: "user-api", legalConsent },
     });
     this.acceptLogin(tokens);
   },
 
-  async completePhoneLink(pendingOauthId: string, phone: string, code: string): Promise<void> {
+  async completePhoneLink(
+    pendingOauthId: string,
+    phone: string,
+    code: string,
+    legalConsent: LegalConsentInput,
+  ): Promise<void> {
     const tokens = await authRequest<AuthTokens>("/auth/oauth/link-phone", {
       method: "POST",
-      data: { pendingOauthId, phone, code },
+      data: { pendingOauthId, phone, code, legalConsent },
     });
     this.acceptLogin(tokens);
   },
