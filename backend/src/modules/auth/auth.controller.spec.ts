@@ -8,7 +8,14 @@ import { MerchantGuard } from '../../common/auth/merchant.guard';
 import { UserApiGuard } from '../../common/auth/user-api.guard';
 import { AuthController } from './auth.controller';
 import { AccountLoginDto } from './dto/account-login.dto';
+import { CompleteOAuthLoginDto } from './dto/complete-oauth-login.dto';
+import { PhoneLoginDto } from './dto/phone-login.dto';
 import { WechatMiniProgramPhoneLoginDto } from './dto/wechat-mini-program-phone-login.dto';
+
+const currentConsent = {
+  userAgreementVersion: '2026-08-17',
+  privacyPolicyVersion: '2026-08-17',
+};
 
 test('account login validation accepts a bootstrap-compatible nine-character password', async () => {
   const dto = plainToInstance(AccountLoginDto, {
@@ -104,10 +111,36 @@ test('WeChat mini-program phone login DTO rejects empty or non-user credentials'
     loginCode: 'login-code',
     phoneCode: 'phone-code',
     audience: 'user-api',
+    legalConsent: currentConsent,
   });
 
-  assert.equal((await validate(invalid)).length, 3);
+  assert.ok((await validate(invalid)).length >= 4);
   assert.deepEqual(await validate(valid), []);
+});
+
+test('consumer login DTOs require nested current legal-consent versions while admin phone login stays exempt', async () => {
+  const userPhoneMissing = plainToInstance(PhoneLoginDto, {
+    phone: '13800000000', code: '123456', audience: 'user-api',
+  });
+  const adminPhoneMissing = plainToInstance(PhoneLoginDto, {
+    phone: '13800000000', code: '123456', audience: 'admin-api',
+  });
+  const userPhoneCurrent = plainToInstance(PhoneLoginDto, {
+    phone: '13800000000', code: '123456', audience: 'user-api', legalConsent: currentConsent,
+  });
+  const oauthOutdated = plainToInstance(CompleteOAuthLoginDto, {
+    pendingOauthId: 'pending-1', phone: '13800000000', code: '123456',
+    legalConsent: { ...currentConsent, privacyPolicyVersion: 'outdated' },
+  });
+  const oauthCurrent = plainToInstance(CompleteOAuthLoginDto, {
+    pendingOauthId: 'pending-1', phone: '13800000000', code: '123456', legalConsent: currentConsent,
+  });
+
+  assert.ok((await validate(userPhoneMissing)).length > 0);
+  assert.deepEqual(await validate(adminPhoneMissing), []);
+  assert.deepEqual(await validate(userPhoneCurrent), []);
+  assert.ok((await validate(oauthOutdated)).length > 0);
+  assert.deepEqual(await validate(oauthCurrent), []);
 });
 
 test('WeChat mini-program phone login issues a session and refresh cookie', async () => {
@@ -136,13 +169,14 @@ test('WeChat mini-program phone login issues a session and refresh cookie', asyn
   );
 
   const result = await (controller as any).wechatMiniProgramPhoneLogin(
-    { loginCode: 'login-code', phoneCode: 'phone-code', audience: 'user-api' },
+    { loginCode: 'login-code', phoneCode: 'phone-code', audience: 'user-api', legalConsent: currentConsent },
     { ip: '127.0.0.1', headers: { 'x-device-id': 'mini-device' } },
     { cookie: (...args: unknown[]) => cookieCalls.push(args), clearCookie: () => undefined },
   );
 
   assert.deepEqual(oauthCalls, [{
     loginCode: 'login-code', phoneCode: 'phone-code', audience: 'user-api',
+    legalConsent: currentConsent,
     ip: '127.0.0.1', device: 'mini-device',
   }]);
   assert.equal(cookieCalls[0]?.[0], 'refresh_token');
@@ -151,6 +185,40 @@ test('WeChat mini-program phone login issues a session and refresh cookie', asyn
     expires_in: 900,
     user: { userId: 'user-1', sessionId: 'session-1', audience: 'user-api', roles: ['USER'] },
   });
+});
+
+test('OAuth phone-link completion forwards legal consent with request context', async () => {
+  const oauthCalls: unknown[] = [];
+  const controller = new AuthController(
+    {} as never,
+    {} as never,
+    {
+      create: async () => ({
+        accessToken: 'access-token', refreshToken: 'refresh-token', expiresIn: 900,
+        user: { userId: 'user-1', sessionId: 'session-1', audience: 'user-api', roles: ['USER'] },
+      }),
+    } as never,
+    {
+      linkPhone: async (input: unknown) => {
+        oauthCalls.push(input);
+        return { id: 'user-1', sessionVersion: 1, roles: [{ role: 'USER', status: 'ACTIVE' }] };
+      },
+    } as never,
+    { getOrThrow: () => false } as never,
+    {} as never,
+    {} as never,
+  );
+
+  await controller.linkPhone(
+    { pendingOauthId: 'pending-1', phone: '13800000000', code: '123456', legalConsent: currentConsent } as CompleteOAuthLoginDto,
+    { ip: '127.0.0.1', headers: { 'x-device-id': 'miniapp' } },
+    { cookie: () => undefined, clearCookie: () => undefined },
+  );
+
+  assert.deepEqual(oauthCalls, [{
+    pendingOauthId: 'pending-1', phone: '13800000000', code: '123456', legalConsent: currentConsent,
+    ip: '127.0.0.1', device: 'miniapp',
+  }]);
 });
 
 test('does not return a raw refresh credential when an HTTPS request spoofs the native-secure header', async () => {

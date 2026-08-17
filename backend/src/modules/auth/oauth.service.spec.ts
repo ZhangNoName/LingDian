@@ -2,6 +2,15 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { OAuthService } from './oauth.service';
 
+const currentConsent = {
+  userAgreementVersion: '2026-08-17',
+  privacyPolicyVersion: '2026-08-17',
+};
+const legalConsentService = {
+  assertCurrentForAudience: () => undefined,
+  record: async () => undefined,
+} as never;
+
 function serviceWithProvider(options: {
   provider?: 'WECHAT' | 'QQ';
   appId?: string;
@@ -49,9 +58,110 @@ function serviceWithProvider(options: {
       { consume: async () => undefined } as never,
       { record: async (input: any) => { audits.push(input); } } as never,
       'test-refresh-pepper',
+      legalConsentService,
     ),
   };
 }
+
+test('validates and records consent during WeChat phone login', async () => {
+  const events: string[] = [];
+  const user = {
+    id: 'user-1', status: 'ACTIVE' as const, sessionVersion: 1,
+    roles: [{ role: 'USER' as const, status: 'ACTIVE' as const }],
+  };
+  let transactionClient: unknown;
+  const provider = {
+    provider: 'WECHAT', appId: 'wx-app', miniProgramAppId: 'mini-wx-app', redirectUri: 'https://client',
+    buildAuthorizationUrl: () => '',
+    exchange: async () => ({ openId: 'openid' }),
+    exchangeMiniProgramCode: async () => { events.push('wechat-code'); return { openId: 'openid', unionId: 'unionid' }; },
+    exchangeMiniProgramPhoneCode: async () => { events.push('phone-code'); return { phoneNumber: '13800000000' }; },
+  };
+  const service = new OAuthService(
+    {
+      $transaction: async (operation: (tx: unknown) => Promise<unknown>) => {
+        const tx = {
+          authIdentity: {
+            findUnique: async ({ where }: any) => where.provider_subject.provider === 'PHONE' ? { userId: user.id, user } : { userId: user.id },
+            create: async () => undefined,
+          },
+        };
+        transactionClient = tx;
+        return operation(tx);
+      },
+    } as never,
+    [provider] as never,
+    { consume: async () => undefined } as never,
+    { record: async () => undefined } as never,
+    'test-refresh-pepper',
+    {
+      assertCurrentForAudience: () => { events.push('validate'); },
+      record: async (userId: string, _input: unknown, context: any, client: unknown) => {
+        assert.equal(userId, 'user-1');
+        assert.equal(context.ip, '127.0.0.1');
+        assert.equal(context.deviceId, 'miniapp');
+        assert.equal(client, transactionClient);
+        events.push('consent');
+      },
+    } as never,
+  );
+
+  await service.miniProgramPhoneLogin({
+    loginCode: 'login-code', phoneCode: 'phone-code', audience: 'user-api',
+    legalConsent: currentConsent, ip: '127.0.0.1', device: 'miniapp',
+  });
+
+  assert.equal(events[0], 'validate');
+  assert.ok(events.includes('consent'));
+});
+
+test('records consent in the pending OAuth phone-link transaction', async () => {
+  const user = {
+    id: 'user-1', status: 'ACTIVE' as const, sessionVersion: 1,
+    roles: [{ role: 'USER' as const, status: 'ACTIVE' as const }],
+  };
+  let transactionClient: unknown;
+  let recorded = false;
+  const service = new OAuthService(
+    {
+      $transaction: async (operation: (tx: unknown) => Promise<unknown>) => {
+        const tx = {
+          pendingOAuth: {
+            findFirst: async () => ({ id: 'pending-1', provider: 'QQ', subject: 'qq:openid', expiresAt: new Date(Date.now() + 60_000) }),
+            updateMany: async () => ({ count: 1 }),
+          },
+          authIdentity: {
+            findUnique: async ({ where }: any) => where.provider_subject.provider === 'PHONE'
+              ? { userId: user.id, user }
+              : { userId: user.id },
+            create: async () => undefined,
+          },
+        };
+        transactionClient = tx;
+        return operation(tx);
+      },
+    } as never,
+    [] as never,
+    { consume: async () => undefined } as never,
+    { record: async () => undefined } as never,
+    'test-refresh-pepper',
+    {
+      assertCurrentForAudience: () => undefined,
+      record: async (userId: string, _input: unknown, _context: unknown, client: unknown) => {
+        assert.equal(userId, 'user-1');
+        assert.equal(client, transactionClient);
+        recorded = true;
+      },
+    } as never,
+  );
+
+  await service.linkPhone({
+    pendingOauthId: 'pending-1', phone: '13800000000', code: '123456',
+    legalConsent: currentConsent, ip: '127.0.0.1', device: 'miniapp',
+  });
+
+  assert.equal(recorded, true);
+});
 
 test('refuses to attach a QQ subject belonging to another user', async () => {
   const oauthService = new OAuthService(
@@ -63,6 +173,8 @@ test('refuses to attach a QQ subject belonging to another user', async () => {
     [] as never,
     { consume: async () => undefined } as never,
     { record: async () => undefined } as never,
+    'test-refresh-pepper',
+    legalConsentService,
   );
 
   await assert.rejects(
@@ -141,7 +253,7 @@ test('audits rejected provider, audience, and phone-normalization paths', async 
   const { audits, service } = serviceWithProvider();
   await assert.rejects(() => service.start({ provider: 'missing', audience: 'user-api' }), /unsupported/i);
   await assert.rejects(() => service.callback({ provider: 'WECHAT', code: 'c', state: 'state-state-state', audience: 'admin-api' }), /only available/i);
-  await assert.rejects(() => service.linkPhone({ pendingOauthId: 'p', phone: 'bad', code: '123456' }), /mainland Chinese mobile/i);
+  await assert.rejects(() => service.linkPhone({ pendingOauthId: 'p', phone: 'bad', code: '123456', legalConsent: currentConsent }), /mainland Chinese mobile/i);
 
   assert.deepEqual(audits.map((audit) => audit.event), ['OAUTH_START_REJECTED', 'OAUTH_CALLBACK_REJECTED', 'OAUTH_PHONE_LINK_REJECTED']);
 });
@@ -153,10 +265,12 @@ test('does not burn a PHONE_LINK code when its serializable attachment transacti
     [] as never,
     { consume: async () => { consumes += 1; } } as never,
     { record: async () => undefined } as never,
+    'test-refresh-pepper',
+    legalConsentService,
   );
 
   await assert.rejects(
-    () => service.linkPhone({ pendingOauthId: 'pending-1', phone: '13800000000', code: '123456' }),
+    () => service.linkPhone({ pendingOauthId: 'pending-1', phone: '13800000000', code: '123456', legalConsent: currentConsent }),
     /attachment failed/i,
   );
   assert.equal(consumes, 0);
@@ -190,9 +304,11 @@ test('retries a P2034 race before consuming a PHONE_LINK code and attaching the 
     [] as never,
     { consume: async (_input: unknown, client: unknown) => { assert.equal(client, tx); consumes += 1; } } as never,
     { record: async () => undefined } as never,
+    'test-refresh-pepper',
+    legalConsentService,
   );
 
-  const linked = await service.linkPhone({ pendingOauthId: pending.id, phone: '13800000000', code: '123456' });
+  const linked = await service.linkPhone({ pendingOauthId: pending.id, phone: '13800000000', code: '123456', legalConsent: currentConsent });
 
   assert.equal(linked.id, user.id);
   assert.equal(attempts, 2);
@@ -217,6 +333,8 @@ test('bindPendingIdentity rejects a third-party subject already owned by another
     [{ provider: 'QQ', appId: 'qq-app', redirectUri: 'https://client', buildAuthorizationUrl: () => '', exchange: async () => ({ openId: 'ignored' }) }] as never,
     { consume: async (_input: unknown, client: unknown) => assert.equal(client, tx) } as never,
     { record: async () => undefined } as never,
+    'test-refresh-pepper',
+    legalConsentService,
   );
 
   await assert.rejects(
@@ -241,6 +359,8 @@ test('unbindIdentity requires a current users PHONE_LINK verification and retain
     [] as never,
     { consume: async (_input: unknown, client: unknown) => assert.equal(client, tx) } as never,
     { record: async () => undefined } as never,
+    'test-refresh-pepper',
+    legalConsentService,
   );
 
   await assert.rejects(
@@ -268,10 +388,12 @@ test('linkPhone rejects a disabled phone user before a session can be issued', a
     [] as never,
     { consume: async () => undefined } as never,
     { record: async () => undefined } as never,
+    'test-refresh-pepper',
+    legalConsentService,
   );
 
   await assert.rejects(
-    () => service.linkPhone({ pendingOauthId: 'pending-1', phone: '13800000000', code: '123456' }),
+    () => service.linkPhone({ pendingOauthId: 'pending-1', phone: '13800000000', code: '123456', legalConsent: currentConsent }),
     /user is inactive/i,
   );
 });
@@ -322,12 +444,15 @@ test('mini-program phone login creates one phone user and binds the WeChat ident
     [provider] as never,
     { consume: async () => undefined } as never,
     { record: async () => undefined } as never,
+    'test-refresh-pepper',
+    legalConsentService,
   );
 
   const result = await (service as any).miniProgramPhoneLogin({
     loginCode: 'login-code',
     phoneCode: 'phone-code',
     audience: 'user-api',
+    legalConsent: currentConsent,
   });
 
   assert.equal(result.id, 'user-1');
@@ -367,9 +492,11 @@ test('mini-program phone login reuses the verified phone user', async () => {
     [provider] as never,
     { consume: async () => undefined } as never,
     { record: async () => undefined } as never,
+    'test-refresh-pepper',
+    legalConsentService,
   );
 
-  const result = await (service as any).miniProgramPhoneLogin({ loginCode: 'login-code', phoneCode: 'phone-code', audience: 'user-api' });
+  const result = await (service as any).miniProgramPhoneLogin({ loginCode: 'login-code', phoneCode: 'phone-code', audience: 'user-api', legalConsent: currentConsent });
 
   assert.equal(result.id, user.id);
   assert.equal(userCreates, 0);
@@ -399,10 +526,12 @@ test('mini-program phone login rejects a WeChat identity owned by another user',
     [provider] as never,
     { consume: async () => undefined } as never,
     { record: async () => undefined } as never,
+    'test-refresh-pepper',
+    legalConsentService,
   );
 
   await assert.rejects(
-    () => (service as any).miniProgramPhoneLogin({ loginCode: 'login-code', phoneCode: 'phone-code', audience: 'user-api' }),
+    () => (service as any).miniProgramPhoneLogin({ loginCode: 'login-code', phoneCode: 'phone-code', audience: 'user-api', legalConsent: currentConsent }),
     /identity already linked/i,
   );
 });

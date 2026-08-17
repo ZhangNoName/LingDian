@@ -31,6 +31,7 @@ import { RefreshDto } from './dto/refresh.dto';
 import { SendCodeDto } from './dto/send-code.dto';
 import { OAuthCallbackDto } from './dto/oauth-callback.dto';
 import { MiniProgramOAuthCallbackDto } from './dto/mini-program-oauth-callback.dto';
+import { CompleteOAuthLoginDto } from './dto/complete-oauth-login.dto';
 import { LinkPhoneDto } from './dto/link-phone.dto';
 import { UnlinkIdentityDto } from './dto/unlink-identity.dto';
 import { OAuthService } from './oauth.service';
@@ -242,11 +243,15 @@ export class AuthController {
   @ApiOperation({ summary: 'Complete a pending OAuth binding with a verified phone number' })
   @Post('oauth/link-phone')
   async linkPhone(
-    @Body() body: LinkPhoneDto,
+    @Body() body: CompleteOAuthLoginDto,
     @Req() request: AuthRequest,
     @Res({ passthrough: true }) response: AuthResponse,
   ) {
-    const user = await this.oauth.linkPhone(body);
+    const user = await this.oauth.linkPhone({
+      ...body,
+      ip: request.ip,
+      device: deviceId(request),
+    });
     const issued = await this.sessions.create(
       { id: user.id, sessionVersion: user.sessionVersion, roles: user.roles.filter((role) => role.status === 'ACTIVE').map((role) => role.role) },
       'user-api',

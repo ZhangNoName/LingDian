@@ -1,5 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsIn, IsNotEmpty, IsString, Length, MaxLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsDefined, IsIn, IsNotEmpty, IsString, Length, ValidateIf, ValidateNested } from 'class-validator';
+import { LegalConsentDto } from './legal-consent.dto';
 
 export class PhoneLoginDto {
   @ApiProperty({ example: '13800000000' })
@@ -15,4 +17,10 @@ export class PhoneLoginDto {
   @ApiProperty({ enum: ['user-api', 'admin-api'], example: 'user-api' })
   @IsIn(['user-api', 'admin-api'])
   audience!: 'user-api' | 'admin-api';
+
+  @ValidateIf((input: PhoneLoginDto) => input.audience === 'user-api')
+  @IsDefined()
+  @ValidateNested()
+  @Type(() => LegalConsentDto)
+  legalConsent?: LegalConsentDto;
 }

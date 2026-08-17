@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import type { CompleteOAuthLoginRequest, LegalConsentInput } from '@lingdian/contracts';
 import { Prisma } from '@lingdian/db';
 import { createCipheriv, createHash, createHmac, randomBytes } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -7,6 +8,7 @@ import { AuditService } from './audit.service';
 import { normalizeChinesePhone } from './phone';
 import { OAUTH_PROVIDERS, OAuthProvider } from './providers/oauth-provider';
 import { AUTH_REFRESH_PEPPER, VerificationService } from './verification.service';
+import { LegalConsentService } from './legal-consent.service';
 
 const PENDING_OAUTH_TTL_MS = 10 * 60 * 1000;
 const STATE_PLACEHOLDER_SUBJECT = '__oauth_state__';
@@ -31,6 +33,7 @@ export class OAuthService {
     private readonly verification: VerificationService,
     private readonly audit: AuditService,
     @Inject(AUTH_REFRESH_PEPPER) private readonly refreshPepper: string = 'test-refresh-pepper',
+    private readonly legalConsent: LegalConsentService,
   ) {
     this.providers = new Map(providers.map((provider) => [provider.provider, provider]));
   }
@@ -109,10 +112,12 @@ export class OAuthService {
     loginCode: string;
     phoneCode: string;
     audience: string;
+    legalConsent: LegalConsentInput;
     ip?: string;
     device?: string;
   }): Promise<OAuthUser> {
     try {
+      this.legalConsent.assertCurrentForAudience(input.audience, input.legalConsent);
       this.requireUserAudience(input.audience);
       const provider = this.provider('WECHAT');
       if (!provider.exchangeMiniProgramPhoneCode) {
@@ -152,6 +157,12 @@ export class OAuthService {
           provider: 'WECHAT',
           subject,
         });
+        await this.legalConsent.record(
+          resolvedUser.id,
+          input.legalConsent,
+          { ip: input.ip, deviceId: input.device ?? 'unknown' },
+          tx,
+        );
         return resolvedUser;
       });
 
@@ -172,12 +183,20 @@ export class OAuthService {
     }
   }
 
-  async linkPhone(input: { pendingOauthId: string; phone: string; code: string }): Promise<OAuthUser> {
+  async linkPhone(input: CompleteOAuthLoginRequest & { ip?: string; device?: string }): Promise<OAuthUser> {
     try {
+      this.legalConsent.assertCurrentForAudience('user-api', input.legalConsent);
       const phoneE164 = normalizeChinesePhone(input.phone);
       const user = await this.transactionWithRetry(async (tx) => {
         await this.verification.consume({ purpose: 'PHONE_LINK', phone: input.phone, code: input.code }, tx);
-        return this.consumePendingIntoPhoneUser(tx, input.pendingOauthId, phoneE164);
+        const resolvedUser = await this.consumePendingIntoPhoneUser(tx, input.pendingOauthId, phoneE164);
+        await this.legalConsent.record(
+          resolvedUser.id,
+          input.legalConsent,
+          { ip: input.ip, deviceId: input.device ?? 'unknown' },
+          tx,
+        );
+        return resolvedUser;
       });
       await this.audit.record({ event: 'OAUTH_PHONE_LINKED', userId: user.id });
       return user;
