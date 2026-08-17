@@ -21,6 +21,7 @@ import { AccountAuthService } from './account-auth.service';
 import { MerchantAdminService } from './merchant-admin.service';
 import { MerchantAdminController } from './merchant-admin.controller';
 import { ProfileService } from './profile.service';
+import { LegalConsentService } from './legal-consent.service';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { ProfileService } from './profile.service';
     AccountAuthService,
     MerchantAdminService,
     ProfileService,
+    LegalConsentService,
     AuthService,
     WechatOAuthProvider,
     QqOAuthProvider,
@@ -59,6 +61,6 @@ import { ProfileService } from './profile.service';
     SuperAdminGuard,
     UserApiGuard,
   ],
-  exports: [JwtModule, AuthService, VerificationService, SessionService, PasswordService, AccountAuthService, MerchantAdminService, ProfileService, OAuthService, AccessTokenGuard, AdminGuard, MerchantGuard, SuperAdminGuard, UserApiGuard],
+  exports: [JwtModule, AuthService, VerificationService, SessionService, PasswordService, AccountAuthService, MerchantAdminService, ProfileService, LegalConsentService, OAuthService, AccessTokenGuard, AdminGuard, MerchantGuard, SuperAdminGuard, UserApiGuard],
 })
 export class AuthModule {}

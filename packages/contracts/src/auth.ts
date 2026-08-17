@@ -2,6 +2,16 @@ export type AuthAudience = 'user-api' | 'admin-api' | 'merchant-api';
 
 export type AuthRole = 'USER' | 'ADMIN' | 'SUPER_ADMIN' | 'MERCHANT';
 
+export const LEGAL_DOCUMENT_VERSIONS = {
+  USER_AGREEMENT: '2026-08-17',
+  PRIVACY_POLICY: '2026-08-17',
+} as const;
+
+export interface LegalConsentInput {
+  userAgreementVersion: string;
+  privacyPolicyVersion: string;
+}
+
 export interface AuthenticatedUser {
   userId: string;
   sessionId: string;
@@ -22,6 +32,7 @@ export interface PhoneLoginRequest {
   phone: string;
   code: string;
   audience: 'user-api' | 'admin-api';
+  legalConsent?: LegalConsentInput;
 }
 
 export interface AccountLoginRequest {
@@ -125,6 +136,14 @@ export interface WechatMiniProgramPhoneLoginRequest {
   loginCode: string;
   phoneCode: string;
   audience: 'user-api';
+  legalConsent: LegalConsentInput;
+}
+
+export interface CompleteOAuthLoginRequest {
+  pendingOauthId: string;
+  phone: string;
+  code: string;
+  legalConsent: LegalConsentInput;
 }
 
 export interface CustomerProfile {

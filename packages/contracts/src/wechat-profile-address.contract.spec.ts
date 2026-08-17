@@ -4,6 +4,7 @@ import type {
   UserAddress,
   WechatMiniProgramPhoneLoginRequest,
 } from './auth';
+import { LEGAL_DOCUMENT_VERSIONS } from './auth';
 import type { OrderSummaryContract } from './order';
 
 export function constructWechatProfileAddressContracts() {
@@ -11,6 +12,10 @@ export function constructWechatProfileAddressContracts() {
     loginCode: 'login-code',
     phoneCode: 'phone-code',
     audience: 'user-api',
+    legalConsent: {
+      userAgreementVersion: LEGAL_DOCUMENT_VERSIONS.USER_AGREEMENT,
+      privacyPolicyVersion: LEGAL_DOCUMENT_VERSIONS.PRIVACY_POLICY,
+    },
   } satisfies WechatMiniProgramPhoneLoginRequest;
   const input = {
     recipientName: '张三',

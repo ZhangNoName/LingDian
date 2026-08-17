@@ -1,4 +1,4 @@
-import type { WechatMiniProgramPhoneLoginRequest } from '@lingdian/contracts';
+import type { LegalConsentInput, WechatMiniProgramPhoneLoginRequest } from '@lingdian/contracts';
 import { IsIn, IsString, Length } from 'class-validator';
 
 export class WechatMiniProgramPhoneLoginDto implements WechatMiniProgramPhoneLoginRequest {
@@ -12,4 +12,6 @@ export class WechatMiniProgramPhoneLoginDto implements WechatMiniProgramPhoneLog
 
   @IsIn(['user-api'])
   audience!: 'user-api';
+
+  legalConsent!: LegalConsentInput;
 }
