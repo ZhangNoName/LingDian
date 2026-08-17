@@ -103,4 +103,19 @@ describe("legal documents", () => {
       expect(allText).toMatch(new RegExp(`${fact}[^\n]*【正式发布前补充】`));
     }
   });
+
+  it("does not claim a self-service cancellation entry that the mini program does not provide", () => {
+    const agreementText = userAgreementDocument.sections
+      .flatMap((section) => [...section.paragraphs, ...(section.bullets ?? [])])
+      .join("\n");
+    const privacyText = privacyPolicyDocument.sections
+      .flatMap((section) => [...section.paragraphs, ...(section.bullets ?? [])])
+      .join("\n");
+
+    for (const text of [agreementText, privacyText]) {
+      expect(text).not.toContain("小程序已提供的账户入口");
+      expect(text).not.toContain("已提供的账户入口");
+      expect(text).toContain("账户注销申请渠道：【正式发布前补充】");
+    }
+  });
 });

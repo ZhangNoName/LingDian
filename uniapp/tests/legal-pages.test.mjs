@@ -48,3 +48,9 @@ test("the shared reader owns scrolling and uses WXSS-compatible class-only selec
   assert.match(reader, /<scroll-view[^>]*class="legal-scroll"[^>]*scroll-y/);
   assert.doesNotMatch(reader, /:deep\(|:not\(|\.[\w-]+\s+(text|view|scroll-view)/);
 });
+
+test("the profile page does not expose an unverified customer-service number", async () => {
+  const profilePage = await readProjectFile("src/pages/user/user.vue");
+
+  assert.doesNotMatch(profilePage, /400-888-0123/);
+});
