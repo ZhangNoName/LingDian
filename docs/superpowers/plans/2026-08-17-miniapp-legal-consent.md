@@ -663,7 +663,7 @@ describe('requireLegalConsent', () => {
 
 修改 `auth.spec.ts` 中手机号、微信和 OAuth 完成测试，向调用传入 `legalConsent`，并断言请求 data 包含同一个嵌套对象。验证码发送负载保持不变。
 
-在 `miniapp-layout.test.mjs` 增加静态断言：登录页包含两个协议路由、checkbox 状态、未勾选普通微信按钮和勾选后的 `open-type="getPhoneNumber"` 分支。
+在 `miniapp-layout.test.mjs` 仅保留两个协议页面的路由配置检查。协议勾选、未勾选拦截和微信授权门槛通过 `legal-consent.spec.ts` 与从登录页提取的可执行动作守卫测试验证，不使用正则读取 `login.vue` 源码代替行为测试。
 
 - [ ] **Step 2: 运行测试并确认失败**
 
