@@ -101,23 +101,11 @@ export class AuthController {
     @Req() request: AuthRequest,
     @Res({ passthrough: true }) response: AuthResponse,
   ) {
-    const user = await this.oauth.miniProgramPhoneLogin({
+    const issued = await this.oauth.miniProgramPhoneLogin({
       ...body,
       ip: request.ip,
       device: deviceId(request),
     });
-    const issued = await this.sessions.create(
-      {
-        id: user.id,
-        sessionVersion: user.sessionVersion,
-        roles: user.roles
-          .filter((role) => role.status === 'ACTIVE')
-          .map((role) => role.role),
-      },
-      'user-api',
-      deviceId(request),
-      requestContext(request),
-    );
     return this.respondWithRefresh(response, issued);
   }
 
@@ -247,16 +235,11 @@ export class AuthController {
     @Req() request: AuthRequest,
     @Res({ passthrough: true }) response: AuthResponse,
   ) {
-    const user = await this.oauth.linkPhone({
+    const issued = await this.oauth.linkPhone({
       ...body,
       ip: request.ip,
       device: deviceId(request),
     });
-    const issued = await this.sessions.create(
-      { id: user.id, sessionVersion: user.sessionVersion, roles: user.roles.filter((role) => role.status === 'ACTIVE').map((role) => role.role) },
-      'user-api',
-      deviceId(request), requestContext(request),
-    );
     return this.respondWithRefresh(response, issued);
   }
 

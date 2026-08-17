@@ -1,6 +1,6 @@
 import { ForbiddenException, Inject, Injectable, Optional, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@lingdian/db';
-import type { LegalConsentInput, PhoneLoginRequest } from '@lingdian/contracts';
+import type { PhoneLoginRequest } from '@lingdian/contracts';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthRole } from '../../common/auth/authenticated-user.type';
 import { normalizeChinesePhone } from './phone';
@@ -40,65 +40,29 @@ export class AuthService {
       await this.verification.consume({ purpose, phone: input.phone, code: input.code });
 
       const phoneE164 = normalizeChinesePhone(input.phone);
-      const user = await this.findOrCreatePhoneUser(phoneE164, input.audience, input.legalConsent, context);
-      const roles = activeRoles(user);
-
-      if (user.status !== 'ACTIVE') throw new UnauthorizedException('User is inactive.');
-      if (input.audience === 'admin-api' && !roles.includes('ADMIN')) {
-        throw new ForbiddenException('Administrator role required.');
-      }
-
-      const tokens = await this.sessions.create(
-        { id: user.id, sessionVersion: user.sessionVersion, roles },
-        input.audience,
-        context.deviceId,
-        context,
-      );
-      await this.audit?.record({
-        event: 'PHONE_LOGIN_SUCCEEDED',
-        userId: user.id,
-        sessionId: tokens.user.sessionId,
-        ip: context.ip,
-        device: context.deviceId,
-        metadata: {
-          audience: input.audience,
-          phone: maskPhone(input.phone),
-          ...(input.legalConsent ? {
-            userAgreementVersion: input.legalConsent.userAgreementVersion,
-            privacyPolicyVersion: input.legalConsent.privacyPolicyVersion,
-          } : {}),
-        },
-      });
-      return tokens;
+      return await this.createPhoneLoginSession(phoneE164, input, context);
     } catch (error) {
       await this.audit?.record({ event: 'PHONE_LOGIN_REJECTED', ip: context.ip, device: context.deviceId, metadata: { audience: input.audience, phone: maskPhone(input.phone), reason: error instanceof Error ? error.name : 'unknown' } });
       throw error;
     }
   }
 
-  private async findOrCreatePhoneUser(
+  private async createPhoneLoginSession(
     phoneE164: string,
-    audience: PhoneLoginRequest['audience'],
-    legalConsent: LegalConsentInput | undefined,
+    input: PhoneLoginRequest,
     context: AuthRequestContext,
-  ): Promise<AuthUser> {
+  ): Promise<SessionTokens> {
     for (let attempt = 1; attempt <= PHONE_USER_TRANSACTION_MAX_ATTEMPTS; attempt += 1) {
       try {
         return await this.prisma.$transaction(
-          (tx) => this.findOrCreatePhoneUserInTransaction(tx, phoneE164, audience, legalConsent, context),
+          (tx) => this.createPhoneLoginSessionInTransaction(tx, phoneE164, input, context),
           { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
         );
       } catch (error) {
-        if (isPrismaError(error, 'P2002')) {
-          const existingUser = await this.findPhoneUser(this.prisma, phoneE164);
-          if (existingUser) {
-            if (audience === 'user-api') {
-              await this.legalConsent.record(existingUser.id, legalConsent!, context, this.prisma);
-            }
-            return existingUser;
-          }
-        }
-        if (isPrismaError(error, 'P2034') && attempt < PHONE_USER_TRANSACTION_MAX_ATTEMPTS) continue;
+        if (
+          (isPrismaError(error, 'P2002') || isPrismaError(error, 'P2034')) &&
+          attempt < PHONE_USER_TRANSACTION_MAX_ATTEMPTS
+        ) continue;
         throw error;
       }
     }
@@ -106,18 +70,17 @@ export class AuthService {
     throw new Error('Phone-user transaction retry limit reached.');
   }
 
-  private async findOrCreatePhoneUserInTransaction(
+  private async createPhoneLoginSessionInTransaction(
     tx: Prisma.TransactionClient,
     phoneE164: string,
-    audience: PhoneLoginRequest['audience'],
-    legalConsent: LegalConsentInput | undefined,
+    input: PhoneLoginRequest,
     context: AuthRequestContext,
-  ): Promise<AuthUser> {
+  ): Promise<SessionTokens> {
     const existingUser = await this.findPhoneUser(tx, phoneE164);
     let user = existingUser;
 
     if (!user) {
-      if (audience === 'admin-api') {
+      if (input.audience === 'admin-api') {
         throw new ForbiddenException('Administrator role required.');
       }
 
@@ -132,10 +95,39 @@ export class AuthService {
       });
     }
 
-    if (audience === 'user-api') {
-      await this.legalConsent.record(user.id, legalConsent!, context, tx);
+    const roles = activeRoles(user);
+    if (user.status !== 'ACTIVE') throw new UnauthorizedException('User is inactive.');
+    if (input.audience === 'admin-api' && !roles.includes('ADMIN')) {
+      throw new ForbiddenException('Administrator role required.');
     }
-    return user;
+
+    if (input.audience === 'user-api') {
+      await this.legalConsent.record(user.id, input.legalConsent!, context, tx);
+    }
+    const tokens = await this.sessions.create(
+      { id: user.id, sessionVersion: user.sessionVersion, roles },
+      input.audience,
+      context.deviceId,
+      context,
+      tx,
+    );
+    await this.audit?.record({
+      event: 'PHONE_LOGIN_SUCCEEDED',
+      userId: user.id,
+      sessionId: tokens.user.sessionId,
+      ip: context.ip,
+      device: context.deviceId,
+      metadata: {
+        audience: input.audience,
+        phone: maskPhone(input.phone),
+        loginMethod: 'PHONE_VERIFICATION_CODE',
+        ...(input.legalConsent ? {
+          userAgreementVersion: input.legalConsent.userAgreementVersion,
+          privacyPolicyVersion: input.legalConsent.privacyPolicyVersion,
+        } : {}),
+      },
+    }, tx);
+    return tokens;
   }
 
   private async findPhoneUser(

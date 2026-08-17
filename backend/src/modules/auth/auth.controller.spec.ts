@@ -149,18 +149,16 @@ test('WeChat mini-program phone login issues a session and refresh cookie', asyn
   const controller = new AuthController(
     {} as never,
     {} as never,
-    {
-      create: async () => ({
-        accessToken: 'access-token',
-        refreshToken: 'refresh-token',
-        expiresIn: 900,
-        user: { userId: 'user-1', sessionId: 'session-1', audience: 'user-api', roles: ['USER'] },
-      }),
-    } as never,
+    {} as never,
     {
       miniProgramPhoneLogin: async (input: unknown) => {
         oauthCalls.push(input);
-        return { id: 'user-1', sessionVersion: 1, roles: [{ role: 'USER', status: 'ACTIVE' }] };
+        return {
+          accessToken: 'access-token',
+          refreshToken: 'refresh-token',
+          expiresIn: 900,
+          user: { userId: 'user-1', sessionId: 'session-1', audience: 'user-api', roles: ['USER'] },
+        };
       },
     } as never,
     { getOrThrow: () => false } as never,
@@ -189,19 +187,18 @@ test('WeChat mini-program phone login issues a session and refresh cookie', asyn
 
 test('OAuth phone-link completion forwards legal consent with request context', async () => {
   const oauthCalls: unknown[] = [];
+  const cookieCalls: unknown[][] = [];
   const controller = new AuthController(
     {} as never,
     {} as never,
-    {
-      create: async () => ({
-        accessToken: 'access-token', refreshToken: 'refresh-token', expiresIn: 900,
-        user: { userId: 'user-1', sessionId: 'session-1', audience: 'user-api', roles: ['USER'] },
-      }),
-    } as never,
+    {} as never,
     {
       linkPhone: async (input: unknown) => {
         oauthCalls.push(input);
-        return { id: 'user-1', sessionVersion: 1, roles: [{ role: 'USER', status: 'ACTIVE' }] };
+        return {
+          accessToken: 'access-token', refreshToken: 'refresh-token', expiresIn: 900,
+          user: { userId: 'user-1', sessionId: 'session-1', audience: 'user-api', roles: ['USER'] },
+        };
       },
     } as never,
     { getOrThrow: () => false } as never,
@@ -209,16 +206,22 @@ test('OAuth phone-link completion forwards legal consent with request context', 
     {} as never,
   );
 
-  await controller.linkPhone(
+  const result = await controller.linkPhone(
     { pendingOauthId: 'pending-1', phone: '13800000000', code: '123456', legalConsent: currentConsent } as CompleteOAuthLoginDto,
     { ip: '127.0.0.1', headers: { 'x-device-id': 'miniapp' } },
-    { cookie: () => undefined, clearCookie: () => undefined },
+    { cookie: (...args: unknown[]) => cookieCalls.push(args), clearCookie: () => undefined },
   );
 
   assert.deepEqual(oauthCalls, [{
     pendingOauthId: 'pending-1', phone: '13800000000', code: '123456', legalConsent: currentConsent,
     ip: '127.0.0.1', device: 'miniapp',
   }]);
+  assert.equal(cookieCalls[0]?.[0], 'refresh_token');
+  assert.deepEqual(result, {
+    access_token: 'access-token',
+    expires_in: 900,
+    user: { userId: 'user-1', sessionId: 'session-1', audience: 'user-api', roles: ['USER'] },
+  });
 });
 
 test('does not return a raw refresh credential when an HTTPS request spoofs the native-secure header', async () => {

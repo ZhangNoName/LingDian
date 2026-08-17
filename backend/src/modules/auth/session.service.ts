@@ -1,6 +1,7 @@
 import { Inject, Injectable, Optional, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import type { Prisma } from '@lingdian/db';
 import { createHmac, randomBytes } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthAudience, AuthenticatedUser, AuthRole } from '../../common/auth/authenticated-user.type';
@@ -34,6 +35,8 @@ type AccessTokenClaims = {
   merchantStoreIds?: string[];
 };
 
+type SessionWriteClient = PrismaService | Prisma.TransactionClient;
+
 @Injectable()
 export class SessionService {
   constructor(
@@ -44,10 +47,16 @@ export class SessionService {
     @Optional() private readonly audit?: AuditService,
   ) {}
 
-  async create(user: SessionUser, audience: AuthAudience, device: string, context: SessionAuditContext = {}): Promise<SessionTokens> {
+  async create(
+    user: SessionUser,
+    audience: AuthAudience,
+    device: string,
+    context: SessionAuditContext = {},
+    client: SessionWriteClient = this.prisma,
+  ): Promise<SessionTokens> {
     const refreshToken = randomBytes(32).toString('base64url');
     const expiresAt = new Date(Date.now() + this.refreshTokenTtlDays * 24 * 60 * 60 * 1000);
-    const session = await this.prisma.authSession.upsert({
+    const session = await client.authSession.upsert({
       where: { userId_audience_device: { userId: user.id, audience: toDbAudience(audience), device } },
       create: {
         userId: user.id,
@@ -75,7 +84,7 @@ export class SessionService {
       expiresIn: this.accessTokenTtlSeconds,
       user: authenticatedUser,
     };
-    await this.audit?.record({ event: 'SESSION_CREATED', userId: user.id, sessionId: session.id, ip: context.ip, device: context.device ?? device, metadata: { audience } });
+    await this.audit?.record({ event: 'SESSION_CREATED', userId: user.id, sessionId: session.id, ip: context.ip, device: context.device ?? device, metadata: { audience } }, client);
     return tokens;
   }
 
