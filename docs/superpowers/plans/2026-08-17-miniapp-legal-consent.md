@@ -41,7 +41,7 @@
 - `uniapp/src/pages.json`：注册协议页面。
 - `uniapp/src/services/auth.ts`、`auth.spec.ts`：把协议版本加入最终登录请求。
 - `uniapp/src/pages/auth/login.vue`：协议勾选、四类操作拦截、协议跳转和视觉优化。
-- `uniapp/tests/miniapp-layout.test.mjs`：静态验证小程序页面注册、协议链接和原生微信授权门槛。
+- `uniapp/tests/legal-pages.test.mjs`：验证协议页面注册和薄页面入口；单独建文件以避开工作区已有的 `miniapp-layout.test.mjs` 用户改动。
 - `docs/03-frontend-uniapp.md`：记录协议运营信息和微信后台隐私配置要求。
 
 ---
@@ -514,7 +514,7 @@ git commit -m "功能：登录时校验并记录协议同意"
 - Create: `uniapp/src/pages/legal/user-agreement.vue`
 - Create: `uniapp/src/pages/legal/privacy-policy.vue`
 - Modify: `uniapp/src/pages.json`
-- Modify: `uniapp/tests/miniapp-layout.test.mjs`
+- Create: `uniapp/tests/legal-pages.test.mjs`
 
 **Interfaces:**
 - Consumes: Task 1 的 `LEGAL_DOCUMENT_VERSIONS`。
@@ -549,11 +549,11 @@ describe('legal documents', () => {
 });
 ```
 
-在 `miniapp-layout.test.mjs` 断言 `pages.json` 注册两个法律页面，并且薄页面均使用 `LegalDocumentPage`。
+在 `legal-pages.test.mjs` 断言 `pages.json` 注册两个法律页面，并且薄页面均使用 `LegalDocumentPage`。
 
 - [ ] **Step 2: 运行测试并确认失败**
 
-Run: `corepack pnpm --filter @lingdian/uniapp test -- legal-documents.spec.ts && node --test uniapp/tests/miniapp-layout.test.mjs`
+Run: `corepack pnpm --filter @lingdian/uniapp test -- legal-documents.spec.ts && node --test uniapp/tests/legal-pages.test.mjs`
 
 Expected: FAIL，原因是协议数据和页面尚不存在。
 
@@ -612,14 +612,14 @@ import { userAgreementDocument } from '@/legal/legal-documents';
 
 - [ ] **Step 5: 运行协议测试和微信构建**
 
-Run: `corepack pnpm --filter @lingdian/uniapp test -- legal-documents.spec.ts && node --test uniapp/tests/miniapp-layout.test.mjs && corepack pnpm --filter @lingdian/uniapp build:mp-weixin`
+Run: `corepack pnpm --filter @lingdian/uniapp test -- legal-documents.spec.ts && node --test uniapp/tests/legal-pages.test.mjs && corepack pnpm --filter @lingdian/uniapp build:mp-weixin`
 
 Expected: 测试全部 PASS，生成 `uniapp/dist/build/mp-weixin`，协议页面无 WXSS 不支持警告。
 
 - [ ] **Step 6: 提交任务 3**
 
 ```bash
-git add uniapp/src/legal/legal-documents.ts uniapp/src/legal/legal-documents.spec.ts uniapp/src/components/legal/LegalDocumentPage.vue uniapp/src/pages/legal/user-agreement.vue uniapp/src/pages/legal/privacy-policy.vue uniapp/src/pages.json uniapp/tests/miniapp-layout.test.mjs
+git add uniapp/src/legal/legal-documents.ts uniapp/src/legal/legal-documents.spec.ts uniapp/src/components/legal/LegalDocumentPage.vue uniapp/src/pages/legal/user-agreement.vue uniapp/src/pages/legal/privacy-policy.vue uniapp/src/pages.json uniapp/tests/legal-pages.test.mjs
 git commit -m "功能：增加用户协议与隐私政策页面"
 ```
 
@@ -633,7 +633,6 @@ git commit -m "功能：增加用户协议与隐私政策页面"
 - Modify: `uniapp/src/services/auth.ts`
 - Modify: `uniapp/src/services/auth.spec.ts`
 - Modify: `uniapp/src/pages/auth/login.vue`
-- Modify: `uniapp/tests/miniapp-layout.test.mjs`
 
 **Interfaces:**
 - Consumes: Task 1 的 `LegalConsentInput`/版本常量与 Task 3 的两条页面路由。
@@ -663,11 +662,11 @@ describe('requireLegalConsent', () => {
 
 修改 `auth.spec.ts` 中手机号、微信和 OAuth 完成测试，向调用传入 `legalConsent`，并断言请求 data 包含同一个嵌套对象。验证码发送负载保持不变。
 
-在 `miniapp-layout.test.mjs` 仅保留两个协议页面的路由配置检查。协议勾选、未勾选拦截和微信授权门槛通过 `legal-consent.spec.ts` 与从登录页提取的可执行动作守卫测试验证，不使用正则读取 `login.vue` 源码代替行为测试。
+协议勾选、未勾选拦截和微信授权门槛通过 `legal-consent.spec.ts` 与从登录页提取的可执行动作守卫测试验证，不使用正则读取 `login.vue` 源码代替行为测试。协议页面路由已由 Task 3 的 `legal-pages.test.mjs` 覆盖，本任务不修改工作区已有用户改动的 `miniapp-layout.test.mjs`。
 
 - [ ] **Step 2: 运行测试并确认失败**
 
-Run: `corepack pnpm --filter @lingdian/uniapp test -- legal-consent.spec.ts auth.spec.ts && node --test uniapp/tests/miniapp-layout.test.mjs`
+Run: `corepack pnpm --filter @lingdian/uniapp test -- legal-consent.spec.ts auth.spec.ts`
 
 Expected: FAIL，原因是守卫不存在且 auth 方法尚未接收 `legalConsent`。
 
@@ -741,14 +740,14 @@ uni.navigateTo({ url: '/pages/legal/privacy-policy' });
 
 - [ ] **Step 6: 运行前端测试、类型检查和微信构建**
 
-Run: `corepack pnpm --filter @lingdian/uniapp test -- legal-consent.spec.ts auth.spec.ts && node --test uniapp/tests/miniapp-layout.test.mjs && corepack pnpm --filter @lingdian/uniapp type-check && corepack pnpm --filter @lingdian/uniapp build:mp-weixin`
+Run: `corepack pnpm --filter @lingdian/uniapp test -- legal-consent.spec.ts auth.spec.ts && corepack pnpm --filter @lingdian/uniapp type-check && corepack pnpm --filter @lingdian/uniapp build:mp-weixin`
 
 Expected: 全部测试 PASS，类型检查通过，微信小程序构建成功。
 
 - [ ] **Step 7: 提交任务 4**
 
 ```bash
-git add uniapp/src/legal/legal-consent.ts uniapp/src/legal/legal-consent.spec.ts uniapp/src/services/auth.ts uniapp/src/services/auth.spec.ts uniapp/src/pages/auth/login.vue uniapp/tests/miniapp-layout.test.mjs
+git add uniapp/src/legal/legal-consent.ts uniapp/src/legal/legal-consent.spec.ts uniapp/src/services/auth.ts uniapp/src/services/auth.spec.ts uniapp/src/pages/auth/login.vue
 git commit -m "功能：登录前确认协议并优化页面视觉"
 ```
 
