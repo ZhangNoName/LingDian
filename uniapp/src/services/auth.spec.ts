@@ -87,6 +87,20 @@ test("accepts a customer session after a phone login", async () => {
   assert.equal((request.mock.calls[0][0].data as { legalConsent: unknown }).legalConsent, legalConsent);
 });
 
+test("maps the legal-consent API code before exposing an authentication error", async () => {
+  const request = vi.fn((options: UniApp.RequestOptions) => {
+    options.success?.({
+      statusCode: 400,
+      data: { code: 2004, msg: "Legal agreement version is outdated.", data: null },
+    } as unknown as UniApp.RequestSuccessCallbackResult);
+    return { abort() {} } as UniApp.RequestTask;
+  });
+  Object.assign(uni, { request });
+
+  await expect(customerAuth.phoneLogin("13800000000", "123456", legalConsent))
+    .rejects.toThrow("请更新小程序后重试");
+});
+
 test("accepts a session only after a pending OAuth binding completes", async () => {
   const request = vi.fn((options: UniApp.RequestOptions) => {
     options.success?.({ statusCode: 201, data: { code: 0, data: { access_token: "linked-jwt", expires_in: 900, user: userProfile } } } as unknown as UniApp.RequestSuccessCallbackResult);

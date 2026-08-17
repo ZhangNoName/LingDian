@@ -10,12 +10,27 @@ const consent = {
 
 test('requires current legal versions for user-api logins', () => {
   const service = new LegalConsentService({} as never);
-  assert.throws(() => service.assertCurrentForAudience('user-api', undefined), /agreement/i);
+  assert.throws(() => service.assertCurrentForAudience('user-api', undefined), /请更新小程序后重试/);
   assert.throws(
     () => service.assertCurrentForAudience('user-api', { ...consent, privacyPolicyVersion: 'old' }),
-    /update/i,
+    /请更新小程序后重试/,
   );
   assert.doesNotThrow(() => service.assertCurrentForAudience('admin-api', undefined));
+});
+
+test('uses one stable API error contract for missing and stale consumer legal consent', () => {
+  const service = new LegalConsentService({} as never);
+
+  for (const input of [undefined, { ...consent, privacyPolicyVersion: 'old' }]) {
+    assert.throws(
+      () => service.assertCurrentForAudience('user-api', input),
+      (error: unknown) => {
+        assert.equal((error as { businessCode?: number }).businessCode, 2004);
+        assert.equal((error as Error).message, '请更新小程序后重试');
+        return true;
+      },
+    );
+  }
 });
 
 test('records both current legal documents idempotently', async () => {

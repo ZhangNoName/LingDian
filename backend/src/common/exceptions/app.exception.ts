@@ -40,3 +40,13 @@ export class StatusConflictException extends AppException {
     super(RES_CODE.STATUS_CONFLICT, message, HttpStatus.CONFLICT, payload);
   }
 }
+
+export class LegalConsentUpdateRequiredException extends AppException {
+  constructor() {
+    super(
+      RES_CODE.LEGAL_CONSENT_UPDATE_REQUIRED,
+      '请更新小程序后重试',
+      HttpStatus.BAD_REQUEST,
+    );
+  }
+}

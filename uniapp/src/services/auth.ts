@@ -30,7 +30,10 @@ function forgetDemoToken(): void {
 }
 
 function readErrorMessage(body: ApiEnvelope<unknown> | undefined): string {
-  return getCustomerAuthMessage(new Error(body?.msg || "Authentication request failed."));
+  return getCustomerAuthMessage({
+    code: body?.code,
+    message: body?.msg || "Authentication request failed.",
+  });
 }
 
 function authRequest<T>(path: string, options: Omit<UniApp.RequestOptions, "url"> = {}): Promise<T> {

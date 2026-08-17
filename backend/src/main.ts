@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { AppModule } from './app.module';
 import { corsOptions } from './common/auth/http-security';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
-import { ParamException } from './common/exceptions/app.exception';
+import { createValidationException } from './common/exceptions/validation.exception';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { SystemLogService } from './modules/system-log/system-log.service';
 
@@ -26,14 +26,7 @@ async function bootstrap() {
       whitelist: true,
       transform: true,
       forbidNonWhitelisted: true,
-      exceptionFactory: (errors) => {
-        const message = errors
-          .flatMap((error) => Object.values(error.constraints ?? {}))
-          .filter(Boolean)
-          .join('; ');
-
-        return new ParamException(message || 'Request parameters are invalid');
-      },
+      exceptionFactory: createValidationException,
     }),
   );
   app.useGlobalInterceptors(new ResponseInterceptor());
