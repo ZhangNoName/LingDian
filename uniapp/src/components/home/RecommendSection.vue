@@ -17,7 +17,10 @@
       >
         <view class="image-shell">
           <image v-if="!failedImages.has(product.id)" class="image" :src="product.imageUrl" mode="aspectFill" @error="markImageFailed(product.id)" />
-          <SkeletonBox v-else class="image-placeholder" radius="md" />
+          <view v-else class="image-placeholder">
+            <text class="placeholder-icon">餐</text>
+            <text class="placeholder-copy">图片待更新</text>
+          </view>
         </view>
         <text class="name">{{ product.name }}</text>
         <PriceText :price="product.price" :original-price="product.originalPrice" suffix="一口价" size="small" />
@@ -38,7 +41,6 @@
 import { ref } from "vue";
 import { PlusIcon } from "@lingdian/icons/miniapp";
 import PriceText from "@/components/app/PriceText.vue";
-import SkeletonBox from "@/components/app/SkeletonBox.vue";
 import type { ProductSummary } from "@/types/menu";
 
 defineProps<{
@@ -152,8 +154,33 @@ function markImageFailed(productId: string) {
 }
 
 .image-placeholder {
+  display: grid;
+  place-items: center;
   width: 100%;
   height: 148rpx;
+  align-content: center;
+  gap: 6rpx;
+  border-radius: var(--ld-radius-8, 8px);
+  background: linear-gradient(145deg, #fff7e9, #f8efe1);
+  color: #b77935;
+}
+
+.placeholder-icon {
+  display: block;
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.78);
+  text-align: center;
+  font-size: 24rpx;
+  font-weight: 900;
+  line-height: 48rpx;
+}
+
+.placeholder-copy {
+  color: #9b7650;
+  font-size: 20rpx;
+  line-height: 1.2;
 }
 
 .name {

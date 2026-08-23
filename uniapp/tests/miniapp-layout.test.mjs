@@ -100,6 +100,38 @@ test("menu page uses the shared tab layout and a safe scrolling area", async () 
   assert.doesNotMatch(orderPage, /height: 100vh|:deep\(/);
 });
 
+test("wechat build pins the simulator-compatible base library", async () => {
+  const manifest = await readProjectFile("src/manifest.json");
+
+  assert.match(manifest, /"mp-weixin"\s*:\s*\{[\s\S]*?"libVersion"\s*:\s*"3\.15\.2"/);
+});
+
+test("menu labels contain long text without expanding their columns", async () => {
+  const [sidebar, productItem] = await Promise.all([
+    readProjectFile("src/components/menu/CategorySidebar.vue"),
+    readProjectFile("src/components/menu/MenuProductItem.vue"),
+  ]);
+
+  assert.match(sidebar, /class="category-name"/);
+  assert.match(sidebar, /\.category-name\s*\{[\s\S]*?overflow-wrap:\s*anywhere/);
+  assert.match(sidebar, /\.category-name\s*\{[\s\S]*?-webkit-line-clamp:\s*2/);
+  assert.match(productItem, /\.name\s*\{[\s\S]*?overflow-wrap:\s*anywhere/);
+  assert.match(productItem, /\.name\s*\{[\s\S]*?-webkit-line-clamp:\s*2/);
+});
+
+test("home and menu product images have a static failure state", async () => {
+  const [recommend, productItem] = await Promise.all([
+    readProjectFile("src/components/home/RecommendSection.vue"),
+    readProjectFile("src/components/menu/MenuProductItem.vue"),
+  ]);
+
+  for (const component of [recommend, productItem]) {
+    assert.match(component, /图片待更新/);
+    assert.match(component, /@error=/);
+    assert.match(component, /class="image-placeholder"/);
+  }
+});
+
 test("menu and specification controls use static Lucide icons", async () => {
   const [cartBar, stepper] = await Promise.all([
     readProjectFile("src/components/menu/CartCheckoutBar.vue"),

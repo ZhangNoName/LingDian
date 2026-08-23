@@ -1,7 +1,8 @@
 import type { MenuContract, ProductRecordContract } from "@lingdian/contracts";
 import type { ProductDetail, ProductSummary } from "@/types/menu";
 import type { StoreSummary } from "@/types/store";
-import { request, resolveAssetUrl } from "./request";
+import { request } from "./request";
+import { resolveProductImage } from "./product-image";
 
 export type MenuViewModel = {
   store: StoreSummary;
@@ -12,9 +13,9 @@ export type MenuViewModel = {
 
 let cachedMenu: MenuViewModel | null = null;
 
-function mapProduct(product: ProductRecordContract): ProductDetail {
+function mapProduct(product: ProductRecordContract, categoryName: string): ProductDetail {
   const sku = product.skus.find((item) => item.is_default && item.is_active) ?? product.skus.find((item) => item.is_active);
-  const imageUrl = resolveAssetUrl(product.image_url);
+  const imageUrl = resolveProductImage(product.image_url, categoryName);
 
   return {
     id: product.id,
@@ -47,7 +48,7 @@ export async function fetchMenu() {
   const productDetails: Record<string, ProductDetail> = {};
   const products = menu.categories.flatMap((category) =>
     category.products.map((product) => {
-      const detail = mapProduct(product);
+      const detail = mapProduct(product, category.name);
       productDetails[detail.id] = detail;
       return detail;
     }),
