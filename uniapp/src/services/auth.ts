@@ -1,10 +1,11 @@
-import type { AuthTokens, AuthenticatedUser, PendingOAuthResponse } from "@lingdian/contracts";
+import type { AuthTokens, AuthenticatedUser, LegalConsentInput, PendingOAuthResponse } from "@lingdian/contracts";
 import { getCustomerAuthMessage } from "./auth-message";
 
 function apiBase(): string {
   return import.meta.env.VITE_API_BASE ?? "http://localhost:9000/api";
 }
 const DEMO_TOKEN_KEY = "lingdian_demo_token";
+const DEVICE_STORAGE_KEY = "lingdian_customer_device_id";
 
 export type ThirdPartyProvider = "WECHAT" | "QQ";
 
@@ -14,6 +15,7 @@ type ApiEnvelope<T> = { code?: number; msg?: string; data?: T };
 let accessToken: string | undefined;
 let accessTokenExpiresAt = 0;
 let currentUser: AuthenticatedUser | undefined;
+let refreshPromise: Promise<boolean> | undefined;
 
 const supportedThirdPartyProviders: ThirdPartyProvider[] = [];
 
@@ -30,7 +32,10 @@ function forgetDemoToken(): void {
 }
 
 function readErrorMessage(body: ApiEnvelope<unknown> | undefined): string {
-  return getCustomerAuthMessage(new Error(body?.msg || "Authentication request failed."));
+  return getCustomerAuthMessage({
+    code: body?.code,
+    message: body?.msg || "Authentication request failed.",
+  });
 }
 
 function authRequest<T>(path: string, options: Omit<UniApp.RequestOptions, "url"> = {}): Promise<T> {
@@ -41,6 +46,7 @@ function authRequest<T>(path: string, options: Omit<UniApp.RequestOptions, "url"
       withCredentials: true,
       header: {
         "Content-Type": "application/json",
+        "X-Device-Id": deviceId(),
         ...(options.header ?? {}),
       },
       success(response) {
@@ -125,10 +131,10 @@ export const customerAuth = {
     });
   },
 
-  async phoneLogin(phone: string, code: string): Promise<void> {
+  async phoneLogin(phone: string, code: string, legalConsent: LegalConsentInput): Promise<void> {
     const tokens = await authRequest<AuthTokens>("/auth/phone/login", {
       method: "POST",
-      data: { phone, code, audience: "user-api" },
+      data: { phone, code, audience: "user-api", legalConsent },
     });
     this.acceptLogin(tokens);
   },
@@ -141,32 +147,34 @@ export const customerAuth = {
     return beginMiniProgramThirdPartyLogin(provider);
   },
 
-  async wechatPhoneLogin(phoneCode: string): Promise<void> {
+  async wechatPhoneLogin(phoneCode: string, legalConsent: LegalConsentInput): Promise<void> {
     const loginCode = await loginWithProvider("WECHAT");
     const tokens = await authRequest<AuthTokens>("/auth/wechat/miniapp/phone-login", {
       method: "POST",
-      data: { loginCode, phoneCode, audience: "user-api" },
+      data: { loginCode, phoneCode, audience: "user-api", legalConsent },
     });
     this.acceptLogin(tokens);
   },
 
-  async completePhoneLink(pendingOauthId: string, phone: string, code: string): Promise<void> {
+  async completePhoneLink(
+    pendingOauthId: string,
+    phone: string,
+    code: string,
+    legalConsent: LegalConsentInput,
+  ): Promise<void> {
     const tokens = await authRequest<AuthTokens>("/auth/oauth/link-phone", {
       method: "POST",
-      data: { pendingOauthId, phone, code },
+      data: { pendingOauthId, phone, code, legalConsent },
     });
     this.acceptLogin(tokens);
   },
 
   async refresh(): Promise<boolean> {
-    try {
-      const tokens = await authRequest<AuthTokens>("/auth/refresh", { method: "POST", data: {} });
-      this.acceptLogin(tokens);
-      return true;
-    } catch {
-      this.clear();
-      return false;
-    }
+    if (refreshPromise) return refreshPromise;
+    refreshPromise = refreshCustomerSession().finally(() => {
+      refreshPromise = undefined;
+    });
+    return refreshPromise;
   },
 
   async logout(): Promise<void> {
@@ -194,5 +202,24 @@ export const customerAuth = {
     return supportedThirdPartyProviders;
   },
 };
+
+async function refreshCustomerSession(): Promise<boolean> {
+    try {
+      const tokens = await authRequest<AuthTokens>("/auth/refresh", { method: "POST", data: {} });
+      customerAuth.acceptLogin(tokens);
+      return true;
+    } catch {
+      customerAuth.clear();
+      return false;
+    }
+}
+
+function deviceId(): string {
+  const existing = uni.getStorageSync(DEVICE_STORAGE_KEY);
+  if (typeof existing === "string" && existing) return existing;
+  const created = `customer-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  uni.setStorageSync(DEVICE_STORAGE_KEY, created);
+  return created;
+}
 
 forgetDemoToken();

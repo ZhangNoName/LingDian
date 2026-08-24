@@ -17,7 +17,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { ElForm } from 'element-plus'
+import { ElForm } from '@/components/ui/element-plus'
 
 const props = withDefaults(
   defineProps<{

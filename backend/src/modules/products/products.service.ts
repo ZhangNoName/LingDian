@@ -9,6 +9,11 @@ import {
   SelectionScope,
 } from '@lingdian/db';
 import { PrismaService } from '../../prisma/prisma.service';
+import type {
+  ProductPageContract,
+  ProductSkuOptionContract,
+  ProductStatsContract,
+} from '@lingdian/contracts';
 import {
   SyncProductConfigDto,
   SyncSelectionOptionDto,
@@ -17,6 +22,7 @@ import { CreateCategoryDto } from './dto/create-category.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { QueryProductsDto } from './dto/query-products.dto';
 import { mapProductRecord } from './products.mapper';
 
 const productInclude = {
@@ -103,8 +109,39 @@ const productInclude = {
   },
 } satisfies Prisma.ProductInclude;
 
+const productListSelect = {
+  id: true,
+  storeId: true,
+  categoryId: true,
+  name: true,
+  description: true,
+  imageUrl: true,
+  type: true,
+  status: true,
+  price: true,
+  stock: true,
+  isFeatured: true,
+  category: { select: { name: true } },
+  skus: {
+    orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+    select: {
+      id: true,
+      productId: true,
+      skuName: true,
+      price: true,
+      stockCount: true,
+      isDefault: true,
+      isActive: true,
+      _count: { select: { selectionBindings: { where: { isEnabled: true } } } },
+    },
+  },
+  _count: { select: { selectionBindings: { where: { isEnabled: true } } } },
+} satisfies Prisma.ProductSelect;
+
 @Injectable()
 export class ProductsService {
+  private readonly statsCache = new Map<string, { expiresAt: number; value: ProductStatsContract }>();
+
   constructor(private readonly prisma: PrismaService) {}
 
   async getCategories() {
@@ -166,15 +203,111 @@ export class ProductsService {
     };
   }
 
-  async getProducts() {
-    const products = await this.prisma.product.findMany({
-      include: productInclude,
-      orderBy: {
-        updatedAt: 'desc',
-      },
-    });
+  async getProducts(query: QueryProductsDto = new QueryProductsDto(), storeIds?: string[]): Promise<ProductPageContract> {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 20;
+    const keyword = query.keyword?.trim();
+    const where: Prisma.ProductWhereInput = {
+      ...(storeIds ? { storeId: { in: storeIds } } : {}),
+      ...(query.type ? { type: query.type } : {}),
+      ...(keyword ? {
+        OR: [
+          { name: { contains: keyword } },
+          { description: { contains: keyword } },
+          { category: { name: { contains: keyword } } },
+          { skus: { some: { skuName: { contains: keyword } } } },
+        ],
+      } : {}),
+    };
+    const [products, total] = await Promise.all([
+      this.prisma.product.findMany({
+        where,
+        select: productListSelect,
+        orderBy: { updatedAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.product.count({ where }),
+    ]);
 
-    return products.map(mapProductRecord);
+    return {
+      items: products.map((product) => ({
+        id: product.id,
+        store_id: product.storeId,
+        category_id: product.categoryId,
+        category: product.category?.name ?? '',
+        name: product.name,
+        description: product.description,
+        image_url: product.imageUrl,
+        type: product.type,
+        price: Number(product.price),
+        stock: product.stock,
+        status: product.status,
+        is_active: product.status === ProductStatus.ACTIVE,
+        is_featured: product.isFeatured,
+        skus: product.skus.map((sku) => ({
+          id: sku.id,
+          product_id: sku.productId,
+          sku_name: sku.skuName,
+          price: Number(sku.price),
+          stock_count: sku.stockCount,
+          is_default: sku.isDefault,
+          is_active: sku.isActive,
+        })),
+        selection_group_count: product._count.selectionBindings
+          + product.skus.reduce((sum, sku) => sum + sku._count.selectionBindings, 0),
+      })),
+      total,
+      page,
+      page_size: pageSize,
+    };
+  }
+
+  async getProductStats(storeIds?: string[]): Promise<ProductStatsContract> {
+    const cacheKey = storeIds ? [...storeIds].sort().join(',') : '*';
+    const cached = this.statsCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) return cached.value;
+
+    const productWhere: Prisma.ProductWhereInput = storeIds ? { storeId: { in: storeIds } } : {};
+    const skuWhere: Prisma.ProductSKUWhereInput = storeIds
+      ? { product: { storeId: { in: storeIds } } }
+      : {};
+    const bindingWhere: Prisma.ProductSelectionGroupWhereInput = {
+      isEnabled: true,
+      ...(storeIds ? {
+        OR: [
+          { product: { storeId: { in: storeIds } } },
+          { variant: { product: { storeId: { in: storeIds } } } },
+        ],
+      } : {}),
+    };
+    const [productGroups, skuCount, selectionGroupCount] = await Promise.all([
+      this.prisma.product.groupBy({ by: ['status', 'type'], where: productWhere, _count: { _all: true } }),
+      this.prisma.productSKU.count({ where: skuWhere }),
+      this.prisma.productSelectionGroup.count({ where: bindingWhere }),
+    ]);
+    const value = {
+      total_count: productGroups.reduce((sum, group) => sum + group._count._all, 0),
+      active_count: productGroups
+        .filter((group) => group.status === ProductStatus.ACTIVE)
+        .reduce((sum, group) => sum + group._count._all, 0),
+      package_count: productGroups
+        .filter((group) => group.type === ProductType.PACKAGE)
+        .reduce((sum, group) => sum + group._count._all, 0),
+      sku_count: skuCount,
+      selection_group_count: selectionGroupCount,
+    };
+    this.statsCache.set(cacheKey, { expiresAt: Date.now() + 15_000, value });
+    return value;
+  }
+
+  async getProductSkuOptions(storeIds?: string[]): Promise<ProductSkuOptionContract[]> {
+    const skus = await this.prisma.productSKU.findMany({
+      where: storeIds ? { product: { storeId: { in: storeIds } } } : undefined,
+      select: { id: true, skuName: true, product: { select: { name: true } } },
+      orderBy: [{ product: { name: 'asc' } }, { createdAt: 'asc' }],
+    });
+    return skus.map((sku) => ({ value: sku.id, label: `${sku.product.name} / ${sku.skuName}` }));
   }
 
   async createProduct(payload: CreateProductDto) {
@@ -206,13 +339,15 @@ export class ProductsService {
       include: productInclude,
     });
 
+    this.invalidateProductStats();
     return mapProductRecord(product);
   }
 
-  async updateProduct(productId: string, payload: UpdateProductDto) {
-    const existingProduct = await this.prisma.product.findUnique({
+  async updateProduct(productId: string, payload: UpdateProductDto, storeIds?: string[]) {
+    const existingProduct = await this.prisma.product.findFirst({
       where: {
         id: productId,
+        ...(storeIds ? { storeId: { in: storeIds } } : {}),
       },
       include: {
         skus: {
@@ -262,10 +397,12 @@ export class ProductsService {
       await this.refreshProductSummary(tx, productId);
     });
 
-    return this.getProductDetail(productId);
+    this.invalidateProductStats();
+    return this.getProductDetail(productId, storeIds);
   }
 
-  async updateProductStatus(productId: string, status: ProductStatus) {
+  async updateProductStatus(productId: string, status: ProductStatus, storeIds?: string[]) {
+    await this.assertProductInStores(productId, storeIds);
     await this.prisma.product.update({
       where: {
         id: productId,
@@ -275,7 +412,8 @@ export class ProductsService {
       },
     });
 
-    return this.getProductDetail(productId);
+    this.invalidateProductStats();
+    return this.getProductDetail(productId, storeIds);
   }
 
   async getCurrentMenu() {
@@ -321,10 +459,11 @@ export class ProductsService {
     };
   }
 
-  async getProductDetail(productId: string) {
-    const product = await this.prisma.product.findUnique({
+  async getProductDetail(productId: string, storeIds?: string[]) {
+    const product = await this.prisma.product.findFirst({
       where: {
         id: productId,
+        ...(storeIds ? { storeId: { in: storeIds } } : {}),
       },
       include: productInclude,
     });
@@ -336,10 +475,11 @@ export class ProductsService {
     return mapProductRecord(product);
   }
 
-  async syncProductConfiguration(productId: string, payload: SyncProductConfigDto) {
-    const product = await this.prisma.product.findUnique({
+  async syncProductConfiguration(productId: string, payload: SyncProductConfigDto, storeIds?: string[]) {
+    const product = await this.prisma.product.findFirst({
       where: {
         id: productId,
+        ...(storeIds ? { storeId: { in: storeIds } } : {}),
       },
       include: {
         skus: true,
@@ -381,11 +521,13 @@ export class ProductsService {
       throw new NotFoundException('商品不存在');
     }
 
+    this.invalidateProductStats();
     return mapProductRecord(productDetail);
   }
 
-  async updateSkuStock(skuId: string, stockCount: number) {
+  async updateSkuStock(skuId: string, stockCount: number, storeIds?: string[]) {
     try {
+      await this.assertSkuInStores(skuId, storeIds);
       const sku = await this.prisma.productSKU.update({
         where: {
           id: skuId,
@@ -406,8 +548,9 @@ export class ProductsService {
     }
   }
 
-  async updateSkuPrice(skuId: string, price: number) {
+  async updateSkuPrice(skuId: string, price: number, storeIds?: string[]) {
     try {
+      await this.assertSkuInStores(skuId, storeIds);
       const sku = await this.prisma.productSKU.update({
         where: {
           id: skuId,
@@ -426,6 +569,10 @@ export class ProductsService {
     } catch {
       throw new NotFoundException('SKU 不存在');
     }
+  }
+
+  private invalidateProductStats() {
+    this.statsCache.clear();
   }
 
   private async resolveCurrentStore(tx: Prisma.TransactionClient | PrismaService = this.prisma) {
@@ -461,6 +608,24 @@ export class ProductsService {
     if (!category || category.storeId !== storeId) {
       throw new BadRequestException('分类不存在或不属于当前门店');
     }
+  }
+
+  private async assertProductInStores(productId: string, storeIds?: string[]) {
+    if (!storeIds) return;
+    const product = await this.prisma.product.findFirst({
+      where: { id: productId, storeId: { in: storeIds } },
+      select: { id: true },
+    });
+    if (!product) throw new NotFoundException('商品不存在');
+  }
+
+  private async assertSkuInStores(skuId: string, storeIds?: string[]) {
+    if (!storeIds) return;
+    const sku = await this.prisma.productSKU.findFirst({
+      where: { id: skuId, product: { storeId: { in: storeIds } } },
+      select: { id: true },
+    });
+    if (!sku) throw new NotFoundException('SKU 不存在');
   }
 
   private async syncVariants(
@@ -582,6 +747,8 @@ export class ProductsService {
     const existingGroupIds = new Set(existingBindings.map((binding) => binding.groupId));
     const activeBindingIds: string[] = [];
 
+    this.validateSelectionConfiguration(payload);
+
     for (const [index, binding] of payload.selection_groups.entries()) {
       const group = binding.group;
       let groupId = group.id;
@@ -620,11 +787,14 @@ export class ProductsService {
       }
 
       groupId = savedGroup.id;
-      await this.syncSelectionOptions(tx, groupId, group.options, variantIdMap);
+      await this.syncSelectionOptions(tx, storeId, groupId, group.options, variantIdMap);
 
       const resolvedVariantId = binding.target_variant_id
-        ? variantIdMap.get(binding.target_variant_id) ?? binding.target_variant_id
+        ? variantIdMap.get(binding.target_variant_id)
         : null;
+      if (binding.scope === SelectionScope.VARIANT && !resolvedVariantId) {
+        throw new BadRequestException('选择组绑定的 SKU 不属于当前商品');
+      }
 
       let savedBinding;
       if (binding.id && existingBindingMap.has(binding.id)) {
@@ -677,6 +847,7 @@ export class ProductsService {
 
   private async syncSelectionOptions(
     tx: Prisma.TransactionClient,
+    storeId: string,
     groupId: string,
     options: SyncSelectionOptionDto[],
     variantIdMap: Map<string, string>,
@@ -688,6 +859,21 @@ export class ProductsService {
     });
     const existingOptionMap = new Map(existingOptions.map((option) => [option.id, option]));
     const activeOptionIds: string[] = [];
+    const referencedSkuIds = [...new Set(options
+      .map((option) => option.referenced_sku_id)
+      .filter((skuId): skuId is string => Boolean(skuId))
+      .map((skuId) => variantIdMap.get(skuId) ?? skuId))];
+    const referencedSkus = referencedSkuIds.length
+      ? await tx.productSKU.findMany({
+          where: { id: { in: referencedSkuIds }, product: { storeId } },
+          select: { id: true },
+        })
+      : [];
+    const allowedReferencedSkuIds = new Set(referencedSkus.map((sku) => sku.id));
+
+    if (allowedReferencedSkuIds.size !== referencedSkuIds.length) {
+      throw new BadRequestException('引用的 SKU 不属于当前门店');
+    }
 
     for (const [index, option] of options.entries()) {
       const resolvedReferencedSkuId = option.referenced_sku_id
@@ -743,6 +929,28 @@ export class ProductsService {
         isDefault: false,
       },
     });
+  }
+
+  private validateSelectionConfiguration(payload: SyncProductConfigDto) {
+    for (const binding of payload.selection_groups ?? []) {
+      const group = binding.group;
+      const minSelect = group.min_select ?? 0;
+      const maxSelect = group.max_select ?? 1;
+      if (minSelect > maxSelect) {
+        throw new BadRequestException('选择组的最少选择数不能大于最多选择数');
+      }
+      if (group.selection_mode === SelectionMode.SINGLE && maxSelect > 1) {
+        throw new BadRequestException('单选组的最多选择数必须为 1');
+      }
+      if (group.is_required && maxSelect < 1) {
+        throw new BadRequestException('必选组必须允许至少选择一项');
+      }
+      for (const option of group.options) {
+        if (option.option_type === SelectionOptionType.VARIANT && !option.referenced_sku_id) {
+          throw new BadRequestException('引用 SKU 的选项必须选择一个 SKU');
+        }
+      }
+    }
   }
 
   private async refreshProductSummary(

@@ -1,8 +1,10 @@
 import type {
   ApiEnvelope,
   CategoryContract as Category,
+  OrderPageContract,
   OrderSummaryContract as OrderSummary,
   ProductInputContract as ProductInput,
+  ProductPageContract,
   ProductRecordContract as Product,
   ProductSkuContract as ProductSku,
   ProductStatus,
@@ -58,7 +60,7 @@ export function updateCategory(id: string, payload: Partial<Category>) {
 }
 
 export function getProducts() {
-  return request<Product[]>('/products')
+  return request<ProductPageContract>('/products')
 }
 
 export function createProduct(payload: ProductInput) {
@@ -92,7 +94,7 @@ export function uploadProductImage(file: File) {
 }
 
 export function getOrders() {
-  return request<OrderSummary[]>('/orders')
+  return request<OrderPageContract>('/orders')
 }
 
 export function getSystemLogs(query: SystemLogQuery) {

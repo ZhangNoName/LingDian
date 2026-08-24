@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Document, User, UserFilled } from '@element-plus/icons-vue'
+import { Document, User, UserFilled } from '@lingdian/icons/admin'
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { adminSession } from '../../auth/session'

@@ -24,7 +24,7 @@ it('logs a super administrator in using admin-api', async () => {
 
   expect(fetchMock).toHaveBeenCalledWith('/api/auth/account/login', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Device-Id': expect.any(String) },
     credentials: 'include',
     body: JSON.stringify({ username: 'admin', password: 'long-password-123', audience: 'admin-api' }),
   })
@@ -54,11 +54,27 @@ it('uses the HttpOnly refresh cookie without persisting the access token', async
 
   expect(fetchMock).toHaveBeenCalledWith('/api/auth/refresh', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Device-Id': expect.any(String) },
     credentials: 'include',
     body: '{}',
   })
   expect(localStorage.getItem('access_token')).toBeNull()
+})
+
+it('shares one refresh request across concurrent callers', async () => {
+  const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+    code: 0,
+    msg: 'success',
+    data: {
+      access_token: 'shared-admin-token',
+      expires_in: 900,
+      user: { userId: 'admin-1', sessionId: 'session-1', audience: 'admin-api', roles: ['ADMIN'] },
+    },
+  }), { status: 201 }))
+  vi.stubGlobal('fetch', fetchMock)
+
+  await expect(Promise.all([adminSession.refresh(), adminSession.refresh()])).resolves.toEqual([true, true])
+  expect(fetchMock).toHaveBeenCalledTimes(1)
 })
 
 it('retries a protected request once after a 401 using the refresh cookie', async () => {

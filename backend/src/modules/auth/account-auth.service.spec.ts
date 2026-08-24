@@ -118,8 +118,15 @@ test('forgot-password response does not reveal an unknown account', async () => 
 test('merchant password reset consumes PASSWORD_RESET and revokes sessions', async () => {
   let consumedPurpose = '';
   let replaced: unknown[] | undefined;
+  let clearedMandatoryPassword = false;
   const accountAuth = new AccountAuthService(
-    { authIdentity: { findUnique: async () => merchantAccount() } } as never,
+    {
+      authIdentity: { findUnique: async () => merchantAccount() },
+      user: { update: async ({ data }: { data: { mustChangePassword?: boolean } }) => {
+        clearedMandatoryPassword = data.mustChangePassword === false;
+        return {};
+      } },
+    } as never,
     {
       consume: async ({ purpose }: { purpose: string }) => { consumedPurpose = purpose; },
       issue: async () => ({ messageId: 'message-1' }),
@@ -139,6 +146,7 @@ test('merchant password reset consumes PASSWORD_RESET and revokes sessions', asy
 
   assert.equal(consumedPurpose, 'PASSWORD_RESET');
   assert.deepEqual(replaced?.slice(0, 3), ['account-identity', 'replacement-password-123', 'merchant-user']);
+  assert.equal(clearedMandatoryPassword, true);
 });
 
 test('password reset gives unknown merchants the same generic failure as an invalid code', async () => {

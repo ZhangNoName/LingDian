@@ -1,5 +1,5 @@
 <script setup lang="ts" generic="Row extends object">
-import { ArrowDown, ArrowUp } from '@element-plus/icons-vue'
+import { ArrowDown, ArrowUp } from '@lingdian/icons/admin'
 import { computed, onMounted, ref, watch } from 'vue'
 import AppIconButton from '../common/AppIconButton.vue'
 import { dictionaryRegistry, type DictionaryOption } from '../../dictionaries'

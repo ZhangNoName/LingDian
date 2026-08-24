@@ -42,6 +42,11 @@ export const RES_CODE_META: Record<ResCodeValue, ResCodeMeta> = {
     message: 'Status conflict',
     comment: 'The requested state transition is not allowed.',
   },
+  [RES_CODE.LEGAL_CONSENT_UPDATE_REQUIRED]: {
+    key: 'LEGAL_CONSENT_UPDATE_REQUIRED',
+    message: 'Mini-program legal consent update required',
+    comment: 'The client omitted or submitted stale legal-document versions.',
+  },
   [RES_CODE.DATABASE_ERROR]: {
     key: 'DATABASE_ERROR',
     message: 'Database error',

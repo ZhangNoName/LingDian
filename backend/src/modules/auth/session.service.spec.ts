@@ -26,6 +26,7 @@ type SessionRecord = {
 function createService() {
   const sessions: SessionRecord[] = [];
   const auditEvents: Array<{ event: string; ip?: string; device?: string }> = [];
+  const auditClients: unknown[] = [];
   const user: SessionRecord['user'] = {
     id: 'user-1',
     status: 'ACTIVE',
@@ -92,10 +93,13 @@ function createService() {
       ({ 'auth.accessTokenTtlSeconds': 900, 'auth.refreshTokenTtlDays': 30 }[key]),
   };
   const service = new SessionService(prisma as never, jwt, 'test-refresh-pepper', config as never, {
-    record: async (entry: { event: string; ip?: string; device?: string }) => { auditEvents.push(entry); },
+    record: async (entry: { event: string; ip?: string; device?: string }, client: unknown) => {
+      auditEvents.push(entry);
+      auditClients.push(client);
+    },
   } as never);
 
-  return { jwt, service, sessions, user, auditEvents };
+  return { jwt, service, sessions, user, auditEvents, auditClients };
 }
 
 test('creates a 32-byte opaque refresh token, stores only its HMAC, and signs the required claims', async () => {
@@ -122,6 +126,32 @@ test('creates a 32-byte opaque refresh token, stores only its HMAC, and signs th
     { sub: 'user-1', sid: 'session-1', aud: 'admin-api', sv: 4, roles: ['USER', 'ADMIN'] },
   );
   assert.ok(claims.exp >= before + 899 && claims.exp <= before + 901);
+});
+
+test('creates both the session and its audit through a supplied transaction client', async () => {
+  const { service, sessions, auditClients } = createService();
+  const transactionSessions: unknown[] = [];
+  const transactionClient = {
+    authSession: {
+      upsert: async (input: unknown) => {
+        transactionSessions.push(input);
+        return { id: 'transaction-session' };
+      },
+    },
+  };
+
+  const issued = await service.create(
+    { id: 'user-1', sessionVersion: 4, roles: ['USER'] },
+    'user-api',
+    'device-1',
+    {},
+    transactionClient as never,
+  );
+
+  assert.equal(issued.user.sessionId, 'transaction-session');
+  assert.equal(transactionSessions.length, 1);
+  assert.equal(sessions.length, 0);
+  assert.equal(auditClients[auditClients.length - 1], transactionClient);
 });
 
 test('signs merchant store scope claims and refreshes them from active store assignments', async () => {
@@ -191,6 +221,18 @@ test('refresh atomically rotates the raw token and rejects replay by revoking th
   assert.notEqual(twiceRefreshed.refreshToken, successor.refreshToken);
   await assert.rejects(() => service.refresh(issued.refreshToken), /refresh token replay detected/i);
   assert.equal(sessions[0].status, 'REVOKED');
+});
+
+test('caps refresh token history to bound session row growth', async () => {
+  const { service, sessions } = createService();
+  let issued = await service.create({ id: 'user-1', sessionVersion: 4, roles: ['USER'] }, 'user-api', 'device-1');
+
+  for (let index = 0; index < 40; index += 1) {
+    issued = await service.refresh(issued.refreshToken);
+  }
+
+  assert.equal(sessions[0].refreshTokenHistory.length, 32);
+  assert.equal(new Set(sessions[0].refreshTokenHistory).size, 32);
 });
 
 test('revokeAll revokes active sessions and advances the user session version', async () => {

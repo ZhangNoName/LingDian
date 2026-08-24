@@ -200,6 +200,8 @@ CORS_ALLOWED_ORIGINS=https://app.zsf.shopping,https://merchant.zsf.shopping,http
 
 ```text
 SMS_PROVIDER
+SMS_WEBHOOK_URL
+SMS_WEBHOOK_TOKEN
 WECHAT_APP_ID
 WECHAT_APP_SECRET
 WECHAT_REDIRECT_URI
@@ -217,7 +219,7 @@ QQ_MINI_APP_SECRET
 - `AUTH_JWT_ACCESS_SECRET` 和 `AUTH_REFRESH_PEPPER` 各不少于 32 个随机字符。
 - `DATABASE_URL` 使用 `mysql://`。
 - `AUTH_COOKIE_SECURE=true`。
-- `SMS_PROVIDER` 必须是已经在代码中注册的生产提供方，不能使用 `console`。
+- `SMS_PROVIDER` 必须设置为 `webhook`，并配置 `SMS_WEBHOOK_URL` 与 `SMS_WEBHOOK_TOKEN`；不能使用 `console`。
 - 微信与 QQ 的 Web、Mini App 配置必须完整。
 - Web OAuth 回调地址必须是绝对 HTTPS URL，并与第三方平台登记值完全一致。
 
@@ -277,66 +279,15 @@ location / {
 
 ## 9. 宿主机 Nginx 规划
 
-下面是实施时的目标结构。证书路径由 Certbot 写入，首次启用时先保留 HTTP server，再让 Certbot 完成 HTTPS 配置。
+完整配置以 `deploy/nginx/lingdian-subdomains.conf` 为唯一来源。它负责：
 
-```nginx
-server {
-    listen 80;
-    server_name app.zsf.shopping;
+- 80 端口统一使用 301 跳转 HTTPS。
+- 四个生产子域名在 443 端口终止 TLS，并启用 HTTP/2。
+- 复用覆盖四个域名的 `/etc/letsencrypt/live/app.zsf.shopping` SAN 证书。
+- API 到 NestJS 的上游连接保留 HTTP/1.1，以支持 WebSocket Upgrade。
+- 返回一年期 HSTS 响应头，但不包含根域名和其他子域名。
 
-    location / {
-        proxy_pass http://127.0.0.1:8082;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-
-server {
-    listen 80;
-    server_name merchant.zsf.shopping;
-
-    location / {
-        proxy_pass http://127.0.0.1:8083;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-
-server {
-    listen 80;
-    server_name admin.zsf.shopping;
-
-    location / {
-        proxy_pass http://127.0.0.1:8084;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-
-server {
-    listen 80;
-    server_name api.zsf.shopping;
-    client_max_body_size 20m;
-
-    location / {
-        proxy_pass http://127.0.0.1:9000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_read_timeout 60s;
-    }
-}
-```
-
-每次修改后必须执行：
+生产发布设置 `LINGDIAN_SYNC_NGINX=1` 后，`deploy/scripts/install-nginx-config.sh` 会先备份旧配置、安装新配置并执行以下验证；校验或 reload 失败时自动恢复旧配置：
 
 ```bash
 sudo nginx -t

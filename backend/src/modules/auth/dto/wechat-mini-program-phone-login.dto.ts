@@ -1,5 +1,7 @@
 import type { WechatMiniProgramPhoneLoginRequest } from '@lingdian/contracts';
-import { IsIn, IsString, Length } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsDefined, IsIn, IsString, Length, ValidateNested } from 'class-validator';
+import { LegalConsentDto } from './legal-consent.dto';
 
 export class WechatMiniProgramPhoneLoginDto implements WechatMiniProgramPhoneLoginRequest {
   @IsString()
@@ -12,4 +14,9 @@ export class WechatMiniProgramPhoneLoginDto implements WechatMiniProgramPhoneLog
 
   @IsIn(['user-api'])
   audience!: 'user-api';
+
+  @IsDefined()
+  @ValidateNested()
+  @Type(() => LegalConsentDto)
+  legalConsent!: LegalConsentDto;
 }

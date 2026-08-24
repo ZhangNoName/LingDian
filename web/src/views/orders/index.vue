@@ -63,7 +63,7 @@
 
           <template #actions>
             <el-button @click="resetFilters">重置</el-button>
-            <el-button type="primary" :loading="loading" @click="fetchOrders">查询</el-button>
+            <el-button type="primary" :loading="loading" @click="applyFilters">查询</el-button>
           </template>
         </AppForm>
       </template>
@@ -127,6 +127,17 @@
           </el-table-column>
         </el-table>
       </AppTable>
+      <div class="orders-pagination">
+        <el-pagination
+          v-model:current-page="page"
+          v-model:page-size="pageSize"
+          :total="total"
+          :page-sizes="[20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @current-change="fetchOrders"
+          @size-change="handlePageSizeChange"
+        />
+      </div>
     </AppFormTable>
 
     <OrderDetailDialog
@@ -154,11 +165,14 @@ import {
   ElMessage,
   ElMessageBox,
   ElOption,
+  ElPagination,
   ElSelect,
   ElTable,
   ElTableColumn,
   ElTag,
-} from 'element-plus'
+  vLoading,
+} from '@/components/ui/element-plus'
+import '@/styles/element-plus-management'
 import { RefreshCw } from '@lingdian/icons/web'
 import AppForm from '@/components/form/AppForm.vue'
 import AppFormTable from '@/components/form-table/AppFormTable.vue'
@@ -170,6 +184,7 @@ import type {
   OrderDetail,
   OrderFilters,
   OrderListItem,
+  OrderPageResponse,
   OrderStatus,
   OrderStatusAction,
   OrderSummaryMetric,
@@ -183,6 +198,9 @@ const detailLoading = ref(false)
 const deletingOrder = ref(false)
 const savingStatus = ref<OrderStatus | null>(null)
 const orders = ref<OrderListItem[]>([])
+const page = ref(1)
+const pageSize = ref(20)
+const total = ref(0)
 const activeOrder = ref<OrderDetail | null>(null)
 const detailDialogOpen = ref(false)
 const actionNote = ref('')
@@ -379,6 +397,8 @@ function paymentChannelLabel(channel: PaymentChannel) {
 
 function buildQueryParams() {
   const params = new URLSearchParams()
+  params.set('page', String(page.value))
+  params.set('pageSize', String(pageSize.value))
 
   if (filters.keyword.trim()) {
     params.set('keyword', filters.keyword.trim())
@@ -415,12 +435,13 @@ async function fetchOrders() {
   try {
     const query = buildQueryParams()
     const [summaryData, listData] = await Promise.all([
-      requestData<OrderSummaryResponse>(`/api/orders/summary${query ? `?${query}` : ''}`),
-      requestData<OrderListItem[]>(`/api/orders${query ? `?${query}` : ''}`),
+      requestData<OrderSummaryResponse>(`/api/merchant/orders/summary${query ? `?${query}` : ''}`),
+      requestData<OrderPageResponse>(`/api/merchant/orders${query ? `?${query}` : ''}`),
     ])
 
     summary.value = summaryData
-    orders.value = listData
+    orders.value = listData.items
+    total.value = listData.total
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '订单数据加载失败')
   } finally {
@@ -434,7 +455,7 @@ async function openOrderDetail(orderId: string) {
   actionNote.value = ''
 
   try {
-    activeOrder.value = await requestData<OrderDetail>(`/api/orders/${orderId}`)
+    activeOrder.value = await requestData<OrderDetail>(`/api/merchant/orders/${orderId}`)
   } catch (error) {
     detailDialogOpen.value = false
     ElMessage.error(error instanceof Error ? error.message : '订单详情加载失败')
@@ -451,7 +472,7 @@ async function handleStatusChange(status: OrderStatus) {
   savingStatus.value = status
 
   try {
-    activeOrder.value = await requestData<OrderDetail>(`/api/orders/${activeOrder.value.id}/status`, {
+    activeOrder.value = await requestData<OrderDetail>(`/api/merchant/orders/${activeOrder.value.id}/status`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -495,7 +516,7 @@ async function handleDeleteOrder() {
   deletingOrder.value = true
 
   try {
-    activeOrder.value = await requestData<OrderDetail>(`/api/orders/${activeOrder.value.id}?operatorName=订单后台`, {
+    activeOrder.value = await requestData<OrderDetail>(`/api/merchant/orders/${activeOrder.value.id}?operatorName=订单后台`, {
       method: 'DELETE',
     })
     ElMessage.success('订单已标记为删除')
@@ -513,6 +534,17 @@ function resetFilters() {
   filters.orderType = ''
   filters.paymentChannel = ''
   filters.dateRange = []
+  page.value = 1
+  void fetchOrders()
+}
+
+function applyFilters() {
+  page.value = 1
+  void fetchOrders()
+}
+
+function handlePageSizeChange() {
+  page.value = 1
   void fetchOrders()
 }
 
@@ -527,6 +559,12 @@ onMounted(fetchOrders)
 
 .orders-table {
   width: 100%;
+}
+
+.orders-pagination {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 16px;
 }
 
 .item-summary {

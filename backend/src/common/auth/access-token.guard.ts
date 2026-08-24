@@ -1,8 +1,9 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import { CanActivate, ExecutionContext, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthAudience, AuthenticatedUser, AuthRole } from './authenticated-user.type';
+import { ALLOW_PASSWORD_CHANGE_REQUIRED } from './allow-password-change-required.decorator';
 
 type AccessTokenClaims = {
   sub?: unknown;
@@ -53,6 +54,13 @@ export class AccessTokenGuard implements CanActivate {
     }
 
     request.user = user;
+    const handler = (context as ExecutionContext & { getHandler?: () => unknown }).getHandler?.();
+    const mayChangePassword = handler
+      ? Reflect.getMetadata(ALLOW_PASSWORD_CHANGE_REQUIRED, handler) === true
+      : false;
+    if (user.mustChangePassword && !mayChangePassword) {
+      throw new ForbiddenException('Password change is required before using this endpoint.');
+    }
     return true;
   }
 }

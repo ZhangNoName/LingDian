@@ -15,7 +15,7 @@ export function corsOptions(env: NodeJS.ProcessEnv = process.env) {
     origin: corsOriginValidator(configuredCorsOrigins(env)),
     credentials: true,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Authorization', 'Content-Type'],
+    allowedHeaders: ['Authorization', 'Content-Type', 'X-Device-Id'],
   };
 }
 

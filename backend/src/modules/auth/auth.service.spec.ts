@@ -2,6 +2,189 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { AuthService } from './auth.service';
 
+const currentConsent = {
+  userAgreementVersion: '2026-08-17',
+  privacyPolicyVersion: '2026-08-17',
+};
+const legalConsentService = {
+  assertCurrentForAudience: () => undefined,
+  record: async () => undefined,
+} as never;
+
+test('rejects user-api phone login before consuming a code when legal consent is missing', async () => {
+  let consumed = false;
+  const service = new AuthService(
+    {} as never,
+    { consume: async () => { consumed = true; } } as never,
+    {} as never,
+    undefined,
+    {
+      assertCurrentForAudience: () => { throw new Error('legal agreement required'); },
+      record: async () => undefined,
+    } as never,
+  );
+
+  await assert.rejects(
+    () => service.phoneLogin({ phone: '13800000000', code: '123456', audience: 'user-api' }, { deviceId: 'miniapp' }),
+    /agreement required/i,
+  );
+  assert.equal(consumed, false);
+});
+
+test('records current consent in the phone-user transaction before issuing a session', async () => {
+  const events: string[] = [];
+  const user = {
+    id: 'user-1', status: 'ACTIVE' as const, sessionVersion: 1,
+    roles: [{ role: 'USER' as const, status: 'ACTIVE' as const }],
+  };
+  let transactionClient: unknown;
+  const service = new AuthService(
+    {
+      $transaction: async (operation: (tx: unknown) => Promise<unknown>) => {
+        const tx = { authIdentity: { findUnique: async () => { events.push('lookup'); return { user }; } } };
+        transactionClient = tx;
+        return operation(tx);
+      },
+    } as never,
+    { consume: async () => { events.push('consume'); } } as never,
+    {
+      create: async (_user: unknown, _audience: unknown, _device: unknown, _context: unknown, client: unknown) => {
+        assert.equal(client, transactionClient);
+        events.push('session');
+        return { accessToken: 'access', refreshToken: 'refresh', expiresIn: 900, user: { sessionId: 'session-1' } };
+      },
+    } as never,
+    undefined,
+    {
+      assertCurrentForAudience: () => { events.push('validate'); },
+      record: async (_userId: string, _input: unknown, _context: unknown, client: unknown) => {
+        assert.equal(client, transactionClient);
+        events.push('consent');
+      },
+    } as never,
+  );
+
+  await service.phoneLogin(
+    { phone: '13800000000', code: '123456', audience: 'user-api', legalConsent: currentConsent },
+    { deviceId: 'miniapp', ip: '127.0.0.1' },
+  );
+
+  assert.deepEqual(events, ['validate', 'consume', 'lookup', 'consent', 'session']);
+});
+
+test('rejects a disabled phone user before persisting legal consent', async () => {
+  const persistedConsents: string[] = [];
+  const user = {
+    id: 'user-disabled', status: 'DISABLED' as const, sessionVersion: 1,
+    roles: [{ role: 'USER' as const, status: 'ACTIVE' as const }],
+  };
+  const service = new AuthService(
+    {
+      $transaction: async <T>(operation: (tx: unknown) => Promise<T>) => {
+        const stagedConsents: string[] = [];
+        const tx = { authIdentity: { findUnique: async () => ({ user }) }, stagedConsents };
+        const result = await operation(tx);
+        persistedConsents.push(...stagedConsents);
+        return result;
+      },
+    } as never,
+    { consume: async () => undefined } as never,
+    { create: async () => { throw new Error('session must not be created'); } } as never,
+    undefined,
+    {
+      assertCurrentForAudience: () => undefined,
+      record: async (userId: string, _input: unknown, _context: unknown, client: { stagedConsents: string[] }) => {
+        client.stagedConsents.push(userId);
+      },
+    } as never,
+  );
+
+  await assert.rejects(
+    () => service.phoneLogin(
+      { phone: '13800000000', code: '123456', audience: 'user-api', legalConsent: currentConsent },
+      { deviceId: 'miniapp' },
+    ),
+    /user is inactive/i,
+  );
+  assert.deepEqual(persistedConsents, []);
+});
+
+test('rolls back phone-login consent when session persistence fails', async () => {
+  const persistedConsents: string[] = [];
+  const user = {
+    id: 'user-1', status: 'ACTIVE' as const, sessionVersion: 1,
+    roles: [{ role: 'USER' as const, status: 'ACTIVE' as const }],
+  };
+  const service = new AuthService(
+    {
+      $transaction: async <T>(operation: (tx: unknown) => Promise<T>) => {
+        const stagedConsents: string[] = [];
+        const tx = { authIdentity: { findUnique: async () => ({ user }) }, stagedConsents };
+        try {
+          const result = await operation(tx);
+          persistedConsents.push(...stagedConsents);
+          return result;
+        } catch (error) {
+          throw error;
+        }
+      },
+    } as never,
+    { consume: async () => undefined } as never,
+    { create: async () => { throw new Error('session persistence failed'); } } as never,
+    undefined,
+    {
+      assertCurrentForAudience: () => undefined,
+      record: async (userId: string, _input: unknown, _context: unknown, client: { stagedConsents: string[] }) => {
+        client.stagedConsents.push(userId);
+      },
+    } as never,
+  );
+
+  await assert.rejects(
+    () => service.phoneLogin(
+      { phone: '13800000000', code: '123456', audience: 'user-api', legalConsent: currentConsent },
+      { deviceId: 'miniapp' },
+    ),
+    /session persistence failed/i,
+  );
+  assert.deepEqual(persistedConsents, []);
+});
+
+test('does not create a phone-login session when consent persistence fails', async () => {
+  let sessionCreates = 0;
+  const user = {
+    id: 'user-1', status: 'ACTIVE' as const, sessionVersion: 1,
+    roles: [{ role: 'USER' as const, status: 'ACTIVE' as const }],
+  };
+  const service = new AuthService(
+    {
+      $transaction: async <T>(operation: (tx: unknown) => Promise<T>) =>
+        operation({ authIdentity: { findUnique: async () => ({ user }) } }),
+    } as never,
+    { consume: async () => undefined } as never,
+    {
+      create: async () => {
+        sessionCreates += 1;
+        return { accessToken: 'access', refreshToken: 'refresh', expiresIn: 900, user: {} };
+      },
+    } as never,
+    undefined,
+    {
+      assertCurrentForAudience: () => undefined,
+      record: async () => { throw new Error('consent persistence failed'); },
+    } as never,
+  );
+
+  await assert.rejects(
+    () => service.phoneLogin(
+      { phone: '13800000000', code: '123456', audience: 'user-api', legalConsent: currentConsent },
+      { deviceId: 'miniapp' },
+    ),
+    /consent persistence failed/i,
+  );
+  assert.equal(sessionCreates, 0);
+});
+
 test('admin phone login rejects a verified user without ADMIN role', async () => {
   const authService = new AuthService(
     {
@@ -21,6 +204,8 @@ test('admin phone login rejects a verified user without ADMIN role', async () =>
     } as never,
     { consume: async () => undefined } as never,
     { create: async () => { throw new Error('session must not be created'); } } as never,
+    undefined,
+    legalConsentService,
   );
   const requestContext = { deviceId: 'device-1' };
 
@@ -55,10 +240,12 @@ test('user phone login consumes the code before creating a phone user and USER r
     } as never,
     { consume: async () => { events.push('consume'); } } as never,
     { create: async () => ({ accessToken: 'access', refreshToken: 'refresh', expiresIn: 900, user: {} }) } as never,
+    undefined,
+    legalConsentService,
   );
 
   await authService.phoneLogin(
-    { phone: '13800000000', code: '123456', audience: 'user-api' },
+    { phone: '13800000000', code: '123456', audience: 'user-api', legalConsent: currentConsent },
     { deviceId: 'device-1' },
   );
 
@@ -77,6 +264,8 @@ test('admin phone login never creates an account for an unknown phone identity',
     } as never,
     { consume: async () => undefined } as never,
     { create: async () => { throw new Error('session must not be created'); } } as never,
+    undefined,
+    legalConsentService,
   );
 
   await assert.rejects(
@@ -134,11 +323,13 @@ test('concurrent valid phone logins recover the unique PHONE identity race and c
         return { accessToken: 'access', refreshToken: 'refresh', expiresIn: 900, user: {} };
       },
     } as never,
+    undefined,
+    legalConsentService,
   );
 
   await Promise.all([
-    authService.phoneLogin({ phone: '13800000000', code: '111111', audience: 'user-api' }, { deviceId: 'd1' }),
-    authService.phoneLogin({ phone: '13800000000', code: '222222', audience: 'user-api' }, { deviceId: 'd2' }),
+    authService.phoneLogin({ phone: '13800000000', code: '111111', audience: 'user-api', legalConsent: currentConsent }, { deviceId: 'd1' }),
+    authService.phoneLogin({ phone: '13800000000', code: '222222', audience: 'user-api', legalConsent: currentConsent }, { deviceId: 'd2' }),
   ]);
 
   assert.equal(created, true);
@@ -164,18 +355,20 @@ test('retries a serializable phone-user transaction after a Prisma P2034 write c
     } as never,
     { consume: async () => undefined } as never,
     { create: async () => ({ accessToken: 'access', refreshToken: 'refresh', expiresIn: 900, user: {} }) } as never,
+    undefined,
+    legalConsentService,
   );
 
   await authService.phoneLogin(
-    { phone: '13800000000', code: '123456', audience: 'user-api' },
+    { phone: '13800000000', code: '123456', audience: 'user-api', legalConsent: currentConsent },
     { deviceId: 'device-1' },
   );
 
   assert.equal(transactionAttempts, 2);
 });
 
-test('audits successful and rejected phone logins with request IP and device context', async () => {
-  const events: Array<{ event: string; ip?: string; device?: string }> = [];
+test('audits successful and rejected phone logins with request IP, device, method, and legal versions', async () => {
+  const events: Array<{ event: string; ip?: string; device?: string; metadata?: Record<string, unknown> }> = [];
   const user = { id: 'user-1', status: 'ACTIVE' as const, sessionVersion: 1, roles: [{ role: 'USER' as const, status: 'ACTIVE' as const }] };
   const authService = new AuthService(
     {
@@ -183,15 +376,23 @@ test('audits successful and rejected phone logins with request IP and device con
     } as never,
     { consume: async ({ code }: { code: string }) => { if (code === '000000') throw new Error('bad code'); } } as never,
     { create: async () => ({ accessToken: 'access', refreshToken: 'refresh', expiresIn: 900, user: { sessionId: 'session-1' } }) } as never,
-    { record: async (entry: { event: string; ip?: string; device?: string }) => { events.push(entry); } } as never,
+    { record: async (entry: { event: string; ip?: string; device?: string; metadata?: Record<string, unknown> }) => { events.push(entry); } } as never,
+    legalConsentService,
   );
 
-  await authService.phoneLogin({ phone: '13800000000', code: '123456', audience: 'user-api' }, { deviceId: 'device-123', ip: '127.0.0.1' });
+  await authService.phoneLogin({ phone: '13800000000', code: '123456', audience: 'user-api', legalConsent: currentConsent }, { deviceId: 'device-123', ip: '127.0.0.1' });
   await assert.rejects(
-    () => authService.phoneLogin({ phone: '13800000000', code: '000000', audience: 'user-api' }, { deviceId: 'device-123', ip: '127.0.0.1' }),
+    () => authService.phoneLogin({ phone: '13800000000', code: '000000', audience: 'user-api', legalConsent: currentConsent }, { deviceId: 'device-123', ip: '127.0.0.1' }),
     /bad code/,
   );
 
   assert.deepEqual(events.map((entry) => entry.event), ['PHONE_LOGIN_SUCCEEDED', 'PHONE_LOGIN_REJECTED']);
   assert.ok(events.every((entry) => entry.ip === '127.0.0.1' && entry.device === 'device-123'));
+  assert.deepEqual(events[0]?.metadata, {
+    audience: 'user-api',
+    phone: '138****00',
+    loginMethod: 'PHONE_VERIFICATION_CODE',
+    userAgreementVersion: '2026-08-17',
+    privacyPolicyVersion: '2026-08-17',
+  });
 });

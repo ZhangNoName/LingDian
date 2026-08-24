@@ -9,7 +9,7 @@
 </template>
 
 <script setup lang="ts">
-import { ElCard } from 'element-plus'
+import { ElCard } from '@/components/ui/element-plus'
 
 defineProps<{
   metrics: Array<{

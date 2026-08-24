@@ -12,6 +12,7 @@ if ! docker info >/dev/null 2>&1; then
   sudo -n docker info >/dev/null
   docker() { sudo docker "$@"; }
 fi
+trap 'docker rm -f lingdian-api-candidate >/dev/null 2>&1 || true' EXIT
 
 exec 9>"$LOCK"
 flock -n 9 || { echo 'Another LingDian release is running' >&2; exit 75; }
@@ -25,6 +26,10 @@ if ! git cat-file -e "$SHA^{commit}" 2>/dev/null; then
 fi
 git cat-file -e "$SHA^{commit}"
 git checkout --detach "$SHA"
+
+if [[ "${LINGDIAN_SYNC_NGINX:-0}" == 1 ]]; then
+  bash deploy/scripts/install-nginx-config.sh
+fi
 
 wants() { [[ "$SELECTION" == all || ",$SELECTION," == *",$1,"* ]]; }
 wait_for_health() {
@@ -62,38 +67,41 @@ release_frontend() {
   fi
 }
 
-release_api() {
+prepare_api() {
   [[ -r "$ENV_FILE" ]] || { echo "Missing production environment: $ENV_FILE" >&2; return 1; }
-  local image="lingdian-api:$SHA" old_image
+  API_IMAGE="lingdian-api:$SHA"
   docker network inspect lingdian-network >/dev/null 2>&1 || docker network create lingdian-network >/dev/null
-  docker build --pull -f Dockerfile.api -t "$image" .
+  docker build --pull -f Dockerfile.api -t "$API_IMAGE" .
   mkdir -p "$UPLOADS"
-  docker run --rm --network lingdian-network --env-file "$ENV_FILE" "$image" corepack pnpm run db:migrate:deploy
-  old_image=$(docker inspect -f '{{.Config.Image}}' lingdian-api 2>/dev/null || true)
+  docker run --rm --network lingdian-network --env-file "$ENV_FILE" "$API_IMAGE" corepack pnpm run db:migrate:deploy
+  API_OLD_IMAGE=$(docker inspect -f '{{.Config.Image}}' lingdian-api 2>/dev/null || true)
   docker rm -f lingdian-api-candidate >/dev/null 2>&1 || true
-  docker run -d --name lingdian-api-candidate --network lingdian-network --env-file "$ENV_FILE" -p 127.0.0.1:19000:9000 -v "$UPLOADS:/workspace/uploads" "$image" >/dev/null
+  docker run -d --name lingdian-api-candidate --network lingdian-network --env-file "$ENV_FILE" -p 127.0.0.1:19000:9000 -v "$UPLOADS:/workspace/uploads" "$API_IMAGE" >/dev/null
   if ! wait_for_health http://127.0.0.1:19000/api/health 45; then
     docker logs lingdian-api-candidate >&2 || true
-    docker rm -f lingdian-api-candidate >/dev/null 2>&1 || true
     return 1
   fi
+}
+
+activate_api() {
   docker rm -f lingdian-api-candidate >/dev/null
   docker rm -f lingdian-api >/dev/null 2>&1 || true
-  if ! docker run -d --name lingdian-api --restart unless-stopped --network lingdian-network --env-file "$ENV_FILE" -p 127.0.0.1:9000:9000 -v "$UPLOADS:/workspace/uploads" "$image" >/dev/null; then
-    [[ -n "$old_image" ]] && docker run -d --name lingdian-api --restart unless-stopped --network lingdian-network --env-file "$ENV_FILE" -p 127.0.0.1:9000:9000 -v "$UPLOADS:/workspace/uploads" "$old_image" >/dev/null
+  if ! docker run -d --name lingdian-api --restart unless-stopped --network lingdian-network --env-file "$ENV_FILE" -p 127.0.0.1:9000:9000 -v "$UPLOADS:/workspace/uploads" "$API_IMAGE" >/dev/null; then
+    [[ -n "$API_OLD_IMAGE" ]] && docker run -d --name lingdian-api --restart unless-stopped --network lingdian-network --env-file "$ENV_FILE" -p 127.0.0.1:9000:9000 -v "$UPLOADS:/workspace/uploads" "$API_OLD_IMAGE" >/dev/null
     return 1
   fi
   if ! wait_for_health http://127.0.0.1:9000/api/health 20; then
     docker logs lingdian-api >&2 || true
     docker rm -f lingdian-api >/dev/null 2>&1 || true
-    [[ -n "$old_image" ]] && docker run -d --name lingdian-api --restart unless-stopped --network lingdian-network --env-file "$ENV_FILE" -p 127.0.0.1:9000:9000 -v "$UPLOADS:/workspace/uploads" "$old_image" >/dev/null
+    [[ -n "$API_OLD_IMAGE" ]] && docker run -d --name lingdian-api --restart unless-stopped --network lingdian-network --env-file "$ENV_FILE" -p 127.0.0.1:9000:9000 -v "$UPLOADS:/workspace/uploads" "$API_OLD_IMAGE" >/dev/null
     return 1
   fi
 }
 
+if wants api; then prepare_api; fi
 if wants app; then release_frontend app 8082 app; fi
 if wants merchant; then release_frontend merchant 8083 merchant; fi
 if wants admin; then release_frontend admin 8084 admin; fi
-if wants api; then release_api; fi
+if wants api; then activate_api; fi
 
 exit 0

@@ -1,13 +1,16 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import type {
   OrderDetailContract,
+  OrderPageContract,
   OrderSummaryContract,
   OrderSummaryStatsContract,
 } from '@lingdian/contracts';
+import { randomBytes } from 'node:crypto';
 import {
   OrderStatus,
   OrderType,
@@ -82,6 +85,10 @@ const orderDetailInclude = {
   },
 } satisfies Prisma.OrderInclude;
 
+type OrderDetailRecord = Prisma.OrderGetPayload<{ include: typeof orderDetailInclude }>;
+
+type OrderScope = { storeIds?: string[]; customerUserId?: string };
+
 @Injectable()
 export class OrdersService {
   constructor(
@@ -90,6 +97,13 @@ export class OrdersService {
   ) {}
 
   async createOrder(body: CreateOrderDto, customerUserId?: string) {
+    const existingOrder = await this.findIdempotentOrder(
+      this.prisma,
+      customerUserId,
+      body.clientRequestId,
+    );
+    if (existingOrder) return this.mapOrderDetail(existingOrder);
+
     const delivery = await this.resolveDelivery(body, customerUserId);
     const normalizedItems = body.items.map((item) => {
       const skuId = item.skuId ?? item.sku_id;
@@ -105,17 +119,42 @@ export class OrdersService {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      const duplicateOrder = await this.findIdempotentOrder(
+        tx,
+        customerUserId,
+        body.clientRequestId,
+      );
+      if (duplicateOrder) return this.mapOrderDetail(duplicateOrder);
+
       const customer = await this.resolveCustomer(tx, body, customerUserId, delivery?.address);
-      const skuIds = normalizedItems.map((item) => item.skuId as string);
+      const store = await tx.store.findUnique({ where: { id: body.storeId }, select: { status: true } });
+      if (!store || store.status !== 'OPEN') {
+        throw new BadRequestException('Store is not available');
+      }
+      const skuIds = [...new Set(normalizedItems.map((item) => item.skuId as string))];
       const skus = await tx.productSKU.findMany({
         where: {
           id: {
             in: skuIds,
           },
           isActive: true,
+          product: {
+            storeId: body.storeId,
+          },
         },
         include: {
-          product: true,
+          product: {
+            include: {
+              selectionBindings: {
+                where: { isEnabled: true, group: { isActive: true } },
+                include: { group: true },
+              },
+            },
+          },
+          selectionBindings: {
+            where: { isEnabled: true, group: { isActive: true } },
+            include: { group: true },
+          },
         },
       });
 
@@ -123,9 +162,9 @@ export class OrdersService {
         throw new NotFoundException('Some SKUs do not exist');
       }
 
-      const selectionOptionIds = normalizedItems.flatMap((item) =>
+      const selectionOptionIds = [...new Set(normalizedItems.flatMap((item) =>
         item.selections?.map((selection) => selection.selectionOptionId) ?? [],
-      );
+      ))];
       const selectionOptions = selectionOptionIds.length
         ? await tx.selectionOption.findMany({
             where: {
@@ -164,6 +203,12 @@ export class OrdersService {
           throw new BadRequestException('Product is not available');
         }
 
+        const allowedGroups = new Map(
+          [...sku.product.selectionBindings, ...sku.selectionBindings]
+            .map((binding) => [binding.groupId, binding.group] as const),
+        );
+        const selectionCounts = new Map<string, number>();
+
         const selectionSnapshots = (item.selections ?? []).map((selection) => {
           const option = selectionOptionMap.get(selection.selectionOptionId);
 
@@ -171,7 +216,13 @@ export class OrdersService {
             throw new NotFoundException('Some selection options do not exist');
           }
 
+          const group = allowedGroups.get(option.groupId);
+          if (!group || (selection.selectionGroupId && selection.selectionGroupId !== option.groupId)) {
+            throw new BadRequestException('Selection option is not available for this SKU');
+          }
+
           const quantity = selection.quantity ?? 1;
+          selectionCounts.set(option.groupId, (selectionCounts.get(option.groupId) ?? 0) + quantity);
 
           return {
             selectionGroupId: option.groupId,
@@ -186,12 +237,21 @@ export class OrdersService {
           };
         });
 
+        for (const group of allowedGroups.values()) {
+          const selected = selectionCounts.get(group.id) ?? 0;
+          const minimum = Math.max(group.minSelect, group.isRequired ? 1 : 0);
+          if (selected < minimum || selected > group.maxSelect || (group.selectionMode === 'SINGLE' && selected > 1)) {
+            throw new BadRequestException(`Invalid selection count for ${group.name}`);
+          }
+        }
+
         const unitPrice = Number(sku.price);
         const selectionPrice = selectionSnapshots.reduce(
           (sum, selection) => sum + selection.priceDelta,
           0,
         );
-        const subtotal = unitPrice * item.quantity + selectionPrice;
+        const subtotal = (unitPrice + selectionPrice) * item.quantity;
+        if (subtotal < 0) throw new BadRequestException('Order item subtotal cannot be negative');
         totalAmount += subtotal;
 
         orderItems.push({
@@ -211,8 +271,10 @@ export class OrdersService {
 
       const order = await tx.order.create({
         data: {
-          orderNo: `LD${Date.now()}`,
+          orderNo: `LD${Date.now()}${randomBytes(4).toString('hex').toUpperCase()}`,
           storeId: body.storeId,
+          customerUserId,
+          clientRequestId: customerUserId ? body.clientRequestId : undefined,
           customerName: customer.name,
           customerMobile: customer.mobile,
           deliveryAddress: delivery?.snapshot,
@@ -246,7 +308,33 @@ export class OrdersService {
       });
 
       return this.mapOrderDetail(order);
+    }).catch(async (error: unknown) => {
+      if (this.isUniqueConstraintError(error)) {
+        const duplicateOrder = await this.findIdempotentOrder(
+          this.prisma,
+          customerUserId,
+          body.clientRequestId,
+        );
+        if (duplicateOrder) return this.mapOrderDetail(duplicateOrder);
+      }
+      throw error;
     });
+  }
+
+  private findIdempotentOrder(
+    client: PrismaService | Prisma.TransactionClient,
+    customerUserId?: string,
+    clientRequestId?: string,
+  ): Promise<OrderDetailRecord | null> {
+    if (!customerUserId || !clientRequestId) return Promise.resolve(null);
+    return client.order.findFirst({
+      where: { customerUserId, clientRequestId },
+      include: orderDetailInclude,
+    }) as Promise<OrderDetailRecord | null>;
+  }
+
+  private isUniqueConstraintError(error: unknown): boolean {
+    return typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002';
   }
 
   private async resolveCustomer(
@@ -287,8 +375,8 @@ export class OrdersService {
     return { address, snapshot: formatDeliveryAddress(address) };
   }
 
-  async getOrderSummary(query: QueryOrdersDto): Promise<OrderSummaryStatsContract> {
-    const scopedWhere = this.buildOrderWhere(query, false);
+  async getOrderSummary(query: QueryOrdersDto, scope: OrderScope = {}): Promise<OrderSummaryStatsContract> {
+    const scopedWhere = this.buildOrderWhere(query, true, scope);
     const paidStatuses: OrderStatus[] = [
       'PAID',
       'PREPARING',
@@ -348,31 +436,39 @@ export class OrdersService {
     };
   }
 
-  async getOrders(query: QueryOrdersDto): Promise<OrderSummaryContract[]> {
-    const orders = await this.prisma.order.findMany({
-      where: this.buildOrderWhere(query),
-      include: {
-        store: {
-          select: {
-            id: true,
-            name: true,
+  async getOrders(query: QueryOrdersDto, scope: OrderScope = {}): Promise<OrderPageContract> {
+    const page = query.page ?? 1;
+    const pageSize = query.pageSize ?? 50;
+    const where = this.buildOrderWhere(query, true, scope);
+    const [orders, total] = await Promise.all([
+      this.prisma.order.findMany({
+        where,
+        include: {
+          store: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          items: {
+            select: {
+              id: true,
+              productName: true,
+              skuName: true,
+              quantity: true,
+              subtotal: true,
+            },
+            orderBy: [{ createdAt: 'asc' }],
           },
         },
-        items: {
-          select: {
-            id: true,
-            productName: true,
-            skuName: true,
-            quantity: true,
-            subtotal: true,
-          },
-          orderBy: [{ createdAt: 'asc' }],
-        },
-      },
-      orderBy: [{ createdAt: 'desc' }],
-    });
+        orderBy: [{ createdAt: 'desc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.order.count({ where }),
+    ]);
 
-    return orders.map((order) => ({
+    const items: OrderSummaryContract[] = orders.map((order) => ({
       id: order.id,
       order_no: order.orderNo,
       store_id: order.storeId,
@@ -397,12 +493,15 @@ export class OrdersService {
       created_at: order.createdAt.toISOString(),
       updated_at: order.updatedAt.toISOString(),
     }));
+
+    return { items, total, page, page_size: pageSize };
   }
 
-  async getOrderDetail(orderId: string) {
-    const order = await this.prisma.order.findUnique({
+  async getOrderDetail(orderId: string, scope: OrderScope = {}) {
+    const order = await this.prisma.order.findFirst({
       where: {
         id: orderId,
+        ...this.scopeWhere(scope),
       },
       include: orderDetailInclude,
     });
@@ -414,11 +513,12 @@ export class OrdersService {
     return this.mapOrderDetail(order);
   }
 
-  async updateOrderStatus(orderId: string, body: UpdateOrderStatusDto) {
+  async updateOrderStatus(orderId: string, body: UpdateOrderStatusDto, scope: OrderScope = {}) {
     const targetStatus = body.status as OrderStatus;
-    const order = await this.prisma.order.findUnique({
+    const order = await this.prisma.order.findFirst({
       where: {
         id: orderId,
+        ...this.scopeWhere(scope),
       },
     });
 
@@ -431,7 +531,7 @@ export class OrdersService {
     }
 
     if (order.status === targetStatus) {
-      return this.getOrderDetail(orderId);
+      return this.getOrderDetail(orderId, scope);
     }
 
     const allowedTransitions = editableTransitions[order.status] ?? [];
@@ -441,31 +541,41 @@ export class OrdersService {
       );
     }
 
-    await this.prisma.order.update({
-      where: {
-        id: orderId,
-      },
-      data: {
-        status: targetStatus,
-        ...this.buildStatusTimestampPatch(targetStatus),
-        statusLogs: {
-          create: {
-            fromStatus: order.status,
-            toStatus: targetStatus,
-            operatorName: body.operatorName,
-            note: body.note,
-          },
+    await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.order.updateMany({
+        where: {
+          id: orderId,
+          status: order.status,
+          isDeleted: false,
+          ...this.scopeWhere(scope),
         },
-      },
+        data: {
+          status: targetStatus,
+          ...this.buildStatusTimestampPatch(targetStatus),
+        },
+      });
+      if (updated.count !== 1) {
+        throw new ConflictException('Order changed concurrently. Reload and try again.');
+      }
+      await tx.orderStatusLog.create({
+        data: {
+          orderId,
+          fromStatus: order.status,
+          toStatus: targetStatus,
+          operatorName: body.operatorName,
+          note: body.note,
+        },
+      });
     });
 
-    return this.getOrderDetail(orderId);
+    return this.getOrderDetail(orderId, scope);
   }
 
-  async deleteOrder(orderId: string, operatorName?: string) {
-    const order = await this.prisma.order.findUnique({
+  async deleteOrder(orderId: string, operatorName?: string, scope: OrderScope = {}) {
+    const order = await this.prisma.order.findFirst({
       where: {
         id: orderId,
+        ...this.scopeWhere(scope),
       },
     });
 
@@ -474,7 +584,7 @@ export class OrdersService {
     }
 
     if (order.isDeleted || order.status === 'DELETED') {
-      return this.getOrderDetail(orderId);
+      return this.getOrderDetail(orderId, scope);
     }
 
     if (!deletableStatuses.has(order.status)) {
@@ -483,31 +593,40 @@ export class OrdersService {
       );
     }
 
-    await this.prisma.order.update({
-      where: {
-        id: orderId,
-      },
-      data: {
-        status: 'DELETED',
-        isDeleted: true,
-        deletedAt: new Date(),
-        statusLogs: {
-          create: {
-            fromStatus: order.status,
-            toStatus: 'DELETED',
-            operatorName,
-            note: 'Soft deleted',
-          },
+    await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.order.updateMany({
+        where: {
+          id: orderId,
+          status: order.status,
+          isDeleted: false,
+          ...this.scopeWhere(scope),
         },
-      },
+        data: {
+          status: 'DELETED',
+          isDeleted: true,
+          deletedAt: new Date(),
+        },
+      });
+      if (updated.count !== 1) {
+        throw new ConflictException('Order changed concurrently. Reload and try again.');
+      }
+      await tx.orderStatusLog.create({
+        data: {
+          orderId,
+          fromStatus: order.status,
+          toStatus: 'DELETED',
+          operatorName,
+          note: 'Soft deleted',
+        },
+      });
     });
 
-    return this.getOrderDetail(orderId);
+    return this.getOrderDetail(orderId, scope);
   }
 
-  private buildOrderWhere(query: QueryOrdersDto, excludeDeleted = true): Prisma.OrderWhereInput {
+  private buildOrderWhere(query: QueryOrdersDto, excludeDeleted = true, scope: OrderScope = {}): Prisma.OrderWhereInput {
     const createdAt = this.buildDateRange(query.startDate, query.endDate);
-    const where: Prisma.OrderWhereInput = {};
+    const where: Prisma.OrderWhereInput = this.scopeWhere(scope);
 
     if (excludeDeleted) {
       where.isDeleted = false;
@@ -559,6 +678,13 @@ export class OrdersService {
     }
 
     return where;
+  }
+
+  private scopeWhere(scope: OrderScope): Prisma.OrderWhereInput {
+    return {
+      ...(scope.storeIds ? { storeId: { in: scope.storeIds } } : {}),
+      ...(scope.customerUserId ? { customerUserId: scope.customerUserId } : {}),
+    };
   }
 
   private buildDateRange(startDate?: string, endDate?: string) {

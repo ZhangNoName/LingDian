@@ -12,6 +12,10 @@
       "types": "./src/web.ts",
       "import": "./src/web.ts"
     },
+    "./admin": {
+      "types": "./src/admin.ts",
+      "import": "./src/admin.ts"
+    },
     "./miniapp": {
       "types": "./src/miniapp.ts",
       "import": "./src/miniapp.ts"
@@ -21,6 +25,9 @@
     "*": {
       "web": [
         "src/web.ts"
+      ],
+      "admin": [
+        "src/admin.ts"
       ],
       "miniapp": [
         "src/miniapp.ts"

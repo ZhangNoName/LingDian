@@ -6,6 +6,8 @@ let accessToken: string | undefined
 let accessTokenExpiresAt = 0
 let currentUser: AuthenticatedUser | undefined
 let unauthorizedHandler: () => void | Promise<void> = redirectBrowserToLogin
+let refreshPromise: Promise<boolean> | undefined
+const DEVICE_STORAGE_KEY = 'lingdian-merchant-device-id'
 
 export const merchantSession = {
   acceptLogin(tokens: AuthTokens): void {
@@ -45,7 +47,7 @@ export const merchantSession = {
   async login(username: string, password: string): Promise<void> {
     const response = await fetch(apiUrl('/auth/account/login'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       credentials: 'include',
       body: JSON.stringify({ username, password, audience: 'merchant-api' }),
     })
@@ -125,26 +127,11 @@ export const merchantSession = {
   },
 
   async refresh(): Promise<boolean> {
-    const response = await fetch(apiUrl('/auth/refresh'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: '{}',
+    if (refreshPromise) return refreshPromise
+    refreshPromise = withBrowserRefreshLock('lingdian-merchant-refresh', refreshMerchantSession).finally(() => {
+      refreshPromise = undefined
     })
-
-    if (response.status === 401) {
-      await this.handleUnauthorized()
-      return false
-    }
-
-    const tokens = await readAuthTokens(response)
-    try {
-      this.acceptLogin(tokens)
-      return true
-    } catch {
-      await this.handleUnauthorized()
-      return false
-    }
+    return refreshPromise
   },
 
   async logout(): Promise<void> {
@@ -154,7 +141,7 @@ export const merchantSession = {
       if (token) {
         await fetch(apiUrl('/auth/logout'), {
           method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { Authorization: `Bearer ${token}`, 'X-Device-Id': deviceId() },
           credentials: 'include',
         })
       }
@@ -166,6 +153,47 @@ export const merchantSession = {
   async ensureAccessToken(): Promise<boolean> {
     return Boolean(this.getAccessToken()) || this.refresh()
   },
+}
+
+async function refreshMerchantSession(): Promise<boolean> {
+    const response = await fetch(apiUrl('/auth/refresh'), {
+      method: 'POST',
+      headers: authHeaders(),
+      credentials: 'include',
+      body: '{}',
+    })
+
+    if (response.status === 401) {
+      await merchantSession.handleUnauthorized()
+      return false
+    }
+
+    const tokens = await readAuthTokens(response)
+    try {
+      merchantSession.acceptLogin(tokens)
+      return true
+    } catch {
+      await merchantSession.handleUnauthorized()
+      return false
+    }
+}
+
+function authHeaders(): Record<string, string> {
+  return { 'Content-Type': 'application/json', 'X-Device-Id': deviceId() }
+}
+
+function deviceId(): string {
+  const existing = localStorage.getItem(DEVICE_STORAGE_KEY)
+  if (existing) return existing
+  const created = globalThis.crypto?.randomUUID?.() ?? `merchant-${Date.now()}-${Math.random().toString(16).slice(2)}`
+  localStorage.setItem(DEVICE_STORAGE_KEY, created)
+  return created
+}
+
+function withBrowserRefreshLock(name: string, operation: () => Promise<boolean>): Promise<boolean> {
+  return navigator.locks?.request
+    ? navigator.locks.request(name, operation) as unknown as Promise<boolean>
+    : operation()
 }
 
 function isMerchantSession(user: AuthenticatedUser): boolean {

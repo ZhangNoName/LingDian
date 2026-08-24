@@ -77,6 +77,30 @@ export type ProductRecordContract = {
   selection_groups: ProductSelectionGroupContract[];
 };
 
+export type ProductListItemContract = Omit<ProductRecordContract, 'selection_groups'> & {
+  selection_group_count: number;
+};
+
+export type ProductPageContract = {
+  items: ProductListItemContract[];
+  total: number;
+  page: number;
+  page_size: number;
+};
+
+export type ProductStatsContract = {
+  total_count: number;
+  active_count: number;
+  package_count: number;
+  sku_count: number;
+  selection_group_count: number;
+};
+
+export type ProductSkuOptionContract = {
+  value: string;
+  label: string;
+};
+
 export type ProductInputContract = {
   category_id: string;
   name: string;

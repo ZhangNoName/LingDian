@@ -13,6 +13,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AccessTokenGuard } from '../../common/auth/access-token.guard';
 import { AdminGuard } from '../../common/auth/admin.guard';
 import { UserApiGuard } from '../../common/auth/user-api.guard';
+import { MerchantGuard } from '../../common/auth/merchant.guard';
 import { AuthenticatedUser } from '../../common/auth/authenticated-user.type';
 import { CurrentUser } from '../../common/auth/current-user.decorator';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -46,6 +47,66 @@ export class OrdersController {
     return this.ordersService.getOrderDetail(id);
   }
 
+  @ApiOperation({ summary: 'Get current customer order list' })
+  @UseGuards(AccessTokenGuard, UserApiGuard)
+  @Get('customer/orders')
+  getCustomerOrders(@CurrentUser() user: AuthenticatedUser, @Query() query: QueryOrdersDto) {
+    return this.ordersService.getOrders(query, { customerUserId: user.userId });
+  }
+
+  @ApiOperation({ summary: 'Get current customer order detail' })
+  @UseGuards(AccessTokenGuard, UserApiGuard)
+  @Get('customer/orders/:id')
+  getCustomerOrderDetail(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.ordersService.getOrderDetail(id, { customerUserId: user.userId });
+  }
+
+  @ApiOperation({ summary: 'Get merchant order summary' })
+  @UseGuards(AccessTokenGuard, MerchantGuard)
+  @Get('merchant/orders/summary')
+  getMerchantOrderSummary(@CurrentUser() user: AuthenticatedUser, @Query() query: QueryOrdersDto) {
+    return this.ordersService.getOrderSummary(query, { storeIds: user.merchantStoreIds });
+  }
+
+  @ApiOperation({ summary: 'Get merchant order list' })
+  @UseGuards(AccessTokenGuard, MerchantGuard)
+  @Get('merchant/orders')
+  getMerchantOrders(@CurrentUser() user: AuthenticatedUser, @Query() query: QueryOrdersDto) {
+    return this.ordersService.getOrders(query, { storeIds: user.merchantStoreIds });
+  }
+
+  @ApiOperation({ summary: 'Get merchant order detail' })
+  @UseGuards(AccessTokenGuard, MerchantGuard)
+  @Get('merchant/orders/:id')
+  getMerchantOrderDetail(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.ordersService.getOrderDetail(id, { storeIds: user.merchantStoreIds });
+  }
+
+  @ApiOperation({ summary: 'Update merchant order status' })
+  @UseGuards(AccessTokenGuard, MerchantGuard)
+  @Patch('merchant/orders/:id/status')
+  updateMerchantOrderStatus(
+    @Param('id') id: string,
+    @Body() body: UpdateOrderStatusDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.ordersService.updateOrderStatus(
+      id,
+      { ...body, operatorName: user.userId },
+      { storeIds: user.merchantStoreIds },
+    );
+  }
+
+  @ApiOperation({ summary: 'Soft delete merchant order' })
+  @UseGuards(AccessTokenGuard, MerchantGuard)
+  @Delete('merchant/orders/:id')
+  deleteMerchantOrder(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.ordersService.deleteOrder(id, user.userId, { storeIds: user.merchantStoreIds });
+  }
+
   @ApiOperation({ summary: 'Create order using the legacy path' })
   @UseGuards(AccessTokenGuard, UserApiGuard)
   @Post('orders')
@@ -69,8 +130,12 @@ export class OrdersController {
   @ApiOperation({ summary: 'Update order status' })
   @UseGuards(AccessTokenGuard, AdminGuard)
   @Patch('orders/:id/status')
-  updateOrderStatus(@Param('id') id: string, @Body() body: UpdateOrderStatusDto) {
-    return this.ordersService.updateOrderStatus(id, body);
+  updateOrderStatus(
+    @Param('id') id: string,
+    @Body() body: UpdateOrderStatusDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.ordersService.updateOrderStatus(id, { ...body, operatorName: user.userId });
   }
 
   @ApiOperation({ summary: 'Soft delete order' })
@@ -78,8 +143,8 @@ export class OrdersController {
   @Delete('orders/:id')
   deleteOrder(
     @Param('id') id: string,
-    @Query('operatorName') operatorName?: string,
+    @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.ordersService.deleteOrder(id, operatorName);
+    return this.ordersService.deleteOrder(id, user.userId);
   }
 }

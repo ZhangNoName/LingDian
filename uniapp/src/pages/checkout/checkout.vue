@@ -30,7 +30,7 @@ import PayBar from "@/components/checkout/PayBar.vue";
 import CheckoutAddressCard from "@/components/checkout/CheckoutAddressCard.vue";
 import { fetchMenu } from "@/services/catalog";
 import { getCartSummary } from "@/services/cart";
-import { createOrderFromCart } from "@/services/orders";
+import { createOrderFromCart, createOrderRequestId } from "@/services/orders";
 import { requireCustomerAuth } from "@/services/auth-navigation";
 import { canCheckout, canSubmitCheckout } from "@/services/checkout-state";
 import { addresses } from "@/services/addresses";
@@ -39,6 +39,7 @@ import type { StoreSummary } from "@/types/store";
 import type { UserAddress } from "@lingdian/contracts";
 
 const cart = ref<CartSummary>(getCartSummary());
+const orderRequestId = ref(createOrderRequestId());
 const serviceMode = ref<"takeaway" | "delivery">("takeaway");
 const addressList = ref<UserAddress[]>([]);
 const selectedAddress = computed(() => addressList.value.find((address) => address.isDefault) ?? addressList.value[0]);
@@ -103,6 +104,7 @@ async function submitOrder() {
     const order = await createOrderFromCart(cart.value, {
       serviceMode: serviceMode.value,
       addressId: selectedAddress.value?.id,
+      clientRequestId: orderRequestId.value,
     });
     cart.value = getCartSummary();
     uni.redirectTo({ url: `/pages/order-detail/order-detail?id=${order.id}` });
@@ -154,4 +156,3 @@ function manageAddresses() {
   font-weight: 800;
 }
 </style>
-

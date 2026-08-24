@@ -1,5 +1,5 @@
 <script setup lang="ts" generic="Row extends object">
-import { Refresh, Search } from '@element-plus/icons-vue'
+import { Refresh, Search } from '@lingdian/icons/admin'
 import { computed, ref, useSlots, watch } from 'vue'
 import AppIconButton from '../common/AppIconButton.vue'
 import { columnKey, createResetPatch, formatCellValue } from './schema'

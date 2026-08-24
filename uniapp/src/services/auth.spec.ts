@@ -9,6 +9,11 @@ const userProfile: AuthenticatedUser = {
   roles: ["USER"],
 };
 
+const legalConsent = {
+  userAgreementVersion: "2026-08-17",
+  privacyPolicyVersion: "2026-08-17",
+};
+
 afterEach(() => {
   customerAuth.clear();
   uni.removeStorageSync("lingdian_demo_token");
@@ -27,7 +32,7 @@ test("recovers a native session after relaunch through its OS-managed cookie tra
   });
   Object.assign(uni, { request });
 
-  await customerAuth.phoneLogin("13800000000", "123456");
+  await customerAuth.phoneLogin("13800000000", "123456", legalConsent);
   assert.equal(customerAuth.getAccessToken(), "initial-access");
 
   await customerAuth.recoverAfterRelaunch();
@@ -70,10 +75,30 @@ test("accepts a customer session after a phone login", async () => {
   });
   Object.assign(uni, { request });
 
-  await customerAuth.phoneLogin("13800000000", "123456");
+  await customerAuth.phoneLogin("13800000000", "123456", legalConsent);
 
   assert.equal(customerAuth.getAccessToken(), "phone-jwt");
-  assert.deepEqual(request.mock.calls[0][0].data, { phone: "13800000000", code: "123456", audience: "user-api" });
+  assert.deepEqual(request.mock.calls[0][0].data, {
+    phone: "13800000000",
+    code: "123456",
+    audience: "user-api",
+    legalConsent,
+  });
+  assert.equal((request.mock.calls[0][0].data as { legalConsent: unknown }).legalConsent, legalConsent);
+});
+
+test("maps the legal-consent API code before exposing an authentication error", async () => {
+  const request = vi.fn((options: UniApp.RequestOptions) => {
+    options.success?.({
+      statusCode: 400,
+      data: { code: 2004, msg: "Legal agreement version is outdated.", data: null },
+    } as unknown as UniApp.RequestSuccessCallbackResult);
+    return { abort() {} } as UniApp.RequestTask;
+  });
+  Object.assign(uni, { request });
+
+  await expect(customerAuth.phoneLogin("13800000000", "123456", legalConsent))
+    .rejects.toThrow("请更新小程序后重试");
 });
 
 test("accepts a session only after a pending OAuth binding completes", async () => {
@@ -83,10 +108,16 @@ test("accepts a session only after a pending OAuth binding completes", async () 
   });
   Object.assign(uni, { request });
 
-  await customerAuth.completePhoneLink("pending-1", "13800000000", "123456");
+  await customerAuth.completePhoneLink("pending-1", "13800000000", "123456", legalConsent);
 
   assert.equal(customerAuth.getAccessToken(), "linked-jwt");
-  assert.deepEqual(request.mock.calls[0][0].data, { pendingOauthId: "pending-1", phone: "13800000000", code: "123456" });
+  assert.deepEqual(request.mock.calls[0][0].data, {
+    pendingOauthId: "pending-1",
+    phone: "13800000000",
+    code: "123456",
+    legalConsent,
+  });
+  assert.equal((request.mock.calls[0][0].data as { legalConsent: unknown }).legalConsent, legalConsent);
 });
 
 test("treats a 204 logout response as a successful logout", async () => {
@@ -140,7 +171,7 @@ test("exchanges distinct WeChat login and phone codes for a customer session", a
     },
   });
 
-  await customerAuth.wechatPhoneLogin("wx-phone-code");
+  await customerAuth.wechatPhoneLogin("wx-phone-code", legalConsent);
 
   assert.equal(customerAuth.getAccessToken(), "wechat-jwt");
   assert.match(request.mock.calls[0][0].url, /\/auth\/wechat\/miniapp\/phone-login$/);
@@ -148,5 +179,7 @@ test("exchanges distinct WeChat login and phone codes for a customer session", a
     loginCode: "wx-login-code",
     phoneCode: "wx-phone-code",
     audience: "user-api",
+    legalConsent,
   });
+  assert.equal((request.mock.calls[0][0].data as { legalConsent: unknown }).legalConsent, legalConsent);
 });

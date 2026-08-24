@@ -22,7 +22,7 @@
             <button class="retry-button" role="button" tabindex="0" aria-label="重新加载菜单" @keydown.enter="retryLoadMenu" @tap="retryLoadMenu">重新加载</button>
           </view>
           <view v-else-if="menuState === 'empty'" class="menu-state menu-state--empty">
-            <image class="empty-logo" src="/static/logo-xsf-red-yellow.png" mode="aspectFit" aria-label="零食坊品牌标志" />
+            <image class="empty-logo" src="/static/logo-xsf-red-yellow.png" mode="aspectFit" lazy-load aria-label="零食坊品牌标志" />
             <text class="state-title">暂无可售餐品</text>
             <text class="state-copy">餐品正在准备中，稍后再来看看吧</text>
           </view>
@@ -330,4 +330,3 @@ async function goCheckout() {
 }
 
 </style>
-

@@ -5,6 +5,7 @@ import {
   IsArray,
   IsIn,
   IsInt,
+  Length,
   IsMobilePhone,
   IsNotEmpty,
   IsOptional,
@@ -85,6 +86,15 @@ export class OrderItemDto {
 }
 
 export class CreateOrderDto {
+  @ApiPropertyOptional({
+    description: 'Stable client request id used to make authenticated checkout idempotent',
+    example: 'checkout-m5z8v8k2-a1b2c3d4',
+  })
+  @IsOptional()
+  @IsString()
+  @Length(8, 64)
+  clientRequestId?: string;
+
   @ApiProperty({
     description: 'Store id',
     example: 'cmofp2e5k0000w0j66zjobzse',

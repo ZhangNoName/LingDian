@@ -65,7 +65,21 @@ export class VerificationService {
       throw new HttpException('Too many verification codes requested.', HttpStatus.TOO_MANY_REQUESTS);
     }
 
-    const message = await this.smsProvider.send({ phoneE164, code: reservation.code });
+    let message: { messageId: string };
+    try {
+      message = await this.smsProvider.send({ phoneE164, code: reservation.code });
+    } catch (error) {
+      await this.prisma.verificationCode.updateMany({
+        where: {
+          purpose: input.purpose,
+          targetHash,
+          codeHash: this.hashCode(input.purpose, phoneE164, reservation.code),
+          consumedAt: null,
+        },
+        data: { consumedAt: new Date() },
+      });
+      throw error;
+    }
 
     await this.audit.record({
       event: 'CODE_SENT',

@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import type { CompleteOAuthLoginRequest, LegalConsentInput } from '@lingdian/contracts';
 import { Prisma } from '@lingdian/db';
 import { createCipheriv, createHash, createHmac, randomBytes } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -7,6 +8,8 @@ import { AuditService } from './audit.service';
 import { normalizeChinesePhone } from './phone';
 import { OAUTH_PROVIDERS, OAuthProvider } from './providers/oauth-provider';
 import { AUTH_REFRESH_PEPPER, VerificationService } from './verification.service';
+import { LegalConsentService } from './legal-consent.service';
+import { SessionService, type SessionTokens } from './session.service';
 
 const PENDING_OAUTH_TTL_MS = 10 * 60 * 1000;
 const STATE_PLACEHOLDER_SUBJECT = '__oauth_state__';
@@ -31,6 +34,8 @@ export class OAuthService {
     private readonly verification: VerificationService,
     private readonly audit: AuditService,
     @Inject(AUTH_REFRESH_PEPPER) private readonly refreshPepper: string = 'test-refresh-pepper',
+    private readonly legalConsent: LegalConsentService,
+    private readonly sessions: SessionService,
   ) {
     this.providers = new Map(providers.map((provider) => [provider.provider, provider]));
   }
@@ -109,10 +114,12 @@ export class OAuthService {
     loginCode: string;
     phoneCode: string;
     audience: string;
+    legalConsent: LegalConsentInput;
     ip?: string;
     device?: string;
-  }): Promise<OAuthUser> {
+  }): Promise<SessionTokens> {
     try {
+      this.legalConsent.assertCurrentForAudience(input.audience, input.legalConsent);
       this.requireUserAudience(input.audience);
       const provider = this.provider('WECHAT');
       if (!provider.exchangeMiniProgramPhoneCode) {
@@ -127,7 +134,7 @@ export class OAuthService {
         ? wechatProfile.unionId
         : `${provider.miniProgramAppId}:${wechatProfile.openId}`;
 
-      const user = await this.transactionWithRetry(async (tx) => {
+      return await this.transactionWithRetry(async (tx) => {
         const phoneIdentity = await tx.authIdentity.findUnique({
           where: { provider_subject: { provider: 'PHONE', subject: phoneE164 } },
           include: { user: { include: { roles: true } } },
@@ -152,16 +159,37 @@ export class OAuthService {
           provider: 'WECHAT',
           subject,
         });
-        return resolvedUser;
+        await this.legalConsent.record(
+          resolvedUser.id,
+          input.legalConsent,
+          { ip: input.ip, deviceId: input.device ?? 'unknown' },
+          tx,
+        );
+        const tokens = await this.sessions.create(
+          {
+            id: resolvedUser.id,
+            sessionVersion: resolvedUser.sessionVersion,
+            roles: activeRoles(resolvedUser),
+          },
+          'user-api',
+          input.device ?? 'unknown',
+          { ip: input.ip, device: input.device },
+          tx,
+        );
+        await this.audit.record({
+          event: 'OAUTH_MINIAPP_PHONE_LOGIN_SUCCEEDED',
+          userId: resolvedUser.id,
+          sessionId: tokens.user.sessionId,
+          ip: input.ip,
+          device: input.device,
+          metadata: {
+            loginMethod: 'WECHAT_MINI_PROGRAM_PHONE',
+            userAgreementVersion: input.legalConsent.userAgreementVersion,
+            privacyPolicyVersion: input.legalConsent.privacyPolicyVersion,
+          },
+        }, tx);
+        return tokens;
       });
-
-      await this.audit.record({
-        event: 'OAUTH_MINIAPP_PHONE_LOGIN_SUCCEEDED',
-        userId: user.id,
-        ip: input.ip,
-        device: input.device,
-      });
-      return user;
     } catch (error) {
       await this.audit.record({
         event: 'OAUTH_MINIAPP_PHONE_LOGIN_REJECTED',
@@ -172,15 +200,45 @@ export class OAuthService {
     }
   }
 
-  async linkPhone(input: { pendingOauthId: string; phone: string; code: string }): Promise<OAuthUser> {
+  async linkPhone(input: CompleteOAuthLoginRequest & { ip?: string; device?: string }): Promise<SessionTokens> {
     try {
+      this.legalConsent.assertCurrentForAudience('user-api', input.legalConsent);
       const phoneE164 = normalizeChinesePhone(input.phone);
-      const user = await this.transactionWithRetry(async (tx) => {
+      return await this.transactionWithRetry(async (tx) => {
         await this.verification.consume({ purpose: 'PHONE_LINK', phone: input.phone, code: input.code }, tx);
-        return this.consumePendingIntoPhoneUser(tx, input.pendingOauthId, phoneE164);
+        const resolvedUser = await this.consumePendingIntoPhoneUser(tx, input.pendingOauthId, phoneE164);
+        if (resolvedUser.status !== 'ACTIVE') throw new UnauthorizedException('User is inactive.');
+        await this.legalConsent.record(
+          resolvedUser.id,
+          input.legalConsent,
+          { ip: input.ip, deviceId: input.device ?? 'unknown' },
+          tx,
+        );
+        const tokens = await this.sessions.create(
+          {
+            id: resolvedUser.id,
+            sessionVersion: resolvedUser.sessionVersion,
+            roles: activeRoles(resolvedUser),
+          },
+          'user-api',
+          input.device ?? 'unknown',
+          { ip: input.ip, device: input.device },
+          tx,
+        );
+        await this.audit.record({
+          event: 'OAUTH_PHONE_LINKED',
+          userId: resolvedUser.id,
+          sessionId: tokens.user.sessionId,
+          ip: input.ip,
+          device: input.device,
+          metadata: {
+            loginMethod: 'PENDING_OAUTH_PHONE',
+            userAgreementVersion: input.legalConsent.userAgreementVersion,
+            privacyPolicyVersion: input.legalConsent.privacyPolicyVersion,
+          },
+        }, tx);
+        return tokens;
       });
-      await this.audit.record({ event: 'OAUTH_PHONE_LINKED', userId: user.id });
-      return user;
     } catch (error) {
       await this.audit.record({ event: 'OAUTH_PHONE_LINK_REJECTED' });
       throw error;
@@ -356,4 +414,10 @@ function isPrismaUniqueConflict(error: unknown): boolean {
 function isRetryableTransactionError(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'code' in error &&
     ((error as { code?: unknown }).code === 'P2034' || (error as { code?: unknown }).code === 'P2002');
+}
+
+function activeRoles(user: OAuthUser): AuthRole[] {
+  return user.roles
+    .filter((assignment) => assignment.status === 'ACTIVE')
+    .map((assignment) => assignment.role);
 }

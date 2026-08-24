@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Fold, User } from '@element-plus/icons-vue'
+import { Fold, User } from '@lingdian/icons/admin'
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { adminSession } from '../../auth/session'

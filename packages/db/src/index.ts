@@ -1,6 +1,7 @@
 export {
   AuthAudience,
   IdentityProvider,
+  LegalDocumentType,
   OrderStatus,
   OrderType,
   PaymentChannel,
@@ -28,6 +29,7 @@ export type {
   AuthSession,
   PendingOAuth,
   User,
+  UserLegalConsent,
   UserRoleAssignment,
   VerificationCode,
   SystemLog,

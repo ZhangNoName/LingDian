@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, Optional, UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, Optional, UnauthorizedException } from '@nestjs/common';
 import { Prisma } from '@lingdian/db';
 import type { PhoneLoginRequest } from '@lingdian/contracts';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -7,6 +7,7 @@ import { normalizeChinesePhone } from './phone';
 import { SessionService, SessionTokens } from './session.service';
 import { VerificationService } from './verification.service';
 import { AuditService } from './audit.service';
+import { LegalConsentService } from './legal-consent.service';
 
 export type AuthRequestContext = {
   deviceId: string;
@@ -28,53 +29,40 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly verification: VerificationService,
     private readonly sessions: SessionService,
-    @Optional() private readonly audit?: AuditService,
+    @Optional() @Inject(AuditService) private readonly audit: AuditService | undefined,
+    private readonly legalConsent: LegalConsentService,
   ) {}
 
   async phoneLogin(input: PhoneLoginRequest, context: AuthRequestContext): Promise<SessionTokens> {
     try {
+      this.legalConsent.assertCurrentForAudience(input.audience, input.legalConsent);
       const purpose = input.audience === 'admin-api' ? 'ADMIN_LOGIN' : 'PHONE_LOGIN';
       await this.verification.consume({ purpose, phone: input.phone, code: input.code });
 
       const phoneE164 = normalizeChinesePhone(input.phone);
-      const user = await this.findOrCreatePhoneUser(phoneE164, input.audience);
-      const roles = activeRoles(user);
-
-      if (user.status !== 'ACTIVE') throw new UnauthorizedException('User is inactive.');
-      if (input.audience === 'admin-api' && !roles.includes('ADMIN')) {
-        throw new ForbiddenException('Administrator role required.');
-      }
-
-      const tokens = await this.sessions.create(
-        { id: user.id, sessionVersion: user.sessionVersion, roles },
-        input.audience,
-        context.deviceId,
-        context,
-      );
-      await this.audit?.record({ event: 'PHONE_LOGIN_SUCCEEDED', userId: user.id, sessionId: tokens.user.sessionId, ip: context.ip, device: context.deviceId, metadata: { audience: input.audience, phone: maskPhone(input.phone) } });
-      return tokens;
+      return await this.createPhoneLoginSession(phoneE164, input, context);
     } catch (error) {
       await this.audit?.record({ event: 'PHONE_LOGIN_REJECTED', ip: context.ip, device: context.deviceId, metadata: { audience: input.audience, phone: maskPhone(input.phone), reason: error instanceof Error ? error.name : 'unknown' } });
       throw error;
     }
   }
 
-  private async findOrCreatePhoneUser(
+  private async createPhoneLoginSession(
     phoneE164: string,
-    audience: PhoneLoginRequest['audience'],
-  ): Promise<AuthUser> {
+    input: PhoneLoginRequest,
+    context: AuthRequestContext,
+  ): Promise<SessionTokens> {
     for (let attempt = 1; attempt <= PHONE_USER_TRANSACTION_MAX_ATTEMPTS; attempt += 1) {
       try {
         return await this.prisma.$transaction(
-          (tx) => this.findOrCreatePhoneUserInTransaction(tx, phoneE164, audience),
+          (tx) => this.createPhoneLoginSessionInTransaction(tx, phoneE164, input, context),
           { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
         );
       } catch (error) {
-        if (isPrismaError(error, 'P2002')) {
-          const existingUser = await this.findPhoneUser(this.prisma, phoneE164);
-          if (existingUser) return existingUser;
-        }
-        if (isPrismaError(error, 'P2034') && attempt < PHONE_USER_TRANSACTION_MAX_ATTEMPTS) continue;
+        if (
+          (isPrismaError(error, 'P2002') || isPrismaError(error, 'P2034')) &&
+          attempt < PHONE_USER_TRANSACTION_MAX_ATTEMPTS
+        ) continue;
         throw error;
       }
     }
@@ -82,27 +70,64 @@ export class AuthService {
     throw new Error('Phone-user transaction retry limit reached.');
   }
 
-  private async findOrCreatePhoneUserInTransaction(
+  private async createPhoneLoginSessionInTransaction(
     tx: Prisma.TransactionClient,
     phoneE164: string,
-    audience: PhoneLoginRequest['audience'],
-  ): Promise<AuthUser> {
+    input: PhoneLoginRequest,
+    context: AuthRequestContext,
+  ): Promise<SessionTokens> {
     const existingUser = await this.findPhoneUser(tx, phoneE164);
-    if (existingUser) return existingUser;
+    let user = existingUser;
 
-    if (audience === 'admin-api') {
+    if (!user) {
+      if (input.audience === 'admin-api') {
+        throw new ForbiddenException('Administrator role required.');
+      }
+
+      user = await tx.user.create({
+        data: {
+          identities: {
+            create: { provider: 'PHONE', subject: phoneE164, phoneE164, verifiedAt: new Date() },
+          },
+          roles: { create: { role: 'USER' } },
+        },
+        include: { roles: true },
+      });
+    }
+
+    const roles = activeRoles(user);
+    if (user.status !== 'ACTIVE') throw new UnauthorizedException('User is inactive.');
+    if (input.audience === 'admin-api' && !roles.includes('ADMIN')) {
       throw new ForbiddenException('Administrator role required.');
     }
 
-    return tx.user.create({
-      data: {
-        identities: {
-          create: { provider: 'PHONE', subject: phoneE164, phoneE164, verifiedAt: new Date() },
-        },
-        roles: { create: { role: 'USER' } },
+    if (input.audience === 'user-api') {
+      await this.legalConsent.record(user.id, input.legalConsent!, context, tx);
+    }
+    const tokens = await this.sessions.create(
+      { id: user.id, sessionVersion: user.sessionVersion, roles },
+      input.audience,
+      context.deviceId,
+      context,
+      tx,
+    );
+    await this.audit?.record({
+      event: 'PHONE_LOGIN_SUCCEEDED',
+      userId: user.id,
+      sessionId: tokens.user.sessionId,
+      ip: context.ip,
+      device: context.deviceId,
+      metadata: {
+        audience: input.audience,
+        phone: maskPhone(input.phone),
+        loginMethod: 'PHONE_VERIFICATION_CODE',
+        ...(input.legalConsent ? {
+          userAgreementVersion: input.legalConsent.userAgreementVersion,
+          privacyPolicyVersion: input.legalConsent.privacyPolicyVersion,
+        } : {}),
       },
-      include: { roles: true },
-    });
+    }, tx);
+    return tokens;
   }
 
   private async findPhoneUser(

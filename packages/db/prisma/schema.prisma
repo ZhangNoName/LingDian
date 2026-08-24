@@ -98,6 +98,11 @@ enum SessionStatus {
   REVOKED
 }
 
+enum LegalDocumentType {
+  USER_AGREEMENT
+  PRIVACY_POLICY
+}
+
 enum VerificationPurpose {
   PHONE_LOGIN
   PHONE_LINK
@@ -281,6 +286,8 @@ model Order {
   id              String           @id @default(cuid())
   orderNo         String           @unique
   storeId         String
+  customerUserId  String?
+  clientRequestId String?          @db.VarChar(64)
   customerName    String
   customerMobile  String
   deliveryAddress String?          @db.Text
@@ -299,10 +306,13 @@ model Order {
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   store           Store            @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  customerUser    User?            @relation(fields: [customerUserId], references: [id], onDelete: SetNull)
   items           OrderItem[]
   statusLogs      OrderStatusLog[]
 
   @@index([storeId, createdAt])
+  @@index([customerUserId, createdAt])
+  @@unique([customerUserId, clientRequestId])
   @@index([status])
   @@index([isDeleted, createdAt])
   @@index([storeId, status, isDeleted])
@@ -383,8 +393,25 @@ model User {
   roles              UserRoleAssignment[]
   sessions           AuthSession[]
   addresses          UserAddress[]
+  legalConsents      UserLegalConsent[]
+  orders             Order[]
 
   @@map("users")
+}
+
+model UserLegalConsent {
+  id           String            @id @default(cuid())
+  userId       String
+  documentType LegalDocumentType
+  version      String            @db.VarChar(32)
+  acceptedAt   DateTime          @default(now())
+  ip           String?           @db.VarChar(64)
+  device       String?           @db.VarChar(191)
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, documentType, version])
+  @@index([userId, acceptedAt])
+  @@map("user_legal_consents")
 }
 
 model UserAddress {

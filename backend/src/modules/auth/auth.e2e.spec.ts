@@ -21,6 +21,7 @@ import { AuthController } from './auth.controller';
 import { ProfileService } from './profile.service';
 import { AccountAuthService } from './account-auth.service';
 import { AuthService } from './auth.service';
+import { LegalConsentService } from './legal-consent.service';
 import { OAuthService } from './oauth.service';
 import { PasswordService } from './password.service';
 import { SMS_PROVIDER, SmsProvider } from './providers/sms-provider';
@@ -30,6 +31,11 @@ import { SessionService } from './session.service';
 type Role = 'USER' | 'ADMIN' | 'SUPER_ADMIN' | 'MERCHANT';
 type Audience = 'USER_API' | 'ADMIN_API' | 'MERCHANT_API';
 type Purpose = 'PHONE_LOGIN' | 'PHONE_LINK' | 'ADMIN_LOGIN' | 'PASSWORD_RESET';
+
+const currentConsent = {
+  userAgreementVersion: '2026-08-17',
+  privacyPolicyVersion: '2026-08-17',
+};
 
 type StoredRole = {
   role: Role;
@@ -230,6 +236,10 @@ class StatefulAuthPersistence {
       ).length,
   };
 
+  readonly userLegalConsent = {
+    createMany: async ({ data }: { data: unknown[] }) => ({ count: data.length }),
+  };
+
   async $transaction<T>(input: ((transaction: this) => Promise<T>) | Promise<unknown>[]): Promise<T | unknown[]> {
     return Array.isArray(input) ? Promise.all(input) : input(this);
   }
@@ -363,6 +373,7 @@ test('same phone resolves one user across clients and a revoked admin session ca
     controllers: [AuthController, AdminProbeController],
     providers: [
       AuditService,
+      LegalConsentService,
       VerificationService,
       AuthService,
       { provide: AccountAuthService, useValue: {} },
@@ -400,7 +411,12 @@ test('same phone resolves one user across clients and a revoked admin session ca
     const response = await fetch(`${baseUrl}/api/auth/phone/login`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-device-id': deviceId },
-      body: JSON.stringify({ phone: '13800000000', code, audience }),
+      body: JSON.stringify({
+        phone: '13800000000',
+        code,
+        audience,
+        ...(audience === 'user-api' ? { legalConsent: currentConsent } : {}),
+      }),
     });
     assert.equal(response.status, 201);
     const refreshCookie = response.headers.get('set-cookie');
@@ -479,6 +495,7 @@ test('isolates super-admin, merchant, and user audiences', async (t) => {
     controllers: [AuthController, AdminProbeController, MerchantProbeController, UserProbeController],
     providers: [
       AuditService,
+      LegalConsentService,
       VerificationService,
       AuthService,
       PasswordService,
@@ -533,7 +550,12 @@ test('isolates super-admin, merchant, and user audiences', async (t) => {
   const userLogin = await fetch(`${baseUrl}/api/auth/phone/login`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-device-id': 'user-api-device' },
-    body: JSON.stringify({ phone: '13800001000', code: sms.latestCode(), audience: 'user-api' }),
+    body: JSON.stringify({
+      phone: '13800001000',
+      code: sms.latestCode(),
+      audience: 'user-api',
+      legalConsent: currentConsent,
+    }),
   });
   assert.equal(userLogin.status, 201);
   const userTokens = await userLogin.json() as { access_token: string; user: { audience: string } };

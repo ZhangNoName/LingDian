@@ -13,4 +13,15 @@ describe('customer authentication messages', () => {
   it('uses a safe fallback for unknown details', () => {
     expect(getCustomerAuthMessage(new Error('internal auth error'))).toBe('登录失败，请稍后重试。')
   })
+
+  it('maps the legal-consent API code to the mini-program update instruction', () => {
+    expect(getCustomerAuthMessage({ code: 2004, message: 'untrusted backend wording' })).toBe('请更新小程序后重试')
+  })
+
+  it.each([
+    'Please accept the current user agreement and privacy policy.',
+    'Legal agreement version is outdated. Please update the mini program.',
+  ])('keeps a compatible legal-consent message fallback for %s', (source) => {
+    expect(getCustomerAuthMessage(new Error(source))).toBe('请更新小程序后重试')
+  })
 })

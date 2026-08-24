@@ -8,7 +8,7 @@ import type {
   PlatformUserSummary,
   UpdatePlatformUserRequest,
 } from '@lingdian/contracts'
-import { CircleCheck, CircleClose, Edit, Key } from '@element-plus/icons-vue'
+import { CircleCheck, CircleClose, Edit, Key } from '@lingdian/icons/admin'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'

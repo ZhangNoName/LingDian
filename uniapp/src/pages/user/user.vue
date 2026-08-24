@@ -17,16 +17,11 @@
       </view>
       <MemberBenefitCard :presentation="customerPresentation" />
       <ManageGrid :entries="manageEntries" @select="handleManageEntry" />
-      <button class="service-btn" role="button" tabindex="0" @keydown.enter="showServicePhone" @tap="showServicePhone">
-        <HelpIcon class="service-icon" aria-hidden="true" />
-        <text>联系客服</text>
-      </button>
     </view>
   </Layout>
 </template>
 
 <script setup lang="ts">
-import { HelpIcon } from "@lingdian/icons/miniapp";
 import type { AuthenticatedUser, CustomerProfile } from "@lingdian/contracts";
 import { onShow } from "@dcloudio/uni-app";
 import { computed, ref } from "vue";
@@ -41,7 +36,6 @@ import { buildCustomerPresentation } from "@/services/customer-presentation";
 import { profile } from "@/services/profile";
 import type { ManageEntry } from "@/types/member";
 
-const servicePhone = "400-888-0123";
 const nickname = ref("");
 const savingNickname = ref(false);
 const uploadingAvatar = ref(false);
@@ -68,15 +62,6 @@ onShow(async () => {
 
 function handleManageEntry(entry: ManageEntry) {
   if (entry.route) uni.redirectTo({ url: entry.route });
-}
-
-function showServicePhone() {
-  uni.showModal({
-    title: "联系客服",
-    content: `客服电话：${servicePhone}`,
-    showCancel: false,
-    confirmText: "知道了",
-  });
 }
 
 async function saveNickname() {
@@ -121,22 +106,6 @@ async function chooseAvatar(event: unknown) {
 .page {
   min-height: 100%;
   background: var(--ld-mini-bg);
-}
-
-.service-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10rpx;
-  height: 72rpx;
-  margin: var(--ld-page-padding, 24rpx);
-  border-radius: var(--ld-radius-16, 16px);
-  background: #ffffff;
-  color: var(--ld-mini-text);
-  font-size: var(--ld-font-base, 26rpx);
-  font-weight: 800;
-  line-height: 72rpx;
-  box-shadow: var(--ld-mini-shadow-card);
 }
 
 .nickname-card {
@@ -187,16 +156,7 @@ async function chooseAvatar(event: unknown) {
   line-height: 56rpx;
 }
 
-.nickname-save::after,
-.service-btn::after {
+.nickname-save::after {
   border: 0;
-}
-
-.service-icon {
-  display: block;
-  width: 30rpx;
-  height: 30rpx;
-  font-size: 30rpx;
-  line-height: 30rpx;
 }
 </style>
