@@ -40,7 +40,7 @@ type FakePrisma = {
   $transaction: <T>(operation: (tx: FakePrisma) => Promise<T>) => Promise<T>;
 };
 
-function createService(options: { transactionErrors?: Error[] } = {}) {
+function createService(options: { transactionErrors?: Error[]; sendError?: Error } = {}) {
   const codes: CodeRecord[] = [];
   const audits: AuditRecord[] = [];
   const sent: Array<{ phoneE164: string; code: string }> = [];
@@ -141,7 +141,11 @@ function createService(options: { transactionErrors?: Error[] } = {}) {
 
   const service = new VerificationService(
     prisma as never,
-    { send: async (input: Parameters<SmsProvider['send']>[0]) => (sent.push(input), { messageId: `sms-${sent.length}` }) },
+    { send: async (input: Parameters<SmsProvider['send']>[0]) => {
+      sent.push(input);
+      if (options.sendError) throw options.sendError;
+      return { messageId: `sms-${sent.length}` };
+    } },
     new AuditService(prisma as never),
     'test-refresh-pepper',
   );
@@ -214,6 +218,19 @@ test('rethrows an exhausted Prisma write conflict after the capped retries', asy
     (error: unknown) => error === conflicts[2],
   );
   assert.equal(transactionAttempts(), 3);
+});
+
+test('invalidates a reserved verification code when the SMS provider fails', async () => {
+  const gatewayError = new Error('SMS gateway unavailable');
+  const { codes, service } = createService({ sendError: gatewayError });
+
+  await assert.rejects(
+    () => service.issue({ purpose: 'PHONE_LOGIN', phone: '13800000000', ip: '127.0.0.1', deviceId: 'd1' }),
+    (error: unknown) => error === gatewayError,
+  );
+
+  assert.equal(codes.length, 1);
+  assert.ok(codes[0].consumedAt instanceof Date);
 });
 
 test('rate limits the same IP after ten reservations per hour', async () => {

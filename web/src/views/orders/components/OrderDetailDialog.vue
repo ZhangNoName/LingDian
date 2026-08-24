@@ -148,7 +148,7 @@ import {
   ElTag,
   ElTimeline,
   ElTimelineItem,
-} from 'element-plus'
+} from '@/components/ui/element-plus'
 import type { OrderDetail, OrderStatus, OrderStatusAction, OrderType, PaymentChannel } from '../types'
 
 const props = defineProps<{

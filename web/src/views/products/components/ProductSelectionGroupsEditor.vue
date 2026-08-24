@@ -148,7 +148,7 @@ import {
   ElSwitch,
   ElTable,
   ElTableColumn,
-} from 'element-plus'
+} from '@/components/ui/element-plus'
 import { computed } from 'vue'
 import type { ProductSelectionBindingForm, ProductVariantForm } from '../types'
 

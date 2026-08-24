@@ -11,7 +11,7 @@
     <text class="time">{{ formatOrderTime(order.createdAt) }}</text>
     <view class="body">
       <view class="thumbs">
-        <image v-for="thumb in order.productThumbs.slice(0, 3)" :key="thumb" class="thumb" :src="thumb" mode="aspectFill" />
+        <image v-for="thumb in order.productThumbs.slice(0, 3)" :key="thumb" class="thumb" :src="thumb" mode="aspectFill" lazy-load />
       </view>
       <view class="summary">
         <text class="price">¥{{ order.totalAmount.toFixed(1) }}</text>

@@ -1,6 +1,5 @@
-/* 全局颜色与 uni-app 默认变量统一从 theme/colors.scss 派生 */
-@import '../../theme/colors.scss';
-@import '../../theme/miniapp-tokens.scss';
+/* uni-app 编译变量不输出 CSS，运行时令牌只在 App.vue 导入一次 */
+@import '../../theme/colors.variables.scss';
 
 $uni-font-size-sm: 12px;
 $uni-font-size-base: 14px;

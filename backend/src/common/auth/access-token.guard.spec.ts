@@ -41,14 +41,17 @@ async function signedToken(jwt: JwtService, claims: Record<string, unknown> = {}
   );
 }
 
-function contextWithToken(token: string) {
+function contextWithToken(token: string, allowPasswordChange = false) {
   const request: { headers: { authorization: string }; user?: unknown } = {
     headers: { authorization: `Bearer ${token}` },
   };
+  const handler = () => undefined;
+  if (allowPasswordChange) Reflect.defineMetadata('allowPasswordChangeRequired', true, handler);
   return {
     request,
     context: {
       switchToHttp: () => ({ getRequest: () => request }),
+      getHandler: () => handler,
     },
   };
 }
@@ -110,10 +113,11 @@ test('AccessTokenGuard rejects a stored-audience mismatch', async () => {
   await assert.rejects(() => guard.canActivate(contextWithToken(token).context as never), /session is no longer active/i);
 });
 
-test('AccessTokenGuard exposes mandatory password-change state from a valid token', async () => {
+test('AccessTokenGuard permits mandatory password-change state only on an allowed endpoint', async () => {
   const { guard, jwt } = createGuard();
   const token = await signedToken(jwt, { mustChangePassword: true });
-  const wrapped = contextWithToken(token);
+  await assert.rejects(() => guard.canActivate(contextWithToken(token).context as never), /password change is required/i);
+  const wrapped = contextWithToken(token, true);
   await guard.canActivate(wrapped.context as never);
   assert.equal((wrapped.request.user as { mustChangePassword?: boolean }).mustChangePassword, true);
 });

@@ -40,9 +40,12 @@ export function validateEnv(config: EnvRecord) {
       errors.push('AUTH_COOKIE_SECURE must be true in production');
     }
 
-    if (!config.SMS_PROVIDER || config.SMS_PROVIDER === 'console') {
-      errors.push('SMS_PROVIDER must name a registered production SMS provider; console delivery is not permitted');
+    if (config.SMS_PROVIDER !== 'webhook') {
+      errors.push('SMS_PROVIDER must be webhook in production; console delivery is not permitted');
     }
+    validateRequiredValue(config, 'SMS_WEBHOOK_URL', errors);
+    validateRequiredValue(config, 'SMS_WEBHOOK_TOKEN', errors);
+    validateHttpsUrl(config, 'SMS_WEBHOOK_URL', errors);
 
     validateRequiredValue(config, 'WECHAT_APP_ID', errors);
     validateRequiredValue(config, 'WECHAT_APP_SECRET', errors);
@@ -98,7 +101,7 @@ function validateBootstrapAccountGroups(config: EnvRecord, errors: string[]): vo
 
 function validateHttpsUrl(
   config: EnvRecord,
-  name: 'WECHAT_REDIRECT_URI' | 'QQ_REDIRECT_URI',
+  name: 'SMS_WEBHOOK_URL' | 'WECHAT_REDIRECT_URI' | 'QQ_REDIRECT_URI',
   errors: string[],
 ) {
   const value = config[name];
@@ -149,6 +152,8 @@ function validateExpectedValue(
 function validateRequiredValue(
   config: EnvRecord,
   name:
+    | 'SMS_WEBHOOK_URL'
+    | 'SMS_WEBHOOK_TOKEN'
     | 'WECHAT_APP_ID'
     | 'WECHAT_APP_SECRET'
     | 'WECHAT_REDIRECT_URI'

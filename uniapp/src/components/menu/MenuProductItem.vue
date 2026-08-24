@@ -1,7 +1,7 @@
 <template>
   <view class="item">
     <view class="image-shell">
-      <image v-if="!imageFailed" class="image" :src="product.imageUrl" mode="aspectFill" @error="imageFailed = true" />
+      <image v-if="!imageFailed" class="image" :src="product.imageUrl" mode="aspectFill" lazy-load @error="imageFailed = true" />
       <view v-else class="image-placeholder">
         <text class="placeholder-icon">餐</text>
         <text class="placeholder-copy">图片待更新</text>

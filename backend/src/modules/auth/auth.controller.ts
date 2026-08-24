@@ -45,6 +45,9 @@ import { ProfileService } from './profile.service';
 import { CurrentPasswordChangeDto } from './dto/current-password-change.dto';
 import { WechatMiniProgramPhoneLoginDto } from './dto/wechat-mini-program-phone-login.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { Throttle } from '@nestjs/throttler';
+import { createHash } from 'node:crypto';
+import { AllowPasswordChangeRequired } from '../../common/auth/allow-password-change-required.decorator';
 
 type AuthRequest = {
   ip?: string;
@@ -84,6 +87,7 @@ export class AuthController {
   }
 
   @ApiOperation({ summary: 'Sign in with a verified phone number' })
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('phone/login')
   async phoneLogin(
     @Body() body: PhoneLoginDto,
@@ -95,6 +99,7 @@ export class AuthController {
   }
 
   @ApiOperation({ summary: 'Sign in with WeChat mini-program phone authorization' })
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('wechat/miniapp/phone-login')
   async wechatMiniProgramPhoneLogin(
     @Body() body: WechatMiniProgramPhoneLoginDto,
@@ -110,6 +115,7 @@ export class AuthController {
   }
 
   @ApiOperation({ summary: 'Sign in with an administrator or merchant account password' })
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('account/login')
   async accountLogin(
     @Body() body: AccountLoginDto,
@@ -121,12 +127,14 @@ export class AuthController {
   }
 
   @ApiOperation({ summary: 'Request a merchant password reset verification code' })
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('password/forgot')
   async forgotPassword(@Body() body: PasswordForgotDto, @Req() request: AuthRequest) {
     return this.accountAuth.requestPasswordReset(body, requestContext(request));
   }
 
   @ApiOperation({ summary: 'Reset a merchant password with a verification code' })
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('password/reset')
   async resetPassword(@Body() body: PasswordResetDto, @Req() request: AuthRequest) {
     await this.accountAuth.resetPassword(body, requestContext(request));
@@ -136,6 +144,7 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Change the current account password' })
   @UseGuards(AccessTokenGuard)
+  @AllowPasswordChangeRequired()
   @Post('account/password-change')
   async changeCurrentPassword(
     @CurrentUser() user: AuthenticatedUser,
@@ -149,6 +158,7 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Request a verification code to change the current merchant password' })
   @UseGuards(AccessTokenGuard, MerchantGuard)
+  @AllowPasswordChangeRequired()
   @Post('password/change/code')
   async requestPasswordChangeCode(@CurrentUser() user: AuthenticatedUser, @Req() request: AuthRequest) {
     return this.accountAuth.requestPasswordChangeCode(user, requestContext(request));
@@ -157,6 +167,7 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Change the current merchant password with a verification code' })
   @UseGuards(AccessTokenGuard, MerchantGuard)
+  @AllowPasswordChangeRequired()
   @Post('password/change')
   async changePassword(
     @CurrentUser() user: AuthenticatedUser,
@@ -262,6 +273,7 @@ export class AuthController {
   }
 
   @ApiOperation({ summary: 'Refresh the current browser session' })
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @Post('refresh')
   async refresh(
     @Body() _body: RefreshDto,
@@ -285,6 +297,7 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Sign out the current session' })
   @UseGuards(AccessTokenGuard)
+  @AllowPasswordChangeRequired()
   @HttpCode(204)
   @Post('logout')
   async logout(
@@ -299,6 +312,7 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Sign out every session for the current user' })
   @UseGuards(AccessTokenGuard)
+  @AllowPasswordChangeRequired()
   @HttpCode(204)
   @Post('logout-all')
   async logoutAll(
@@ -322,7 +336,14 @@ export class AuthController {
 
 function deviceId(request: AuthRequest): string {
   const value = request.headers?.['x-device-id'];
-  return typeof value === 'string' && value.length > 0 ? value.slice(0, 128) : 'browser';
+  return typeof value === 'string' && value.length > 0
+    ? value.slice(0, 128)
+    : `anonymous-${createAnonymousDeviceKey(request)}`;
+}
+
+function createAnonymousDeviceKey(request: AuthRequest): string {
+  const fingerprint = `${request.ip ?? 'unknown'}:${request.headers?.['user-agent'] ?? 'unknown'}`;
+  return createHash('sha256').update(fingerprint).digest('base64url').slice(0, 32);
 }
 
 function requestContext(request: AuthRequest) {

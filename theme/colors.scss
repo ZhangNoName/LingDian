@@ -1,19 +1,4 @@
-$ld-color-primary: #1677ff;
-$ld-color-primary-soft: #e6f4ff;
-$ld-color-secondary: #4096ff;
-$ld-color-success: #52c41a;
-$ld-color-warning: #faad14;
-$ld-color-error: #ff4d4f;
-
-$ld-text-body: #595959;
-$ld-text-heading: #262626;
-$ld-text-muted: #8c8c8c;
-$ld-text-inverse: #ffffff;
-
-$ld-bg-page: #f5f7fa;
-$ld-bg-elevated: #ffffff;
-$ld-bg-muted: #fafafa;
-$ld-border-default: #f0f0f0;
+@import './colors.variables.scss';
 
 :root,
 page {

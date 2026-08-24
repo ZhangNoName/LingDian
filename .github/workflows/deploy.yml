@@ -43,11 +43,17 @@ jobs:
       - id: targets
         env:
           MANUAL_TARGETS: ${{ inputs.targets }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_SHA: ${{ github.sha }}
         run: |
           if [ -n "$MANUAL_TARGETS" ]; then
             echo "value=$MANUAL_TARGETS" >> "$GITHUB_OUTPUT"
           else
-            git diff --name-only HEAD^ HEAD | node scripts/print-deployment-targets.mjs >> "$GITHUB_OUTPUT"
+            if [ -n "$PUSH_BEFORE" ] && [ "$PUSH_BEFORE" != "0000000000000000000000000000000000000000" ]; then
+              git diff --name-only "$PUSH_BEFORE" "$PUSH_SHA" | node scripts/print-deployment-targets.mjs >> "$GITHUB_OUTPUT"
+            else
+              echo "value=all" >> "$GITHUB_OUTPUT"
+            fi
           fi
       - name: Bundle verified revision
         if: steps.targets.outputs.value != 'none'
@@ -72,4 +78,7 @@ jobs:
             set -eu
             git -C /home/lighthouse/apps/lingdian fetch /home/lighthouse/apps/lingdian-deploy.bundle deployment-bundle
             rm -f /home/lighthouse/apps/lingdian-deploy.bundle
-            bash /home/lighthouse/apps/lingdian/deploy/scripts/release.sh ${{ github.sha }} '${{ steps.targets.outputs.value }}'
+            release_script=$(mktemp /tmp/lingdian-release.XXXXXX)
+            trap 'rm -f "$release_script"' EXIT
+            git -C /home/lighthouse/apps/lingdian show '${{ github.sha }}:deploy/scripts/release.sh' > "$release_script"
+            LINGDIAN_SYNC_NGINX=1 bash "$release_script" '${{ github.sha }}' '${{ steps.targets.outputs.value }}'

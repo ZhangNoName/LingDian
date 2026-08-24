@@ -4,7 +4,11 @@ import type {
   ProductConfigSelectionGroupContract,
   ProductConfigSelectionOptionContract,
   ProductConfigVariantContract,
+  ProductListItemContract,
+  ProductPageContract,
   ProductRecordContract,
+  ProductSkuOptionContract,
+  ProductStatsContract,
   ProductSelectionGroupContract,
   ProductSkuContract,
   ProductType as ContractProductType,
@@ -32,6 +36,15 @@ export type ProductSelectionGroup = ProductSelectionGroupContract
 export interface ProductRecord extends Omit<ProductRecordContract, 'skus'> {
   skus: ProductSku[]
 }
+
+export interface ProductListRecord extends Omit<ProductListItemContract, 'skus'> {
+  skus: ProductSku[]
+  selection_groups?: ProductSelectionGroup[]
+}
+
+export type ProductPage = Omit<ProductPageContract, 'items'> & { items: ProductListRecord[] }
+export type ProductStats = ProductStatsContract
+export type ProductSkuOption = ProductSkuOptionContract
 
 export type ProductVariantForm = ProductConfigVariantContract
 export type SelectionOptionForm = ProductConfigSelectionOptionContract

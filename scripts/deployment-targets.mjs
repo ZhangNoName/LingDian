@@ -17,6 +17,7 @@ export function detectDeploymentTargets(files) {
       targets.admin = true;
     }
     if (file === 'Dockerfile.api') targets.api = true;
+    if (file.startsWith('deploy/nginx/')) return { ...ALL };
     if (file.startsWith('deploy/scripts/') || file.startsWith('.github/workflows/deploy')) return { ...ALL };
   }
 
@@ -33,4 +34,3 @@ function isShared(file) {
     || file.startsWith('packages/icons/')
     || file.startsWith('packages/observability/');
 }
-

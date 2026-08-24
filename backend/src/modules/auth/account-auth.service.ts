@@ -174,6 +174,7 @@ export class AccountAuthService {
     if (!phone) throw invalidPasswordReset();
     await this.verification.consume({ purpose: 'PASSWORD_RESET', phone, code });
     await this.passwords.replace(account.id, password, account.user.id, context);
+    await this.prisma.user.update({ where: { id: account.user.id }, data: { mustChangePassword: false } });
     await this.audit.record({ event, userId: account.user.id, ip: context.ip, device: context.deviceId });
   }
 

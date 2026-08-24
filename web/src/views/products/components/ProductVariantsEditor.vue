@@ -54,7 +54,7 @@ import {
   ElSwitch,
   ElTable,
   ElTableColumn,
-} from 'element-plus'
+} from '@/components/ui/element-plus'
 import type { ProductVariantForm } from '../types'
 
 defineProps<{

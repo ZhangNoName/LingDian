@@ -18,7 +18,7 @@ test('CORS accepts only explicitly configured browser origins and allows credent
   const options = corsOptions({ CORS_ALLOWED_ORIGINS: 'https://admin.example.test, https://app.example.test' });
 
   assert.equal(options.credentials, true);
-  assert.deepEqual(options.allowedHeaders, ['Authorization', 'Content-Type']);
+  assert.deepEqual(options.allowedHeaders, ['Authorization', 'Content-Type', 'X-Device-Id']);
   await assert.doesNotReject(() => resolveOrigin(options.origin, 'https://admin.example.test'));
   await assert.rejects(() => resolveOrigin(options.origin, 'https://untrusted.example.test'), /not allowed by CORS/i);
 });

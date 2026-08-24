@@ -1,6 +1,6 @@
 import { createApp } from 'vue'
-import ElementPlus from 'element-plus'
-import 'element-plus/dist/index.css'
+import { ElLoading } from 'element-plus'
+import 'element-plus/es/components/loading/style/css'
 import 'element-plus/theme-chalk/dark/css-vars.css'
 import '@theme/colors.css'
 import './style.css'
@@ -11,4 +11,6 @@ import { useTheme } from './theme/theme'
 
 installAdminErrorReporter()
 useTheme()
-createApp(App).use(ElementPlus).use(router).mount('#app')
+const app = createApp(App)
+app.directive('loading', ElLoading.directive)
+app.use(router).mount('#app')

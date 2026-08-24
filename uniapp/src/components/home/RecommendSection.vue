@@ -16,7 +16,7 @@
         @tap="$emit('select', product.id)"
       >
         <view class="image-shell">
-          <image v-if="!failedImages.has(product.id)" class="image" :src="product.imageUrl" mode="aspectFill" @error="markImageFailed(product.id)" />
+          <image v-if="!failedImages.has(product.id)" class="image" :src="product.imageUrl" mode="aspectFill" lazy-load @error="markImageFailed(product.id)" />
           <view v-else class="image-placeholder">
             <text class="placeholder-icon">餐</text>
             <text class="placeholder-copy">图片待更新</text>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { SystemLogPage, SystemLogQuery, SystemLogRecord } from '@lingdian/contracts'
-import { View } from '@element-plus/icons-vue'
+import { View } from '@lingdian/icons/admin'
 import { computed, onMounted, reactive, ref } from 'vue'
 import {
   SchemaTableActions,

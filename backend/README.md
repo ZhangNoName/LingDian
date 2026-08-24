@@ -130,14 +130,12 @@ used by that exchange:
 Verify callback/domain registration in staging before changing production values.
 
 `SMS_PROVIDER=console` is a development/test-only adapter: it logs a masked
-destination and **does not deliver SMS**. Production startup rejects it. No
-real vendor adapter is bundled, so production also fails closed until an
-operator registers one in `SmsProviderModule`. A provider integration must
-implement `SmsProvider.send({ phoneE164, code })`, load its credentials from the
-deployment secret store, return the vendor message ID, and register an explicit
-`SMS_PROVIDER` selector (for example `aliyun` or `twilio`). It must never log
-the verification code. Cover the adapter with a fake-provider verification and
-phone-login regression before enabling it.
+destination and **does not deliver SMS**. Production must use
+`SMS_PROVIDER=webhook` together with `SMS_WEBHOOK_URL` and `SMS_WEBHOOK_TOKEN`.
+The webhook receives a bearer-authenticated JSON body containing `phoneE164`
+and `code`, and may return `{ "messageId": "..." }`. The downstream gateway
+must never log the verification code and should restrict requests to the API
+network or an allowlist.
 
 ### Database migration, backup, and rollback
 

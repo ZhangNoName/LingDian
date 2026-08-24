@@ -48,7 +48,7 @@
 </template>
 
 <script setup lang="ts">
-import { ElButton, ElDialog, ElFormItem, ElOption, ElSelect } from 'element-plus'
+import { ElButton, ElDialog, ElFormItem, ElOption, ElSelect } from '@/components/ui/element-plus'
 import { computed, ref, watch } from 'vue'
 import ProductSelectionGroupsEditor from './ProductSelectionGroupsEditor.vue'
 import ProductVariantsEditor from './ProductVariantsEditor.vue'

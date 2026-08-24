@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Moon, Sunny } from '@element-plus/icons-vue'
+import { Moon, Sunny } from '@lingdian/icons/admin'
 import { useTheme, type ThemePreference } from '../../theme/theme'
 const theme = useTheme()
 </script>

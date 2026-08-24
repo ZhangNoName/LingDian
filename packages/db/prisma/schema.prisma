@@ -286,6 +286,8 @@ model Order {
   id              String           @id @default(cuid())
   orderNo         String           @unique
   storeId         String
+  customerUserId  String?
+  clientRequestId String?          @db.VarChar(64)
   customerName    String
   customerMobile  String
   deliveryAddress String?          @db.Text
@@ -304,10 +306,13 @@ model Order {
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   store           Store            @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  customerUser    User?            @relation(fields: [customerUserId], references: [id], onDelete: SetNull)
   items           OrderItem[]
   statusLogs      OrderStatusLog[]
 
   @@index([storeId, createdAt])
+  @@index([customerUserId, createdAt])
+  @@unique([customerUserId, clientRequestId])
   @@index([status])
   @@index([isDeleted, createdAt])
   @@index([storeId, status, isDeleted])
@@ -389,6 +394,7 @@ model User {
   sessions           AuthSession[]
   addresses          UserAddress[]
   legalConsents      UserLegalConsent[]
+  orders             Order[]
 
   @@map("users")
 }

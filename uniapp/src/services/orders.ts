@@ -1,4 +1,4 @@
-import type { OrderDetailContract, OrderSummaryContract } from "@lingdian/contracts";
+import type { OrderDetailContract, OrderPageContract, OrderSummaryContract } from "@lingdian/contracts";
 import type { CartSummary } from "@/types/cart";
 import type { OrderDetail, OrderSummary, OrderStatus } from "@/types/order";
 import { getCurrentStoreId } from "./catalog";
@@ -28,7 +28,7 @@ function mapStatus(status: string): OrderStatus {
 
 export async function createOrderFromCart(
   cart: CartSummary,
-  options: { serviceMode: "takeaway" | "delivery"; addressId?: string } = { serviceMode: "takeaway" },
+  options: { serviceMode: "takeaway" | "delivery"; addressId?: string; clientRequestId?: string } = { serviceMode: "takeaway" },
 ) {
   if (cart.items.length === 0) {
     throw new Error("购物车为空");
@@ -38,6 +38,7 @@ export async function createOrderFromCart(
   const order = await request<ApiOrder>("/order/create", {
     method: "POST",
     data: {
+      clientRequestId: options.clientRequestId ?? createOrderRequestId(),
       storeId,
       orderType: options.serviceMode === "delivery" ? "takeout" : "pickup",
       ...(options.serviceMode === "delivery" ? { addressId: options.addressId } : {}),
@@ -57,22 +58,31 @@ export async function createOrderFromCart(
   return order;
 }
 
-export async function fetchOrders() {
-  const orders = await request<ApiOrder[]>("/orders");
-  return orders.map<OrderSummary>((order) => ({
-    id: order.id,
-    storeName: order.store_name,
-    serviceMode: order.order_type === "TAKEOUT" ? "delivery" : "takeaway",
-    status: mapStatus(order.status),
-    createdAt: order.created_at,
-    totalAmount: order.payable_amount,
-    itemCount: order.item_count ?? 0,
-    productThumbs: ["/static/products/milk-green.jpg"],
-  }));
+export function createOrderRequestId(): string {
+  return `checkout-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}`;
+}
+
+export async function fetchOrders(page = 1, pageSize = 20) {
+  const result = await request<OrderPageContract>(`/customer/orders?page=${page}&pageSize=${pageSize}`);
+  return {
+    items: result.items.map<OrderSummary>((order) => ({
+      id: order.id,
+      storeName: order.store_name,
+      serviceMode: order.order_type === "TAKEOUT" ? "delivery" : "takeaway",
+      status: mapStatus(order.status),
+      createdAt: order.created_at,
+      totalAmount: order.payable_amount,
+      itemCount: order.item_count ?? 0,
+      productThumbs: ["/static/products/milk-green.jpg"],
+    })),
+    total: result.total,
+    page: result.page,
+    pageSize: result.page_size,
+  };
 }
 
 export async function fetchOrderDetail(orderId: string) {
-  const order = await request<ApiOrder>(`/orders/${orderId}`);
+  const order = await request<ApiOrder>(`/customer/orders/${orderId}`);
   const items = order.items ?? [];
   const goodsAmount = items.reduce((sum, item) => sum + item.subtotal, 0);
 

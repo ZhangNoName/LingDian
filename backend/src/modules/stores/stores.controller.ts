@@ -1,17 +1,22 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
 
 @Controller('stores')
 export class StoresController {
+  constructor(private readonly prisma: PrismaService) {}
+
   @Get('current')
-  getCurrentStore() {
+  async getCurrentStore() {
+    const store = await this.prisma.store.findFirst({ orderBy: { createdAt: 'asc' } });
+    if (!store) throw new NotFoundException('Store not found');
     return {
-      id: 'store-demo-001',
-      name: '零点示范店',
-      status: 'open',
-      businessHours: '09:00-22:00',
-      dineInEnabled: true,
-      takeoutEnabled: true,
-      pickupEnabled: true,
+      id: store.id,
+      name: store.name,
+      status: store.status.toLowerCase(),
+      businessHours: store.businessHours,
+      dineInEnabled: store.dineInEnabled,
+      takeoutEnabled: store.takeoutEnabled,
+      pickupEnabled: store.pickupEnabled,
       theme: {
         primaryColor: '#ff6b35',
         coverImage: '/assets/store-cover.png',

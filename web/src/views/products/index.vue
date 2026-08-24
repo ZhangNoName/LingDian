@@ -4,7 +4,7 @@
 
     <AppFormTable title="商品管理" description="统一维护 SPU、SKU 与可扩展配置项结构">
       <template #headerActions>
-        <el-button :icon="RefreshCw" :loading="loading" @click="fetchProducts">刷新</el-button>
+        <el-button :icon="RefreshCw" :loading="loading" @click="refreshProducts">刷新</el-button>
       </template>
 
       <template #form>
@@ -13,7 +13,8 @@
             <el-input
               v-model="filters.keyword"
               clearable
-              placeholder="搜索商品 / 分类 / SKU / 选择组"
+              placeholder="搜索商品 / 分类 / SKU"
+              @keyup.enter="applyFilters"
             />
           </el-form-item>
           <el-form-item label="商品类型">
@@ -22,16 +23,21 @@
               <el-option label="套餐商品" value="PACKAGE" />
             </el-select>
           </el-form-item>
+          <template #actions>
+            <el-button type="primary" @click="applyFilters">查询</el-button>
+            <el-button @click="resetFilters">重置</el-button>
+          </template>
         </AppForm>
       </template>
 
       <AppTable>
         <el-table
           v-loading="loading"
-          :data="filteredProducts"
+          :data="products"
           row-key="id"
           class="products-table"
           empty-text="暂无商品数据"
+          @expand-change="handleExpandChange"
         >
           <el-table-column type="expand" width="52">
             <template #default="{ row }">
@@ -85,12 +91,12 @@
 
                 <section>
                   <div class="expand-title">配置项结构</div>
-                  <div v-if="row.selection_groups.length === 0" class="empty-config">
+                  <div v-if="getSelectionGroups(asProduct(row)).length === 0" class="empty-config">
                     暂无选择组配置
                   </div>
                   <div v-else class="selection-group-list">
                     <el-card
-                      v-for="binding in row.selection_groups"
+                      v-for="binding in getSelectionGroups(asProduct(row))"
                       :key="binding.binding_id"
                       shadow="never"
                       class="selection-card"
@@ -151,7 +157,7 @@
             <template #default="{ row }">{{ row.skus.length }}</template>
           </el-table-column>
           <el-table-column label="选择组" width="90">
-            <template #default="{ row }">{{ row.selection_groups.length }}</template>
+            <template #default="{ row }">{{ asProduct(row).selection_group_count }}</template>
           </el-table-column>
           <el-table-column label="总库存" width="110">
             <template #default="{ row }">{{ getTotalStock(asProduct(row)) }}</template>
@@ -164,6 +170,16 @@
           </el-table-column>
         </el-table>
       </AppTable>
+      <el-pagination
+        v-model:current-page="page"
+        v-model:page-size="pageSize"
+        :total="total"
+        :page-sizes="[20, 50, 100]"
+        layout="total, sizes, prev, pager, next"
+        class="products-pagination"
+        @current-change="fetchProducts"
+        @size-change="handlePageSizeChange"
+      />
     </AppFormTable>
 
     <ProductConfigDialog
@@ -201,11 +217,14 @@ import {
   ElInputNumber,
   ElMessage,
   ElOption,
+  ElPagination,
   ElSelect,
   ElTable,
   ElTableColumn,
   ElTag,
-} from 'element-plus'
+  vLoading,
+} from '@/components/ui/element-plus'
+import '@/styles/element-plus-management'
 import { RefreshCw } from '@lingdian/icons/web'
 import AppForm from '@/components/form/AppForm.vue'
 import AppFormTable from '@/components/form-table/AppFormTable.vue'
@@ -213,7 +232,16 @@ import AppTable from '@/components/table/AppTable.vue'
 import { requestData } from '@/lib/api'
 import ProductConfigDialog from './components/ProductConfigDialog.vue'
 import ProductMetricsGrid from './components/ProductMetricsGrid.vue'
-import type { ProductConfigForm, ProductRecord, ProductSku, ProductType } from './types'
+import type {
+  ProductConfigForm,
+  ProductListRecord,
+  ProductPage,
+  ProductRecord,
+  ProductSku,
+  ProductSkuOption,
+  ProductStats,
+  ProductType,
+} from './types'
 
 type SkuField = 'price' | 'stock_count'
 
@@ -225,7 +253,19 @@ interface PendingChange {
   newValue: number
 }
 
-const products = ref<ProductRecord[]>([])
+const products = ref<ProductListRecord[]>([])
+const total = ref(0)
+const page = ref(1)
+const pageSize = ref(20)
+const productStats = ref<ProductStats>({
+  total_count: 0,
+  active_count: 0,
+  package_count: 0,
+  sku_count: 0,
+  selection_group_count: 0,
+})
+const externalSkuChoices = ref<ProductSkuOption[]>([])
+const skuOptionsLoaded = ref(false)
 const filters = reactive<{
   keyword: string
   type: ProductType | ''
@@ -240,61 +280,20 @@ const confirmVisible = ref(false)
 const pendingChange = ref<PendingChange | null>(null)
 const configDialogOpen = ref(false)
 const activeProductId = ref<string | null>(null)
-
-const activeProduct = computed(() =>
-  products.value.find((product) => product.id === activeProductId.value) ?? null,
-)
+const activeProduct = ref<ProductRecord | null>(null)
+const loadingDetailIds = new Set<string>()
 
 const metrics = computed(() => {
-  const activeCount = products.value.filter((product) => product.is_active).length
-  const packageCount = products.value.filter((product) => product.type === 'PACKAGE').length
-  const skuCount = products.value.reduce((sum, product) => sum + product.skus.length, 0)
-  const selectionGroupCount = products.value.reduce(
-    (sum, product) => sum + product.selection_groups.length,
-    0,
-  )
-
   return [
-    { label: '在售商品', value: activeCount, note: `共 ${products.value.length} 个商品` },
-    { label: '套餐商品', value: packageCount, note: '可配置组件选择' },
-    { label: 'SKU 规格', value: skuCount, note: '负责价格与库存' },
-    { label: '选择组', value: selectionGroupCount, note: '支持辣度、去料、套餐选项' },
+    { label: '在售商品', value: productStats.value.active_count, note: `共 ${productStats.value.total_count} 个商品` },
+    { label: '套餐商品', value: productStats.value.package_count, note: '可配置组件选择' },
+    { label: 'SKU 规格', value: productStats.value.sku_count, note: '负责价格与库存' },
+    { label: '选择组', value: productStats.value.selection_group_count, note: '支持辣度、去料、套餐选项' },
   ]
 })
 
-const filteredProducts = computed(() => {
-  const text = filters.keyword.trim().toLowerCase()
-
-  return products.value.filter((product) => {
-    const matchesType = !filters.type || product.type === filters.type
-    const haystack = [
-      product.name,
-      product.description,
-      product.category,
-      ...product.skus.map((sku) => sku.sku_name),
-      ...product.selection_groups.map((group) => group.group.name),
-      ...product.selection_groups.flatMap((group) => group.group.options.map((option) => option.name)),
-    ]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase()
-
-    const matchesKeyword = !text || haystack.includes(text)
-    return matchesType && matchesKeyword
-  })
-})
-
-const externalSkuChoices = computed(() =>
-  products.value.flatMap((product) =>
-    product.skus.map((sku) => ({
-      value: sku.id,
-      label: `${product.name} / ${sku.sku_name}`,
-    })),
-  ),
-)
-
 function asProduct(row: unknown) {
-  return row as ProductRecord
+  return row as ProductListRecord
 }
 
 function asSku(row: unknown) {
@@ -305,17 +304,26 @@ function updateSkuDraftValue(sku: ProductSku, field: SkuField, value: number | u
   sku[field] = Number(value ?? 0)
 }
 
-function getTotalStock(product: ProductRecord) {
+function getTotalStock(product: ProductListRecord) {
   return product.skus
     .filter((sku) => sku.is_active)
     .reduce((sum, sku) => sum + sku.stock_count, 0)
+}
+
+function getSelectionGroups(product: ProductListRecord) {
+  return product.selection_groups ?? []
 }
 
 async function fetchProducts() {
   loading.value = true
 
   try {
-    products.value = await requestData<ProductRecord[]>('/api/products')
+    const params = new URLSearchParams({ page: String(page.value), pageSize: String(pageSize.value) })
+    if (filters.keyword.trim()) params.set('keyword', filters.keyword.trim())
+    if (filters.type) params.set('type', filters.type)
+    const result = await requestData<ProductPage>(`/api/merchant/products?${params.toString()}`)
+    products.value = result.items
+    total.value = result.total
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : 'Product list load failed')
   } finally {
@@ -323,19 +331,76 @@ async function fetchProducts() {
   }
 }
 
+async function fetchProductStats() {
+  productStats.value = await requestData<ProductStats>('/api/merchant/products/stats')
+}
+
+async function fetchSkuOptions(force = false) {
+  if (skuOptionsLoaded.value && !force) return
+  externalSkuChoices.value = await requestData<ProductSkuOption[]>('/api/merchant/products/sku-options')
+  skuOptionsLoaded.value = true
+}
+
+async function refreshProducts() {
+  try {
+    await Promise.all([fetchProducts(), fetchProductStats()])
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : 'Product metadata load failed')
+  }
+}
+
+async function loadProductDetail(productId: string) {
+  const product = await requestData<ProductRecord>(`/api/merchant/products/${productId}`)
+  const index = products.value.findIndex((item) => item.id === productId)
+  if (index >= 0) {
+    products.value[index] = {
+      ...products.value[index],
+      ...product,
+      selection_group_count: product.selection_groups.length,
+    }
+  }
+  return product
+}
+
+async function handleExpandChange(row: ProductListRecord, expanded: boolean | ProductListRecord[]) {
+  const isExpanded = Array.isArray(expanded)
+    ? expanded.some((item) => item.id === row.id)
+    : expanded
+  if (!isExpanded || row.selection_groups || loadingDetailIds.has(row.id)) return
+  loadingDetailIds.add(row.id)
+  try {
+    await loadProductDetail(row.id)
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : 'Product detail load failed')
+  } finally {
+    loadingDetailIds.delete(row.id)
+  }
+}
+
+function applyFilters() {
+  page.value = 1
+  void fetchProducts()
+}
+
+function resetFilters() {
+  filters.keyword = ''
+  filters.type = ''
+  page.value = 1
+  void fetchProducts()
+}
+
+function handlePageSizeChange() {
+  page.value = 1
+  void fetchProducts()
+}
+
 async function openConfigDialog(productId: string) {
   savingConfig.value = false
 
   try {
-    const product = await requestData<ProductRecord>(`/api/products/${productId}`)
-    const index = products.value.findIndex((item) => item.id === productId)
-    if (index >= 0) {
-      products.value[index] = product
-    } else {
-      products.value.push(product)
-    }
-
+    const [product] = await Promise.all([loadProductDetail(productId), fetchSkuOptions()])
     activeProductId.value = productId
+    activeProduct.value = product
     configDialogOpen.value = true
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : 'Product detail load failed')
@@ -350,7 +415,7 @@ async function saveProductConfig(payload: ProductConfigForm) {
   savingConfig.value = true
 
   try {
-    const product = await requestData<ProductRecord>(`/api/products/${activeProductId.value}/config`, {
+    const product = await requestData<ProductRecord>(`/api/merchant/products/${activeProductId.value}/config`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -359,8 +424,14 @@ async function saveProductConfig(payload: ProductConfigForm) {
     })
     const index = products.value.findIndex((item) => item.id === product.id)
     if (index >= 0) {
-      products.value[index] = product
+      products.value[index] = {
+        ...products.value[index],
+        ...product,
+        selection_group_count: product.selection_groups.length,
+      }
     }
+    activeProduct.value = product
+    await Promise.allSettled([fetchProductStats(), fetchSkuOptions(true)])
 
     ElMessage.success('Product config saved')
     configDialogOpen.value = false
@@ -408,7 +479,7 @@ async function confirmPendingChange() {
   }
 
   const change = pendingChange.value
-  const endpoint = change.field === 'price' ? '/api/sku/update-price' : '/api/sku/update-stock'
+  const endpoint = change.field === 'price' ? '/api/merchant/sku/update-price' : '/api/merchant/sku/update-stock'
   const payload =
     change.field === 'price'
       ? { sku_id: change.sku.id, price: change.newValue }
@@ -459,7 +530,7 @@ function formatValue(field: SkuField, value: number) {
   return field === 'price' ? `¥${value.toFixed(2)}` : `${value}`
 }
 
-onMounted(fetchProducts)
+onMounted(refreshProducts)
 </script>
 
 <style scoped>
@@ -470,6 +541,11 @@ onMounted(fetchProducts)
 
 .products-table {
   width: 100%;
+}
+
+.products-pagination {
+  justify-content: flex-end;
+  padding-top: 16px;
 }
 
 .expand-grid {

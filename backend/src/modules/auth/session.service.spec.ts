@@ -223,6 +223,18 @@ test('refresh atomically rotates the raw token and rejects replay by revoking th
   assert.equal(sessions[0].status, 'REVOKED');
 });
 
+test('caps refresh token history to bound session row growth', async () => {
+  const { service, sessions } = createService();
+  let issued = await service.create({ id: 'user-1', sessionVersion: 4, roles: ['USER'] }, 'user-api', 'device-1');
+
+  for (let index = 0; index < 40; index += 1) {
+    issued = await service.refresh(issued.refreshToken);
+  }
+
+  assert.equal(sessions[0].refreshTokenHistory.length, 32);
+  assert.equal(new Set(sessions[0].refreshTokenHistory).size, 32);
+});
+
 test('revokeAll revokes active sessions and advances the user session version', async () => {
   const { service, sessions, user } = createService();
   await service.create({ id: 'user-1', sessionVersion: 4, roles: ['USER'] }, 'user-api', 'device-1');

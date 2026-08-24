@@ -251,5 +251,6 @@ function fromDbAudience(audience: 'USER_API' | 'ADMIN_API' | 'MERCHANT_API'): Au
 
 function appendRefreshTokenHistory(history: unknown, tokenHash: string): string[] {
   const previous = Array.isArray(history) ? history.filter((value): value is string => typeof value === 'string') : [];
-  return previous.includes(tokenHash) ? previous : [...previous, tokenHash];
+  const next = previous.includes(tokenHash) ? previous : [...previous, tokenHash];
+  return next.slice(-32);
 }

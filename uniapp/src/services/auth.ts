@@ -5,6 +5,7 @@ function apiBase(): string {
   return import.meta.env.VITE_API_BASE ?? "http://localhost:9000/api";
 }
 const DEMO_TOKEN_KEY = "lingdian_demo_token";
+const DEVICE_STORAGE_KEY = "lingdian_customer_device_id";
 
 export type ThirdPartyProvider = "WECHAT" | "QQ";
 
@@ -14,6 +15,7 @@ type ApiEnvelope<T> = { code?: number; msg?: string; data?: T };
 let accessToken: string | undefined;
 let accessTokenExpiresAt = 0;
 let currentUser: AuthenticatedUser | undefined;
+let refreshPromise: Promise<boolean> | undefined;
 
 const supportedThirdPartyProviders: ThirdPartyProvider[] = [];
 
@@ -44,6 +46,7 @@ function authRequest<T>(path: string, options: Omit<UniApp.RequestOptions, "url"
       withCredentials: true,
       header: {
         "Content-Type": "application/json",
+        "X-Device-Id": deviceId(),
         ...(options.header ?? {}),
       },
       success(response) {
@@ -167,14 +170,11 @@ export const customerAuth = {
   },
 
   async refresh(): Promise<boolean> {
-    try {
-      const tokens = await authRequest<AuthTokens>("/auth/refresh", { method: "POST", data: {} });
-      this.acceptLogin(tokens);
-      return true;
-    } catch {
-      this.clear();
-      return false;
-    }
+    if (refreshPromise) return refreshPromise;
+    refreshPromise = refreshCustomerSession().finally(() => {
+      refreshPromise = undefined;
+    });
+    return refreshPromise;
   },
 
   async logout(): Promise<void> {
@@ -202,5 +202,24 @@ export const customerAuth = {
     return supportedThirdPartyProviders;
   },
 };
+
+async function refreshCustomerSession(): Promise<boolean> {
+    try {
+      const tokens = await authRequest<AuthTokens>("/auth/refresh", { method: "POST", data: {} });
+      customerAuth.acceptLogin(tokens);
+      return true;
+    } catch {
+      customerAuth.clear();
+      return false;
+    }
+}
+
+function deviceId(): string {
+  const existing = uni.getStorageSync(DEVICE_STORAGE_KEY);
+  if (typeof existing === "string" && existing) return existing;
+  const created = `customer-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  uni.setStorageSync(DEVICE_STORAGE_KEY, created);
+  return created;
+}
 
 forgetDemoToken();

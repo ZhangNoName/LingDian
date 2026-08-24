@@ -45,7 +45,7 @@ it('logs a merchant in using merchant-api and receives the browser refresh cooki
   expect(merchantSession.getAccessToken()).toBe('new-jwt')
   expect(fetchMock).toHaveBeenCalledWith('https://api.zsf.shopping/api/auth/account/login', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Device-Id': expect.any(String) },
     credentials: 'include',
     body: JSON.stringify({ username: 'merchant-demo', password: 'merchant-password-123', audience: 'merchant-api' }),
   })
@@ -71,10 +71,21 @@ it('refreshes access with the HTTP-only browser cookie', async () => {
   expect(merchantSession.getAccessToken()).toBe('refreshed-jwt')
   expect(fetchMock).toHaveBeenCalledWith('https://api.zsf.shopping/api/auth/refresh', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Device-Id': expect.any(String) },
     credentials: 'include',
     body: '{}',
   })
+})
+
+it('shares one refresh request across concurrent callers', async () => {
+  const tokens = { access_token: 'shared-jwt', expires_in: 900, user: merchantUser }
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify({ code: 0, msg: 'success', data: tokens }), { status: 201 }),
+  )
+  vi.stubGlobal('fetch', fetchMock)
+
+  await expect(Promise.all([merchantSession.refresh(), merchantSession.refresh()])).resolves.toEqual([true, true])
+  expect(fetchMock).toHaveBeenCalledTimes(1)
 })
 
 it('clears and rejects a refresh response without the merchant role', async () => {
@@ -109,7 +120,7 @@ it('logs out with the bearer token and clears in-memory access', async () => {
 
   expect(fetchMock).toHaveBeenCalledWith('https://api.zsf.shopping/api/auth/logout', {
     method: 'POST',
-    headers: { Authorization: 'Bearer logout-jwt' },
+    headers: { Authorization: 'Bearer logout-jwt', 'X-Device-Id': expect.any(String) },
     credentials: 'include',
   })
   expect(merchantSession.getAccessToken()).toBeUndefined()

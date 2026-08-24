@@ -61,6 +61,13 @@ export type OrderListItem = {
   updated_at: string
 }
 
+export type OrderPageResponse = {
+  items: OrderListItem[]
+  total: number
+  page: number
+  page_size: number
+}
+
 export type OrderDetail = {
   id: string
   order_no: string

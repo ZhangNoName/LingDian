@@ -43,6 +43,13 @@ export type OrderSummaryContract = {
   updated_at?: string;
 };
 
+export type OrderPageContract = {
+  items: OrderSummaryContract[];
+  total: number;
+  page: number;
+  page_size: number;
+};
+
 export type OrderDetailItemSelectionContract = {
   id: string;
   selection_group_id: string | null;

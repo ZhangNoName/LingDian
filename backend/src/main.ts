@@ -14,10 +14,18 @@ import { SystemLogService } from './modules/system-log/system-log.service';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.set('trust proxy', 'loopback');
   const systemLogs = app.get(SystemLogService);
   const uploadsDir = join(process.cwd(), 'uploads');
   mkdirSync(uploadsDir, { recursive: true });
-  app.useStaticAssets(uploadsDir, { prefix: '/uploads/' });
+  app.useStaticAssets(uploadsDir, {
+    prefix: '/uploads/',
+    etag: true,
+    lastModified: true,
+    setHeaders(response) {
+      response.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    },
+  });
   app.setGlobalPrefix('api');
   app.use(cookieParser());
   app.enableCors(corsOptions());
