@@ -15,6 +15,7 @@ import { SystemLogModule } from './modules/system-log/system-log.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { AdminUsersModule } from './modules/admin-users/admin-users.module';
 import { AddressesModule } from './modules/addresses/addresses.module';
+import { IntegrationsModule } from './modules/integrations/integrations.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { AddressesModule } from './modules/addresses/addresses.module';
     PrismaModule,
     AdminUsersModule,
     AddressesModule,
+    IntegrationsModule,
     AuthModule,
     MerchantModule,
     HealthModule,

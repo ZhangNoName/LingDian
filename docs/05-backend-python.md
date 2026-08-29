@@ -1,36 +1,30 @@
-# 后端：Python
+# 后端：NestJS（历史文件名兼容）
 
-## 推荐默认方案
+> 文件名沿用早期方案，当前仓库没有 Python/FastAPI 服务。
 
-**Python 3.11+ + FastAPI + Uvicorn**，数据库与 ORM 按业务选用（如 SQLAlchemy 2.x + Alembic 迁移）。
+后端工程位于 `backend/`，使用 NestJS 11、Prisma 7、MariaDB 和 TypeScript。`main.ts` 负责安全中间件、校验、统一响应、异常过滤和可选 Swagger；业务按 `src/modules/<domain>/` 组织。
 
-选用 Django 或 Flask 时，仍可沿用本文档中的「分层思想」与「API 版本化」原则，仅实现细节不同。
-
-## 工程位置
-
-`backend/`
-
-## 分层建议
+## 分层
 
 | 层 | 职责 |
-|----|------|
-| `api/` 或 `routers/` | HTTP 路由、依赖注入、请求/响应模型（Pydantic） |
-| `services/` | 用例与业务流程 |
-| `repositories/` 或 `crud/` | 数据访问 |
-| `models/` | ORM 模型或领域实体 |
-| `core/` | 配置、安全（JWT/密码）、日志 |
+| --- | --- |
+| controller + DTO | HTTP 路由、输入校验、guard 组合 |
+| application service | 用例、事务边界、数据范围与状态机 |
+| domain/port | 稳定业务概念与外部能力接口 |
+| adapter/provider | 短信、OAuth、connector 等易变 IO |
+| `packages/db` | Prisma schema、迁移与 Client |
+| `packages/contracts` | 对外 API 和事件契约 |
 
-## API 约定
+## 安全与发布
 
-- 版本前缀：如 `/api/v1/...`，便于演进。
-- 用户端与管理端：可用不同路由前缀或不同应用挂载，鉴权策略分离。
-- 文档：FastAPI 自带 OpenAPI，可导出 `openapi.json` 供前端生成类型（可选）。
+- 全局 ValidationPipe 启用 whitelist、transform 和 forbidNonWhitelisted。
+- 用户、商家、平台管理员使用独立 audience guard。
+- 生产 cookie 强制 Secure，CORS 只允许显式 origin，Swagger 默认关闭。
+- 密钥只从环境读取；生产数据库变更使用 migration deploy。
+- 外部平台事件采用事务 outbox，详细设计见 [08-integration-architecture.md](./08-integration-architecture.md)。
 
-## 配置与安全
-
-- 使用 `pydantic-settings` 或等价方式读取环境变量；提供 `.env.example`。
-- 密钥、数据库 URL、第三方 Client Secret 禁止提交到 Git。
-
-## 相关文档
-
-- [06-development-guide.md](06-development-guide.md) — 虚拟环境、运行方式
+```bash
+pnpm --filter @lingdian/api test
+pnpm --filter @lingdian/api build
+pnpm run db:migrate:deploy
+```

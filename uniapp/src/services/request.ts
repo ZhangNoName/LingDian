@@ -1,16 +1,14 @@
-import type { ApiEnvelope } from "@lingdian/contracts";
 import { customerAuth } from "./auth";
-import { API_BASE, ASSET_BASE } from "../config/api";
-
-type RequestMethod = NonNullable<UniApp.RequestOptions["method"]> | "PATCH";
+import { buildAssetUrl } from "../config/api";
+import { ApiError, NetworkError, requestApiEnvelope, type HttpMethod } from "@/infra/http/uni-http-client";
 
 type RequestConfig = Omit<UniApp.RequestOptions, "url" | "header" | "method"> & {
   header?: Record<string, string>;
-  method?: RequestMethod;
+  method?: HttpMethod;
   requiresAuth?: boolean;
 };
 
-class RequestError extends Error {
+export class RequestError extends Error {
   constructor(message: string, readonly statusCode?: number) {
     super(message);
   }
@@ -18,8 +16,7 @@ class RequestError extends Error {
 
 export function resolveAssetUrl(url?: string | null) {
   if (!url) return "/static/products/milk-green.jpg";
-  if (url.startsWith("http") || url.startsWith("/static")) return url;
-  return `${ASSET_BASE}${url}`;
+  return buildAssetUrl(url);
 }
 
 function redirectToLogin(): void {
@@ -27,40 +24,29 @@ function redirectToLogin(): void {
 }
 
 function requestOnce<T>(path: string, options: RequestConfig): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const { method, requiresAuth: _requiresAuth, ...requestOptions } = options;
-    const token = customerAuth.getAccessToken();
-    const header: Record<string, string> = {
-      "Content-Type": "application/json",
-      ...(options.header ?? {}),
-    };
-    if (token) header.Authorization = `Bearer ${token}`;
-
-    uni.request({
-      ...requestOptions,
-      url: `${API_BASE}${path}`,
-      method: method as UniApp.RequestOptions["method"],
-      withCredentials: true,
-      header,
-      success(response) {
-        if (response.statusCode === 204) {
-          resolve(undefined as T);
-          return;
-        }
-        const envelope = response.data as ApiEnvelope<T>;
-        if (response.statusCode >= 200 && response.statusCode < 300 && envelope.code === 0) {
-          resolve(envelope.data);
-          return;
-        }
-        const message = response.statusCode === 401
+  const { method, requiresAuth: _requiresAuth, header: customHeader, ...requestOptions } = options;
+  const token = customerAuth.getAccessToken();
+  return requestApiEnvelope<T>({
+    ...requestOptions,
+    path,
+    method,
+    header: {
+      ...(customHeader ?? {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  }).catch((error: unknown) => {
+    if (error instanceof NetworkError) {
+      throw new RequestError(toRequestMessage(error.causeMessage, true));
+    }
+    if (error instanceof ApiError) {
+      throw new RequestError(
+        error.statusCode === 401
           ? "登录状态已失效，请重新登录。"
-          : toRequestMessage(envelope?.msg);
-        reject(new RequestError(message, response.statusCode));
-      },
-      fail(error) {
-        reject(new RequestError(toRequestMessage(error.errMsg, true)));
-      },
-    });
+          : toRequestMessage(error.message),
+        error.statusCode,
+      );
+    }
+    throw error;
   });
 }
 
@@ -70,7 +56,6 @@ export async function request<T>(path: string, options: RequestConfig = {}): Pro
   } catch (error) {
     if (!(error instanceof RequestError) || error.statusCode !== 401) throw error;
     if (options.requiresAuth === false) {
-      customerAuth.clear();
       throw error;
     }
 

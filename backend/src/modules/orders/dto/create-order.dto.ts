@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  ArrayMaxSize,
   ArrayMinSize,
   IsArray,
   IsIn,
@@ -10,6 +11,8 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  Max,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -37,6 +40,7 @@ export class OrderItemSelectionDto {
   @IsOptional()
   @IsInt()
   @Min(1)
+  @Max(99)
   quantity?: number;
 }
 
@@ -64,6 +68,7 @@ export class OrderItemDto {
   })
   @IsInt()
   @Min(1)
+  @Max(99)
   quantity!: number;
 
   @ApiPropertyOptional({
@@ -72,6 +77,7 @@ export class OrderItemDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   remark?: string;
 
   @ApiPropertyOptional({
@@ -133,6 +139,7 @@ export class CreateOrderDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(64)
   customerName?: string;
 
   @ApiPropertyOptional({
@@ -149,6 +156,7 @@ export class CreateOrderDto {
   })
   @IsArray()
   @ArrayMinSize(1)
+  @ArrayMaxSize(100)
   @ValidateNested({ each: true })
   @Type(() => OrderItemDto)
   items!: OrderItemDto[];
@@ -159,6 +167,7 @@ export class CreateOrderDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(64)
   couponCode?: string;
 
   @ApiPropertyOptional({
@@ -167,5 +176,6 @@ export class CreateOrderDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   remark?: string;
 }

@@ -1,5 +1,5 @@
 import type { ApiEnvelope, CustomerProfile, UpdateNicknameRequest } from "@lingdian/contracts";
-import { API_BASE } from "@/config/api";
+import { buildApiUrl } from "@/config/api";
 import { customerAuth } from "./auth";
 import { request } from "./request";
 
@@ -17,7 +17,7 @@ function uploadAvatarOnce(filePath: string): Promise<CustomerProfile> {
       return;
     }
     uni.uploadFile({
-      url: `${API_BASE}/auth/profile/avatar`,
+      url: buildApiUrl("/auth/profile/avatar"),
       filePath,
       name: "avatar",
       header: { Authorization: `Bearer ${token}` },

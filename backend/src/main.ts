@@ -11,6 +11,7 @@ import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { createValidationException } from './common/exceptions/validation.exception';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { SystemLogService } from './modules/system-log/system-log.service';
+import { isSwaggerEnabled } from './config/swagger.config';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -40,19 +41,21 @@ async function bootstrap() {
   app.useGlobalInterceptors(new ResponseInterceptor());
   app.useGlobalFilters(new AllExceptionsFilter(systemLogs));
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('LingDian API Docs')
-    .setDescription('SwiftBite 点餐系统后端接口文档')
-    .setVersion('1.0.0')
-    .build();
+  if (isSwaggerEnabled()) {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('LingDian API Docs')
+      .setDescription('LingDian 点餐系统后端接口文档')
+      .setVersion('1.0.0')
+      .build();
 
-  const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('docs', app, swaggerDocument, {
-    swaggerOptions: {
-      persistAuthorization: true,
-      displayRequestDuration: true,
-    },
-  });
+    const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('docs', app, swaggerDocument, {
+      swaggerOptions: {
+        persistAuthorization: false,
+        displayRequestDuration: true,
+      },
+    });
+  }
 
   const port = Number(process.env.PORT ?? 9000);
   await app.listen(port);

@@ -132,3 +132,21 @@
     @apply bg-background text-foreground font-sans antialiased;
   }
 }
+
+/* Map the Tailwind/shadcn facade to the same console tokens used by admin. */
+:root {
+  --background: var(--ld-bg-page);
+  --foreground: var(--ld-text-heading);
+  --card: var(--ld-bg-elevated);
+  --card-foreground: var(--ld-text-heading);
+  --primary: var(--ld-color-primary);
+  --primary-foreground: var(--ld-text-inverse);
+  --muted: var(--ld-bg-muted);
+  --muted-foreground: var(--ld-text-muted);
+  --accent: var(--ld-color-primary-soft);
+  --accent-foreground: var(--ld-color-primary);
+  --destructive: var(--ld-color-error);
+  --border: var(--ld-border-default);
+  --input: var(--ld-border-default);
+  --ring: var(--ld-color-secondary);
+}

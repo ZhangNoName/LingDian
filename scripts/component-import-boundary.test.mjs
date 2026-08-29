@@ -45,3 +45,10 @@ test('applications source icons from the shared icon package', async () => {
 
   assert.deepEqual(violations, []);
 });
+
+test('both management applications consume the shared console color tokens', async () => {
+  const adminMain = await readFile(join(projectRoot, 'admin', 'src', 'main.ts'), 'utf8');
+  const webMain = await readFile(join(projectRoot, 'web', 'src', 'main.ts'), 'utf8');
+  assert.match(adminMain, /@theme\/colors\.css/);
+  assert.match(webMain, /@theme\/colors\.css/);
+});

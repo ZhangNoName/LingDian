@@ -3,9 +3,10 @@ import { AuthModule } from '../auth/auth.module';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 import { AddressesModule } from '../addresses/addresses.module';
+import { IntegrationsModule } from '../integrations/integrations.module';
 
 @Module({
-  imports: [AuthModule, AddressesModule],
+  imports: [AuthModule, AddressesModule, IntegrationsModule],
   controllers: [OrdersController],
   providers: [OrdersService],
 })

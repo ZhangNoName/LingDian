@@ -1,17 +1,12 @@
 import type { AuthTokens, AuthenticatedUser, LegalConsentInput, PendingOAuthResponse } from "@lingdian/contracts";
+import { ApiError, NetworkError, requestApiEnvelope } from "@/infra/http/uni-http-client";
 import { getCustomerAuthMessage } from "./auth-message";
-
-function apiBase(): string {
-  return import.meta.env.VITE_API_BASE ?? "http://localhost:9000/api";
-}
 const DEMO_TOKEN_KEY = "lingdian_demo_token";
 const DEVICE_STORAGE_KEY = "lingdian_customer_device_id";
 
 export type ThirdPartyProvider = "WECHAT" | "QQ";
 
 type SendCodePurpose = "PHONE_LOGIN" | "PHONE_LINK";
-type ApiEnvelope<T> = { code?: number; msg?: string; data?: T };
-
 let accessToken: string | undefined;
 let accessTokenExpiresAt = 0;
 let currentUser: AuthenticatedUser | undefined;
@@ -31,7 +26,7 @@ function forgetDemoToken(): void {
   uni.removeStorageSync(DEMO_TOKEN_KEY);
 }
 
-function readErrorMessage(body: ApiEnvelope<unknown> | undefined): string {
+function readErrorMessage(body: { code?: number; msg?: string } | undefined): string {
   return getCustomerAuthMessage({
     code: body?.code,
     message: body?.msg || "Authentication request failed.",
@@ -39,32 +34,23 @@ function readErrorMessage(body: ApiEnvelope<unknown> | undefined): string {
 }
 
 function authRequest<T>(path: string, options: Omit<UniApp.RequestOptions, "url"> = {}): Promise<T> {
-  return new Promise((resolve, reject) => {
-    uni.request({
-      ...options,
-      url: `${apiBase()}${path}`,
-      withCredentials: true,
-      header: {
-        "Content-Type": "application/json",
-        "X-Device-Id": deviceId(),
-        ...(options.header ?? {}),
-      },
-      success(response) {
-        if (response.statusCode === 204) {
-          resolve(undefined as T);
-          return;
-        }
-        const envelope = response.data as ApiEnvelope<T>;
-        if (response.statusCode >= 200 && response.statusCode < 300 && envelope?.code === 0 && envelope.data !== undefined) {
-          resolve(envelope.data);
-          return;
-        }
-        reject(new Error(readErrorMessage(envelope)));
-      },
-      fail(error) {
-        reject(new Error(getCustomerAuthMessage(new Error(error.errMsg || "Network request failed."))));
-      },
-    });
+  const { header, method, ...requestOptions } = options;
+  return requestApiEnvelope<T>({
+    ...requestOptions,
+    path,
+    method: method as UniApp.RequestOptions["method"],
+    header: {
+      "X-Device-Id": deviceId(),
+      ...(header as Record<string, string> | undefined),
+    },
+  }).catch((error: unknown) => {
+    if (error instanceof ApiError) {
+      throw new Error(readErrorMessage({ code: error.code, msg: error.message }));
+    }
+    if (error instanceof NetworkError) {
+      throw new Error(getCustomerAuthMessage(new Error(error.causeMessage || error.message)));
+    }
+    throw error;
   });
 }
 

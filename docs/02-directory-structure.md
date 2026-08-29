@@ -1,34 +1,40 @@
 # 目录与职责
 
-## 顶层布局
-
-```
+```text
 LingDian/
-├── README.md
-├── docs/                    # 项目文档（本目录）
-├── uniapp/                  # uni-app 前台工程
-├── frontend-admin/          # 管理后台 Web 工程
-└── backend/                 # Python 后端工程
+├── admin/                  # 平台管理端
+├── backend/                # NestJS API
+│   └── src/modules/        # 按业务能力组织的 Nest 模块
+├── common/                 # 通用响应码和无状态工具
+├── packages/
+│   ├── contracts/          # 跨端 API/事件契约
+│   ├── db/                 # Prisma schema、迁移、Client
+│   ├── icons/              # 跨端图标边界
+│   └── observability/      # 客户端日志协议
+├── theme/                  # 设计令牌单一来源
+├── uniapp/                 # 消费者小程序/H5
+│   └── src/infra/http/     # 可替换传输与 API envelope 协议
+├── web/                    # 商家经营工作台
+├── scripts/                # 仓库级结构与部署验证
+└── docs/                   # 产品、架构、联调与运维文档
 ```
 
-## 职责划分
+## 放置规则
 
-| 路径 | 职责 | 不应包含 |
-|------|------|----------|
-| `uniapp/` | 页面、组件、前台路由、静态资源、各端构建配置 | 服务端密钥、数据库连接串 |
-| `frontend-admin/` | 后台布局、菜单权限展示、运营类页面 | 同上 |
-| `backend/` | 路由、领域逻辑、ORM/仓储、迁移脚本、配置模板 | 大型前端构建产物（可选仅部署静态到 CDN 时例外） |
+| 内容 | 位置 | 禁止做法 |
+| --- | --- | --- |
+| 页面 ViewModel、交互状态 | 对应前端工程 | 放入共享 API contracts |
+| API 请求/响应和跨进程事件 | `packages/contracts/` | 直接把 Prisma 类型暴露给前端 |
+| 数据表与迁移 | `packages/db/prisma/` | 在业务模块内散落 SQL |
+| 领域用例 | `backend/src/modules/<domain>/` | controller 直接操作 Prisma |
+| 外部协议 | connector 或 `integrations` adapter | 在订单 service 中写平台判断分支 |
+| 颜色与语义令牌 | `theme/` | 页面继续增加重复的品牌色常量 |
+| 密钥 | 部署密钥系统/后端环境变量 | 提交 `.env` 或写入前端变量 |
 
-## 共享约定
+## 后端模块结构约定
 
-- **API 契约**：以后端 OpenAPI 为准；前端类型可用工具从 OpenAPI 生成（可选）。
-- **环境变量**：各子项目独立 `.env.example`，真实密钥不入库。
-- **版本号**：根目录 `README` 或 `CHANGELOG` 可记录整体发版；各子项目保留自身 `package.json` / `pyproject.toml` 版本字段。
+模块较小时可保持 controller/service/dto 扁平结构；超过约 500 行或同时包含查询、命令、映射、外部 IO 时，拆为 `application/`、`domain/`、`ports/`、`adapters/`。`integrations` 已按端口与 adapter 边界组织；`products.service.ts` 仍偏大，后续新增库存或价格规则前应优先拆为 catalog query、product command、configuration 三个应用服务。
 
-## 可选扩展
+## 生成物
 
-若仓库增大，可增加：
-
-- `packages/` — 前后端共享的 TypeScript 类型或常量（monorepo）
-- `scripts/` — 一键安装、代码生成、部署脚本
-- `infra/` — Docker Compose、K8s 清单、CI 配置片段
+`node_modules/`、`dist/`、`build/`、覆盖率、真实 `.env` 都是生成物或本地状态，必须保持忽略。数据库结构变更必须同时提交 Prisma schema 与迁移文件。

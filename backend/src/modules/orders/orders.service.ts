@@ -23,6 +23,12 @@ import { QueryOrdersDto } from './dto/query-orders.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { AddressesService } from '../addresses/addresses.service';
 import type { UserAddress } from '@lingdian/contracts';
+import { IntegrationOutboxService } from '../integrations/integration-outbox.service';
+
+const NOOP_INTEGRATION_OUTBOX = {
+  enqueueOrderCreated: async () => undefined,
+  kick: () => undefined,
+} as Pick<IntegrationOutboxService, 'enqueueOrderCreated' | 'kick'>;
 
 const orderTypeMap: Record<CreateOrderDto['orderType'], OrderType> = {
   dine_in: 'DINE_IN',
@@ -89,11 +95,23 @@ type OrderDetailRecord = Prisma.OrderGetPayload<{ include: typeof orderDetailInc
 
 type OrderScope = { storeIds?: string[]; customerUserId?: string };
 
+function toCents(value: Prisma.Decimal | number): number {
+  const cents = Math.round(Number(value) * 100);
+  if (!Number.isSafeInteger(cents)) throw new BadRequestException('Order amount is too large');
+  return cents;
+}
+
+function fromCents(value: number): number {
+  if (!Number.isSafeInteger(value)) throw new BadRequestException('Order amount is too large');
+  return value / 100;
+}
+
 @Injectable()
 export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly addresses: AddressesService,
+    private readonly integrationOutbox: IntegrationOutboxService = NOOP_INTEGRATION_OUTBOX as IntegrationOutboxService,
   ) {}
 
   async createOrder(body: CreateOrderDto, customerUserId?: string) {
@@ -118,7 +136,7 @@ export class OrdersService {
       throw new BadRequestException('sku_id cannot be empty');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const duplicateOrder = await this.findIdempotentOrder(
         tx,
         customerUserId,
@@ -189,7 +207,7 @@ export class OrdersService {
         selectionOptions.map((option) => [option.id, option]),
       );
 
-      let totalAmount = 0;
+      let totalAmountInCents = 0;
       const orderItems = [];
 
       for (const item of normalizedItems) {
@@ -245,23 +263,23 @@ export class OrdersService {
           }
         }
 
-        const unitPrice = Number(sku.price);
-        const selectionPrice = selectionSnapshots.reduce(
-          (sum, selection) => sum + selection.priceDelta,
+        const unitPriceInCents = toCents(sku.price);
+        const selectionPriceInCents = selectionSnapshots.reduce(
+          (sum, selection) => sum + toCents(selection.priceDelta),
           0,
         );
-        const subtotal = (unitPrice + selectionPrice) * item.quantity;
-        if (subtotal < 0) throw new BadRequestException('Order item subtotal cannot be negative');
-        totalAmount += subtotal;
+        const subtotalInCents = (unitPriceInCents + selectionPriceInCents) * item.quantity;
+        if (subtotalInCents < 0) throw new BadRequestException('Order item subtotal cannot be negative');
+        totalAmountInCents += subtotalInCents;
 
         orderItems.push({
           productId: sku.productId,
           skuId: sku.id,
           productName: sku.product.name,
           skuName: sku.skuName,
-          unitPrice,
+          unitPrice: fromCents(unitPriceInCents),
           quantity: item.quantity,
-          subtotal,
+          subtotal: fromCents(subtotalInCents),
           remark: item.remark,
           selections: {
             create: selectionSnapshots,
@@ -283,8 +301,8 @@ export class OrdersService {
             ? paymentChannelMap[body.paymentChannel]
             : 'CASH',
           status: 'PENDING_PAYMENT',
-          totalAmount,
-          payableAmount: totalAmount,
+          totalAmount: fromCents(totalAmountInCents),
+          payableAmount: fromCents(totalAmountInCents),
           remark: body.remark,
           items: {
             create: orderItems,
@@ -307,6 +325,8 @@ export class OrdersService {
         include: orderDetailInclude,
       });
 
+      await this.integrationOutbox.enqueueOrderCreated(tx, order);
+
       return this.mapOrderDetail(order);
     }).catch(async (error: unknown) => {
       if (this.isUniqueConstraintError(error)) {
@@ -319,6 +339,8 @@ export class OrdersService {
       }
       throw error;
     });
+    this.integrationOutbox.kick();
+    return result;
   }
 
   private findIdempotentOrder(

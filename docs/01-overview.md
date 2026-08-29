@@ -2,24 +2,35 @@
 
 ## 目标
 
-构建「用户端 + 运营后台 + 统一 API」的一体化工程：多端前台用 uni-app，运营管理用 Web 后台，数据与权限由 Python 后端提供。
+LingDian 是面向餐饮门店的多端点餐与经营系统，当前由消费者小程序、商家工作台、平台管理端、统一 API 和共享基础包组成。后端是唯一业务数据源；收银、打印和外卖平台通过可选连接器接入，不能反向侵入订单领域。
 
-## 技术选型（当前约定）
+## 当前技术基线
 
-| 层级 | 技术 | 说明 |
-|------|------|------|
-| 前台 | uni-app（Vue 语法） | 可发布到小程序、App、H5 等 |
-| 后台 | Vue 3 + Vite + Element Plus | 与 Vue 生态一致，便于组件与类型习惯复用；若团队更熟悉 React，可改为 React + Ant Design |
-| 后端 | Python 3.x +（推荐）FastAPI | 异步友好、自动生成 OpenAPI；亦可选用 Django / Flask，见 [05-backend-python.md](05-backend-python.md) |
+| 层级 | 工程 | 技术与职责 |
+| --- | --- | --- |
+| 消费者端 | `uniapp/` | Vue 3 + uni-app；微信/QQ 小程序与 H5，共用 API 传输和协议层 |
+| 商家端 | `web/` | Vue 3 + Vite + Element Plus/shadcn-vue；商品、订单、门店经营 |
+| 平台端 | `admin/` | Vue 3 + Vite + Element Plus；平台账号、权限与系统日志 |
+| API | `backend/` | NestJS + Prisma + MariaDB；鉴权、业务规则、持久化、集成 outbox |
+| 契约 | `packages/contracts/` | 前后端共享且版本稳定的 DTO/事件类型 |
+| 数据库 | `packages/db/` | Prisma schema、迁移与 Client 导出 |
+| 基础能力 | `common/`、`packages/*` | 响应码、图标、可观测性等无业务状态能力 |
+| 主题 | `theme/` | 管理端共享蓝色令牌与消费者小程序品牌令牌 |
 
 ## 系统边界
 
-- **uniapp**：面向终端用户；仅调用后端公开或用户态 API；令牌与敏感信息按平台安全规范存储。
-- **frontend-admin**：面向内部运营；调用管理态 API，通常需独立鉴权与更严格的权限模型。
-- **backend**：唯一业务数据源；负责鉴权、校验、持久化及与第三方服务集成。
+- `uniapp/` 只能包含公开 API 地址，不得包含 AppSecret、平台 token、连接器密钥或数据库配置。
+- `admin/` 与 `web/` 使用不同 audience 和权限守卫，不能只依赖前端菜单隐藏。
+- `backend/` 负责价格重算、订单幂等、门店/用户数据范围、第三方事件可靠投递。
+- 外部平台不直接调用订单服务内部类。官方 SDK、证书和易变协议放在独立 connector 中，由 HMAC 签名的中立事件协议衔接。
+- `packages/contracts/` 只放跨进程契约，不放页面 ViewModel 或 Prisma 实体。
 
-## 后续可补充文档
+## 关键运行链路
 
-- 业务领域模型与用例
-- 安全与合规（日志脱敏、密钥管理）
-- 部署拓扑与环境（开发 / 测试 / 生产）
+1. 小程序业务服务通过 `HttpTransport` 调用统一 API 协议层。
+2. API 在事务中校验门店、SKU、选项、价格、用户归属并创建订单。
+3. 若门店启用了可选集成，同一事务写入 `integration_outbox`。
+4. worker 原子认领事件，通过对应 connector 投递；失败指数退避，超过上限进入死信。
+5. connector 将稳定的 LingDian 事件翻译为收银、打印、美团或京东当前官方协议。
+
+具体集成边界见 [08-integration-architecture.md](./08-integration-architecture.md)。

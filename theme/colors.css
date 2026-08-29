@@ -95,3 +95,52 @@
     --shadow: var(--ld-shadow-md);
   }
 }
+
+/* Explicit application preference wins over the operating-system media query. */
+:root.light {
+  color-scheme: light;
+  --ld-color-primary: #1677ff;
+  --ld-color-primary-soft: #e6f4ff;
+  --ld-color-secondary: #4096ff;
+  --ld-color-success: #52c41a;
+  --ld-color-warning: #faad14;
+  --ld-color-error: #ff4d4f;
+  --ld-text-body: #595959;
+  --ld-text-heading: #262626;
+  --ld-text-muted: #8c8c8c;
+  --ld-text-inverse: #ffffff;
+  --ld-bg-page: #f5f7fa;
+  --ld-bg-elevated: #ffffff;
+  --ld-bg-muted: #fafafa;
+  --ld-bg-code: #f5f5f5;
+  --ld-bg-social: rgba(22, 119, 255, 0.08);
+  --ld-bg-mask: rgba(0, 0, 0, 0.45);
+  --ld-border-default: #f0f0f0;
+  --ld-accent: #1677ff;
+  --ld-accent-bg: rgba(22, 119, 255, 0.1);
+  --ld-accent-border: rgba(22, 119, 255, 0.22);
+}
+
+:root.dark {
+  color-scheme: dark;
+  --ld-color-primary: #3c9cff;
+  --ld-color-primary-soft: #112a45;
+  --ld-color-secondary: #69b1ff;
+  --ld-color-success: #73d13d;
+  --ld-color-warning: #ffc53d;
+  --ld-color-error: #ff7875;
+  --ld-text-body: #d9d9d9;
+  --ld-text-heading: #ffffff;
+  --ld-text-muted: #a6a6a6;
+  --ld-text-inverse: #141414;
+  --ld-bg-page: #141414;
+  --ld-bg-elevated: #1f1f1f;
+  --ld-bg-muted: #1a1a1a;
+  --ld-bg-code: #262626;
+  --ld-bg-social: rgba(60, 156, 255, 0.14);
+  --ld-bg-mask: rgba(0, 0, 0, 0.55);
+  --ld-border-default: #303030;
+  --ld-accent: #3c9cff;
+  --ld-accent-bg: rgba(60, 156, 255, 0.16);
+  --ld-accent-border: rgba(60, 156, 255, 0.3);
+}

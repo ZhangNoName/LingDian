@@ -19,6 +19,7 @@ export function createThemeController(mediaFactory: MediaFactory = () => matchMe
   function apply() {
     resolvedTheme.value = preference.value === 'system' ? (media.matches ? 'dark' : 'light') : preference.value
     document.documentElement.classList.toggle('dark', resolvedTheme.value === 'dark')
+    document.documentElement.classList.toggle('light', resolvedTheme.value === 'light')
     document.documentElement.style.colorScheme = resolvedTheme.value
   }
 
@@ -26,6 +27,7 @@ export function createThemeController(mediaFactory: MediaFactory = () => matchMe
     if (preference.value !== 'system') return
     resolvedTheme.value = event.matches ? 'dark' : 'light'
     document.documentElement.classList.toggle('dark', resolvedTheme.value === 'dark')
+    document.documentElement.classList.toggle('light', resolvedTheme.value === 'light')
     document.documentElement.style.colorScheme = resolvedTheme.value
   }
 

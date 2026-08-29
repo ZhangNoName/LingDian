@@ -78,6 +78,19 @@ test("does not force a guest to login when a public request returns 401", async 
   expect(reLaunch).not.toHaveBeenCalled();
 });
 
+test("does not destroy a valid customer session when a public endpoint rejects a request", async () => {
+  customerAuth.acceptLogin({ access_token: "still-valid", expires_in: 900, user: userProfile });
+  const requestMock = vi.fn((options: UniApp.RequestOptions) => {
+    options.success?.({ statusCode: 401, data: { code: 401, msg: "Unauthorized" } } as unknown as UniApp.RequestSuccessCallbackResult);
+    return { abort() {} } as UniApp.RequestTask;
+  });
+  Object.assign(uni, { request: requestMock });
+
+  await expect(request("/menu/current", { requiresAuth: false })).rejects.toThrow();
+
+  expect(customerAuth.getAccessToken()).toBe("still-valid");
+});
+
 test("accepts an empty 204 response for delete operations", async () => {
   const requestMock = vi.fn((options: UniApp.RequestOptions) => {
     options.success?.({ statusCode: 204, data: undefined } as unknown as UniApp.RequestSuccessCallbackResult);

@@ -136,26 +136,82 @@ enum SelectionOptionType {
   VARIANT
 }
 
+enum IntegrationProvider {
+  CASHIER
+  RECEIPT_PRINTER
+  MEITUAN_WAIMAI
+  JD_DAOJIA
+}
+
+enum IntegrationDeliveryStatus {
+  PENDING
+  PROCESSING
+  DELIVERED
+  DEAD_LETTER
+}
+
 model Store {
-  id              String           @id @default(cuid())
-  code            String           @unique
-  name            String
-  contactName     String?
-  contactPhone    String?
-  address         String?
-  businessHours   String?
-  status          StoreStatus      @default(OPEN)
-  dineInEnabled   Boolean          @default(true)
-  takeoutEnabled  Boolean          @default(true)
-  pickupEnabled   Boolean          @default(true)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  categories      Category[]
-  products        Product[]
-  selectionGroups SelectionGroup[]
-  orders          Order[]
+  id                String              @id @default(cuid())
+  code              String              @unique
+  name              String
+  contactName       String?
+  contactPhone      String?
+  address           String?
+  businessHours     String?
+  status            StoreStatus         @default(OPEN)
+  dineInEnabled     Boolean             @default(true)
+  takeoutEnabled    Boolean             @default(true)
+  pickupEnabled     Boolean             @default(true)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  categories        Category[]
+  products          Product[]
+  selectionGroups   SelectionGroup[]
+  orders            Order[]
+  integrations      StoreIntegration[]
+  integrationEvents IntegrationOutbox[]
 
   @@map("stores")
+}
+
+model StoreIntegration {
+  id        String              @id @default(cuid())
+  storeId   String
+  provider  IntegrationProvider
+  enabled   Boolean             @default(false)
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+  store     Store               @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, provider])
+  @@index([provider, enabled])
+  @@map("store_integrations")
+}
+
+model IntegrationOutbox {
+  id            String                    @id @default(cuid())
+  eventId       String                    @db.VarChar(64)
+  provider      IntegrationProvider
+  eventType     String                    @db.VarChar(64)
+  schemaVersion Int                       @default(1)
+  aggregateId   String
+  storeId       String
+  payload       Json
+  status        IntegrationDeliveryStatus @default(PENDING)
+  attempts      Int                       @default(0)
+  nextAttemptAt DateTime                  @default(now())
+  lockedAt      DateTime?
+  deliveredAt   DateTime?
+  lastError     String?                   @db.VarChar(500)
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+  store         Store                     @relation(fields: [storeId], references: [id], onDelete: Restrict)
+
+  @@unique([provider, eventId])
+  @@index([status, nextAttemptAt])
+  @@index([storeId, createdAt])
+  @@index([aggregateId])
+  @@map("integration_outbox")
 }
 
 model Category {
@@ -310,9 +366,9 @@ model Order {
   items           OrderItem[]
   statusLogs      OrderStatusLog[]
 
+  @@unique([customerUserId, clientRequestId])
   @@index([storeId, createdAt])
   @@index([customerUserId, createdAt])
-  @@unique([customerUserId, clientRequestId])
   @@index([status])
   @@index([isDeleted, createdAt])
   @@index([storeId, status, isDeleted])

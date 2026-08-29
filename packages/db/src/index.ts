@@ -1,6 +1,8 @@
 export {
   AuthAudience,
   IdentityProvider,
+  IntegrationDeliveryStatus,
+  IntegrationProvider,
   LegalDocumentType,
   OrderStatus,
   OrderType,
@@ -27,6 +29,8 @@ export type {
   AuthAuditLog,
   AuthIdentity,
   AuthSession,
+  IntegrationOutbox,
+  StoreIntegration,
   PendingOAuth,
   User,
   UserLegalConsent,

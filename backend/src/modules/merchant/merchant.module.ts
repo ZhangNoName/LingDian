@@ -8,5 +8,6 @@ import { MerchantStoreScope } from './merchant-store-scope';
   imports: [AuthModule],
   controllers: [MerchantController],
   providers: [MerchantService, MerchantStoreScope],
+  exports: [MerchantService, MerchantStoreScope],
 })
 export class MerchantModule {}

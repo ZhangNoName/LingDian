@@ -1,6 +1,7 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { corsOptions, refreshCookieOptions } from './common/auth/http-security';
+import { isSwaggerEnabled } from './config/swagger.config';
 
 test('refresh cookies are HTTP-only, configured secure, SameSite=Lax, and limited to auth routes', () => {
   const options = refreshCookieOptions({ getOrThrow: () => true } as never);
@@ -21,6 +22,12 @@ test('CORS accepts only explicitly configured browser origins and allows credent
   assert.deepEqual(options.allowedHeaders, ['Authorization', 'Content-Type', 'X-Device-Id']);
   await assert.doesNotReject(() => resolveOrigin(options.origin, 'https://admin.example.test'));
   await assert.rejects(() => resolveOrigin(options.origin, 'https://untrusted.example.test'), /not allowed by CORS/i);
+});
+
+test('API documentation is opt-in in production', () => {
+  assert.equal(isSwaggerEnabled({ NODE_ENV: 'production' }), false);
+  assert.equal(isSwaggerEnabled({ NODE_ENV: 'production', SWAGGER_ENABLED: 'true' }), true);
+  assert.equal(isSwaggerEnabled({ NODE_ENV: 'development' }), true);
 });
 
 function resolveOrigin(

@@ -10,6 +10,8 @@
 | [07-web-prd.md](./07-web-prd.md) | Web 管理后台页面体系与模块级 PRD |
 | [../README.md](../README.md) | 仓库说明与启动方式 |
 | [../backend/README.md](../backend/README.md) | 后端 NestJS 工程说明 |
+| [08-integration-architecture.md](./08-integration-architecture.md) | 收银、小票、美团、京东的可插拔连接器与可靠投递设计 |
+| [09-architecture-review-2026-08-29.md](./09-architecture-review-2026-08-29.md) | 本轮架构、功能、性能、安全与 UI 审查记录 |
 
 ## 当前约定
 

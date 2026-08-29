@@ -1,10 +1,10 @@
 import { createClientLogReporter } from '@lingdian/observability'
 import { customerAuth } from '../services/auth'
-import { API_BASE } from '../config/api'
+import { buildApiUrl } from '../config/api'
 
 const reporter = createClientLogReporter('MINIAPP', (event) => new Promise<void>((resolve, reject) => {
   uni.request({
-    url: `${API_BASE}/system-logs/client-events`,
+    url: buildApiUrl('/system-logs/client-events'),
     method: 'POST',
     header: { 'Content-Type': 'application/json', ...(customerAuth.getAccessToken() ? { Authorization: `Bearer ${customerAuth.getAccessToken()}` } : {}) },
     data: event,

@@ -178,7 +178,7 @@ test('checkout accepts duplicate SKU lines and charges selections for every item
     maxSelect: 3, isRequired: false, options: [],
   };
   const sku = {
-    id: 'sku-1', productId: 'product-1', skuName: '默认', price: 10, isActive: true,
+    id: 'sku-1', productId: 'product-1', skuName: '默认', price: 0.1, isActive: true,
     product: { id: 'product-1', name: '拿铁', status: 'ACTIVE', selectionBindings: [{ groupId: group.id, group }] },
     selectionBindings: [],
   };
@@ -186,7 +186,7 @@ test('checkout accepts duplicate SKU lines and charges selections for every item
     store: { findUnique: async () => ({ status: 'OPEN' }) },
     productSKU: { findMany: async (query: any) => { skuQuery = query; return [sku]; } },
     selectionOption: { findMany: async () => [{
-      id: 'option-1', groupId: group.id, name: '椰果', optionType: 'VALUE', priceDelta: 2,
+      id: 'option-1', groupId: group.id, name: '椰果', optionType: 'VALUE', priceDelta: 0.2,
       referencedSkuId: null, group, referencedSku: null,
     }] },
     order: { create: async ({ data }: any) => { createdData = data; return orderRecord(data); } },
@@ -202,9 +202,9 @@ test('checkout accepts duplicate SKU lines and charges selections for every item
   });
 
   assert.deepEqual(skuQuery.where.id.in, ['sku-1']);
-  assert.equal(createdData.items.create[0].subtotal, 24);
-  assert.equal(createdData.items.create[1].subtotal, 10);
-  assert.equal(result.payable_amount, 34);
+  assert.equal(createdData.items.create[0].subtotal, 0.6);
+  assert.equal(createdData.items.create[1].subtotal, 0.1);
+  assert.equal(result.payable_amount, 0.7);
 });
 
 test('checkout rejects an option that is not bound to the selected SKU', async () => {

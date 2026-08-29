@@ -1,3 +1,5 @@
+import { validateIntegrationEnv } from '../modules/integrations/integration.config';
+
 type EnvRecord = Record<string, string | undefined>;
 
 export function validateEnv(config: EnvRecord) {
@@ -21,6 +23,7 @@ export function validateEnv(config: EnvRecord) {
   validatePositiveInteger(config, 'AUTH_ACCESS_TOKEN_TTL_SECONDS', errors);
   validatePositiveInteger(config, 'AUTH_REFRESH_TOKEN_TTL_DAYS', errors);
   validateBootstrapAccountGroups(config, errors);
+  validateIntegrationEnv(config, errors);
 
   if (config.NODE_ENV === 'production') {
     validateExpectedValue(
@@ -67,6 +70,10 @@ export function validateEnv(config: EnvRecord) {
     config.AUTH_COOKIE_SECURE !== 'false'
   ) {
     errors.push('AUTH_COOKIE_SECURE must be true or false');
+  }
+
+  if (config.SWAGGER_ENABLED !== undefined && !['true', 'false'].includes(config.SWAGGER_ENABLED)) {
+    errors.push('SWAGGER_ENABLED must be true or false');
   }
 
   if (errors.length > 0) {
