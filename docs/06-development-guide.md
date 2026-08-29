@@ -10,6 +10,11 @@
 
 ```bash
 pnpm install
+cp backend/.env.example backend/.env
+# 编辑 DATABASE_URL、STORE_MODE=single 和 PRIMARY_STORE_ID
+pnpm run db:push
+# 二选一：确认 PRIMARY_STORE_ID 已存在，或仅对可丢弃库显式运行下一行
+NODE_ENV=development ALLOW_DEMO_SEED=true pnpm run db:seed:demo
 pnpm dev
 pnpm run test:all
 pnpm run type-check
@@ -21,6 +26,9 @@ pnpm run build
 ## 环境变量
 
 - 后端：从 `backend/.env.example` 复制本地 `.env`，真实文件不提交。
+- 后端单店运行时设置 `STORE_MODE=single` 和 `PRIMARY_STORE_ID`；先创建/确认门店行，再启动 API。
+- `db:seed:demo` 会重置演示业务数据，只允许可丢弃的开发/测试库使用；必须是 `NODE_ENV=development` 或 `NODE_ENV=test`，并显式设置 `ALLOW_DEMO_SEED=true`。生产和共享数据库禁止运行。
+- 认证 bootstrap 的 `AUTH_BOOTSTRAP_MERCHANT_STORE_IDS` 必须只包含 `PRIMARY_STORE_ID`，不能再配置多个门店 ID。
 - 小程序：公开 API 入口使用 `VITE_API_BASE`，示例见 `uniapp/.env.example`；生产必须 HTTPS。
 - `WECHAT_*_SECRET`、`QQ_*_SECRET`、短信 token 和 integration signing secret 只允许出现在服务端密钥系统。
 - Swagger 在非生产默认启用；生产默认关闭，仅排障环境可显式设置 `SWAGGER_ENABLED=true`。

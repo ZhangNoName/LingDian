@@ -1,5 +1,7 @@
 # 灵点点餐系统：三端账号认证与门店授权设计
 
+> 历史设计说明：本文记录 2026-07-11 的原始多门店授权方案。当前运行策略已于 2026-08-29 收口为单店；`AUTH_BOOTSTRAP_MERCHANT_STORE_IDS` 只能等于 `PRIMARY_STORE_ID`。现行规则以 [系统结构](../../11-system-structure.md) 和 [权限与缺口分析](../../13-permission-and-gap-analysis.md) 为准。
+
 ## 目标与边界
 
 为灵点点餐系统提供三端隔离的认证与授权能力：

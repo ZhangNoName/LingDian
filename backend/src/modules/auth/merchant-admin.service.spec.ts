@@ -9,6 +9,15 @@ const merchantInput = {
   storeIds: ['store-1'],
 };
 
+const storeContext = {
+  resolveStoreIds: (storeIds: string[]) => {
+    if (storeIds.length !== 1 || storeIds[0] !== 'store-1') {
+      throw new Error('Store access is outside the configured store');
+    }
+    return ['store-1'];
+  },
+};
+
 test('super administrator creates a merchant only when every requested store exists', async () => {
   let created = false;
   const merchants = new MerchantAdminService(
@@ -20,6 +29,7 @@ test('super administrator creates a merchant only when every requested store exi
     } as never,
     { hash: async () => 'password-hash' } as never,
     { record: async () => undefined } as never,
+    storeContext as never,
   );
 
   await assert.rejects(() => merchants.create(merchantInput), /store not found/i);
@@ -50,6 +60,7 @@ test('merchant creation deduplicates store scopes in one transaction', async () 
     } as never,
     { hash: async () => 'password-hash' } as never,
     { record: async () => undefined } as never,
+    storeContext as never,
   );
 
   await merchants.create({ ...merchantInput, storeIds: ['store-1', 'store-1'] });
@@ -58,7 +69,7 @@ test('merchant creation deduplicates store scopes in one transaction', async () 
   assert.deepEqual(roles.map((role) => role.scopeId), ['store-1']);
 });
 
-test('merchant store scope rejects empty replacement and revokes sessions when it changes', async () => {
+test('merchant store scope rejects non-primary replacement and disabling revokes sessions', async () => {
   let userUpdate: Record<string, unknown> | undefined;
   let revoked = false;
   const merchants = new MerchantAdminService(
@@ -69,12 +80,12 @@ test('merchant store scope rejects empty replacement and revokes sessions when i
           update: async ({ data }: { data: Record<string, unknown> }) => {
             userUpdate = data;
             return {
-              id: 'merchant-1', status: 'ACTIVE',
+              id: 'merchant-1', status: 'DISABLED',
               identities: [
                 { provider: 'ACCOUNT', accountName: 'store-owner', phoneE164: null },
                 { provider: 'PHONE', accountName: null, phoneE164: '+8613800000000' },
               ],
-              roles: [{ role: 'MERCHANT', scopeType: 'STORE', scopeId: 'store-2', status: 'ACTIVE' }],
+              roles: [{ role: 'MERCHANT', scopeType: 'STORE', scopeId: 'store-1', status: 'ACTIVE' }],
             };
           },
         },
@@ -86,12 +97,17 @@ test('merchant store scope rejects empty replacement and revokes sessions when i
     } as never,
     {} as never,
     { record: async () => undefined } as never,
+    storeContext as never,
   );
 
   await assert.rejects(() => merchants.update('merchant-1', { storeIds: [] }), /at least one store/i);
-  await merchants.update('merchant-1', { storeIds: ['store-2'] });
+  await assert.rejects(
+    () => merchants.update('merchant-1', { storeIds: ['store-2'] }),
+    /outside the configured store/i,
+  );
+  await merchants.update('merchant-1', { enabled: false });
 
-  assert.deepEqual(userUpdate, { sessionVersion: { increment: 1 } });
+  assert.deepEqual(userUpdate, { status: 'DISABLED', sessionVersion: { increment: 1 } });
   assert.equal(revoked, true);
 });
 
@@ -120,6 +136,7 @@ test('merchant creation retries a serializable write conflict before creating th
     } as never,
     { hash: async () => 'password-hash' } as never,
     { record: async () => undefined } as never,
+    storeContext as never,
   );
 
   await merchants.create(merchantInput);
@@ -142,7 +159,7 @@ test('merchant scope update retries a serializable write conflict before revokin
                 { provider: 'ACCOUNT', accountName: 'store-owner', phoneE164: null },
                 { provider: 'PHONE', accountName: null, phoneE164: '+8613800000000' },
               ],
-              roles: [{ role: 'MERCHANT', scopeType: 'STORE', scopeId: 'store-1', status: 'ACTIVE' }],
+              roles: [{ role: 'MERCHANT', scopeType: 'STORE', scopeId: 'store-2', status: 'ACTIVE' }],
             }),
             update: async () => ({
               id: 'merchant-1', status: 'ACTIVE',
@@ -150,10 +167,10 @@ test('merchant scope update retries a serializable write conflict before revokin
                 { provider: 'ACCOUNT', accountName: 'store-owner', phoneE164: null },
                 { provider: 'PHONE', accountName: null, phoneE164: '+8613800000000' },
               ],
-              roles: [{ role: 'MERCHANT', scopeType: 'STORE', scopeId: 'store-2', status: 'ACTIVE' }],
+              roles: [{ role: 'MERCHANT', scopeType: 'STORE', scopeId: 'store-1', status: 'ACTIVE' }],
             }),
           },
-          store: { findMany: async () => [{ id: 'store-2' }] },
+          store: { findMany: async () => [{ id: 'store-1' }] },
           userRoleAssignment: { deleteMany: async () => undefined, createMany: async () => undefined },
           authSession: { updateMany: async () => undefined },
           authAuditLog: { create: async () => undefined },
@@ -162,9 +179,10 @@ test('merchant scope update retries a serializable write conflict before revokin
     } as never,
     {} as never,
     { record: async () => undefined } as never,
+    storeContext as never,
   );
 
-  await merchants.update('merchant-1', { storeIds: ['store-2'] });
+  await merchants.update('merchant-1', { storeIds: ['store-1'] });
 
   assert.equal(attempts, 2);
 });

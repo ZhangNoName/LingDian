@@ -186,6 +186,8 @@ git pull --ff-only origin main
 NODE_ENV=production
 PORT=9000
 DATABASE_URL
+STORE_MODE=single
+PRIMARY_STORE_ID=<数据库中现有生产门店 ID>
 AUTH_JWT_ACCESS_SECRET
 AUTH_REFRESH_PEPPER
 AUTH_ACCESS_TOKEN_TTL_SECONDS=900
@@ -218,6 +220,7 @@ QQ_MINI_APP_SECRET
 
 - `AUTH_JWT_ACCESS_SECRET` 和 `AUTH_REFRESH_PEPPER` 各不少于 32 个随机字符。
 - `DATABASE_URL` 使用 `mysql://`。
+- `STORE_MODE` 必须显式为 `single`，`PRIMARY_STORE_ID` 必须是数据库中已存在的生产门店 ID；发布前先只读确认，不运行 demo seed。
 - `AUTH_COOKIE_SECURE=true`。
 - `SMS_PROVIDER` 必须设置为 `webhook`，并配置 `SMS_WEBHOOK_URL` 与 `SMS_WEBHOOK_TOKEN`；不能使用 `console`。
 - 微信与 QQ 的 Web、Mini App 配置必须完整。
@@ -238,6 +241,8 @@ AUTH_BOOTSTRAP_MERCHANT_PASSWORD
 AUTH_BOOTSTRAP_MERCHANT_PHONE
 AUTH_BOOTSTRAP_MERCHANT_STORE_IDS
 ```
+
+单店构建要求 `AUTH_BOOTSTRAP_MERCHANT_STORE_IDS` 只包含一个值，且必须与 `PRIMARY_STORE_ID` 完全相同；脚本会在写入账号前确认该门店存在。
 
 初始化完成并验证登录后立即从环境文件删除这些变量，再重启 API。不得把真实账号或密码写进本文、GitHub Secrets 说明、部署日志或命令历史。
 
@@ -400,34 +405,35 @@ Prisma 迁移是前向操作。应用镜像回滚不会自动撤销数据库结�
 
 ### 11.6 候选容器
 
-新镜像先在候选端口启动：
+当前 `release.sh` 先启动并保留 API 候选容器，再按 App、商家 Web、管理后台的顺序逐个构建前端候选、检查并立即切换；前端候选不会同时保留到最后。使用的候选端口是：
 
 - App：`18082`。
 - 商家 Web：`18083`。
 - 管理后台：`18084`。
 - API：`19000` 映射容器内 `9000`。
 
-候选检查：
+各候选存活期间执行的检查等价于：
 
 ```bash
 curl -fsSI http://127.0.0.1:18082/
 curl -fsSI http://127.0.0.1:18083/
 curl -fsSI http://127.0.0.1:18084/
-curl -fsS http://127.0.0.1:19000/api/health
+curl -fsS http://127.0.0.1:19000/api/health/ready
 ```
 
-API 候选容器使用与正式容器相同的 `api.env` 和上传卷，但不得接收公网流量。任一检查失败时输出 `docker inspect` 和最近 120 行容器日志，删除候选容器并终止部署。
+API 候选容器使用与正式容器相同的 `api.env` 和上传卷，但不得接收公网流量。当前脚本在检查失败时输出对应容器日志、清理候选并终止；若需要 `docker inspect` 或限定日志行数，须另行人工执行或补充脚本。
 
 ### 11.7 正式切换
 
-所有候选检查通过后，按以下顺序切换：
+选择 `all` 时，当前脚本的实际准备/切换顺序是：
 
-1. API。
-2. 商家 Web。
-3. 管理后台。
-4. App H5。
+1. 构建、迁移并检查 API 候选，但暂不切换正式 API；
+2. 构建、检查并切换 App H5；
+3. 构建、检查并切换商家 Web；
+4. 构建、检查并切换管理后台；
+5. 切换正式 API，并在启动失败或 readiness 失败时恢复旧 API 镜像。
 
-每个正式容器都使用 `--restart unless-stopped`。新正式容器启动后立即检查本地端口；全部本地检查通过后再检查公网 HTTPS。
+每个正式容器都使用 `--restart unless-stopped`。新正式容器启动后立即检查本地端口；全部本地检查通过后再检查公网 HTTPS。该流程不是全组原子切换：后续目标失败不会自动回滚此前已切换的前端，发布评审必须接受这一风险或先改造脚本。
 
 静态站点更新不会自动修改 `zsf.shopping` 和 `www.zsf.shopping`。
 

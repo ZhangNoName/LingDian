@@ -64,6 +64,15 @@ test('API release joins the private application network', async () => {
   assert.ok(apiRuns.every((command) => command.includes('--network lingdian-network')));
 });
 
+test('API deployment gates use primary-store readiness', async () => {
+  const releaseScript = await readFile(new URL('../deploy/scripts/release.sh', import.meta.url), 'utf8');
+  const dockerfile = await readFile(new URL('../Dockerfile.api', import.meta.url), 'utf8');
+
+  assert.equal((releaseScript.match(/\/api\/health\/ready/g) ?? []).length, 2);
+  assert.match(releaseScript, /NODE_ENV=production, STORE_MODE=single, and PRIMARY_STORE_ID are required/);
+  assert.match(dockerfile, /\/api\/health\/ready/);
+});
+
 test('frontend assets use compression and cache policies appropriate to hashed files', async () => {
   const nginx = await readFile(new URL('../deploy/frontend/nginx.conf', import.meta.url), 'utf8');
 

@@ -35,11 +35,19 @@ export async function bootstrapAccounts({ prisma, env }) {
 }
 
 function readBootstrapConfig(env) {
+  const primaryStoreId = env.PRIMARY_STORE_ID?.trim();
+  if (env.STORE_MODE !== 'single' || !primaryStoreId) {
+    throw new Error('Bootstrap requires STORE_MODE=single and PRIMARY_STORE_ID.');
+  }
+  const merchantStoreIds = readStoreIds(env.AUTH_BOOTSTRAP_MERCHANT_STORE_IDS);
+  if (merchantStoreIds.length !== 1 || merchantStoreIds[0] !== primaryStoreId) {
+    throw new Error('AUTH_BOOTSTRAP_MERCHANT_STORE_IDS must contain only PRIMARY_STORE_ID in single-store mode.');
+  }
   return {
     admin: readAccount(env, 'SUPER_ADMIN'),
     merchant: {
       ...readAccount(env, 'MERCHANT'),
-      storeIds: readStoreIds(env.AUTH_BOOTSTRAP_MERCHANT_STORE_IDS),
+      storeIds: merchantStoreIds,
     },
   };
 }

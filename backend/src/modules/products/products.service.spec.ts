@@ -1,7 +1,44 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
+import { ForbiddenException } from '@nestjs/common';
 import { ProductStatus, SelectionMode, SelectionOptionType } from '@lingdian/db';
 import { ProductsService } from './products.service';
+
+const primaryStoreId = 'store-1';
+
+function createStoreContext() {
+  const resolveStoreIds = (requestedStoreIds?: readonly string[]) => {
+    if (requestedStoreIds === undefined) return [primaryStoreId];
+    const normalized = [...new Set(requestedStoreIds.map((storeId) => storeId.trim()).filter(Boolean))];
+    if (normalized.length !== 1 || normalized[0] !== primaryStoreId) {
+      throw new ForbiddenException('Store access is outside the configured store');
+    }
+    return [primaryStoreId];
+  };
+
+  return {
+    mode: 'single' as const,
+    primaryStoreId: () => primaryStoreId,
+    resolveRequestedStoreId: (requestedStoreId?: string) => {
+      if (requestedStoreId === undefined || requestedStoreId.trim() === primaryStoreId) {
+        return primaryStoreId;
+      }
+      throw new ForbiddenException('Store access is outside the configured store');
+    },
+    resolveStoreIds,
+    resolveCurrentStore: async () => ({
+      id: primaryStoreId,
+      code: 'store-primary',
+      name: '主门店',
+      status: 'OPEN',
+      businessHours: null,
+      dineInEnabled: true,
+      takeoutEnabled: true,
+      pickupEnabled: true,
+    }),
+    assertReady: async () => undefined,
+  };
+}
 
 const productRecord = {
   id: 'product-1',
@@ -47,7 +84,7 @@ test('createProduct creates a product with one default sku', async () => {
       },
     },
   };
-  const service = new ProductsService(prisma as never);
+  const service = new ProductsService(prisma as never, createStoreContext() as never);
 
   const result = await service.createProduct({
     category_id: 'category-1',
@@ -107,7 +144,7 @@ test('selection options may reference another SKU from the same store', async ()
       },
     },
   };
-  const service = new ProductsService({} as never);
+  const service = new ProductsService({} as never, createStoreContext() as never);
 
   await (service as any).syncSelectionOptions(
     tx,
@@ -121,7 +158,7 @@ test('selection options may reference another SKU from the same store', async ()
 });
 
 test('selection options reject a referenced SKU outside the store', async () => {
-  const service = new ProductsService({} as never);
+  const service = new ProductsService({} as never, createStoreContext() as never);
   const tx = {
     selectionOption: { findMany: async () => [] },
     productSKU: { findMany: async () => [] },
@@ -140,7 +177,7 @@ test('selection options reject a referenced SKU outside the store', async () => 
 });
 
 test('selection configuration rejects impossible selection rules before writing', () => {
-  const service = new ProductsService({} as never);
+  const service = new ProductsService({} as never, createStoreContext() as never);
   const base = {
     variants: [{ sku_name: '默认', price: 18, stock_count: 0 }],
     selection_groups: [{
@@ -175,7 +212,7 @@ test('product list is paginated and returns lightweight rows without nested opti
       count: async ({ where }: any) => { countWhere = where; return 31; },
     },
   };
-  const service = new ProductsService(prisma as never);
+  const service = new ProductsService(prisma as never, createStoreContext() as never);
 
   const result = await service.getProducts(
     { page: 2, pageSize: 20, keyword: '拿铁', type: 'SINGLE' } as any,
@@ -216,7 +253,7 @@ test('product stats and SKU reference options stay scoped to merchant stores', a
       count: async (query: any) => { countCalls.push(['binding', query]); return 5; },
     },
   };
-  const service = new ProductsService(prisma as never);
+  const service = new ProductsService(prisma as never, createStoreContext() as never);
 
   const [stats, options] = await Promise.all([
     service.getProductStats(['store-1']),
@@ -240,11 +277,57 @@ test('product stats reuse a short-lived store-scoped cache', async () => {
     productSKU: { count: async () => 0 },
     productSelectionGroup: { count: async () => 0 },
   };
-  const service = new ProductsService(prisma as never);
+  const service = new ProductsService(prisma as never, createStoreContext() as never);
 
   const first = await service.getProductStats(['store-1']);
   const second = await service.getProductStats(['store-1']);
 
   assert.equal(groupQueries, 1);
   assert.equal(first, second);
+});
+
+test('admin product queries default to the configured primary store', async () => {
+  let listWhere: any;
+  let countWhere: any;
+  const prisma = {
+    product: {
+      findMany: async ({ where }: any) => {
+        listWhere = where;
+        return [];
+      },
+      count: async ({ where }: any) => {
+        countWhere = where;
+        return 0;
+      },
+    },
+  };
+  const service = new ProductsService(prisma as never, createStoreContext() as never);
+
+  await service.getProducts();
+
+  assert.deepEqual(listWhere.storeId, { in: [primaryStoreId] });
+  assert.deepEqual(countWhere.storeId, { in: [primaryStoreId] });
+});
+
+test('product queries reject a store scope outside the configured primary store', async () => {
+  let queried = false;
+  const prisma = {
+    product: {
+      findMany: async () => {
+        queried = true;
+        return [];
+      },
+      count: async () => {
+        queried = true;
+        return 0;
+      },
+    },
+  };
+  const service = new ProductsService(prisma as never, createStoreContext() as never);
+
+  await assert.rejects(
+    () => service.getProducts(undefined, ['store-other']),
+    /outside the configured store/,
+  );
+  assert.equal(queried, false);
 });

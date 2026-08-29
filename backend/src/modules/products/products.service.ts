@@ -24,6 +24,7 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { QueryProductsDto } from './dto/query-products.dto';
 import { mapProductRecord } from './products.mapper';
+import { StoreContextResolver } from '../stores/store-context.resolver';
 
 const productInclude = {
   category: {
@@ -142,10 +143,13 @@ const productListSelect = {
 export class ProductsService {
   private readonly statsCache = new Map<string, { expiresAt: number; value: ProductStatsContract }>();
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly stores: StoreContextResolver,
+  ) {}
 
   async getCategories() {
-    const store = await this.resolveCurrentStore();
+    const store = await this.stores.resolveCurrentStore();
     const categories = await this.prisma.category.findMany({
       where: {
         storeId: store.id,
@@ -163,7 +167,7 @@ export class ProductsService {
   }
 
   async createCategory(payload: CreateCategoryDto) {
-    const store = await this.resolveCurrentStore();
+    const store = await this.stores.resolveCurrentStore();
     const category = await this.prisma.category.create({
       data: {
         storeId: store.id,
@@ -183,6 +187,12 @@ export class ProductsService {
   }
 
   async updateCategory(categoryId: string, payload: UpdateCategoryDto) {
+    const [storeId] = this.stores.resolveStoreIds();
+    const existing = await this.prisma.category.findFirst({
+      where: { id: categoryId, storeId },
+      select: { id: true },
+    });
+    if (!existing) throw new NotFoundException('分类不存在');
     const category = await this.prisma.category.update({
       where: {
         id: categoryId,
@@ -204,11 +214,12 @@ export class ProductsService {
   }
 
   async getProducts(query: QueryProductsDto = new QueryProductsDto(), storeIds?: string[]): Promise<ProductPageContract> {
+    const effectiveStoreIds = this.stores.resolveStoreIds(storeIds);
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
     const keyword = query.keyword?.trim();
     const where: Prisma.ProductWhereInput = {
-      ...(storeIds ? { storeId: { in: storeIds } } : {}),
+      storeId: { in: effectiveStoreIds },
       ...(query.type ? { type: query.type } : {}),
       ...(keyword ? {
         OR: [
@@ -264,22 +275,19 @@ export class ProductsService {
   }
 
   async getProductStats(storeIds?: string[]): Promise<ProductStatsContract> {
-    const cacheKey = storeIds ? [...storeIds].sort().join(',') : '*';
+    const effectiveStoreIds = this.stores.resolveStoreIds(storeIds);
+    const cacheKey = [...effectiveStoreIds].sort().join(',');
     const cached = this.statsCache.get(cacheKey);
     if (cached && cached.expiresAt > Date.now()) return cached.value;
 
-    const productWhere: Prisma.ProductWhereInput = storeIds ? { storeId: { in: storeIds } } : {};
-    const skuWhere: Prisma.ProductSKUWhereInput = storeIds
-      ? { product: { storeId: { in: storeIds } } }
-      : {};
+    const productWhere: Prisma.ProductWhereInput = { storeId: { in: effectiveStoreIds } };
+    const skuWhere: Prisma.ProductSKUWhereInput = { product: { storeId: { in: effectiveStoreIds } } };
     const bindingWhere: Prisma.ProductSelectionGroupWhereInput = {
       isEnabled: true,
-      ...(storeIds ? {
-        OR: [
-          { product: { storeId: { in: storeIds } } },
-          { variant: { product: { storeId: { in: storeIds } } } },
-        ],
-      } : {}),
+      OR: [
+        { product: { storeId: { in: effectiveStoreIds } } },
+        { variant: { product: { storeId: { in: effectiveStoreIds } } } },
+      ],
     };
     const [productGroups, skuCount, selectionGroupCount] = await Promise.all([
       this.prisma.product.groupBy({ by: ['status', 'type'], where: productWhere, _count: { _all: true } }),
@@ -302,8 +310,9 @@ export class ProductsService {
   }
 
   async getProductSkuOptions(storeIds?: string[]): Promise<ProductSkuOptionContract[]> {
+    const effectiveStoreIds = this.stores.resolveStoreIds(storeIds);
     const skus = await this.prisma.productSKU.findMany({
-      where: storeIds ? { product: { storeId: { in: storeIds } } } : undefined,
+      where: { product: { storeId: { in: effectiveStoreIds } } },
       select: { id: true, skuName: true, product: { select: { name: true } } },
       orderBy: [{ product: { name: 'asc' } }, { createdAt: 'asc' }],
     });
@@ -311,7 +320,7 @@ export class ProductsService {
   }
 
   async createProduct(payload: CreateProductDto) {
-    const store = await this.resolveCurrentStore();
+    const store = await this.stores.resolveCurrentStore();
     await this.ensureCategoryBelongsToStore(payload.category_id, store.id);
 
     const product = await this.prisma.product.create({
@@ -344,10 +353,11 @@ export class ProductsService {
   }
 
   async updateProduct(productId: string, payload: UpdateProductDto, storeIds?: string[]) {
+    const effectiveStoreIds = this.stores.resolveStoreIds(storeIds);
     const existingProduct = await this.prisma.product.findFirst({
       where: {
         id: productId,
-        ...(storeIds ? { storeId: { in: storeIds } } : {}),
+        storeId: { in: effectiveStoreIds },
       },
       include: {
         skus: {
@@ -398,11 +408,12 @@ export class ProductsService {
     });
 
     this.invalidateProductStats();
-    return this.getProductDetail(productId, storeIds);
+    return this.getProductDetail(productId, effectiveStoreIds);
   }
 
   async updateProductStatus(productId: string, status: ProductStatus, storeIds?: string[]) {
-    await this.assertProductInStores(productId, storeIds);
+    const effectiveStoreIds = this.stores.resolveStoreIds(storeIds);
+    await this.assertProductInStores(productId, effectiveStoreIds);
     await this.prisma.product.update({
       where: {
         id: productId,
@@ -413,11 +424,11 @@ export class ProductsService {
     });
 
     this.invalidateProductStats();
-    return this.getProductDetail(productId, storeIds);
+    return this.getProductDetail(productId, effectiveStoreIds);
   }
 
   async getCurrentMenu() {
-    const store = await this.resolveCurrentStore();
+    const store = await this.stores.resolveCurrentStore();
     const categories = await this.prisma.category.findMany({
       where: {
         storeId: store.id,
@@ -460,10 +471,11 @@ export class ProductsService {
   }
 
   async getProductDetail(productId: string, storeIds?: string[]) {
+    const effectiveStoreIds = this.stores.resolveStoreIds(storeIds);
     const product = await this.prisma.product.findFirst({
       where: {
         id: productId,
-        ...(storeIds ? { storeId: { in: storeIds } } : {}),
+        storeId: { in: effectiveStoreIds },
       },
       include: productInclude,
     });
@@ -476,10 +488,11 @@ export class ProductsService {
   }
 
   async syncProductConfiguration(productId: string, payload: SyncProductConfigDto, storeIds?: string[]) {
+    const effectiveStoreIds = this.stores.resolveStoreIds(storeIds);
     const product = await this.prisma.product.findFirst({
       where: {
         id: productId,
-        ...(storeIds ? { storeId: { in: storeIds } } : {}),
+        storeId: { in: effectiveStoreIds },
       },
       include: {
         skus: true,
@@ -527,7 +540,7 @@ export class ProductsService {
 
   async updateSkuStock(skuId: string, stockCount: number, storeIds?: string[]) {
     try {
-      await this.assertSkuInStores(skuId, storeIds);
+      await this.assertSkuInStores(skuId, this.stores.resolveStoreIds(storeIds));
       const sku = await this.prisma.productSKU.update({
         where: {
           id: skuId,
@@ -550,7 +563,7 @@ export class ProductsService {
 
   async updateSkuPrice(skuId: string, price: number, storeIds?: string[]) {
     try {
-      await this.assertSkuInStores(skuId, storeIds);
+      await this.assertSkuInStores(skuId, this.stores.resolveStoreIds(storeIds));
       const sku = await this.prisma.productSKU.update({
         where: {
           id: skuId,
@@ -575,29 +588,6 @@ export class ProductsService {
     this.statsCache.clear();
   }
 
-  private async resolveCurrentStore(tx: Prisma.TransactionClient | PrismaService = this.prisma) {
-    const store = await tx.store.findFirst({
-      orderBy: {
-        createdAt: 'asc',
-      },
-    });
-
-    if (store) {
-      return store;
-    }
-
-    return tx.store.create({
-      data: {
-        code: 'demo-store',
-        name: '零点示范店',
-        contactName: '演示店长',
-        contactPhone: '13800000000',
-        address: '演示地址',
-        businessHours: '09:00-22:00',
-      },
-    });
-  }
-
   private async ensureCategoryBelongsToStore(categoryId: string, storeId: string) {
     const category = await this.prisma.category.findUnique({
       where: {
@@ -610,8 +600,7 @@ export class ProductsService {
     }
   }
 
-  private async assertProductInStores(productId: string, storeIds?: string[]) {
-    if (!storeIds) return;
+  private async assertProductInStores(productId: string, storeIds: string[]) {
     const product = await this.prisma.product.findFirst({
       where: { id: productId, storeId: { in: storeIds } },
       select: { id: true },
@@ -619,8 +608,7 @@ export class ProductsService {
     if (!product) throw new NotFoundException('商品不存在');
   }
 
-  private async assertSkuInStores(skuId: string, storeIds?: string[]) {
-    if (!storeIds) return;
+  private async assertSkuInStores(skuId: string, storeIds: string[]) {
     const sku = await this.prisma.productSKU.findFirst({
       where: { id: skuId, product: { storeId: { in: storeIds } } },
       select: { id: true },

@@ -15,6 +15,7 @@ import { MerchantGuard } from '../../common/auth/merchant.guard';
 import { UserApiGuard } from '../../common/auth/user-api.guard';
 import { corsOptions } from '../../common/auth/http-security';
 import { MerchantStoreScope } from '../merchant/merchant-store-scope';
+import { StoreContextResolver } from '../stores/store-context.resolver';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from './audit.service';
 import { AuthController } from './auth.controller';
@@ -506,6 +507,17 @@ test('isolates super-admin, merchant, and user audiences', async (t) => {
       AdminGuard,
       MerchantGuard,
       MerchantStoreScope,
+      {
+        provide: StoreContextResolver,
+        useValue: {
+          resolveStoreIds: (storeIds?: string[]) => {
+            if (!storeIds?.includes('store-fixture')) {
+              throw new Error('Store access is outside the configured store');
+            }
+            return ['store-fixture'];
+          },
+        },
+      },
       UserApiGuard,
       { provide: PrismaService, useValue: database },
       { provide: SMS_PROVIDER, useValue: sms },

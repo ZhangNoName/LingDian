@@ -16,6 +16,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AdminUsersModule } from './modules/admin-users/admin-users.module';
 import { AddressesModule } from './modules/addresses/addresses.module';
 import { IntegrationsModule } from './modules/integrations/integrations.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { IntegrationsModule } from './modules/integrations/integrations.module';
     MenuModule,
     ProductsModule,
     OrdersModule,
+    PaymentsModule,
     SystemLogModule,
   ],
   providers: [

@@ -22,10 +22,12 @@ import { MerchantAdminService } from './merchant-admin.service';
 import { MerchantAdminController } from './merchant-admin.controller';
 import { ProfileService } from './profile.service';
 import { LegalConsentService } from './legal-consent.service';
+import { StoresModule } from '../stores/stores.module';
 
 @Module({
   imports: [
     SmsProviderModule,
+    StoresModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({ secret: config.getOrThrow<string>('auth.jwtAccessSecret') }),

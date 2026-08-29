@@ -3,10 +3,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const { requestData } = vi.hoisted(() => ({ requestData: vi.fn() }))
 vi.mock('@/lib/api', () => ({ requestData }))
 
-import { listStoreIntegrations, setStoreIntegrationEnabled } from './integrations'
+import { listMerchantStores, listStoreIntegrations, setStoreIntegrationEnabled } from './integrations'
 
 describe('merchant integration service', () => {
   beforeEach(() => requestData.mockReset())
+
+  it('keeps the merchant store endpoint as an array-compatible source', async () => {
+    requestData.mockResolvedValue([{ id: 'store-1', code: 'primary', name: '中心店', status: 'OPEN' }])
+
+    const stores = await listMerchantStores()
+
+    expect(requestData).toHaveBeenCalledWith(expect.stringMatching(/\/api\/merchant\/stores$/))
+    expect(stores).toHaveLength(1)
+  })
 
   it('encodes store ids when loading optional capabilities', async () => {
     requestData.mockResolvedValue([])

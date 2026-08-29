@@ -13,7 +13,7 @@ export type OrderStatus =
   | 'DELETED';
 
 export type OrderType = 'DINE_IN' | 'TAKEOUT' | 'PICKUP';
-export type PaymentChannel = 'CASH' | 'WECHAT' | 'ALIPAY' | 'CUSTOMER_SCAN' | 'OTHER';
+export type PaymentChannel = 'CASH' | 'WECHAT' | 'ALIPAY' | 'UNIONPAY' | 'STRIPE' | 'PAYPAL' | 'CUSTOMER_SCAN' | 'OTHER';
 
 export type OrderItemSummaryContract = {
   id: string;

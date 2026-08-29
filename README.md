@@ -50,7 +50,25 @@ pnpm run prisma:generate
 pnpm run build:packages
 ```
 
-### 2. 启动开发服务
+### 2. 配置数据库与唯一门店
+
+API 启动前必须先准备 `backend/.env`、数据库结构和 `PRIMARY_STORE_ID` 对应的门店行：
+
+```bash
+cp backend/.env.example backend/.env
+# 编辑 backend/.env：至少确认 DATABASE_URL、STORE_MODE=single、PRIMARY_STORE_ID
+pnpm run db:push
+```
+
+若数据库中已经有正式开发门店，把它的 ID 写入 `PRIMARY_STORE_ID` 即可。只有可随时丢弃的本地开发/测试库才能运行演示 seed；它会重置演示业务数据，并且必须显式授权：
+
+```bash
+NODE_ENV=development ALLOW_DEMO_SEED=true pnpm run db:seed:demo
+```
+
+演示 seed 只接受 `NODE_ENV=development` 或 `NODE_ENV=test`，且必须同时设置 `ALLOW_DEMO_SEED=true`；生产和共享数据库禁止运行。生产/共享环境使用迁移并预先只读确认主门店，不能用 `db:push` 或 demo seed 初始化。
+
+### 3. 启动开发服务
 
 ```bash
 pnpm dev
@@ -65,7 +83,7 @@ pnpm run dev:uniapp
 pnpm run dev:web
 ```
 
-### 3. Windows 启动脚本
+### 4. Windows 启动脚本
 
 ```powershell
 .\start.ps1 dev
@@ -78,7 +96,7 @@ pnpm run dev:web
 
 `backend` 仍作为 `api` 的兼容别名，`miniapp` 仍作为 `uniapp` 的兼容别名。
 
-### 4. 构建与验证
+### 5. 构建与验证
 
 ```bash
 pnpm run test
@@ -86,13 +104,15 @@ pnpm run type-check
 pnpm run build
 ```
 
-### 5. 数据库脚本
+### 6. 数据库脚本
 
 ```bash
 pnpm run prisma:generate
 pnpm run db:push
-pnpm run db:seed:demo
+NODE_ENV=development ALLOW_DEMO_SEED=true pnpm run db:seed:demo
 ```
+
+`db:push` 与 demo seed 都只用于可丢弃的本地开发/测试库。生产或共享环境必须执行已审查的迁移，并在启动 API 前确认 `PRIMARY_STORE_ID` 已存在。
 
 ## 认证账户初始化（灵点点餐系统）
 
@@ -106,16 +126,18 @@ corepack pnpm --filter @lingdian/api db:seed:auth-bootstrap
 初始化命令从部署环境读取以下变量，仓库、文档和日志均不得写入它们的实际密码值：
 
 ```dotenv
+STORE_MODE=single
+PRIMARY_STORE_ID=<existing-store-id>
 AUTH_BOOTSTRAP_SUPER_ADMIN_USERNAME=
 AUTH_BOOTSTRAP_SUPER_ADMIN_PASSWORD=
 AUTH_BOOTSTRAP_SUPER_ADMIN_PHONE=
 AUTH_BOOTSTRAP_MERCHANT_USERNAME=
 AUTH_BOOTSTRAP_MERCHANT_PASSWORD=
 AUTH_BOOTSTRAP_MERCHANT_PHONE=
-AUTH_BOOTSTRAP_MERCHANT_STORE_IDS=
+AUTH_BOOTSTRAP_MERCHANT_STORE_IDS=<same-value-as-PRIMARY_STORE_ID>
 ```
 
-`AUTH_BOOTSTRAP_MERCHANT_STORE_IDS` 为以逗号分隔的既有门店 ID，至少指定一个实际存在的门店。脚本可重复执行，用于同步启动超级管理员和测试商家；配置缺失、启动账户密码少于 8 个字符或门店不存在时会失败且不会创建不完整账户。此 8 字符规则只适用于受控启动初始化；商家 Web 的忘记/修改密码仍要求至少 12 个字符。仅商家 `web/` 提供忘记密码和修改密码页面；`admin/` 只有账号密码登录，`uniapp/` 只提供用户的手机号或第三方登录。
+单店构建要求 `STORE_MODE=single`，并要求 `AUTH_BOOTSTRAP_MERCHANT_STORE_IDS` 只包含一个值且与 `PRIMARY_STORE_ID` 完全相同；该门店必须已经存在。脚本可重复执行，用于同步启动超级管理员和测试商家；配置缺失、启动账户密码少于 8 个字符或门店不存在时会失败且不会创建不完整账户。此 8 字符规则只适用于受控启动初始化；商家 Web 的忘记/修改密码仍要求至少 12 个字符。仅商家 `web/` 提供忘记密码和修改密码页面；`admin/` 只有账号密码登录，`uniapp/` 只提供用户的手机号或第三方登录。
 
 ## 微信小程序用户能力
 

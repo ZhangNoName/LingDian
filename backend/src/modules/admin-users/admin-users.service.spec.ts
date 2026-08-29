@@ -2,6 +2,20 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { AdminUsersService } from './admin-users.service';
 
+const storeContext = {
+  resolveStoreIds: (storeIds?: string[]) => {
+    if (storeIds && (storeIds.length !== 1 || storeIds[0] !== 'store-1')) {
+      throw new Error('Store access is outside the configured store');
+    }
+    return ['store-1'];
+  },
+  resolveRequestedStoreId: (storeId?: string) => {
+    if (storeId && storeId !== 'store-1') throw new Error('Store does not match');
+    return 'store-1';
+  },
+  resolveCurrentStore: async () => ({ id: 'store-1', name: '旗舰店' }),
+};
+
 test('lists platform users with pagination and flattened active roles and store scopes', async () => {
   let captured: Record<string, unknown> | undefined;
   const prisma = {
@@ -24,7 +38,7 @@ test('lists platform users with pagination and flattened active roles and store 
       },
     },
   };
-  const service = new AdminUsersService(prisma as never, { hash: async () => 'hashed' } as never);
+  const service = new AdminUsersService(prisma as never, { hash: async () => 'hashed' } as never, storeContext as never);
 
   const result = await service.list({ page: 2, pageSize: 20, keyword: '店 长', role: 'MERCHANT' });
 
@@ -40,7 +54,7 @@ test('lists platform users with pagination and flattened active roles and store 
 test('clamps platform user page size to one hundred', async () => {
   let take = 0;
   const prisma = { user: { count: async () => 0, findMany: async ({ take: value }: { take: number }) => { take = value; return []; } } };
-  const service = new AdminUsersService(prisma as never, { hash: async () => 'hashed' } as never);
+  const service = new AdminUsersService(prisma as never, { hash: async () => 'hashed' } as never, storeContext as never);
   await service.list({ page: 1, pageSize: 999 });
   assert.equal(take, 100);
 });
@@ -53,7 +67,7 @@ test('uses exclusive account-type filters for both count and page queries', asyn
       findMany: async ({ where }: { where: unknown }) => { calls.push({ operation: 'findMany', where }); return []; },
     },
   };
-  const service = new AdminUsersService(prisma as never, { hash: async () => 'hashed' } as never);
+  const service = new AdminUsersService(prisma as never, { hash: async () => 'hashed' } as never, storeContext as never);
 
   const cases = [
     ['ADMINISTRATOR', [{ roles: { some: { role: { in: ['ADMIN', 'SUPER_ADMIN'] }, status: 'ACTIVE' } } }]],
@@ -87,7 +101,7 @@ test('disabling an account revokes sessions and increments its session version',
     authAuditLog: { create: async () => { writes.push('audit'); return {}; } },
   };
   const prisma = { $transaction: async (work: (client: typeof tx) => Promise<unknown>) => work(tx) };
-  const service = new AdminUsersService(prisma as never, { hash: async () => 'hashed' } as never);
+  const service = new AdminUsersService(prisma as never, { hash: async () => 'hashed' } as never, storeContext as never);
 
   await service.setStatus({ userId: 'operator', roles: ['ADMIN'] } as never, 'target', 'DISABLED');
 
@@ -102,7 +116,7 @@ test('creates a platform account with global roles and store-scoped merchant ass
     authAuditLog: { create: async () => ({}) },
   };
   const prisma = { $transaction: async (work: (client: typeof tx) => Promise<unknown>) => work(tx) };
-  const service = new AdminUsersService(prisma as never, { hash: async () => 'hashed' } as never);
+  const service = new AdminUsersService(prisma as never, { hash: async () => 'hashed' } as never, storeContext as never);
 
   await service.create(
     { userId: 'root', roles: ['SUPER_ADMIN'] } as never,
@@ -133,7 +147,7 @@ test('editing roles revokes sessions so stale authority cannot continue', async 
     authAuditLog: { create: async () => { writes.push('audit'); return {}; } },
   };
   const prisma = { $transaction: async (work: (client: typeof tx) => Promise<unknown>) => work(tx) };
-  const service = new AdminUsersService(prisma as never, { hash: async () => 'hashed' } as never);
+  const service = new AdminUsersService(prisma as never, { hash: async () => 'hashed' } as never, storeContext as never);
 
   await service.update({ userId: 'root', roles: ['SUPER_ADMIN'] } as never, 'target', { roles: ['MERCHANT'], storeIds: ['store-1'] });
 
@@ -152,7 +166,7 @@ test('administrator password reset forces next-login change and revokes sessions
     authAuditLog: { create: async () => { writes.push('audit'); return {}; } },
   };
   const prisma = { $transaction: async (work: (client: typeof tx) => Promise<unknown>) => work(tx) };
-  const service = new AdminUsersService(prisma as never, { hash: async () => 'hashed' } as never);
+  const service = new AdminUsersService(prisma as never, { hash: async () => 'hashed' } as never, storeContext as never);
 
   await service.resetPassword({ userId: 'root', roles: ['SUPER_ADMIN'] } as never, 'target', 'replacement-password');
 
@@ -161,6 +175,6 @@ test('administrator password reset forces next-login change and revokes sessions
 
 test('returns active store options for merchant scope editing', async () => {
   const prisma = { store: { findMany: async () => [{ id: 'store-1', name: '旗舰店' }] } };
-  const service = new AdminUsersService(prisma as never, { hash: async () => 'hashed' } as never);
+  const service = new AdminUsersService(prisma as never, { hash: async () => 'hashed' } as never, storeContext as never);
   assert.deepEqual(await service.listStoreOptions(), [{ id: 'store-1', name: '旗舰店' }]);
 });

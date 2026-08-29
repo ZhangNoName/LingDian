@@ -14,7 +14,7 @@ export const router = createRouter({
       component: AdminLayout,
       children: [
         { path: '', name: 'dashboard', component: () => import('@/views/dashboard/index.vue'), meta: { title: '工作台' } },
-        { path: 'stores', name: 'stores', component: () => import('@/views/stores/index.vue'), meta: { title: '门店管理' } },
+        { path: 'stores', name: 'stores', component: () => import('@/views/stores/index.vue'), meta: { title: '门店设置' } },
         { path: 'products', name: 'products', component: () => import('@/views/products/index.vue'), meta: { title: '商品与菜单' } },
         { path: 'orders', name: 'orders', component: () => import('@/views/orders/index.vue'), meta: { title: '订单管理' } },
         { path: 'members', name: 'members', component: () => import('@/views/members/index.vue'), meta: { title: '用户与会员' } },

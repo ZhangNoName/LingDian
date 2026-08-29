@@ -1,5 +1,7 @@
 # 灵点点餐系统三端账号认证 Implementation Plan
 
+> 历史实施计划：本文保留 2026-07-11 的执行记录，其中“一至多个门店”已被 2026-08-29 的单店运行策略取代。现行规则以 [系统结构](../../11-system-structure.md) 和 [权限与缺口分析](../../13-permission-and-gap-analysis.md) 为准。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 为灵点点餐系统实现管理员、商家、用户三端隔离的账号/密码与手机号认证，并提供门店范围授权、商家密码找回/修改、用户昵称及环境变量初始化账户。

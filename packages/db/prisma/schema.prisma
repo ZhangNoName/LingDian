@@ -49,8 +49,53 @@ enum PaymentChannel {
   CASH
   WECHAT
   ALIPAY
+  UNIONPAY
+  STRIPE
+  PAYPAL
   CUSTOMER_SCAN
   OTHER
+}
+
+enum PaymentProvider {
+  WECHAT_PAY
+  ALIPAY
+  UNIONPAY
+  STRIPE
+  PAYPAL
+}
+
+enum PaymentAccountStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum PaymentIntentStatus {
+  CREATED
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  EXPIRED
+}
+
+enum PaymentTransactionType {
+  PAYMENT
+  REFUND
+  REVERSAL
+}
+
+enum PaymentTransactionStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+}
+
+enum PaymentReconciliationStatus {
+  PENDING
+  MATCHED
+  LATE_PAYMENT
+  MANUAL_REVIEW
 }
 
 enum SelectionGroupType {
@@ -170,6 +215,7 @@ model Store {
   orders            Order[]
   integrations      StoreIntegration[]
   integrationEvents IntegrationOutbox[]
+  paymentAccounts   PaymentAccount[]
 
   @@map("stores")
 }
@@ -365,14 +411,108 @@ model Order {
   customerUser    User?            @relation(fields: [customerUserId], references: [id], onDelete: SetNull)
   items           OrderItem[]
   statusLogs      OrderStatusLog[]
+  paymentIntents  PaymentIntent[]
 
-  @@unique([customerUserId, clientRequestId])
+  @@unique([storeId, customerUserId, clientRequestId])
   @@index([storeId, createdAt])
   @@index([customerUserId, createdAt])
   @@index([status])
   @@index([isDeleted, createdAt])
   @@index([storeId, status, isDeleted])
   @@map("orders")
+}
+
+/// A store-owned receiving account. Credentials and private keys are never stored here;
+/// connectorConfigKey resolves them from the deployment secret store.
+model PaymentAccount {
+  id                 String                @id @default(cuid())
+  storeId            String
+  provider           PaymentProvider
+  channel            PaymentChannel
+  externalAccountId  String                @db.VarChar(191)
+  connectorConfigKey String                @db.VarChar(64)
+  status             PaymentAccountStatus  @default(ACTIVE)
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  store              Store                 @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  paymentIntents     PaymentIntent[]
+  webhookEvents      PaymentWebhookEvent[]
+
+  @@unique([storeId, provider, channel])
+  @@index([provider, status])
+  @@map("payment_accounts")
+}
+
+model PaymentIntent {
+  id                   String                      @id @default(cuid())
+  paymentNo            String                      @unique @db.VarChar(64)
+  orderId              String
+  accountId            String
+  provider             PaymentProvider
+  channel              PaymentChannel
+  status               PaymentIntentStatus         @default(CREATED)
+  reconciliationStatus PaymentReconciliationStatus @default(PENDING)
+  amountMinor          BigInt
+  currency             String                      @default("CNY") @db.Char(3)
+  clientRequestId      String                      @db.VarChar(64)
+  providerIntentId     String?                     @db.VarChar(191)
+  clientAction         Json?
+  failureCode          String?                     @db.VarChar(64)
+  failureMessage       String?                     @db.VarChar(255)
+  expiresAt            DateTime
+  paidAt               DateTime?
+  cancelledAt          DateTime?
+  createdAt            DateTime                    @default(now())
+  updatedAt            DateTime                    @updatedAt
+  order                Order                       @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  account              PaymentAccount              @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  transactions         PaymentTransaction[]
+
+  @@unique([orderId, clientRequestId])
+  @@unique([provider, providerIntentId])
+  @@index([orderId, createdAt])
+  @@index([status, expiresAt])
+  @@map("payment_intents")
+}
+
+model PaymentTransaction {
+  id                    String                   @id @default(cuid())
+  transactionNo         String                   @unique @db.VarChar(64)
+  paymentIntentId       String
+  type                  PaymentTransactionType
+  status                PaymentTransactionStatus
+  amountMinor           BigInt
+  currency              String                   @db.Char(3)
+  providerTransactionId String?                  @db.VarChar(191)
+  idempotencyKey        String                   @db.VarChar(191)
+  failureCode           String?                  @db.VarChar(64)
+  occurredAt            DateTime?
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+  paymentIntent         PaymentIntent            @relation(fields: [paymentIntentId], references: [id], onDelete: Restrict)
+
+  @@unique([paymentIntentId, type, idempotencyKey])
+  @@unique([paymentIntentId, providerTransactionId])
+  @@index([paymentIntentId, createdAt])
+  @@map("payment_transactions")
+}
+
+model PaymentWebhookEvent {
+  id                String          @id @default(cuid())
+  provider          PaymentProvider
+  accountId         String
+  eventId           String          @db.VarChar(191)
+  eventType         String          @db.VarChar(64)
+  payloadHash       String          @db.Char(64)
+  signatureVerified Boolean         @default(false)
+  processedAt       DateTime?
+  processingError   String?         @db.VarChar(255)
+  createdAt         DateTime        @default(now())
+  account           PaymentAccount  @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@unique([provider, accountId, eventId])
+  @@index([processedAt, createdAt])
+  @@map("payment_webhook_events")
 }
 
 model OrderStatusLog {

@@ -5,6 +5,10 @@ export const appConfig = () => ({
     apiPrefix: process.env.API_PREFIX ?? 'api',
     env: process.env.NODE_ENV ?? 'development',
   },
+  store: {
+    mode: process.env.STORE_MODE ?? 'single',
+    primaryStoreId: process.env.PRIMARY_STORE_ID ?? '',
+  },
   auth: {
     jwtAccessSecret: process.env.AUTH_JWT_ACCESS_SECRET ?? '',
     refreshPepper: process.env.AUTH_REFRESH_PEPPER ?? '',

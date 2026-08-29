@@ -101,12 +101,13 @@ export class CreateOrderDto {
   @Length(8, 64)
   clientRequestId?: string;
 
-  @ApiProperty({
-    description: 'Store id',
+  @ApiPropertyOptional({
+    description: 'Store id; omitted requests use the configured primary store',
     example: 'cmofp2e5k0000w0j66zjobzse',
   })
+  @IsOptional()
   @IsString()
-  storeId!: string;
+  storeId?: string;
 
   @ApiProperty({
     description: 'Order type',
@@ -126,12 +127,12 @@ export class CreateOrderDto {
 
   @ApiPropertyOptional({
     description: 'Payment channel',
-    enum: ['cash', 'wechat', 'alipay', 'customer_scan', 'other'],
+    enum: ['cash', 'wechat', 'alipay', 'unionpay', 'stripe', 'paypal', 'customer_scan', 'other'],
     example: 'wechat',
   })
   @IsOptional()
-  @IsIn(['cash', 'wechat', 'alipay', 'customer_scan', 'other'])
-  paymentChannel?: 'cash' | 'wechat' | 'alipay' | 'customer_scan' | 'other';
+  @IsIn(['cash', 'wechat', 'alipay', 'unionpay', 'stripe', 'paypal', 'customer_scan', 'other'])
+  paymentChannel?: 'cash' | 'wechat' | 'alipay' | 'unionpay' | 'stripe' | 'paypal' | 'customer_scan' | 'other';
 
   @ApiPropertyOptional({
     description: 'Customer name',

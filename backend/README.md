@@ -5,14 +5,21 @@
 ## 本地开发
 
 ```bash
-cd backend
-npm install
-npm run start:dev
+corepack pnpm install
+cp backend/.env.example backend/.env
+# 编辑 DATABASE_URL、STORE_MODE=single 和 PRIMARY_STORE_ID
+corepack pnpm run db:push
+# 若没有既有门店，只能对可丢弃库显式运行：
+NODE_ENV=development ALLOW_DEMO_SEED=true corepack pnpm run db:seed:demo
+corepack pnpm run dev:api
 ```
+
+API 会在启动阶段校验主门店。必须先确认数据库存在 `PRIMARY_STORE_ID` 对应的门店行；不能先启动 API 再依赖读请求创建门店。
 
 默认启动后访问：
 
 - `GET /api/health`
+- `GET /api/health/ready`
 - `GET /api/stores/current`
 - `GET /api/menu/current`
 - `POST /api/orders`
@@ -25,22 +32,29 @@ npm run start:dev
 
 ```bash
 cd backend
-npm run db:sync-local-config -- --config "E:\\私人\\local.yml"
+corepack pnpm run db:sync-local-config -- --config "E:\\私人\\local.yml"
 ```
 
 ### 方式二：手动配置 `.env`
 
 ```env
 DATABASE_URL=mysql://username:password@host:3306/database
+STORE_MODE=single
+PRIMARY_STORE_ID=<existing-store-id>
 ```
+
+`PRIMARY_STORE_ID` 必须引用数据库中已有门店。API 启动和 readiness 会精确校验该行；门店处于 `CLOSED` 或 `RESTING` 仍保持 ready，但不能下单。演示 seed 使用这个固定 ID，不会在读取菜单时创建门店；它会重置演示业务数据，只允许 `NODE_ENV=development` 或 `NODE_ENV=test` 的可丢弃库，并要求显式设置 `ALLOW_DEMO_SEED=true`。
 
 ### 常用命令
 
 ```bash
-npm run prisma:generate
-npm run db:push
-npm run prisma:studio
+corepack pnpm run prisma:generate
+corepack pnpm run db:push
+NODE_ENV=development ALLOW_DEMO_SEED=true corepack pnpm run db:seed:demo
+corepack pnpm run prisma:studio
 ```
+
+`db:push` 和 demo seed 不得用于生产或共享数据库；这些环境必须执行已审查的迁移，并在启动前只读确认主门店。
 
 ## 目录说明
 
@@ -64,6 +78,8 @@ npm run prisma:studio
 PORT=9000
 API_PREFIX=api
 NODE_ENV=development
+STORE_MODE=single
+PRIMARY_STORE_ID=<existing-store-id>
 ```
 
 ## Authentication operations
@@ -182,8 +198,9 @@ corepack pnpm run db:migrate:deploy
 corepack pnpm --filter @lingdian/api db:seed:auth-bootstrap
 ```
 
-The bootstrap command requires these seven deployment-secret variables. Keep
-their values out of source control, shell history, command output, and logs:
+In addition to `STORE_MODE=single` and an existing `PRIMARY_STORE_ID`, the
+bootstrap command requires these seven deployment-secret variables. Keep their
+values out of source control, shell history, command output, and logs:
 
 ```dotenv
 AUTH_BOOTSTRAP_SUPER_ADMIN_USERNAME=
@@ -192,19 +209,19 @@ AUTH_BOOTSTRAP_SUPER_ADMIN_PHONE=
 AUTH_BOOTSTRAP_MERCHANT_USERNAME=
 AUTH_BOOTSTRAP_MERCHANT_PASSWORD=
 AUTH_BOOTSTRAP_MERCHANT_PHONE=
-AUTH_BOOTSTRAP_MERCHANT_STORE_IDS=
+AUTH_BOOTSTRAP_MERCHANT_STORE_IDS=<same-value-as-PRIMARY_STORE_ID>
 ```
 
-`AUTH_BOOTSTRAP_MERCHANT_STORE_IDS` is a comma-separated list of existing
-store IDs and must contain at least one value. The command validates every
-store before writing either bootstrap principal, and fails if a credential
+In this single-store build, `AUTH_BOOTSTRAP_MERCHANT_STORE_IDS` must contain
+exactly one value and it must equal `PRIMARY_STORE_ID`. The command validates
+that store before writing either bootstrap principal, and fails if a credential
 group is incomplete or a bootstrap password is shorter than 8 characters.
 Re-running it synchronizes the configured super administrator and test merchant
 without writing plaintext credentials. This 8-character minimum is limited to
 the controlled bootstrap path; merchant password reset and change remain at a
 12-character minimum. The bootstrap administrator receives `SUPER_ADMIN` and
-`ADMIN` global roles; the merchant receives only `MERCHANT` roles scoped to the
-specified stores.
+`ADMIN` global roles; the merchant receives only one `MERCHANT` role scoped to
+the primary store.
 
 Only merchant `web/` contains password-reset and password-change pages. The
 administrator client supports account/password login and merchant management

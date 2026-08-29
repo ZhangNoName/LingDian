@@ -6,6 +6,7 @@ import type { AuthenticatedUser } from '../../common/auth/authenticated-user.typ
 import { AdminUserPolicy } from './admin-user-policy';
 import { PasswordService } from '../auth/password.service';
 import { normalizeChinesePhone } from '../auth/phone';
+import { StoreContextResolver } from '../stores/store-context.resolver';
 
 const userInclude = {
   identities: { select: { provider: true, accountName: true, phoneE164: true } },
@@ -16,7 +17,11 @@ type UserRecord = Prisma.UserGetPayload<{ include: typeof userInclude }>;
 
 @Injectable()
 export class AdminUsersService {
-  constructor(private readonly prisma: PrismaService, private readonly passwords: PasswordService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly passwords: PasswordService,
+    private readonly stores: StoreContextResolver,
+  ) {}
 
   async list(query: PlatformUserQuery): Promise<PlatformUserPage> {
     const page = Math.max(1, query.page || 1);
@@ -36,7 +41,8 @@ export class AdminUsersService {
   }
 
   async listStoreOptions(): Promise<Array<{ id: string; name: string }>> {
-    return this.prisma.store.findMany({ where: { status: { not: 'CLOSED' } }, select: { id: true, name: true }, orderBy: { name: 'asc' } });
+    const store = await this.stores.resolveCurrentStore();
+    return [{ id: store.id, name: store.name }];
   }
 
   async setStatus(operator: AuthenticatedUser, userId: string, status: PlatformUserStatus): Promise<void> {
@@ -56,7 +62,10 @@ export class AdminUsersService {
     const username = normalizeAccountName(input.username);
     const phone = normalizeChinesePhone(input.phone);
     const roles = normalizeRoles(input.roles);
-    const storeIds = normalizeStoreIds(input.storeIds);
+    const requestedStoreIds = normalizeStoreIds(input.storeIds);
+    const storeIds = roles.includes('MERCHANT')
+      ? this.stores.resolveStoreIds(requestedStoreIds)
+      : [];
     assertMerchantStores(roles, storeIds);
     AdminUserPolicy.assertCanManage(operator.roles, [], roles);
     const passwordHash = await this.passwords.hash(input.password);
@@ -81,7 +90,10 @@ export class AdminUsersService {
       if (!target) throw new NotFoundException('User not found.');
       const currentRoles = target.roles.filter((role) => role.status === 'ACTIVE').map((role) => role.role as AuthRole);
       const requestedRoles = input.roles ? normalizeRoles(input.roles) : currentRoles;
-      const storeIds = input.storeIds ? normalizeStoreIds(input.storeIds) : target.roles.filter((role) => role.role === 'MERCHANT' && role.scopeType === 'STORE' && role.status === 'ACTIVE').map((role) => role.scopeId);
+      const requestedStoreIds = input.storeIds ? normalizeStoreIds(input.storeIds) : target.roles.filter((role) => role.role === 'MERCHANT' && role.scopeType === 'STORE' && role.status === 'ACTIVE').map((role) => role.scopeId);
+      const storeIds = requestedRoles.includes('MERCHANT')
+        ? this.stores.resolveStoreIds(requestedStoreIds)
+        : [];
       assertMerchantStores(requestedRoles, storeIds);
       AdminUserPolicy.assertCanManage(operator.roles, currentRoles, input.roles ? requestedRoles : undefined, operator.userId === userId);
       await assertStoresExist(tx, requestedRoles, storeIds);
@@ -133,7 +145,10 @@ export class AdminUsersService {
       );
     }
     if (query.role) and.push({ roles: { some: { role: query.role as UserRole, status: 'ACTIVE' } } });
-    if (query.storeId) and.push({ roles: { some: { role: 'MERCHANT', scopeType: 'STORE', scopeId: query.storeId, status: 'ACTIVE' } } });
+    if (query.storeId) {
+      const storeId = this.stores.resolveRequestedStoreId(query.storeId);
+      and.push({ roles: { some: { role: 'MERCHANT', scopeType: 'STORE', scopeId: storeId, status: 'ACTIVE' } } });
+    }
     return {
       ...(query.status ? { status: query.status as UserStatus } : {}),
       ...(keyword ? { OR: [

@@ -20,11 +20,15 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { QueryOrdersDto } from './dto/query-orders.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { OrdersService } from './orders.service';
+import { MerchantStoreScope } from '../merchant/merchant-store-scope';
 
 @ApiTags('Orders')
 @Controller()
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(
+    private readonly ordersService: OrdersService,
+    private readonly merchantStores: MerchantStoreScope,
+  ) {}
 
   @ApiOperation({ summary: 'Get order summary metrics' })
   @UseGuards(AccessTokenGuard, AdminGuard)
@@ -65,21 +69,21 @@ export class OrdersController {
   @UseGuards(AccessTokenGuard, MerchantGuard)
   @Get('merchant/orders/summary')
   getMerchantOrderSummary(@CurrentUser() user: AuthenticatedUser, @Query() query: QueryOrdersDto) {
-    return this.ordersService.getOrderSummary(query, { storeIds: user.merchantStoreIds });
+    return this.ordersService.getOrderSummary(query, { storeIds: this.merchantStores.storeIds(user) });
   }
 
   @ApiOperation({ summary: 'Get merchant order list' })
   @UseGuards(AccessTokenGuard, MerchantGuard)
   @Get('merchant/orders')
   getMerchantOrders(@CurrentUser() user: AuthenticatedUser, @Query() query: QueryOrdersDto) {
-    return this.ordersService.getOrders(query, { storeIds: user.merchantStoreIds });
+    return this.ordersService.getOrders(query, { storeIds: this.merchantStores.storeIds(user) });
   }
 
   @ApiOperation({ summary: 'Get merchant order detail' })
   @UseGuards(AccessTokenGuard, MerchantGuard)
   @Get('merchant/orders/:id')
   getMerchantOrderDetail(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
-    return this.ordersService.getOrderDetail(id, { storeIds: user.merchantStoreIds });
+    return this.ordersService.getOrderDetail(id, { storeIds: this.merchantStores.storeIds(user) });
   }
 
   @ApiOperation({ summary: 'Update merchant order status' })
@@ -93,7 +97,7 @@ export class OrdersController {
     return this.ordersService.updateOrderStatus(
       id,
       { ...body, operatorName: user.userId },
-      { storeIds: user.merchantStoreIds },
+      { storeIds: this.merchantStores.storeIds(user) },
     );
   }
 
@@ -104,7 +108,7 @@ export class OrdersController {
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.ordersService.deleteOrder(id, user.userId, { storeIds: user.merchantStoreIds });
+    return this.ordersService.deleteOrder(id, user.userId, { storeIds: this.merchantStores.storeIds(user) });
   }
 
   @ApiOperation({ summary: 'Create order using the legacy path' })

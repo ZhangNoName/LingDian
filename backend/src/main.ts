@@ -14,7 +14,7 @@ import { SystemLogService } from './modules/system-log/system-log.service';
 import { isSwaggerEnabled } from './config/swagger.config';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
   app.set('trust proxy', 'loopback');
   const systemLogs = app.get(SystemLogService);
   const uploadsDir = join(process.cwd(), 'uploads');

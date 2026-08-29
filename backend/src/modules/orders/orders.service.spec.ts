@@ -2,6 +2,31 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { OrdersService } from './orders.service';
 
+function fakeStores(overrides: Record<string, unknown> = {}) {
+  return {
+    mode: 'single',
+    primaryStoreId: () => 'store-1',
+    resolveRequestedStoreId: (requestedStoreId?: string) => {
+      if (requestedStoreId !== undefined && requestedStoreId.trim() !== 'store-1') {
+        throw new Error('The requested store does not match the configured store');
+      }
+      return 'store-1';
+    },
+    resolveStoreIds: (requestedStoreIds?: readonly string[]) => {
+      if (requestedStoreIds !== undefined) {
+        const normalized = [...new Set(requestedStoreIds.map((storeId) => storeId.trim()).filter(Boolean))];
+        if (normalized.length !== 1 || normalized[0] !== 'store-1') {
+          throw new Error('Store access is outside the configured store');
+        }
+      }
+      return ['store-1'];
+    },
+    resolveCurrentStore: async (client: any) => client.store.findUnique({ where: { id: 'store-1' } }),
+    assertReady: async () => undefined,
+    ...overrides,
+  } as never;
+}
+
 test('createOrder does not block checkout when sku stock is zero', async () => {
   const createdOrder = {
     id: 'order-1',
@@ -69,7 +94,7 @@ test('createOrder does not block checkout when sku stock is zero', async () => {
     $transaction: async (callback: (client: typeof tx) => Promise<unknown>) =>
       callback(tx),
   };
-  const service = new OrdersService(prisma as never, {} as never);
+  const service = new OrdersService(prisma as never, {} as never, fakeStores());
 
   const order = await service.createOrder({
     storeId: 'store-1',
@@ -84,10 +109,90 @@ test('createOrder does not block checkout when sku stock is zero', async () => {
   assert.equal(order.items[0].sku_id, 'sku-1');
 });
 
+test('checkout defaults an omitted store id to the configured primary store', async () => {
+  let queriedStoreId: string | undefined;
+  let createdStoreId: string | undefined;
+  const tx = {
+    store: {
+      findUnique: async ({ where }: any) => {
+        assert.deepEqual(where, { id: 'store-1' });
+        return {
+          id: 'store-1', status: 'OPEN', dineInEnabled: true, takeoutEnabled: true, pickupEnabled: true,
+        };
+      },
+    },
+    productSKU: {
+      findMany: async ({ where }: any) => {
+        queriedStoreId = where.product.storeId;
+        return [{
+          id: 'sku-1', productId: 'product-1', skuName: '默认', price: 18, stockCount: 10, isActive: true,
+          product: { id: 'product-1', name: '拿铁', status: 'ACTIVE', selectionBindings: [] },
+          selectionBindings: [],
+        }];
+      },
+    },
+    selectionOption: { findMany: async () => [] },
+    order: {
+      create: async ({ data }: any) => {
+        createdStoreId = data.storeId;
+        return orderRecord(data);
+      },
+    },
+  };
+  const service = new OrdersService(
+    { $transaction: async (callback: any) => callback(tx) } as never,
+    {} as never,
+    fakeStores(),
+  );
+
+  const order = await service.createOrder({
+    orderType: 'pickup', customerName: '顾客', mobile: '13800000000',
+    items: [{ sku_id: 'sku-1', quantity: 1 }],
+  });
+
+  assert.equal(queriedStoreId, 'store-1');
+  assert.equal(createdStoreId, 'store-1');
+  assert.equal(order.store_id, 'store-1');
+});
+
+test('checkout rejects a store id outside the configured primary store', async () => {
+  const service = new OrdersService({
+    order: { findFirst: async () => assert.fail('invalid store must fail before querying orders') },
+    $transaction: async () => assert.fail('invalid store must fail before transaction'),
+  } as never, {} as never, fakeStores());
+
+  await assert.rejects(() => service.createOrder({
+    storeId: 'store-2', orderType: 'pickup', customerName: '顾客', mobile: '13800000000',
+    items: [{ sku_id: 'sku-1', quantity: 1 }],
+  }), /does not match the configured store/i);
+});
+
+test('checkout rejects an order type disabled by the primary store', async () => {
+  const tx = {
+    store: {
+      findUnique: async () => ({
+        id: 'store-1', status: 'OPEN', dineInEnabled: true, takeoutEnabled: true, pickupEnabled: false,
+      }),
+    },
+    productSKU: { findMany: async () => assert.fail('disabled service must fail before querying SKUs') },
+  };
+  const service = new OrdersService(
+    { $transaction: async (callback: any) => callback(tx) } as never,
+    {} as never,
+    fakeStores(),
+  );
+
+  await assert.rejects(() => service.createOrder({
+    orderType: 'pickup', customerName: '顾客', mobile: '13800000000',
+    items: [{ sku_id: 'sku-1', quantity: 1 }],
+  }), /store is not available/i);
+});
+
 test('takeout checkout requires an authenticated owned address', async () => {
   const service = new (OrdersService as any)(
     { order: { findFirst: async () => null }, $transaction: async () => assert.fail('missing address must fail before transaction') },
     { findOwnedAddress: async () => assert.fail('missing address id must not be queried') },
+    fakeStores(),
   ) as OrdersService;
 
   await assert.rejects(
@@ -144,6 +249,7 @@ test('takeout checkout snapshots the owned address and uses its recipient detail
       assert.deepEqual([userId, addressId], ['user-1', 'address-1']);
       return address;
     } },
+    fakeStores(),
   ) as OrdersService;
 
   const order = await service.createOrder({
@@ -160,6 +266,7 @@ test('takeout checkout propagates address ownership rejection', async () => {
   const service = new (OrdersService as any)(
     { order: { findFirst: async () => null }, $transaction: async () => assert.fail('unowned address must fail before transaction') },
     { findOwnedAddress: async () => { throw new Error('Address not found.'); } },
+    fakeStores(),
   ) as OrdersService;
 
   await assert.rejects(
@@ -191,7 +298,11 @@ test('checkout accepts duplicate SKU lines and charges selections for every item
     }] },
     order: { create: async ({ data }: any) => { createdData = data; return orderRecord(data); } },
   };
-  const service = new OrdersService({ $transaction: async (callback: any) => callback(tx) } as never, {} as never);
+  const service = new OrdersService(
+    { $transaction: async (callback: any) => callback(tx) } as never,
+    {} as never,
+    fakeStores(),
+  );
 
   const result = await service.createOrder({
     storeId: 'store-1', orderType: 'pickup', customerName: '顾客', mobile: '13800000000',
@@ -221,7 +332,11 @@ test('checkout rejects an option that is not bound to the selected SKU', async (
     }] },
     order: { create: async () => assert.fail('invalid option must not create an order') },
   };
-  const service = new OrdersService({ $transaction: async (callback: any) => callback(tx) } as never, {} as never);
+  const service = new OrdersService(
+    { $transaction: async (callback: any) => callback(tx) } as never,
+    {} as never,
+    fakeStores(),
+  );
 
   await assert.rejects(() => service.createOrder({
     storeId: 'store-1', orderType: 'pickup', customerName: '顾客', mobile: '13800000000',
@@ -233,11 +348,13 @@ test('customer and merchant order detail queries include their ownership scope',
   const queries: any[] = [];
   const service = new OrdersService({
     order: { findFirst: async (query: any) => { queries.push(query); return null; } },
-  } as never, {} as never);
+  } as never, {} as never, fakeStores());
 
   await assert.rejects(() => service.getOrderDetail('order-1', { customerUserId: 'user-1' }), /not found/i);
   await assert.rejects(() => service.getOrderDetail('order-2', { storeIds: ['store-1'] }), /not found/i);
-  assert.deepEqual(queries[0].where, { id: 'order-1', customerUserId: 'user-1' });
+  assert.deepEqual(queries[0].where, {
+    id: 'order-1', storeId: { in: ['store-1'] }, customerUserId: 'user-1',
+  });
   assert.deepEqual(queries[1].where, { id: 'order-2', storeId: { in: ['store-1'] } });
 });
 
@@ -251,12 +368,14 @@ test('authenticated checkout reuses an existing order with the same client reque
   const service = new OrdersService({
     order: {
       findFirst: async ({ where }: any) => {
-        assert.deepEqual(where, { customerUserId: 'user-1', clientRequestId: 'checkout-request-1' });
+        assert.deepEqual(where, {
+          storeId: 'store-1', customerUserId: 'user-1', clientRequestId: 'checkout-request-1',
+        });
         return existing;
       },
     },
     $transaction: async () => { transactionCalls += 1; },
-  } as never, {} as never);
+  } as never, {} as never, fakeStores());
 
   const result = await service.createOrder({
     clientRequestId: 'checkout-request-1', storeId: 'store-1', orderType: 'pickup', items: [{ sku_id: 'sku-1', quantity: 1 }],
@@ -283,7 +402,7 @@ test('order list returns a stable pagination contract and applies ownership scop
       },
       count: async (query: any) => { countQuery = query; return 41; },
     },
-  } as never, {} as never);
+  } as never, {} as never, fakeStores());
 
   const result = await service.getOrders({ page: 2, pageSize: 20 }, { customerUserId: 'user-1' });
 
@@ -292,6 +411,7 @@ test('order list returns a stable pagination contract and applies ownership scop
   assert.equal(listQuery.skip, 20);
   assert.equal(listQuery.take, 20);
   assert.deepEqual(listQuery.where, countQuery.where);
+  assert.deepEqual(listQuery.where.storeId, { in: ['store-1'] });
   assert.equal(listQuery.where.customerUserId, 'user-1');
   assert.equal(listQuery.where.isDeleted, false);
 });
@@ -305,7 +425,7 @@ test('status update rejects a concurrent order change and does not write a misle
   const service = new OrdersService({
     order: { findFirst: async () => ({ id: 'order-1', status: 'PAID', isDeleted: false }) },
     $transaction: async (callback: any) => callback(tx),
-  } as never, {} as never);
+  } as never, {} as never, fakeStores());
 
   await assert.rejects(
     () => service.updateOrderStatus('order-1', { status: 'PREPARING' } as any),
@@ -323,7 +443,7 @@ test('delete condition includes the observed status, active flag, and merchant s
   const service = new OrdersService({
     order: { findFirst: async () => ({ id: 'order-1', status: 'COMPLETED', isDeleted: false }) },
     $transaction: async (callback: any) => callback(tx),
-  } as never, {} as never);
+  } as never, {} as never, fakeStores());
 
   await assert.rejects(() => service.deleteOrder('order-1', 'operator-1', { storeIds: ['store-1'] }), /changed concurrently/i);
   assert.deepEqual(updateWhere, {

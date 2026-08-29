@@ -5,6 +5,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from './audit.service';
 import { normalizeChinesePhone } from './phone';
 import { PasswordService } from './password.service';
+import { StoreContextResolver } from '../stores/store-context.resolver';
 
 export type UpdateMerchantInput = {
   enabled?: boolean;
@@ -23,12 +24,13 @@ export class MerchantAdminService {
     private readonly prisma: PrismaService,
     private readonly passwords: PasswordService,
     private readonly audit: AuditService,
+    private readonly stores: StoreContextResolver,
   ) {}
 
   async create(input: CreateMerchantRequest): Promise<MerchantSummary> {
     const username = normalizeAccountName(input.username);
     const phone = normalizeChinesePhone(input.phone);
-    const storeIds = normalizeStoreIds(input.storeIds);
+    const storeIds = this.stores.resolveStoreIds(normalizeStoreIds(input.storeIds));
     const passwordHash = await this.passwords.hash(input.password);
 
     try {
@@ -73,7 +75,9 @@ export class MerchantAdminService {
     if (input.enabled === undefined && input.storeIds === undefined) {
       throw new BadRequestException('At least one merchant field must be provided.');
     }
-    const replacementStoreIds = input.storeIds === undefined ? undefined : normalizeStoreIds(input.storeIds);
+    const replacementStoreIds = input.storeIds === undefined
+      ? undefined
+      : this.stores.resolveStoreIds(normalizeStoreIds(input.storeIds));
 
     return this.runSerializable(async (tx) => {
       const user = await tx.user.findUnique({

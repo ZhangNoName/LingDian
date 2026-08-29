@@ -34,6 +34,7 @@ import { UpdateSkuPriceDto } from './dto/update-sku-price.dto';
 import { UpdateSkuStockDto } from './dto/update-sku-stock.dto';
 import { optimizeProductImage } from './product-image-optimizer';
 import { ProductsService } from './products.service';
+import { MerchantStoreScope } from '../merchant/merchant-store-scope';
 
 const productUploadDir = join(process.cwd(), 'uploads', 'products');
 type UploadFile = { originalname: string; filename: string; mimetype: string; path: string };
@@ -61,7 +62,10 @@ const { diskStorage } = require('multer') as {
 @ApiTags('Products')
 @Controller()
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) {}
+  constructor(
+    private readonly productsService: ProductsService,
+    private readonly merchantStores: MerchantStoreScope,
+  ) {}
 
   @ApiOperation({ summary: 'Get category list' })
   @UseGuards(AccessTokenGuard, AdminGuard)
@@ -109,28 +113,28 @@ export class ProductsController {
   @UseGuards(AccessTokenGuard, MerchantGuard)
   @Get('merchant/products')
   getMerchantProducts(@CurrentUser() user: AuthenticatedUser, @Query() query: QueryProductsDto) {
-    return this.productsService.getProducts(query, user.merchantStoreIds);
+    return this.productsService.getProducts(query, this.merchantStores.storeIds(user));
   }
 
   @ApiOperation({ summary: 'Get merchant product summary metrics' })
   @UseGuards(AccessTokenGuard, MerchantGuard)
   @Get('merchant/products/stats')
   getMerchantProductStats(@CurrentUser() user: AuthenticatedUser) {
-    return this.productsService.getProductStats(user.merchantStoreIds);
+    return this.productsService.getProductStats(this.merchantStores.storeIds(user));
   }
 
   @ApiOperation({ summary: 'Get lightweight merchant SKU reference options' })
   @UseGuards(AccessTokenGuard, MerchantGuard)
   @Get('merchant/products/sku-options')
   getMerchantProductSkuOptions(@CurrentUser() user: AuthenticatedUser) {
-    return this.productsService.getProductSkuOptions(user.merchantStoreIds);
+    return this.productsService.getProductSkuOptions(this.merchantStores.storeIds(user));
   }
 
   @ApiOperation({ summary: 'Get merchant product detail' })
   @UseGuards(AccessTokenGuard, MerchantGuard)
   @Get('merchant/products/:id')
   getMerchantProductDetail(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
-    return this.productsService.getProductDetail(id, user.merchantStoreIds);
+    return this.productsService.getProductDetail(id, this.merchantStores.storeIds(user));
   }
 
   @ApiOperation({ summary: 'Sync merchant product configuration' })
@@ -141,21 +145,21 @@ export class ProductsController {
     @Body() body: SyncProductConfigDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.productsService.syncProductConfiguration(id, body, user.merchantStoreIds);
+    return this.productsService.syncProductConfiguration(id, body, this.merchantStores.storeIds(user));
   }
 
   @ApiOperation({ summary: 'Update merchant SKU stock' })
   @UseGuards(AccessTokenGuard, MerchantGuard)
   @Post('merchant/sku/update-stock')
   updateMerchantSkuStock(@Body() body: UpdateSkuStockDto, @CurrentUser() user: AuthenticatedUser) {
-    return this.productsService.updateSkuStock(String(body.sku_id), body.stock_count, user.merchantStoreIds);
+    return this.productsService.updateSkuStock(String(body.sku_id), body.stock_count, this.merchantStores.storeIds(user));
   }
 
   @ApiOperation({ summary: 'Update merchant SKU price' })
   @UseGuards(AccessTokenGuard, MerchantGuard)
   @Post('merchant/sku/update-price')
   updateMerchantSkuPrice(@Body() body: UpdateSkuPriceDto, @CurrentUser() user: AuthenticatedUser) {
-    return this.productsService.updateSkuPrice(String(body.sku_id), body.price, user.merchantStoreIds);
+    return this.productsService.updateSkuPrice(String(body.sku_id), body.price, this.merchantStores.storeIds(user));
   }
 
   @ApiOperation({ summary: 'Update product base information' })

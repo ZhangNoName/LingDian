@@ -13,11 +13,21 @@ import {
   SelectionScope,
   StoreStatus,
 } from '@lingdian/db';
+import {
+  assertDemoSeedAllowed,
+  clearPrimaryStoreDemoData,
+} from './demo-seed-safety.mjs';
 
 const databaseUrl = process.env.DATABASE_URL;
+const primaryStoreId = process.env.PRIMARY_STORE_ID?.trim();
+
+assertDemoSeedAllowed(process.env);
 
 if (!databaseUrl) {
   throw new Error('DATABASE_URL is required.');
+}
+if (!primaryStoreId) {
+  throw new Error('PRIMARY_STORE_ID is required so the demo seed cannot change the runtime store identity.');
 }
 
 const prisma = new PrismaClient({
@@ -584,20 +594,11 @@ function computeOrderAmounts(orderItems) {
 
 async function main() {
   await prisma.$transaction(async (tx) => {
-    await tx.orderStatusLog.deleteMany();
-    await tx.orderItemSelection.deleteMany();
-    await tx.orderItem.deleteMany();
-    await tx.order.deleteMany();
-    await tx.productSelectionGroup.deleteMany();
-    await tx.selectionOption.deleteMany();
-    await tx.selectionGroup.deleteMany();
-    await tx.productSKU.deleteMany();
-    await tx.product.deleteMany();
-    await tx.category.deleteMany();
-    await tx.store.deleteMany();
-
-    const store = await tx.store.create({
-      data: storeSeed,
+    await clearPrimaryStoreDemoData(tx, primaryStoreId);
+    const store = await tx.store.upsert({
+      where: { id: primaryStoreId },
+      create: { id: primaryStoreId, ...storeSeed },
+      update: storeSeed,
     });
 
     const skuMap = new Map();
@@ -1043,6 +1044,7 @@ async function main() {
   console.log(
     `Demo seed complete: ${stores} store(s), ${categories} categories, ${products} products, ${skus} skus, ${groups} groups, ${options} options, ${bindings} bindings, ${orders} orders, ${orderLogs} order logs.`,
   );
+  console.log(`Configured primary store: PRIMARY_STORE_ID=${primaryStoreId}`);
 }
 
 main()

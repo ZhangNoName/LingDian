@@ -6,6 +6,8 @@ const loadBootstrap = () => new Function('path', 'return import(path)')('../../.
 }>;
 
 const environment = {
+  STORE_MODE: 'single',
+  PRIMARY_STORE_ID: 'store-1',
   AUTH_BOOTSTRAP_SUPER_ADMIN_USERNAME: 'admin-root',
   AUTH_BOOTSTRAP_SUPER_ADMIN_PASSWORD: 'admin-password-123',
   AUTH_BOOTSTRAP_SUPER_ADMIN_PHONE: '13800000001',
@@ -14,6 +16,20 @@ const environment = {
   AUTH_BOOTSTRAP_MERCHANT_PHONE: '13800000002',
   AUTH_BOOTSTRAP_MERCHANT_STORE_IDS: 'store-1',
 };
+
+test('bootstrap rejects a merchant scope outside the configured primary store before writing', async () => {
+  const persistence = createPersistence();
+  const { bootstrapAccounts } = await loadBootstrap();
+
+  await assert.rejects(
+    () => bootstrapAccounts({
+      prisma: persistence,
+      env: { ...environment, AUTH_BOOTSTRAP_MERCHANT_STORE_IDS: 'store-2' },
+    }),
+    /must contain only PRIMARY_STORE_ID/i,
+  );
+  assert.equal(persistence.transactions, 0);
+});
 
 test('bootstrap revalidates merchant stores inside every retryable serializable transaction attempt', async () => {
   for (const conflictCode of ['P2034', 'P2002']) {

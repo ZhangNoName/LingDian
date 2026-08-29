@@ -4,6 +4,7 @@ import { Prisma, type IntegrationOutbox } from '@lingdian/db';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { IntegrationCatalogService } from './integration-catalog.service';
+import { StoreContextResolver } from '../stores/store-context.resolver';
 
 const MAX_ATTEMPTS = 8;
 const BATCH_SIZE = 20;
@@ -48,6 +49,7 @@ export class IntegrationOutboxService implements OnApplicationBootstrap, OnModul
   constructor(
     private readonly prisma: PrismaService,
     private readonly catalog: IntegrationCatalogService,
+    private readonly stores: StoreContextResolver,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -64,10 +66,11 @@ export class IntegrationOutboxService implements OnApplicationBootstrap, OnModul
 
   /** Writes integration work in the same transaction as the order. */
   async enqueueOrderCreated(tx: Prisma.TransactionClient, order: CreatedOrder): Promise<void> {
+    const storeId = this.stores.resolveRequestedStoreId(order.storeId);
     const deploymentProviders = this.catalog.enabledDeploymentProviders();
     if (deploymentProviders.length === 0) return;
     const enabled = await tx.storeIntegration.findMany({
-      where: { storeId: order.storeId, enabled: true, provider: { in: deploymentProviders } },
+      where: { storeId, enabled: true, provider: { in: deploymentProviders } },
       select: { provider: true },
     });
     if (enabled.length === 0) return;
@@ -80,7 +83,7 @@ export class IntegrationOutboxService implements OnApplicationBootstrap, OnModul
         eventType: event.event_type,
         schemaVersion: event.schema_version,
         aggregateId: order.id,
-        storeId: order.storeId,
+        storeId,
         payload: event as unknown as Prisma.InputJsonValue,
       })),
       skipDuplicates: true,
@@ -103,7 +106,11 @@ export class IntegrationOutboxService implements OnApplicationBootstrap, OnModul
     this.flushing = true;
     try {
       const pending = await this.prisma.integrationOutbox.findMany({
-        where: { status: 'PENDING', nextAttemptAt: { lte: new Date() } },
+        where: {
+          storeId: this.stores.primaryStoreId(),
+          status: 'PENDING',
+          nextAttemptAt: { lte: new Date() },
+        },
         orderBy: { createdAt: 'asc' },
         take: BATCH_SIZE,
       });
@@ -146,6 +153,7 @@ export class IntegrationOutboxService implements OnApplicationBootstrap, OnModul
   private recoverAbandonedClaims(): Promise<{ count: number }> {
     return this.prisma.integrationOutbox.updateMany({
       where: {
+        storeId: this.stores.primaryStoreId(),
         status: 'PROCESSING',
         lockedAt: { lt: new Date(Date.now() - 5 * 60_000) },
       },

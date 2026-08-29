@@ -1,14 +1,13 @@
-import { Controller, Get, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
+import { Controller, Get } from '@nestjs/common';
+import { StoreContextResolver } from './store-context.resolver';
 
 @Controller('stores')
 export class StoresController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly stores: StoreContextResolver) {}
 
   @Get('current')
   async getCurrentStore() {
-    const store = await this.prisma.store.findFirst({ orderBy: { createdAt: 'asc' } });
-    if (!store) throw new NotFoundException('Store not found');
+    const store = await this.stores.resolveCurrentStore();
     return {
       id: store.id,
       name: store.name,

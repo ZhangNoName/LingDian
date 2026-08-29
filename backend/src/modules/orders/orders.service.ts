@@ -24,6 +24,7 @@ import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { AddressesService } from '../addresses/addresses.service';
 import type { UserAddress } from '@lingdian/contracts';
 import { IntegrationOutboxService } from '../integrations/integration-outbox.service';
+import { StoreContextResolver } from '../stores/store-context.resolver';
 
 const NOOP_INTEGRATION_OUTBOX = {
   enqueueOrderCreated: async () => undefined,
@@ -43,6 +44,9 @@ const paymentChannelMap: Record<
   cash: 'CASH',
   wechat: 'WECHAT',
   alipay: 'ALIPAY',
+  unionpay: 'UNIONPAY',
+  stripe: 'STRIPE',
+  paypal: 'PAYPAL',
   customer_scan: 'CUSTOMER_SCAN',
   other: 'OTHER',
 };
@@ -111,12 +115,15 @@ export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly addresses: AddressesService,
+    private readonly stores: StoreContextResolver,
     private readonly integrationOutbox: IntegrationOutboxService = NOOP_INTEGRATION_OUTBOX as IntegrationOutboxService,
   ) {}
 
   async createOrder(body: CreateOrderDto, customerUserId?: string) {
+    const storeId = this.stores.resolveRequestedStoreId(body.storeId);
     const existingOrder = await this.findIdempotentOrder(
       this.prisma,
+      storeId,
       customerUserId,
       body.clientRequestId,
     );
@@ -139,14 +146,20 @@ export class OrdersService {
     const result = await this.prisma.$transaction(async (tx) => {
       const duplicateOrder = await this.findIdempotentOrder(
         tx,
+        storeId,
         customerUserId,
         body.clientRequestId,
       );
       if (duplicateOrder) return this.mapOrderDetail(duplicateOrder);
 
       const customer = await this.resolveCustomer(tx, body, customerUserId, delivery?.address);
-      const store = await tx.store.findUnique({ where: { id: body.storeId }, select: { status: true } });
-      if (!store || store.status !== 'OPEN') {
+      const store = await this.stores.resolveCurrentStore(tx);
+      const serviceEnabled = body.orderType === 'dine_in'
+        ? store.dineInEnabled
+        : body.orderType === 'takeout'
+          ? store.takeoutEnabled
+          : store.pickupEnabled;
+      if (store.status !== 'OPEN' || serviceEnabled === false) {
         throw new BadRequestException('Store is not available');
       }
       const skuIds = [...new Set(normalizedItems.map((item) => item.skuId as string))];
@@ -157,7 +170,7 @@ export class OrdersService {
           },
           isActive: true,
           product: {
-            storeId: body.storeId,
+            storeId,
           },
         },
         include: {
@@ -290,7 +303,7 @@ export class OrdersService {
       const order = await tx.order.create({
         data: {
           orderNo: `LD${Date.now()}${randomBytes(4).toString('hex').toUpperCase()}`,
-          storeId: body.storeId,
+          storeId,
           customerUserId,
           clientRequestId: customerUserId ? body.clientRequestId : undefined,
           customerName: customer.name,
@@ -332,6 +345,7 @@ export class OrdersService {
       if (this.isUniqueConstraintError(error)) {
         const duplicateOrder = await this.findIdempotentOrder(
           this.prisma,
+          storeId,
           customerUserId,
           body.clientRequestId,
         );
@@ -345,12 +359,13 @@ export class OrdersService {
 
   private findIdempotentOrder(
     client: PrismaService | Prisma.TransactionClient,
+    storeId: string,
     customerUserId?: string,
     clientRequestId?: string,
   ): Promise<OrderDetailRecord | null> {
     if (!customerUserId || !clientRequestId) return Promise.resolve(null);
     return client.order.findFirst({
-      where: { customerUserId, clientRequestId },
+      where: { storeId, customerUserId, clientRequestId },
       include: orderDetailInclude,
     }) as Promise<OrderDetailRecord | null>;
   }
@@ -556,6 +571,10 @@ export class OrdersService {
       return this.getOrderDetail(orderId, scope);
     }
 
+    if (targetStatus === 'PAID' && order.paymentChannel !== 'CASH') {
+      throw new BadRequestException('Online payments can only be marked paid by a verified payment webhook');
+    }
+
     const allowedTransitions = editableTransitions[order.status] ?? [];
     if (!allowedTransitions.includes(targetStatus)) {
       throw new BadRequestException(
@@ -703,8 +722,9 @@ export class OrdersService {
   }
 
   private scopeWhere(scope: OrderScope): Prisma.OrderWhereInput {
+    const storeIds = this.stores.resolveStoreIds(scope.storeIds);
     return {
-      ...(scope.storeIds ? { storeId: { in: scope.storeIds } } : {}),
+      storeId: { in: storeIds },
       ...(scope.customerUserId ? { customerUserId: scope.customerUserId } : {}),
     };
   }

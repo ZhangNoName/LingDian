@@ -5,29 +5,52 @@
         <div>
           <CardTitle class="text-xl">外部系统集成</CardTitle>
           <CardDescription class="mt-1 leading-6">
-            收银、小票和外卖平台均默认关闭。部署端配置连接器后，仍需在这里按门店启用。
+            收银、小票和外卖平台均默认关闭。部署端配置连接器后，仍需在这里为当前主门店启用。
           </CardDescription>
         </div>
-        <ElSelect
-          v-model="selectedStoreId"
-          class="w-full md:w-72"
-          placeholder="选择门店"
-          :disabled="loadingStores"
-          @change="loadCapabilities"
-        >
-          <ElOption
-            v-for="store in stores"
-            :key="store.id"
-            :label="`${store.name}（${store.code}）`"
-            :value="store.id"
-          />
-        </ElSelect>
+        <div class="w-full rounded-lg border border-border bg-muted/30 px-4 py-3 md:w-80">
+          <p class="text-xs font-medium text-muted-foreground">当前主门店（只读）</p>
+          <p v-if="loadingStores" class="mt-1 text-sm text-muted-foreground">正在读取门店信息…</p>
+          <template v-else-if="storeState.kind === 'ready'">
+            <div class="mt-1 flex flex-wrap items-center gap-2">
+              <strong class="text-sm text-foreground">{{ storeState.store.name }}</strong>
+              <Badge variant="outline">{{ storeStatusLabel(storeState.store.status) }}</Badge>
+            </div>
+            <code class="mt-1 block break-all text-xs text-muted-foreground">{{ storeState.store.code }}</code>
+          </template>
+          <p v-else-if="storeState.kind === 'empty'" class="mt-1 text-sm font-medium text-destructive">
+            未配置主门店
+          </p>
+          <p v-else class="mt-1 text-sm font-medium text-destructive">
+            配置异常：检测到 {{ storeState.storeCount }} 家门店
+          </p>
+        </div>
       </CardHeader>
       <CardContent>
         <p v-if="errorMessage" class="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
           {{ errorMessage }}
         </p>
-        <div v-if="loadingCapabilities" class="py-10 text-center text-sm text-muted-foreground">正在加载集成配置…</div>
+        <div v-if="loadingStores" class="py-10 text-center text-sm text-muted-foreground">正在加载主门店…</div>
+        <div
+          v-else-if="storeLoadFailed"
+          class="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
+          role="alert"
+        >
+          无法确认唯一主门店，集成功能已停止加载。
+        </div>
+        <div v-else-if="storeState.kind === 'empty'" class="py-10 text-center">
+          <p class="font-medium text-foreground">尚未配置主门店</p>
+          <p class="mt-2 text-sm text-muted-foreground">请联系平台管理员完成门店初始化和商家账号授权。</p>
+        </div>
+        <div
+          v-else-if="storeState.kind === 'conflict'"
+          class="rounded-lg border border-amber-300/70 bg-amber-50 p-4 text-sm text-amber-900"
+          role="alert"
+        >
+          <p class="font-medium">检测到 {{ storeState.storeCount }} 家可管理门店，集成功能已停止加载。</p>
+          <p class="mt-2 leading-6">单店模式不会自动选择第一家门店，请联系平台管理员检查主门店配置和账号授权。</p>
+        </div>
+        <div v-else-if="loadingCapabilities" class="py-10 text-center text-sm text-muted-foreground">正在加载集成配置…</div>
         <div v-else-if="capabilities.length" class="grid gap-3 md:grid-cols-2">
           <section
             v-for="item in capabilities"
@@ -53,7 +76,7 @@
             />
           </section>
         </div>
-        <p v-else class="py-10 text-center text-sm text-muted-foreground">当前账号没有可管理的门店。</p>
+        <p v-else class="py-10 text-center text-sm text-muted-foreground">当前主门店暂无可用的集成能力。</p>
       </CardContent>
     </Card>
 
@@ -71,47 +94,50 @@
 
 <script setup lang="ts">
 import type { IntegrationCapabilityContract, IntegrationProvider } from '@lingdian/contracts'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { Badge } from '@/baseComponents/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/baseComponents/card'
-import { ElMessage, ElOption, ElSelect, ElSwitch } from '@/components/ui/element-plus'
+import { ElMessage, ElSwitch } from '@/components/ui/element-plus'
 import {
   listMerchantStores,
   listStoreIntegrations,
   setStoreIntegrationEnabled,
   type MerchantStoreSummary,
 } from '@/services/integrations'
+import { getStoreStatusPresentation, resolveSingleStoreView } from '@/views/stores/store-view'
+import { loadSingleStoreCapabilities } from './settings-state'
 
 const stores = ref<MerchantStoreSummary[]>([])
 const capabilities = ref<IntegrationCapabilityContract[]>([])
-const selectedStoreId = ref('')
 const loadingStores = ref(false)
 const loadingCapabilities = ref(false)
 const changingProvider = ref<IntegrationProvider | null>(null)
 const errorMessage = ref('')
+const storeLoadFailed = ref(false)
+const storeState = computed(() => resolveSingleStoreView(stores.value))
 
 onMounted(async () => {
   loadingStores.value = true
+  storeLoadFailed.value = false
+  errorMessage.value = ''
   try {
     stores.value = await listMerchantStores()
-    selectedStoreId.value = stores.value[0]?.id ?? ''
-    await loadCapabilities()
   } catch (error) {
+    storeLoadFailed.value = true
     errorMessage.value = toMessage(error)
   } finally {
     loadingStores.value = false
   }
+
+  if (!storeLoadFailed.value) await loadCapabilities()
 })
 
 async function loadCapabilities() {
-  if (!selectedStoreId.value) {
-    capabilities.value = []
-    return
-  }
   loadingCapabilities.value = true
   errorMessage.value = ''
   try {
-    capabilities.value = await listStoreIntegrations(selectedStoreId.value)
+    const result = await loadSingleStoreCapabilities(stores.value, listStoreIntegrations)
+    capabilities.value = result.capabilities
   } catch (error) {
     errorMessage.value = toMessage(error)
   } finally {
@@ -120,10 +146,15 @@ async function loadCapabilities() {
 }
 
 async function changeEnabled(item: IntegrationCapabilityContract, enabled: boolean) {
+  if (storeState.value.kind !== 'ready') {
+    errorMessage.value = '无法确认唯一主门店，未修改集成配置。'
+    return
+  }
+
   changingProvider.value = item.provider
   errorMessage.value = ''
   try {
-    const updated = await setStoreIntegrationEnabled(selectedStoreId.value, item.provider, enabled)
+    const updated = await setStoreIntegrationEnabled(storeState.value.store.id, item.provider, enabled)
     capabilities.value = capabilities.value.map((candidate) =>
       candidate.provider === updated.provider ? updated : candidate,
     )
@@ -146,6 +177,10 @@ function providerDescription(provider: IntegrationProvider): string {
     MEITUAN_WAIMAI: '由美团连接器负责官方协议、签名和平台状态映射。',
     JD_DAOJIA: '由京东到家连接器负责官方协议、签名和平台状态映射。',
   }[provider]
+}
+
+function storeStatusLabel(status: MerchantStoreSummary['status']): string {
+  return getStoreStatusPresentation(status).label
 }
 
 function toMessage(error: unknown): string {

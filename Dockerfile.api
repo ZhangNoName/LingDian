@@ -25,5 +25,5 @@ RUN sed -i 's|http://deb.debian.org/debian|http://mirrors.cloud.tencent.com/debi
 RUN corepack enable
 COPY --from=build /workspace /workspace
 EXPOSE 9000
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 CMD node -e "fetch('http://127.0.0.1:9000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 CMD node -e "fetch('http://127.0.0.1:9000/api/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 CMD ["node", "backend/dist/main.js"]

@@ -4,7 +4,22 @@ import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { AccessTokenGuard } from '../../common/auth/access-token.guard';
 import { AdminGuard } from '../../common/auth/admin.guard';
 import { MerchantGuard } from '../../common/auth/merchant.guard';
+import { MerchantStoreScope } from '../merchant/merchant-store-scope';
 import { ProductsController } from './products.controller';
+
+const primaryStoreId = 'store-1';
+
+function createMerchantStoreScope() {
+  return new MerchantStoreScope({
+    resolveStoreIds: (requestedStoreIds?: readonly string[]) => {
+      const normalized = [...new Set((requestedStoreIds ?? []).map((storeId) => storeId.trim()).filter(Boolean))];
+      if (normalized.length !== 1 || normalized[0] !== primaryStoreId) {
+        throw new Error('Store access is outside the configured store');
+      }
+      return [primaryStoreId];
+    },
+  } as never);
+}
 
 test('management product reads require admin while merchant reads use merchant scope', async () => {
   for (const endpoint of ['getCategories', 'getProducts', 'getProductDetail'] as const) {
@@ -21,8 +36,22 @@ test('management product reads require admin while merchant reads use merchant s
   const calls: unknown[] = [];
   const controller = new ProductsController({
     getProducts: async (query: unknown, storeIds: string[]) => { calls.push([query, storeIds]); return []; },
-  } as never);
+  } as never, createMerchantStoreScope());
   const query = { page: 2, pageSize: 20 } as never;
-  await controller.getMerchantProducts({ merchantStoreIds: ['store-1'] } as never, query);
-  assert.deepEqual(calls, [[query, ['store-1']]]);
+  await controller.getMerchantProducts({
+    audience: 'merchant-api',
+    roles: ['MERCHANT'],
+    merchantStoreIds: [primaryStoreId],
+  } as never, query);
+  assert.deepEqual(calls, [[query, [primaryStoreId]]]);
+
+  await assert.rejects(
+    async () => controller.getMerchantProducts({
+      audience: 'merchant-api',
+      roles: ['MERCHANT'],
+      merchantStoreIds: ['store-other'],
+    } as never, query),
+    /outside the configured store/,
+  );
+  assert.equal(calls.length, 1);
 });

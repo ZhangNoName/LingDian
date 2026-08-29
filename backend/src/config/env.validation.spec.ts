@@ -9,6 +9,21 @@ test('rejects missing JWT secrets outside test', () => {
   );
 });
 
+test('rejects a missing or unrecognized runtime environment', () => {
+  assert.throws(
+    () => validateEnv({}),
+    /NODE_ENV must be development, test, or production/,
+  );
+  assert.throws(
+    () => validateEnv({ NODE_ENV: 'prod' }),
+    /NODE_ENV must be development, test, or production/,
+  );
+  assert.throws(
+    () => validateEnv({ NODE_ENV: 'Production' }),
+    /NODE_ENV must be development, test, or production/,
+  );
+});
+
 test('accepts a complete auth configuration', () => {
   assert.equal(
     validateEnv({
@@ -19,6 +34,45 @@ test('accepts a complete auth configuration', () => {
     }).NODE_ENV,
     'test',
   );
+});
+
+test('requires an explicit single-store runtime configuration in production', () => {
+  assert.throws(
+    () => validateEnv(productionEnv({ STORE_MODE: undefined })),
+    /STORE_MODE is required in production/,
+  );
+  assert.throws(
+    () => validateEnv(productionEnv({ PRIMARY_STORE_ID: undefined })),
+    /PRIMARY_STORE_ID is required outside test/,
+  );
+  assert.throws(
+    () => validateEnv(productionEnv({ STORE_MODE: 'multi' })),
+    /multi-store runtime is not enabled/i,
+  );
+});
+
+test('validates primary store identity and merchant bootstrap scope', () => {
+  assert.throws(
+    () => validateEnv(productionEnv({ PRIMARY_STORE_ID: ' store-1' })),
+    /leading or trailing whitespace/,
+  );
+  assert.throws(
+    () => validateEnv(productionEnv({ PRIMARY_STORE_ID: 'x'.repeat(192) })),
+    /must not exceed 191/,
+  );
+  assert.throws(
+    () => validateEnv(productionEnv({
+      AUTH_BOOTSTRAP_MERCHANT_USERNAME: 'merchant',
+      AUTH_BOOTSTRAP_MERCHANT_PASSWORD: 'merchant-password',
+      AUTH_BOOTSTRAP_MERCHANT_PHONE: '13800000000',
+      AUTH_BOOTSTRAP_MERCHANT_STORE_IDS: 'store-2',
+    })),
+    /must contain only PRIMARY_STORE_ID/,
+  );
+});
+
+test('unit-test environments may omit store configuration', () => {
+  assert.equal(validateEnv({ NODE_ENV: 'test' }).NODE_ENV, 'test');
 });
 
 test('rejects a short JWT access secret outside test', () => {
@@ -107,6 +161,8 @@ test('rejects a partially configured bootstrap account group', () => {
 function productionEnv(overrides: Record<string, string | undefined> = {}) {
   return {
     NODE_ENV: 'production',
+    STORE_MODE: 'single',
+    PRIMARY_STORE_ID: 'store-1',
     DATABASE_URL: 'mysql://root:password@localhost:3306/lingdian',
     AUTH_JWT_ACCESS_SECRET: 'a'.repeat(32),
     AUTH_REFRESH_PEPPER: 'b'.repeat(32),

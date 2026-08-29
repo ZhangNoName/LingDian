@@ -32,8 +32,8 @@ export const navigationItems: NavigationItem[] = [
     icon: LayoutDashboard,
   },
   {
-    label: '门店管理',
-    caption: '营业时间、门店信息与基础配置',
+    label: '门店设置',
+    caption: '当前门店信息与营业状态',
     to: '/stores',
     icon: Store,
   },

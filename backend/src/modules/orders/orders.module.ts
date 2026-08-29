@@ -4,9 +4,11 @@ import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 import { AddressesModule } from '../addresses/addresses.module';
 import { IntegrationsModule } from '../integrations/integrations.module';
+import { MerchantModule } from '../merchant/merchant.module';
+import { StoresModule } from '../stores/stores.module';
 
 @Module({
-  imports: [AuthModule, AddressesModule, IntegrationsModule],
+  imports: [AuthModule, AddressesModule, IntegrationsModule, MerchantModule, StoresModule],
   controllers: [OrdersController],
   providers: [OrdersService],
 })

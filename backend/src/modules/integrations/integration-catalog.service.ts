@@ -4,13 +4,17 @@ import { INTEGRATION_PROVIDERS } from '@lingdian/contracts';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SignedConnectorAdapter, type IntegrationAdapter } from './connector.adapter';
 import { readConnectorSettings, type ConnectorSettings } from './integration.config';
+import { StoreContextResolver } from '../stores/store-context.resolver';
 
 @Injectable()
 export class IntegrationCatalogService {
   private readonly settings = readConnectorSettings();
   private readonly adapters = new Map<IntegrationProvider, IntegrationAdapter>();
 
-  constructor(private readonly prisma: PrismaService) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly stores: StoreContextResolver,
+  ) {
     for (const setting of this.settings) {
       if (this.isAvailable(setting)) {
         this.adapters.set(setting.provider, new SignedConnectorAdapter(setting));
@@ -29,6 +33,7 @@ export class IntegrationCatalogService {
   }
 
   async enabledProvidersForStore(storeId: string): Promise<IntegrationProvider[]> {
+    storeId = this.stores.resolveRequestedStoreId(storeId);
     const allowed = new Set(this.enabledDeploymentProviders());
     if (allowed.size === 0) return [];
     const rows = await this.prisma.storeIntegration.findMany({
@@ -39,6 +44,7 @@ export class IntegrationCatalogService {
   }
 
   async list(storeId: string): Promise<IntegrationCapabilityContract[]> {
+    storeId = this.stores.resolveRequestedStoreId(storeId);
     await this.assertStoreExists(storeId);
     const rows = await this.prisma.storeIntegration.findMany({ where: { storeId } });
     const enabledByStore = new Map(rows.map((row) => [row.provider, row.enabled]));
@@ -58,6 +64,7 @@ export class IntegrationCatalogService {
   }
 
   async setEnabled(storeId: string, providerValue: string, enabled: boolean) {
+    storeId = this.stores.resolveRequestedStoreId(storeId);
     await this.assertStoreExists(storeId);
     const provider = this.parseProvider(providerValue);
     const setting = this.setting(provider);

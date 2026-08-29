@@ -10,7 +10,7 @@ export type MerchantStoreSummary = { id: string; code: string; name: string; sta
 export class MerchantService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly scope: MerchantStoreScope = new MerchantStoreScope(),
+    private readonly scope: MerchantStoreScope,
   ) {}
 
   async listStores(user: AuthenticatedUser): Promise<MerchantStoreSummary[]> {
