@@ -3,7 +3,7 @@ export type ServiceMode = "dineIn" | "takeaway" | "delivery";
 export type StoreSummary = {
   id: string;
   name: string;
-  address: string;
+  businessText: string;
   distanceText: string;
   businessStatus: "open" | "closed" | "busy";
   supportModes: ServiceMode[];

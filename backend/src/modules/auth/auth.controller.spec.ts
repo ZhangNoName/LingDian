@@ -101,6 +101,45 @@ test('mini-program callback forwards a uni.login code and returns only the pendi
   assert.deepEqual(result, { pending_oauth_id: 'pending-1', expires_in: 600 });
 });
 
+test('mini-program session recovery exchanges a fresh code for a linked customer session', async () => {
+  const calls: unknown[] = [];
+  const cookieCalls: unknown[][] = [];
+  const controller = new AuthController(
+    {} as never,
+    {} as never,
+    {} as never,
+    {
+      miniProgramSession: async (input: unknown) => {
+        calls.push(input);
+        return {
+          accessToken: 'access-token', refreshToken: 'unused-native-refresh', expiresIn: 900,
+          user: { userId: 'customer-1', sessionId: 'session-1', audience: 'user-api', roles: ['USER'] },
+        };
+      },
+    } as never,
+    { getOrThrow: () => false } as never,
+    {} as never,
+    {} as never,
+  );
+
+  const result = await controller.miniProgramSession(
+    'wechat',
+    { code: 'fresh-uni-login-code', audience: 'user-api' },
+    { ip: '127.0.0.1', headers: { 'x-device-id': 'mini-device' } },
+    { cookie: (...args: unknown[]) => cookieCalls.push(args), clearCookie: () => undefined },
+  );
+
+  assert.deepEqual(calls, [{
+    provider: 'wechat', code: 'fresh-uni-login-code', audience: 'user-api',
+    ip: '127.0.0.1', device: 'mini-device',
+  }]);
+  assert.equal(cookieCalls[0]?.[0], 'refresh_token');
+  assert.deepEqual(result, {
+    access_token: 'access-token', expires_in: 900,
+    user: { userId: 'customer-1', sessionId: 'session-1', audience: 'user-api', roles: ['USER'] },
+  });
+});
+
 test('WeChat mini-program phone login DTO rejects empty or non-user credentials', async () => {
   const invalid = plainToInstance(WechatMiniProgramPhoneLoginDto, {
     loginCode: '',

@@ -1,5 +1,5 @@
-import { RES_CODE } from './codes'
-import type { ResCodeMeta, ResCodeValue } from './types'
+import { RES_CODE } from './codes.js'
+import type { ResCodeMeta, ResCodeValue } from './types.js'
 
 export const RES_CODE_META: Record<ResCodeValue, ResCodeMeta> = {
   [RES_CODE.SUCCESS]: {

@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { buildApiUrl, buildAssetUrl, normalizeApiBase } from "./api";
 
-describe("mini-program API runtime configuration", () => {
+describe("client API runtime configuration", () => {
   it("normalizes a configured gateway exactly once", () => {
     expect(normalizeApiBase(" https://api.example.com/api/ ")).toBe("https://api.example.com/api");
     expect(buildApiUrl("/orders")).toMatch(/\/api\/orders$/);
+  });
+
+  it("uses the same-origin gateway when an H5 production build has no override", () => {
+    expect(normalizeApiBase(undefined, true)).toBe("/api");
+    expect(() => normalizeApiBase("http://api.example.com/api", true)).toThrow(/HTTPS/);
   });
 
   it("rejects absolute, protocol-relative, and malformed service paths", () => {

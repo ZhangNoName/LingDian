@@ -5,8 +5,12 @@ import type { PaymentIntentContract } from '@lingdian/contracts';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
 import { UpsertPaymentAccountDto } from './dto/upsert-payment-account.dto';
-import { PaymentGatewayFactory, PaymentWebhookPayload } from './payment.gateway';
+import {
+  PaymentGatewayFactory,
+  PaymentWebhookPayload,
+} from './payment.gateway';
 import { StoreContextResolver } from '../stores/store-context.resolver';
+import { PaymentExpiryService } from './payment-expiry.service';
 
 const providerChannels: Record<PaymentProvider, PaymentChannel> = {
   WECHAT_PAY: 'WECHAT', ALIPAY: 'ALIPAY', UNIONPAY: 'UNIONPAY', STRIPE: 'STRIPE', PAYPAL: 'PAYPAL',
@@ -17,12 +21,39 @@ type PaymentAccountView = {
   externalAccountId: string; connectorConfigKey: string; status: 'ACTIVE' | 'DISABLED'; updatedAt: Date;
 };
 
+type IntentReservationInput = {
+  orderId: string;
+  customerUserId: string;
+  storeId: string;
+  accountId: string;
+  provider: PaymentProvider;
+  channel: PaymentChannel;
+  amountMinor: number;
+  clientRequestId: string;
+  expiresAt: Date;
+};
+
+type SuccessfulPaymentInput = {
+  intentId: string;
+  orderId: string;
+  storeId: string;
+  provider: PaymentProvider;
+  accountId: string;
+  providerIntentId: string;
+  eventId: string;
+  providerTransactionId: string;
+  occurredAt: Date;
+};
+
+const INTENT_RESERVATION_MAX_ATTEMPTS = 3;
+
 @Injectable()
 export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly gateways: PaymentGatewayFactory,
     private readonly stores: StoreContextResolver,
+    private readonly expiry: PaymentExpiryService = new PaymentExpiryService(prisma, gateways),
   ) {}
 
   async createIntent(orderId: string, customerUserId: string, body: CreatePaymentIntentDto) {
@@ -35,10 +66,19 @@ export class PaymentsService {
       select: { id: true, orderNo: true, storeId: true, status: true, paymentChannel: true, payableAmount: true },
     });
     if (!order) throw new NotFoundException('Order not found');
-    const existing = await this.prisma.paymentIntent.findUnique({
+    let existing = await this.prisma.paymentIntent.findUnique({
       where: { orderId_clientRequestId: { orderId, clientRequestId: body.clientRequestId } },
     });
-    if (existing) return this.mapIntent(existing);
+    if (existing) {
+      if (this.expiry.isExpiredActiveIntent(existing)) {
+        await this.expiry.recoverExpiredAttempt(orderId, storeId);
+        existing = await this.prisma.paymentIntent.findUnique({
+          where: { orderId_clientRequestId: { orderId, clientRequestId: body.clientRequestId } },
+        });
+      }
+      if (existing) return this.mapIntent(existing);
+    }
+    await this.expiry.recoverExpiredAttempt(orderId, storeId);
     if (order.status !== 'PENDING_PAYMENT') throw new ConflictException('Order is not awaiting payment');
     const amountMinor = this.toMinor(order.payableAmount);
     if (amountMinor <= 0) throw new BadRequestException('Payment amount must be positive');
@@ -48,53 +88,54 @@ export class PaymentsService {
     if (!account || account.status !== 'ACTIVE') {
       throw new BadRequestException('The store has no active receiving account for this payment method');
     }
-    const activeAttempt = await this.prisma.paymentIntent.findFirst({
-      where: { orderId, status: { in: ['CREATED', 'PENDING', 'PROCESSING', 'SUCCEEDED'] } },
-      select: { paymentNo: true },
-    });
-    if (activeAttempt) throw new ConflictException(`Order already has an active payment: ${activeAttempt.paymentNo}`);
-    await this.prisma.order.updateMany({
-      where: { id: orderId, customerUserId, storeId, status: 'PENDING_PAYMENT' },
-      data: { paymentChannel: body.channel },
-    });
     const expiresAt = new Date(Date.now() + 15 * 60_000);
-    let intent;
-    try {
-      intent = await this.prisma.paymentIntent.create({ data: {
-        paymentNo: `PAY${Date.now()}${randomBytes(6).toString('hex').toUpperCase()}`,
-        orderId, accountId: account.id, provider: body.provider, channel: body.channel,
-        amountMinor: BigInt(amountMinor), currency: 'CNY', clientRequestId: body.clientRequestId, expiresAt,
-      } });
-    } catch (error) {
-      if (!this.isUniqueError(error)) throw error;
-      const duplicate = await this.prisma.paymentIntent.findUnique({
-        where: { orderId_clientRequestId: { orderId, clientRequestId: body.clientRequestId } },
-      });
-      if (!duplicate) throw error;
-      return this.mapIntent(duplicate);
-    }
+    const reservation = await this.reserveIntent({
+      orderId,
+      customerUserId,
+      storeId,
+      accountId: account.id,
+      provider: body.provider,
+      channel: body.channel,
+      amountMinor,
+      clientRequestId: body.clientRequestId,
+      expiresAt,
+    });
+    if (!reservation.created) return this.mapIntent(reservation.intent);
+    let intent = reservation.intent;
 
+    let result;
     try {
-      const result = await this.gateways.create(account).createIntent({
+      result = await this.gateways.create(account).createIntent({
         paymentNo: intent.paymentNo, orderNo: order.orderNo, amountMinor, currency: 'CNY', expiresAt,
       });
-      if (result.accountExternalId !== account.externalAccountId || result.amountMinor !== amountMinor || result.currency !== 'CNY') {
-        await this.prisma.paymentIntent.update({ where: { id: intent.id }, data: {
-          status: 'FAILED', reconciliationStatus: 'MANUAL_REVIEW', failureCode: 'CONNECTOR_RESPONSE_MISMATCH',
-        } });
-        throw new ConflictException('Payment connector returned mismatched recipient or amount');
-      }
-      intent = await this.prisma.paymentIntent.update({ where: { id: intent.id }, data: {
-        providerIntentId: result.providerIntentId, status: result.status,
-        clientAction: result.clientAction as Prisma.InputJsonValue | undefined,
-      } });
-      return this.mapIntent(intent);
     } catch (error) {
       await this.prisma.paymentIntent.updateMany({ where: { id: intent.id, status: 'CREATED' }, data: {
-        status: 'FAILED', failureCode: 'CONNECTOR_ERROR', failureMessage: 'Payment provider is temporarily unavailable',
+        reconciliationStatus: 'MANUAL_REVIEW', failureCode: 'CONNECTOR_OUTCOME_UNKNOWN',
+        failureMessage: 'Payment connector outcome is unknown; the attempt remains blocked until verified closure',
       } });
       throw error;
     }
+    if (result.accountExternalId !== account.externalAccountId || result.amountMinor !== amountMinor || result.currency !== 'CNY') {
+      await this.prisma.paymentIntent.update({ where: { id: intent.id }, data: {
+        reconciliationStatus: 'MANUAL_REVIEW',
+        failureCode: 'CONNECTOR_RESPONSE_MISMATCH',
+      } });
+      throw new ConflictException('Payment connector returned mismatched recipient or amount');
+    }
+
+    // A synchronous connector response is not a money-movement fact. Even if
+    // it reports success, keep the attempt in progress until a signed webhook
+    // supplies the provider transaction id and occurrence time.
+    const acknowledgedStatus = result.status === 'SUCCEEDED' ? 'PROCESSING' : result.status;
+    intent = await this.prisma.paymentIntent.update({ where: { id: intent.id }, data: {
+      providerIntentId: result.providerIntentId,
+      status: acknowledgedStatus,
+      activeOrderKey: acknowledgedStatus === 'PENDING' || acknowledgedStatus === 'PROCESSING'
+        ? intent.orderId
+        : null,
+      clientAction: result.clientAction as Prisma.InputJsonValue | undefined,
+    } });
+    return this.mapIntent(intent);
   }
 
   async getCustomerIntent(paymentNo: string, customerUserId: string) {
@@ -145,51 +186,42 @@ export class PaymentsService {
     if (!intent || intent.accountId !== accountId || payload.account_external_id !== account.externalAccountId ||
         intent.order.storeId !== account.storeId ||
         payload.amount_minor !== Number(intent.amountMinor) || payload.currency !== intent.currency ||
-        payload.provider_intent_id !== intent.providerIntentId) {
+        (intent.providerIntentId !== null && payload.provider_intent_id !== intent.providerIntentId)) {
       await this.markWebhookError(provider, accountId, payload.event_id, 'PAYMENT_REFERENCE_MISMATCH');
       throw new ConflictException('Webhook payment reference, recipient, or amount mismatch');
     }
     await this.prisma.$transaction(async (tx) => {
       if (payload.event_type === 'PAYMENT_SUCCEEDED') {
-        if (intent.status === 'SUCCEEDED') {
-          await tx.paymentWebhookEvent.update({
-            where: { provider_accountId_eventId: { provider, accountId, eventId: payload.event_id } },
-            data: { processedAt: new Date() },
-          });
-          return;
-        }
-        const orderCanBePaid = intent.order.status === 'PENDING_PAYMENT';
-        await tx.paymentIntent.update({ where: { id: intent.id }, data: {
-          status: 'SUCCEEDED', paidAt: occurredAt,
-          reconciliationStatus: orderCanBePaid ? 'MATCHED' : 'LATE_PAYMENT',
-        } });
-        await tx.paymentTransaction.upsert({
-          where: { paymentIntentId_type_idempotencyKey: {
-            paymentIntentId: intent.id, type: 'PAYMENT', idempotencyKey: payload.event_id,
-          } },
-          create: {
-            transactionNo: `TXN${Date.now()}${randomBytes(5).toString('hex').toUpperCase()}`,
-            paymentIntentId: intent.id, type: 'PAYMENT', status: 'SUCCEEDED', amountMinor: intent.amountMinor,
-            currency: intent.currency, providerTransactionId: payload.provider_transaction_id,
-            idempotencyKey: payload.event_id, occurredAt,
-          }, update: {},
+        await this.confirmSuccessfulPayment(tx, {
+          intentId: intent.id,
+          orderId: intent.orderId,
+          storeId: account.storeId,
+          provider,
+          accountId,
+          providerIntentId: payload.provider_intent_id,
+          eventId: payload.event_id,
+          providerTransactionId: payload.provider_transaction_id as string,
+          occurredAt,
         });
-        if (orderCanBePaid) {
-          const changed = await tx.order.updateMany({
-            where: { id: intent.orderId, storeId: account.storeId, status: 'PENDING_PAYMENT' },
-            data: { status: 'PAID', paidAt: occurredAt },
-          });
-          if (changed.count === 1) await tx.orderStatusLog.create({ data: {
-            orderId: intent.orderId, fromStatus: 'PENDING_PAYMENT', toStatus: 'PAID',
-            operatorName: `payment:${provider}`, note: 'Payment confirmed by verified webhook',
-            extra: { paymentNo: intent.paymentNo, eventId: payload.event_id },
-          } });
-        }
+      } else if (payload.event_type === 'PAYMENT_PROCESSING') {
+        await tx.paymentIntent.updateMany({
+          where: { id: intent.id, status: { in: ['CREATED', 'PENDING', 'PROCESSING'] } },
+          data: {
+            providerIntentId: payload.provider_intent_id,
+            status: 'PROCESSING',
+            activeOrderKey: intent.orderId,
+          },
+        });
       } else {
-        await tx.paymentIntent.updateMany({ where: { id: intent.id, status: { not: 'SUCCEEDED' } }, data: {
-          status: payload.event_type === 'PAYMENT_PROCESSING' ? 'PROCESSING' : 'FAILED',
-          failureCode: payload.failure_code,
-        } });
+        await tx.paymentIntent.updateMany({
+          where: { id: intent.id, status: { in: ['CREATED', 'PENDING', 'PROCESSING'] } },
+          data: {
+            providerIntentId: payload.provider_intent_id,
+            status: 'FAILED',
+            activeOrderKey: null,
+            failureCode: payload.failure_code,
+          },
+        });
       }
       await tx.paymentWebhookEvent.update({
         where: { provider_accountId_eventId: { provider, accountId, eventId: payload.event_id } },
@@ -197,6 +229,98 @@ export class PaymentsService {
       });
     });
     return { accepted: true, duplicate: false };
+  }
+
+  private async confirmSuccessfulPayment(
+    tx: Prisma.TransactionClient,
+    input: SuccessfulPaymentInput,
+  ): Promise<void> {
+    // Take the order lock before reading or updating the intent. This makes the
+    // following read observe the state that won the conditional transition,
+    // instead of a repeatable-read snapshot captured before a lock wait.
+    const changed = await tx.order.updateMany({
+      where: { id: input.orderId, storeId: input.storeId, status: 'PENDING_PAYMENT' },
+      data: { status: 'PAID', paidAt: input.occurredAt },
+    });
+    const currentOrderStatus = changed.count === 1
+      ? 'PAID'
+      : (await tx.order.findUnique({
+          where: { id: input.orderId },
+          select: { status: true },
+        }))?.status;
+    const intent = await tx.paymentIntent.findUnique({
+      where: { id: input.intentId },
+      include: { order: { select: { storeId: true } } },
+    });
+    if (
+      !intent ||
+      intent.orderId !== input.orderId ||
+      intent.order.storeId !== input.storeId ||
+      (intent.providerIntentId !== null && intent.providerIntentId !== input.providerIntentId)
+    ) {
+      throw new ConflictException('Payment intent changed while processing the webhook');
+    }
+    const matchedOrderStatuses = [
+      'PAID', 'PREPARING', 'READY', 'COMPLETED', 'REFUNDING', 'REFUNDED',
+    ];
+    await tx.paymentIntent.update({
+      where: { id: intent.id },
+      data: {
+        providerIntentId: input.providerIntentId,
+        status: 'SUCCEEDED',
+        activeOrderKey: null,
+        paidAt: intent.paidAt ?? input.occurredAt,
+        reconciliationStatus: currentOrderStatus && matchedOrderStatuses.includes(currentOrderStatus)
+          ? 'MATCHED'
+          : 'LATE_PAYMENT',
+      },
+    });
+    const transaction = await tx.paymentTransaction.upsert({
+      where: {
+        provider_accountId_providerTransactionId: {
+          provider: input.provider,
+          accountId: input.accountId,
+          providerTransactionId: input.providerTransactionId,
+        },
+      },
+      create: {
+        transactionNo: `TXN${Date.now()}${randomBytes(5).toString('hex').toUpperCase()}`,
+        paymentIntentId: intent.id,
+        provider: input.provider,
+        accountId: input.accountId,
+        type: 'PAYMENT',
+        status: 'SUCCEEDED',
+        amountMinor: intent.amountMinor,
+        currency: intent.currency,
+        providerTransactionId: input.providerTransactionId,
+        idempotencyKey: input.eventId,
+        occurredAt: input.occurredAt,
+      },
+      update: {},
+    });
+    if (
+      transaction.paymentIntentId !== intent.id ||
+      transaction.type !== 'PAYMENT' ||
+      transaction.status !== 'SUCCEEDED' ||
+      transaction.amountMinor !== intent.amountMinor ||
+      transaction.currency !== intent.currency
+    ) {
+      throw new ConflictException(
+        'Provider transaction is already assigned to a different payment fact',
+      );
+    }
+    if (changed.count === 1) {
+      await tx.orderStatusLog.create({
+        data: {
+          orderId: intent.orderId,
+          fromStatus: 'PENDING_PAYMENT',
+          toStatus: 'PAID',
+          operatorName: `payment:${input.provider}`,
+          note: 'Payment confirmed by verified webhook',
+          extra: { paymentNo: intent.paymentNo, eventId: input.eventId },
+        },
+      });
+    }
   }
 
   async upsertAccount(body: UpsertPaymentAccountDto): Promise<PaymentAccountView> {
@@ -217,6 +341,95 @@ export class PaymentsService {
       select: { id: true, storeId: true, provider: true, channel: true, externalAccountId: true, connectorConfigKey: true, status: true, updatedAt: true },
       orderBy: [{ storeId: 'asc' }, { provider: 'asc' }],
     });
+  }
+
+  private async reserveIntent(input: IntentReservationInput) {
+    for (let attempt = 1; attempt <= INTENT_RESERVATION_MAX_ATTEMPTS; attempt += 1) {
+      try {
+        return await this.prisma.$transaction(async (tx) => {
+          const duplicate = await tx.paymentIntent.findUnique({
+            where: {
+              orderId_clientRequestId: {
+                orderId: input.orderId,
+                clientRequestId: input.clientRequestId,
+              },
+            },
+          });
+          if (duplicate) return { intent: duplicate, created: false as const };
+
+          // The conditional update both revalidates the order state and takes
+          // the order-row lock before the activity check and reservation.
+          const claimedOrder = await tx.order.updateMany({
+            where: {
+              id: input.orderId,
+              customerUserId: input.customerUserId,
+              storeId: input.storeId,
+              isDeleted: false,
+              status: 'PENDING_PAYMENT',
+            },
+            data: { paymentChannel: input.channel },
+          });
+          if (claimedOrder.count !== 1) {
+            throw new ConflictException('Order is no longer awaiting payment');
+          }
+
+          const activeAttempt = await tx.paymentIntent.findFirst({
+            where: {
+              orderId: input.orderId,
+              status: { in: ['CREATED', 'PENDING', 'PROCESSING', 'SUCCEEDED'] },
+            },
+            select: { paymentNo: true },
+          });
+          if (activeAttempt) {
+            throw new ConflictException(`Order already has an active payment: ${activeAttempt.paymentNo}`);
+          }
+
+          const intent = await tx.paymentIntent.create({
+            data: {
+              paymentNo: `PAY${Date.now()}${randomBytes(6).toString('hex').toUpperCase()}`,
+              activeOrderKey: input.orderId,
+              orderId: input.orderId,
+              accountId: input.accountId,
+              provider: input.provider,
+              channel: input.channel,
+              amountMinor: BigInt(input.amountMinor),
+              currency: 'CNY',
+              clientRequestId: input.clientRequestId,
+              expiresAt: input.expiresAt,
+            },
+          });
+          return { intent, created: true as const };
+        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+      } catch (error) {
+        if (!this.isPrismaError(error, 'P2002') && !this.isPrismaError(error, 'P2034')) {
+          throw error;
+        }
+
+        const duplicate = await this.prisma.paymentIntent.findUnique({
+          where: {
+            orderId_clientRequestId: {
+              orderId: input.orderId,
+              clientRequestId: input.clientRequestId,
+            },
+          },
+        });
+        if (duplicate) return { intent: duplicate, created: false as const };
+
+        const activeAttempt = await this.prisma.paymentIntent.findFirst({
+          where: {
+            orderId: input.orderId,
+            status: { in: ['CREATED', 'PENDING', 'PROCESSING', 'SUCCEEDED'] },
+          },
+          select: { paymentNo: true },
+        });
+        if (activeAttempt) {
+          throw new ConflictException(`Order already has an active payment: ${activeAttempt.paymentNo}`);
+        }
+        if (attempt === INTENT_RESERVATION_MAX_ATTEMPTS) throw error;
+      }
+    }
+
+    throw new ConflictException('Payment reservation retry limit reached');
   }
 
   private mapIntent(intent: { paymentNo: string; orderId: string; provider: PaymentProvider; channel: PaymentChannel; status: string; amountMinor: bigint; currency: string; clientAction: unknown; expiresAt: Date; paidAt: Date | null }): PaymentIntentContract {
@@ -249,6 +462,9 @@ export class PaymentsService {
     });
   }
   private isUniqueError(error: unknown): boolean {
-    return typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002';
+    return this.isPrismaError(error, 'P2002');
+  }
+  private isPrismaError(error: unknown, code: 'P2002' | 'P2034'): boolean {
+    return typeof error === 'object' && error !== null && 'code' in error && error.code === code;
   }
 }

@@ -126,6 +126,31 @@ it('logs out with the bearer token and clears in-memory access', async () => {
   expect(merchantSession.getAccessToken()).toBeUndefined()
 })
 
+it('refreshes an expired access token before signing out so the browser cookie is revoked', async () => {
+  merchantSession.acceptLogin({ access_token: 'expired-jwt', expires_in: 0, user: merchantUser })
+  const tokens = { access_token: 'fresh-jwt', expires_in: 900, user: merchantUser }
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(new Response(JSON.stringify({ code: 0, msg: 'success', data: tokens }), { status: 201 }))
+    .mockResolvedValueOnce(new Response(null, { status: 204 }))
+  vi.stubGlobal('fetch', fetchMock)
+
+  await merchantSession.logout()
+
+  expect(fetchMock).toHaveBeenCalledTimes(2)
+  expect(fetchMock.mock.calls[0]?.[0]).toBe('https://api.zsf.shopping/api/auth/refresh')
+  expect(fetchMock.mock.calls[1]?.[0]).toBe('https://api.zsf.shopping/api/auth/logout')
+  expect(new Headers(fetchMock.mock.calls[1]?.[1]?.headers).get('Authorization')).toBe('Bearer fresh-jwt')
+  expect(merchantSession.getAccessToken()).toBeUndefined()
+})
+
+it('reports a server logout failure but still clears the local session', async () => {
+  merchantSession.acceptLogin({ access_token: 'logout-jwt', expires_in: 900, user: merchantUser })
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 503 })))
+
+  await expect(merchantSession.logout()).rejects.toThrow('服务端退出失败')
+  expect(merchantSession.getAccessToken()).toBeUndefined()
+})
+
 it('uses a valid in-memory access token without refreshing', async () => {
   merchantSession.acceptLogin({ access_token: 'current-jwt', expires_in: 900, user: merchantUser })
   const fetchMock = vi.fn()
@@ -134,6 +159,22 @@ it('uses a valid in-memory access token without refreshing', async () => {
   await expect(merchantSession.ensureAccessToken()).resolves.toBe(true)
 
   expect(fetchMock).not.toHaveBeenCalled()
+})
+
+it('refreshes an expired access token before a protected account action', async () => {
+  merchantSession.acceptLogin({ access_token: 'expired-jwt', expires_in: 0, user: merchantUser })
+  const tokens = { access_token: 'fresh-jwt', expires_in: 900, user: merchantUser }
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(new Response(JSON.stringify({ code: 0, msg: 'success', data: tokens }), { status: 201 }))
+    .mockResolvedValueOnce(new Response(null, { status: 204 }))
+  vi.stubGlobal('fetch', fetchMock)
+
+  await merchantSession.requestPasswordChangeCode()
+
+  expect(fetchMock).toHaveBeenCalledTimes(2)
+  expect(fetchMock.mock.calls[0]?.[0]).toBe('https://api.zsf.shopping/api/auth/refresh')
+  expect(fetchMock.mock.calls[1]?.[0]).toBe('https://api.zsf.shopping/api/auth/password/change/code')
+  expect(new Headers(fetchMock.mock.calls[1]?.[1]?.headers).get('Authorization')).toBe('Bearer fresh-jwt')
 })
 
 it('uses the password-reset code flow for forgotten merchant passwords', async () => {

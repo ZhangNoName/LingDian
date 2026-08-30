@@ -239,6 +239,24 @@ export class AuthController {
     return { pending_oauth_id: pending.pendingOauthId, expires_in: pending.expiresIn };
   }
 
+  @ApiOperation({ summary: 'Recover a linked mini-program customer session with a fresh platform login code' })
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Post('oauth/:provider/miniapp/session')
+  async miniProgramSession(
+    @Param('provider') provider: string,
+    @Body() body: MiniProgramOAuthCallbackDto,
+    @Req() request: AuthRequest,
+    @Res({ passthrough: true }) response: AuthResponse,
+  ) {
+    const issued = await this.oauth.miniProgramSession({
+      ...body,
+      provider,
+      ip: request.ip,
+      device: deviceId(request),
+    });
+    return this.respondWithRefresh(response, issued);
+  }
+
   @ApiOperation({ summary: 'Complete a pending OAuth binding with a verified phone number' })
   @Post('oauth/link-phone')
   async linkPhone(

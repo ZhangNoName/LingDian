@@ -2,6 +2,17 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
+export const ORDER_QUERY_PAYMENT_CHANNELS = [
+  'CASH',
+  'WECHAT',
+  'ALIPAY',
+  'UNIONPAY',
+  'STRIPE',
+  'PAYPAL',
+  'CUSTOMER_SCAN',
+  'OTHER',
+] as const;
+
 export class QueryOrdersDto {
   @ApiPropertyOptional({ description: 'Page number', default: 1 })
   @IsOptional()
@@ -69,10 +80,10 @@ export class QueryOrdersDto {
 
   @ApiPropertyOptional({
     description: 'Payment channel',
-    enum: ['CASH', 'WECHAT', 'ALIPAY', 'CUSTOMER_SCAN', 'OTHER'],
+    enum: ORDER_QUERY_PAYMENT_CHANNELS,
   })
   @IsOptional()
-  @IsIn(['CASH', 'WECHAT', 'ALIPAY', 'CUSTOMER_SCAN', 'OTHER'])
+  @IsIn(ORDER_QUERY_PAYMENT_CHANNELS)
   paymentChannel?: string;
 
   @ApiPropertyOptional({

@@ -4,18 +4,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type {
-  OrderDetailContract,
-  OrderPageContract,
-  OrderSummaryContract,
-  OrderSummaryStatsContract,
-} from '@lingdian/contracts';
 import { randomBytes } from 'node:crypto';
 import {
   OrderStatus,
   OrderSource,
-  OrderType,
-  PaymentChannel,
   Prisma,
 } from '@lingdian/db';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -27,90 +19,24 @@ import type { UserAddress } from '@lingdian/contracts';
 import { IntegrationOutboxService } from '../integrations/integration-outbox.service';
 import { StoreContextResolver } from '../stores/store-context.resolver';
 import { allocatePickupCode } from './pickup-code.service';
+import {
+  amountToCents,
+  assertManualOrderTransition,
+  centsToAmount,
+  formatDeliveryAddress,
+  isDeletableOrderStatus,
+  isPendingPaymentTermination,
+  ORDER_TYPE_BY_API_VALUE,
+  orderStatusTimestampPatch,
+  PAYMENT_CHANNEL_BY_API_VALUE,
+} from './order-policy';
+import { mapOrderDetail, ORDER_DETAIL_INCLUDE, type OrderDetailRecord } from './order-presenter';
+import { OrdersQueryService, type OrderScope } from './orders-query.service';
 
 const NOOP_INTEGRATION_OUTBOX = {
   enqueueOrderCreated: async () => undefined,
   kick: () => undefined,
 } as Pick<IntegrationOutboxService, 'enqueueOrderCreated' | 'kick'>;
-
-const orderTypeMap: Record<CreateOrderDto['orderType'], OrderType> = {
-  dine_in: 'DINE_IN',
-  takeout: 'TAKEOUT',
-  pickup: 'PICKUP',
-};
-
-const paymentChannelMap: Record<
-  NonNullable<CreateOrderDto['paymentChannel']>,
-  PaymentChannel
-> = {
-  cash: 'CASH',
-  wechat: 'WECHAT',
-  alipay: 'ALIPAY',
-  unionpay: 'UNIONPAY',
-  stripe: 'STRIPE',
-  paypal: 'PAYPAL',
-  customer_scan: 'CUSTOMER_SCAN',
-  other: 'OTHER',
-};
-
-const editableTransitions: Partial<Record<OrderStatus, OrderStatus[]>> = {
-  CREATING: ['PENDING_PAYMENT', 'CANCELLED', 'FAILED'],
-  PENDING_PAYMENT: ['PAID', 'TIMED_OUT', 'CANCELLED', 'FAILED'],
-  PAID: ['PREPARING', 'READY', 'COMPLETED', 'REFUNDING', 'REFUNDED'],
-  PREPARING: ['READY', 'COMPLETED', 'REFUNDING', 'REFUNDED'],
-  READY: ['COMPLETED', 'REFUNDING', 'REFUNDED'],
-  COMPLETED: ['REFUNDING', 'REFUNDED'],
-  REFUNDING: ['REFUNDED', 'FAILED'],
-  FAILED: [],
-  TIMED_OUT: [],
-  CANCELLED: [],
-  REFUNDED: [],
-  DELETED: [],
-};
-
-const deletableStatuses = new Set<OrderStatus>([
-  'CANCELLED',
-  'TIMED_OUT',
-  'FAILED',
-  'REFUNDED',
-  'COMPLETED',
-]);
-
-const orderDetailInclude = {
-  store: {
-    select: {
-      id: true,
-      name: true,
-      code: true,
-    },
-  },
-  items: {
-    orderBy: [{ createdAt: 'asc' }],
-    include: {
-      selections: {
-        orderBy: [{ createdAt: 'asc' }],
-      },
-    },
-  },
-  statusLogs: {
-    orderBy: [{ createdAt: 'asc' }],
-  },
-} satisfies Prisma.OrderInclude;
-
-type OrderDetailRecord = Prisma.OrderGetPayload<{ include: typeof orderDetailInclude }>;
-
-type OrderScope = { storeIds?: string[]; customerUserId?: string };
-
-function toCents(value: Prisma.Decimal | number): number {
-  const cents = Math.round(Number(value) * 100);
-  if (!Number.isSafeInteger(cents)) throw new BadRequestException('Order amount is too large');
-  return cents;
-}
-
-function fromCents(value: number): number {
-  if (!Number.isSafeInteger(value)) throw new BadRequestException('Order amount is too large');
-  return value / 100;
-}
 
 @Injectable()
 export class OrdersService {
@@ -118,6 +44,7 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly addresses: AddressesService,
     private readonly stores: StoreContextResolver,
+    private readonly queries: OrdersQueryService,
     private readonly integrationOutbox: IntegrationOutboxService = NOOP_INTEGRATION_OUTBOX as IntegrationOutboxService,
   ) {}
 
@@ -133,7 +60,7 @@ export class OrdersService {
       customerUserId,
       body.clientRequestId,
     );
-    if (existingOrder) return this.mapOrderDetail(existingOrder);
+    if (existingOrder) return mapOrderDetail(existingOrder);
 
     const delivery = await this.resolveDelivery(body, customerUserId);
     const normalizedItems = body.items.map((item) => {
@@ -156,7 +83,7 @@ export class OrdersService {
         customerUserId,
         body.clientRequestId,
       );
-      if (duplicateOrder) return this.mapOrderDetail(duplicateOrder);
+      if (duplicateOrder) return mapOrderDetail(duplicateOrder);
 
       const customer = await this.resolveCustomer(tx, body, customerUserId, delivery?.address);
       const store = await this.stores.resolveCurrentStore(tx);
@@ -282,9 +209,9 @@ export class OrdersService {
           }
         }
 
-        const unitPriceInCents = toCents(sku.price);
+        const unitPriceInCents = amountToCents(sku.price);
         const selectionPriceInCents = selectionSnapshots.reduce(
-          (sum, selection) => sum + toCents(selection.priceDelta),
+          (sum, selection) => sum + amountToCents(selection.priceDelta),
           0,
         );
         const subtotalInCents = (unitPriceInCents + selectionPriceInCents) * item.quantity;
@@ -296,9 +223,9 @@ export class OrdersService {
           skuId: sku.id,
           productName: sku.product.name,
           skuName: sku.skuName,
-          unitPrice: fromCents(unitPriceInCents),
+          unitPrice: centsToAmount(unitPriceInCents),
           quantity: item.quantity,
-          subtotal: fromCents(subtotalInCents),
+          subtotal: centsToAmount(subtotalInCents),
           remark: item.remark,
           selections: {
             create: selectionSnapshots,
@@ -319,13 +246,13 @@ export class OrdersService {
           customerName: customer.name,
           customerMobile: customer.mobile,
           deliveryAddress: delivery?.snapshot,
-          orderType: orderTypeMap[body.orderType],
+          orderType: ORDER_TYPE_BY_API_VALUE[body.orderType],
           paymentChannel: body.paymentChannel
-            ? paymentChannelMap[body.paymentChannel]
+            ? PAYMENT_CHANNEL_BY_API_VALUE[body.paymentChannel]
             : 'CASH',
           status: 'PENDING_PAYMENT',
-          totalAmount: fromCents(totalAmountInCents),
-          payableAmount: fromCents(totalAmountInCents),
+          totalAmount: centsToAmount(totalAmountInCents),
+          payableAmount: centsToAmount(totalAmountInCents),
           remark: body.remark,
           items: {
             create: orderItems,
@@ -345,12 +272,12 @@ export class OrdersService {
             ],
           },
         },
-        include: orderDetailInclude,
+        include: ORDER_DETAIL_INCLUDE,
       });
 
       await this.integrationOutbox.enqueueOrderCreated(tx, order);
 
-      return this.mapOrderDetail(order);
+      return mapOrderDetail(order);
     }).catch(async (error: unknown) => {
       if (this.isUniqueConstraintError(error)) {
         const duplicateOrder = await this.findIdempotentOrder(
@@ -359,7 +286,7 @@ export class OrdersService {
           customerUserId,
           body.clientRequestId,
         );
-        if (duplicateOrder) return this.mapOrderDetail(duplicateOrder);
+        if (duplicateOrder) return mapOrderDetail(duplicateOrder);
       }
       throw error;
     });
@@ -376,7 +303,7 @@ export class OrdersService {
     if (!customerUserId || !clientRequestId) return Promise.resolve(null);
     return client.order.findFirst({
       where: { storeId, customerUserId, clientRequestId },
-      include: orderDetailInclude,
+      include: ORDER_DETAIL_INCLUDE,
     }) as Promise<OrderDetailRecord | null>;
   }
 
@@ -422,145 +349,16 @@ export class OrdersService {
     return { address, snapshot: formatDeliveryAddress(address) };
   }
 
-  async getOrderSummary(query: QueryOrdersDto, scope: OrderScope = {}): Promise<OrderSummaryStatsContract> {
-    const scopedWhere = this.buildOrderWhere(query, true, scope);
-    const paidStatuses: OrderStatus[] = [
-      'PAID',
-      'PREPARING',
-      'READY',
-      'COMPLETED',
-    ];
-
-    const [totalCount, pendingPaymentCount, paidCount, refundingCount, refundedCount, amounts] =
-      await Promise.all([
-        this.prisma.order.count({ where: scopedWhere }),
-        this.prisma.order.count({
-          where: {
-            ...scopedWhere,
-            status: 'PENDING_PAYMENT',
-          },
-        }),
-        this.prisma.order.count({
-          where: {
-            ...scopedWhere,
-            status: {
-              in: paidStatuses,
-            },
-          },
-        }),
-        this.prisma.order.count({
-          where: {
-            ...scopedWhere,
-            status: 'REFUNDING',
-          },
-        }),
-        this.prisma.order.count({
-          where: {
-            ...scopedWhere,
-            status: 'REFUNDED',
-          },
-        }),
-        this.prisma.order.aggregate({
-          where: {
-            ...scopedWhere,
-            status: {
-              in: [...paidStatuses, 'REFUNDING', 'REFUNDED'],
-            },
-          },
-          _sum: {
-            payableAmount: true,
-          },
-        }),
-      ]);
-
-    return {
-      total_count: totalCount,
-      pending_payment_count: pendingPaymentCount,
-      paid_count: paidCount,
-      refunding_count: refundingCount,
-      refunded_count: refundedCount,
-      total_amount: this.toNumber(amounts._sum.payableAmount),
-    };
+  getOrderSummary(query: QueryOrdersDto, scope: OrderScope = {}) {
+    return this.queries.getOrderSummary(query, scope);
   }
 
-  async getOrders(query: QueryOrdersDto, scope: OrderScope = {}): Promise<OrderPageContract> {
-    const page = query.page ?? 1;
-    const pageSize = query.pageSize ?? 50;
-    const where = this.buildOrderWhere(query, true, scope);
-    const [orders, total] = await Promise.all([
-      this.prisma.order.findMany({
-        where,
-        include: {
-          store: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-          items: {
-            select: {
-              id: true,
-              productName: true,
-              skuName: true,
-              quantity: true,
-              subtotal: true,
-            },
-            orderBy: [{ createdAt: 'asc' }],
-          },
-        },
-        orderBy: [{ createdAt: 'desc' }],
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
-      this.prisma.order.count({ where }),
-    ]);
-
-    const items: OrderSummaryContract[] = orders.map((order) => ({
-      id: order.id,
-      order_no: order.orderNo,
-      order_source: order.orderSource,
-      pickup_code: order.pickupCode,
-      pickup_business_date: this.toDateOnly(order.pickupBusinessDate),
-      store_id: order.storeId,
-      store_name: order.store.name,
-      customer_name: order.customerName,
-      customer_mobile: order.customerMobile,
-      delivery_address: order.deliveryAddress,
-      order_type: order.orderType,
-      status: order.status,
-      payment_channel: order.paymentChannel,
-      total_amount: this.toNumber(order.totalAmount),
-      payable_amount: this.toNumber(order.payableAmount),
-      remark: order.remark,
-      item_count: order.items.reduce((sum, item) => sum + item.quantity, 0),
-      item_summary: order.items.map((item) => ({
-        id: item.id,
-        name: item.productName,
-        sku_name: item.skuName,
-        quantity: item.quantity,
-        subtotal: this.toNumber(item.subtotal),
-      })),
-      created_at: order.createdAt.toISOString(),
-      updated_at: order.updatedAt.toISOString(),
-    }));
-
-    return { items, total, page, page_size: pageSize };
+  getOrders(query: QueryOrdersDto, scope: OrderScope = {}) {
+    return this.queries.getOrders(query, scope);
   }
 
-  async getOrderDetail(orderId: string, scope: OrderScope = {}) {
-    const order = await this.prisma.order.findFirst({
-      where: {
-        id: orderId,
-        ...this.scopeWhere(scope),
-      },
-      include: orderDetailInclude,
-    });
-
-    if (!order) {
-      throw new NotFoundException('Order not found');
-    }
-
-    return this.mapOrderDetail(order);
+  getOrderDetail(orderId: string, scope: OrderScope = {}) {
+    return this.queries.getOrderDetail(orderId, scope);
   }
 
   async updateOrderStatus(orderId: string, body: UpdateOrderStatusDto, scope: OrderScope = {}) {
@@ -568,7 +366,7 @@ export class OrdersService {
     const order = await this.prisma.order.findFirst({
       where: {
         id: orderId,
-        ...this.scopeWhere(scope),
+        ...this.queries.scopeWhere(scope),
       },
     });
 
@@ -584,32 +382,38 @@ export class OrdersService {
       return this.getOrderDetail(orderId, scope);
     }
 
-    if (targetStatus === 'PAID' && order.paymentChannel !== 'CASH') {
-      throw new BadRequestException('Online payments can only be marked paid by a verified payment webhook');
-    }
-
-    const allowedTransitions = editableTransitions[order.status] ?? [];
-    if (!allowedTransitions.includes(targetStatus)) {
-      throw new BadRequestException(
-        `Order status cannot change from ${order.status} to ${targetStatus}`,
-      );
-    }
+    assertManualOrderTransition(order.status, targetStatus, order.paymentChannel);
 
     await this.prisma.$transaction(async (tx) => {
       const updated = await tx.order.updateMany({
         where: {
           id: orderId,
           status: order.status,
+          paymentChannel: order.paymentChannel,
           isDeleted: false,
-          ...this.scopeWhere(scope),
+          ...this.queries.scopeWhere(scope),
         },
         data: {
           status: targetStatus,
-          ...this.buildStatusTimestampPatch(targetStatus),
+          ...orderStatusTimestampPatch(targetStatus),
         },
       });
       if (updated.count !== 1) {
         throw new ConflictException('Order changed concurrently. Reload and try again.');
+      }
+      if (isPendingPaymentTermination(order.status, targetStatus)) {
+        const activePayment = await tx.paymentIntent.findFirst({
+          where: {
+            orderId,
+            status: { in: ['CREATED', 'PENDING', 'PROCESSING', 'SUCCEEDED'] },
+          },
+          select: { paymentNo: true },
+        });
+        if (activePayment) {
+          throw new ConflictException(
+            `Order has an active payment attempt (${activePayment.paymentNo}) and cannot be terminated`,
+          );
+        }
       }
       await tx.orderStatusLog.create({
         data: {
@@ -629,7 +433,7 @@ export class OrdersService {
     const order = await this.prisma.order.findFirst({
       where: {
         id: orderId,
-        ...this.scopeWhere(scope),
+        ...this.queries.scopeWhere(scope),
       },
     });
 
@@ -641,7 +445,7 @@ export class OrdersService {
       return this.getOrderDetail(orderId, scope);
     }
 
-    if (!deletableStatuses.has(order.status)) {
+    if (!isDeletableOrderStatus(order.status)) {
       throw new BadRequestException(
         'Only completed, refunded, cancelled, timed-out, or failed orders can be deleted',
       );
@@ -653,7 +457,7 @@ export class OrdersService {
           id: orderId,
           status: order.status,
           isDeleted: false,
-          ...this.scopeWhere(scope),
+          ...this.queries.scopeWhere(scope),
         },
         data: {
           status: 'DELETED',
@@ -678,197 +482,4 @@ export class OrdersService {
     return this.getOrderDetail(orderId, scope);
   }
 
-  private buildOrderWhere(query: QueryOrdersDto, excludeDeleted = true, scope: OrderScope = {}): Prisma.OrderWhereInput {
-    const createdAt = this.buildDateRange(query.startDate, query.endDate);
-    const where: Prisma.OrderWhereInput = this.scopeWhere(scope);
-
-    if (excludeDeleted) {
-      where.isDeleted = false;
-    }
-
-    if (query.status) {
-      where.status = query.status as OrderStatus;
-      if (query.status === 'DELETED') {
-        delete where.isDeleted;
-      }
-    }
-
-    if (query.orderType) {
-      where.orderType = query.orderType as OrderType;
-    }
-
-    if (query.paymentChannel) {
-      where.paymentChannel = query.paymentChannel as PaymentChannel;
-    }
-
-    if (createdAt) {
-      where.createdAt = createdAt;
-    }
-
-    if (query.keyword?.trim()) {
-      const keyword = query.keyword.trim();
-      where.OR = [
-        {
-          orderNo: {
-            contains: keyword,
-          },
-        },
-        {
-          pickupCode: {
-            contains: keyword,
-          },
-        },
-        {
-          customerName: {
-            contains: keyword,
-          },
-        },
-        {
-          customerMobile: {
-            contains: keyword,
-          },
-        },
-        {
-          remark: {
-            contains: keyword,
-          },
-        },
-      ];
-    }
-
-    return where;
-  }
-
-  private scopeWhere(scope: OrderScope): Prisma.OrderWhereInput {
-    const storeIds = this.stores.resolveStoreIds(scope.storeIds);
-    return {
-      storeId: { in: storeIds },
-      ...(scope.customerUserId ? { customerUserId: scope.customerUserId } : {}),
-    };
-  }
-
-  private buildDateRange(startDate?: string, endDate?: string) {
-    if (!startDate && !endDate) {
-      return undefined;
-    }
-
-    const range: Prisma.DateTimeFilter = {};
-
-    if (startDate) {
-      const parsedStartDate = new Date(startDate);
-      if (Number.isNaN(parsedStartDate.getTime())) {
-        throw new BadRequestException('Invalid startDate');
-      }
-
-      range.gte = parsedStartDate;
-    }
-
-    if (endDate) {
-      const parsedEndDate = new Date(endDate);
-      if (Number.isNaN(parsedEndDate.getTime())) {
-        throw new BadRequestException('Invalid endDate');
-      }
-
-      range.lte = parsedEndDate;
-    }
-
-    return range;
-  }
-
-  private buildStatusTimestampPatch(status: OrderStatus) {
-    const now = new Date();
-
-    switch (status) {
-      case 'PAID':
-        return { paidAt: now };
-      case 'CANCELLED':
-        return { cancelledAt: now };
-      case 'REFUNDING':
-        return { refundingAt: now };
-      case 'REFUNDED':
-        return { refundedAt: now };
-      default:
-        return {};
-    }
-  }
-
-  private mapOrderDetail(
-    order: Prisma.OrderGetPayload<{ include: typeof orderDetailInclude }>,
-  ): OrderDetailContract {
-    return {
-      id: order.id,
-      order_no: order.orderNo,
-      order_source: order.orderSource,
-      pickup_code: order.pickupCode,
-      pickup_business_date: this.toDateOnly(order.pickupBusinessDate),
-      store_id: order.storeId,
-      store_name: order.store.name,
-      store_code: order.store.code,
-      customer_name: order.customerName,
-      customer_mobile: order.customerMobile,
-      delivery_address: order.deliveryAddress,
-      order_type: order.orderType,
-      status: order.status,
-      payment_channel: order.paymentChannel,
-      total_amount: this.toNumber(order.totalAmount),
-      payable_amount: this.toNumber(order.payableAmount),
-      remark: order.remark,
-      item_count: order.items.reduce((sum, item) => sum + item.quantity, 0),
-      is_deleted: order.isDeleted,
-      deleted_at: order.deletedAt?.toISOString() ?? null,
-      paid_at: order.paidAt?.toISOString() ?? null,
-      cancelled_at: order.cancelledAt?.toISOString() ?? null,
-      refunding_at: order.refundingAt?.toISOString() ?? null,
-      refunded_at: order.refundedAt?.toISOString() ?? null,
-      created_at: order.createdAt.toISOString(),
-      updated_at: order.updatedAt.toISOString(),
-      items: order.items.map((item) => ({
-        id: item.id,
-        product_id: item.productId,
-        sku_id: item.skuId,
-        product_name: item.productName,
-        sku_name: item.skuName,
-        unit_price: this.toNumber(item.unitPrice),
-        quantity: item.quantity,
-        subtotal: this.toNumber(item.subtotal),
-        remark: item.remark,
-        selections: item.selections.map((selection) => ({
-          id: selection.id,
-          selection_group_id: selection.selectionGroupId,
-          selection_option_id: selection.selectionOptionId,
-          group_name: selection.groupNameSnapshot,
-          option_name: selection.optionNameSnapshot,
-          option_type: selection.optionType,
-          referenced_sku_id: selection.referencedSkuId,
-          referenced_sku_name: selection.referencedSkuName,
-          price_delta: this.toNumber(selection.priceDelta),
-          quantity: selection.quantity,
-        })),
-      })),
-      status_logs: order.statusLogs.map((log) => ({
-        id: log.id,
-        from_status: log.fromStatus,
-        to_status: log.toStatus,
-        operator_name: log.operatorName,
-        note: log.note,
-        created_at: log.createdAt.toISOString(),
-      })),
-    };
-  }
-
-  private toNumber(value: Prisma.Decimal | number | null | undefined) {
-    if (value == null) {
-      return 0;
-    }
-
-    return Number(value);
-  }
-
-  private toDateOnly(value: Date | null | undefined): string | null {
-    return value ? value.toISOString().slice(0, 10) : null;
-  }
-}
-
-function formatDeliveryAddress(address: UserAddress): string {
-  return `${address.recipientName} ${address.phoneNumber} ${address.provinceName}${address.cityName}${address.countyName}${address.streetName}${address.detailInfo}`;
 }

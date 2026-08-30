@@ -55,7 +55,7 @@
                           :step="1"
                           controls-position="right"
                           @update:model-value="(value) => updateSkuDraftValue(asSku(sku), 'price', value)"
-                          @focus="captureOriginalValue(asSku(sku), 'price')"
+                          @focus="captureSkuValue(asSku(sku), 'price')"
                           @change="queueSkuChange(asSku(sku), 'price')"
                         />
                       </template>
@@ -69,7 +69,7 @@
                           :step="1"
                           controls-position="right"
                           @update:model-value="(value) => updateSkuDraftValue(asSku(sku), 'stock_count', value)"
-                          @focus="captureOriginalValue(asSku(sku), 'stock_count')"
+                          @focus="captureSkuValue(asSku(sku), 'stock_count')"
                           @change="queueSkuChange(asSku(sku), 'stock_count')"
                         />
                       </template>
@@ -229,29 +229,34 @@ import { RefreshCw } from '@lingdian/icons/web'
 import AppForm from '@/components/form/AppForm.vue'
 import AppFormTable from '@/components/form-table/AppFormTable.vue'
 import AppTable from '@/components/table/AppTable.vue'
-import { requestData } from '@/lib/api'
+import {
+  getMerchantProduct,
+  getMerchantProductStats,
+  listMerchantProducts,
+  listMerchantSkuOptions,
+  saveMerchantProductConfig,
+  updateMerchantSkuPrice,
+  updateMerchantSkuStock,
+} from '@/services/products'
 import ProductConfigDialog from './components/ProductConfigDialog.vue'
 import ProductMetricsGrid from './components/ProductMetricsGrid.vue'
+import {
+  captureSkuValue,
+  createPendingSkuChange,
+  formatSkuValue,
+  revertSkuChange,
+  type PendingSkuChange,
+  type SkuField,
+} from './product-inline-edit'
 import type {
   ProductConfigForm,
   ProductListRecord,
-  ProductPage,
   ProductRecord,
   ProductSku,
   ProductSkuOption,
   ProductStats,
   ProductType,
 } from './types'
-
-type SkuField = 'price' | 'stock_count'
-
-interface PendingChange {
-  sku: ProductSku
-  field: SkuField
-  label: string
-  oldValue: number
-  newValue: number
-}
 
 const products = ref<ProductListRecord[]>([])
 const total = ref(0)
@@ -277,11 +282,14 @@ const loading = ref(false)
 const savingInline = ref(false)
 const savingConfig = ref(false)
 const confirmVisible = ref(false)
-const pendingChange = ref<PendingChange | null>(null)
+const pendingChange = ref<PendingSkuChange | null>(null)
 const configDialogOpen = ref(false)
 const activeProductId = ref<string | null>(null)
 const activeProduct = ref<ProductRecord | null>(null)
 const loadingDetailIds = new Set<string>()
+let listRequestSequence = 0
+let configRequestSequence = 0
+let statsRequestSequence = 0
 
 const metrics = computed(() => {
   return [
@@ -315,29 +323,37 @@ function getSelectionGroups(product: ProductListRecord) {
 }
 
 async function fetchProducts() {
+  const requestSequence = ++listRequestSequence
   loading.value = true
 
   try {
-    const params = new URLSearchParams({ page: String(page.value), pageSize: String(pageSize.value) })
-    if (filters.keyword.trim()) params.set('keyword', filters.keyword.trim())
-    if (filters.type) params.set('type', filters.type)
-    const result = await requestData<ProductPage>(`/api/merchant/products?${params.toString()}`)
+    const result = await listMerchantProducts({
+      page: page.value,
+      pageSize: pageSize.value,
+      keyword: filters.keyword,
+      type: filters.type,
+    })
+    if (requestSequence !== listRequestSequence) return
     products.value = result.items
     total.value = result.total
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : 'Product list load failed')
+    if (requestSequence === listRequestSequence) {
+      ElMessage.error(error instanceof Error ? error.message : '商品列表加载失败')
+    }
   } finally {
-    loading.value = false
+    if (requestSequence === listRequestSequence) loading.value = false
   }
 }
 
 async function fetchProductStats() {
-  productStats.value = await requestData<ProductStats>('/api/merchant/products/stats')
+  const requestSequence = ++statsRequestSequence
+  const result = await getMerchantProductStats()
+  if (requestSequence === statsRequestSequence) productStats.value = result
 }
 
 async function fetchSkuOptions(force = false) {
   if (skuOptionsLoaded.value && !force) return
-  externalSkuChoices.value = await requestData<ProductSkuOption[]>('/api/merchant/products/sku-options')
+  externalSkuChoices.value = await listMerchantSkuOptions()
   skuOptionsLoaded.value = true
 }
 
@@ -345,12 +361,12 @@ async function refreshProducts() {
   try {
     await Promise.all([fetchProducts(), fetchProductStats()])
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : 'Product metadata load failed')
+    ElMessage.error(error instanceof Error ? error.message : '商品元数据加载失败')
   }
 }
 
 async function loadProductDetail(productId: string) {
-  const product = await requestData<ProductRecord>(`/api/merchant/products/${productId}`)
+  const product = await getMerchantProduct(productId)
   const index = products.value.findIndex((item) => item.id === productId)
   if (index >= 0) {
     products.value[index] = {
@@ -371,7 +387,7 @@ async function handleExpandChange(row: ProductListRecord, expanded: boolean | Pr
   try {
     await loadProductDetail(row.id)
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : 'Product detail load failed')
+    ElMessage.error(error instanceof Error ? error.message : '商品详情加载失败')
   } finally {
     loadingDetailIds.delete(row.id)
   }
@@ -395,15 +411,17 @@ function handlePageSizeChange() {
 }
 
 async function openConfigDialog(productId: string) {
+  const requestSequence = ++configRequestSequence
   savingConfig.value = false
 
   try {
     const [product] = await Promise.all([loadProductDetail(productId), fetchSkuOptions()])
+    if (requestSequence !== configRequestSequence) return
     activeProductId.value = productId
     activeProduct.value = product
     configDialogOpen.value = true
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : 'Product detail load failed')
+    ElMessage.error(error instanceof Error ? error.message : '商品详情加载失败')
   }
 }
 
@@ -415,13 +433,8 @@ async function saveProductConfig(payload: ProductConfigForm) {
   savingConfig.value = true
 
   try {
-    const product = await requestData<ProductRecord>(`/api/merchant/products/${activeProductId.value}/config`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    })
+    const productId = activeProductId.value
+    const product = await saveMerchantProductConfig(productId, payload)
     const index = products.value.findIndex((item) => item.id === product.id)
     if (index >= 0) {
       products.value[index] = {
@@ -433,43 +446,19 @@ async function saveProductConfig(payload: ProductConfigForm) {
     activeProduct.value = product
     await Promise.allSettled([fetchProductStats(), fetchSkuOptions(true)])
 
-    ElMessage.success('Product config saved')
+    ElMessage.success('商品配置已保存')
     configDialogOpen.value = false
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : 'Product config save failed')
+    ElMessage.error(error instanceof Error ? error.message : '商品配置保存失败')
   } finally {
     savingConfig.value = false
   }
 }
 
-function captureOriginalValue(sku: ProductSku, field: SkuField) {
-  if (field === 'price') {
-    sku._originalPrice = sku.price
-    return
-  }
-
-  sku._originalStock = sku.stock_count
-}
-
 function queueSkuChange(sku: ProductSku, field: SkuField) {
-  if (pendingChange.value) {
-    return
-  }
-
-  const oldValue = field === 'price' ? sku._originalPrice : sku._originalStock
-  const newValue = sku[field]
-
-  if (oldValue === undefined || Number(oldValue) === Number(newValue)) {
-    return
-  }
-
-  pendingChange.value = {
-    sku,
-    field,
-    label: field === 'price' ? '售价' : '库存',
-    oldValue: Number(oldValue),
-    newValue: Number(newValue),
-  }
+  if (pendingChange.value) return
+  pendingChange.value = createPendingSkuChange(sku, field)
+  if (!pendingChange.value) return
   confirmVisible.value = true
 }
 
@@ -479,29 +468,18 @@ async function confirmPendingChange() {
   }
 
   const change = pendingChange.value
-  const endpoint = change.field === 'price' ? '/api/merchant/sku/update-price' : '/api/merchant/sku/update-stock'
-  const payload =
-    change.field === 'price'
-      ? { sku_id: change.sku.id, price: change.newValue }
-      : { sku_id: change.sku.id, stock_count: change.newValue }
-
   savingInline.value = true
 
   try {
-    await requestData<unknown>(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    })
+    if (change.field === 'price') await updateMerchantSkuPrice(change.sku.id, change.newValue)
+    else await updateMerchantSkuStock(change.sku.id, change.newValue)
 
-    ElMessage.success('SKU updated')
+    ElMessage.success('SKU 已更新')
     clearPendingChange()
     await fetchProducts()
   } catch (error) {
     revertPendingChange()
-    ElMessage.error(error instanceof Error ? error.message : 'SKU update failed')
+    ElMessage.error(error instanceof Error ? error.message : 'SKU 更新失败')
   } finally {
     savingInline.value = false
   }
@@ -517,7 +495,7 @@ function revertPendingChange() {
     return
   }
 
-  pendingChange.value.sku[pendingChange.value.field] = pendingChange.value.oldValue
+  revertSkuChange(pendingChange.value)
   clearPendingChange()
 }
 
@@ -527,7 +505,7 @@ function clearPendingChange() {
 }
 
 function formatValue(field: SkuField, value: number) {
-  return field === 'price' ? `¥${value.toFixed(2)}` : `${value}`
+  return formatSkuValue(field, value)
 }
 
 onMounted(refreshProducts)

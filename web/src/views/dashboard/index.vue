@@ -1,11 +1,16 @@
 ﻿<template>
   <div class="grid gap-5">
     <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-      <Card v-for="card in cards" :key="card.label" class="rounded-lg border-border/80">
+      <Card v-for="capability in capabilities" :key="capability.to" class="rounded-lg border-border/80">
         <CardContent class="p-5">
-          <p class="text-sm text-muted-foreground">{{ card.label }}</p>
-          <p class="mt-3 text-2xl font-semibold text-foreground">{{ card.value }}</p>
-          <p class="mt-2 text-xs text-muted-foreground">{{ card.trend }}</p>
+          <div class="flex items-start justify-between gap-3">
+            <p class="font-semibold text-foreground">{{ capability.label }}</p>
+            <Badge variant="secondary">已接入</Badge>
+          </div>
+          <p class="mt-3 text-sm leading-6 text-muted-foreground">{{ capability.description }}</p>
+          <Button as-child variant="link" class="mt-3 px-0">
+            <RouterLink :to="capability.to">进入模块</RouterLink>
+          </Button>
         </CardContent>
       </Card>
     </div>
@@ -13,21 +18,14 @@
     <div class="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
       <Card class="rounded-lg border-border/80">
         <CardHeader>
-          <CardTitle class="text-xl">待办事项</CardTitle>
+          <CardTitle class="text-xl">经营数据</CardTitle>
         </CardHeader>
         <CardContent>
-          <div class="grid gap-3">
-            <div
-              v-for="item in todos"
-              :key="item.title"
-              class="flex items-start justify-between gap-4 rounded-lg border border-border bg-muted/30 p-4"
-            >
-              <div>
-                <p class="text-sm font-semibold text-foreground">{{ item.title }}</p>
-                <p class="mt-1 text-sm leading-6 text-muted-foreground">{{ item.detail }}</p>
-              </div>
-              <Badge :variant="item.variant">{{ item.level }}</Badge>
-            </div>
+          <div class="rounded-lg border border-dashed border-border bg-muted/20 p-6">
+            <p class="font-medium text-foreground">暂未接入经营聚合指标</p>
+            <p class="mt-2 text-sm leading-6 text-muted-foreground">
+              为避免把演示数字误当成真实经营数据，工作台只展示已经接入后端的能力入口。订单与商品数据请进入对应模块查看。
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -55,16 +53,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/baseComponents/card'
 import { RouterLink } from 'vue-router'
 import { dashboardActions } from '@/config/navigation'
 
-const cards = [
-  { label: '今日销售额', value: '¥ 28,640', trend: '较昨日 +12.4%' },
-  { label: '有效订单', value: '1,284', trend: '堂食占比 41%' },
-  { label: '退款单量', value: '19', trend: '退款率 1.48%' },
-  { label: '低库存预警', value: '12', trend: '需尽快补货' },
-]
-
-const todos = [
-  { title: '退款待审核', detail: '当前有 6 笔订单等待店长处理。', level: '高优', variant: 'destructive' as const },
-  { title: '门店暂停营业', detail: '浦东陆家嘴店设置为今日 20:30 提前打烊。', level: '提醒', variant: 'secondary' as const },
-  { title: '库存不足', detail: '鸡腿原料库存低于安全线，影响 3 个 SKU。', level: '紧急', variant: 'outline' as const },
+const capabilities = [
+  { label: '门店信息', description: '查看当前账号唯一可管理的主门店与营业状态。', to: '/stores' },
+  { label: '商品与菜单', description: '维护商品配置、SKU 价格库存与选择组。', to: '/products' },
+  { label: '订单管理', description: '查询订单、查看详情并执行服务端允许的状态流转。', to: '/orders' },
+  { label: '外部集成', description: '查看并启停部署端已经配置的连接器能力。', to: '/settings' },
 ]
 </script>

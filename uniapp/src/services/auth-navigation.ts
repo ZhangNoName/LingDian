@@ -7,6 +7,7 @@ const REGISTERED_CUSTOMER_PATHS = new Set([
   '/pages/checkout/checkout',
   '/pages/his/his',
   '/pages/order-detail/order-detail',
+  '/pages/address/address',
   '/pages/user/user',
 ])
 
@@ -14,6 +15,7 @@ const PROTECTED_CUSTOMER_PATHS = new Set([
   '/pages/checkout/checkout',
   '/pages/his/his',
   '/pages/order-detail/order-detail',
+  '/pages/address/address',
   '/pages/user/user',
 ])
 

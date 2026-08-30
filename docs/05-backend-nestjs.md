@@ -1,6 +1,4 @@
-# 后端：NestJS（历史文件名兼容）
-
-> 文件名沿用早期方案，当前仓库没有 Python/FastAPI 服务。
+# 后端：NestJS
 
 后端工程位于 `backend/`，使用 NestJS 11、Prisma 7、MariaDB 和 TypeScript。`main.ts` 负责安全中间件、校验、统一响应、异常过滤和可选 Swagger；业务按 `src/modules/<domain>/` 组织。
 

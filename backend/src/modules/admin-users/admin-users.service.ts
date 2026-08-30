@@ -53,7 +53,7 @@ export class AdminUsersService {
       AdminUserPolicy.assertCanManage(operator.roles, roles, undefined, operator.userId === userId);
       const disabling = status === 'DISABLED';
       await tx.user.update({ where: { id: userId }, data: { status, ...(disabling ? { sessionVersion: { increment: 1 } } : {}) } });
-      if (disabling) await tx.authSession.updateMany({ where: { userId, status: 'ACTIVE' }, data: { status: 'REVOKED', revokedAt: new Date() } });
+      if (disabling) await tx.authSession.updateMany({ where: { userId, status: 'ACTIVE' }, data: { status: 'REVOKED', activeDeviceKey: null, revokedAt: new Date() } });
       await tx.authAuditLog.create({ data: { event: status === 'DISABLED' ? 'ADMIN_USER_DISABLED' : 'ADMIN_USER_ENABLED', userId, metadata: { operatorId: operator.userId } } });
     });
   }
@@ -106,7 +106,7 @@ export class AdminUsersService {
       if (input.roles || input.storeIds) {
         await tx.userRoleAssignment.deleteMany({ where: { userId } });
         await tx.userRoleAssignment.createMany({ data: roleAssignments(requestedRoles, storeIds).map((assignment) => ({ userId, ...assignment })) });
-        await tx.authSession.updateMany({ where: { userId, status: 'ACTIVE' }, data: { status: 'REVOKED', revokedAt: new Date() } });
+        await tx.authSession.updateMany({ where: { userId, status: 'ACTIVE' }, data: { status: 'REVOKED', activeDeviceKey: null, revokedAt: new Date() } });
       }
       await tx.authAuditLog.create({ data: { event: 'ADMIN_USER_UPDATED', userId, metadata: { operatorId: operator.userId, rolesChanged: Boolean(input.roles), scopeChanged: Boolean(input.storeIds) } } });
     });
@@ -123,7 +123,7 @@ export class AdminUsersService {
       if (!account) throw new BadRequestException('Account identity is required.');
       await tx.passwordCredential.update({ where: { identityId: account.id }, data: { passwordHash, passwordChangedAt: new Date() } });
       await tx.user.update({ where: { id: userId }, data: { mustChangePassword: true, sessionVersion: { increment: 1 } } });
-      await tx.authSession.updateMany({ where: { userId, status: 'ACTIVE' }, data: { status: 'REVOKED', revokedAt: new Date() } });
+      await tx.authSession.updateMany({ where: { userId, status: 'ACTIVE' }, data: { status: 'REVOKED', activeDeviceKey: null, revokedAt: new Date() } });
       await tx.authAuditLog.create({ data: { event: 'ADMIN_USER_PASSWORD_RESET', userId, metadata: { operatorId: operator.userId } } });
     });
   }

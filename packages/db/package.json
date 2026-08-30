@@ -22,6 +22,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "type-check": "tsc --noEmit -p tsconfig.json",
     "prisma:generate": "prisma generate --config prisma.config.ts",
     "prisma:studio": "prisma studio --config prisma.config.ts",
     "prisma:format": "prisma format --config prisma.config.ts",

@@ -40,6 +40,9 @@
           {{ sidebarCollapsed ? '侧栏已收起' : '侧栏已展开' }}
         </Badge>
         <Badge variant="outline" class="rounded-full px-3 py-1 text-xs text-muted-foreground">{{ userLabel }}</Badge>
+        <Button variant="outline" size="sm" :disabled="loggingOut" @click="$emit('logout')">
+          {{ loggingOut ? '退出中…' : '退出登录' }}
+        </Button>
       </div>
     </div>
   </header>
@@ -53,6 +56,7 @@ import { Button } from '@/baseComponents/button'
 defineEmits<{
   (event: 'toggle-desktop-sidebar'): void
   (event: 'open-mobile-navigation'): void
+  (event: 'logout'): void
 }>()
 
 defineProps<{
@@ -61,5 +65,6 @@ defineProps<{
   mobileNavigationOpen: boolean
   storeCount: number
   userLabel: string
+  loggingOut: boolean
 }>()
 </script>

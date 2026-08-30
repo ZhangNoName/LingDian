@@ -6,18 +6,27 @@
     </view>
     <view class="dine-tag">
       <StoreLocationIcon class="tag-icon" aria-hidden="true" />
-      <text>堂食</text>
+      <text>{{ serviceLabel }}</text>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
 import { StoreLocationIcon } from "@lingdian/icons/miniapp";
+import { computed } from "vue";
 import type { StoreSummary } from "@/types/store";
 
-defineProps<{
+const props = defineProps<{
   store: StoreSummary;
 }>();
+
+const serviceLabel = computed(() => {
+  if (props.store.businessStatus !== "open") return "暂停营业";
+  if (props.store.supportModes.includes("dineIn")) return "堂食";
+  if (props.store.supportModes.includes("takeaway")) return "自取";
+  if (props.store.supportModes.includes("delivery")) return "配送";
+  return "暂停服务";
+});
 </script>
 
 <style scoped>

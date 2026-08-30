@@ -1,5 +1,6 @@
 import { customerAuth } from "./auth";
 import { buildAssetUrl } from "../config/api";
+import { usesBrowserCookieTransport } from "@/config/platform";
 import { ApiError, NetworkError, requestApiEnvelope, type HttpMethod } from "@/infra/http/uni-http-client";
 
 type RequestConfig = Omit<UniApp.RequestOptions, "url" | "header" | "method"> & {
@@ -25,7 +26,7 @@ function redirectToLogin(): void {
 
 function requestOnce<T>(path: string, options: RequestConfig): Promise<T> {
   const { method, requiresAuth: _requiresAuth, header: customHeader, ...requestOptions } = options;
-  const token = customerAuth.getAccessToken();
+  const token = options.requiresAuth === false ? undefined : customerAuth.getAccessToken();
   return requestApiEnvelope<T>({
     ...requestOptions,
     path,
@@ -51,12 +52,20 @@ function requestOnce<T>(path: string, options: RequestConfig): Promise<T> {
 }
 
 export async function request<T>(path: string, options: RequestConfig = {}): Promise<T> {
+  const sentAccessToken = options.requiresAuth === false ? undefined : customerAuth.getAccessToken();
   try {
     return await requestOnce<T>(path, options);
   } catch (error) {
     if (!(error instanceof RequestError) || error.statusCode !== 401) throw error;
     if (options.requiresAuth === false) {
       throw error;
+    }
+
+    // A native 401 received for a token that was locally still valid is a
+    // server-side rejection, not ordinary expiry. Do not silently undo logout,
+    // revoke-all, or a security intervention with provider reauthentication.
+    if (sentAccessToken && !usesBrowserCookieTransport()) {
+      customerAuth.blockAutomaticRecovery();
     }
 
     if (!(await customerAuth.refresh())) {
@@ -68,7 +77,8 @@ export async function request<T>(path: string, options: RequestConfig = {}): Pro
       return await requestOnce<T>(path, options);
     } catch (retryError) {
       if (retryError instanceof RequestError && retryError.statusCode === 401) {
-        customerAuth.clear();
+        if (usesBrowserCookieTransport()) customerAuth.clear();
+        else customerAuth.blockAutomaticRecovery();
         redirectToLogin();
       }
       throw retryError;

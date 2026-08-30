@@ -57,7 +57,7 @@ test("order page uses uni-app lifecycle hooks", async () => {
   const orderPage = await readProjectFile("src/pages/order/order.vue");
 
   assert.match(orderPage, /import \{ onLoad, onShow, onUnload \} from "@dcloudio\/uni-app"/);
-  assert.match(orderPage, /onLoad\(loadMenu\)/);
+  assert.match(orderPage, /onLoad\(\(query\) => \{[\s\S]*parseServiceMode\(query\?\.mode\)[\s\S]*void loadMenu\(\)/);
   assert.doesNotMatch(orderPage, /onMounted\(/);
   assert.doesNotMatch(orderPage, /onUnmounted\(/);
 });

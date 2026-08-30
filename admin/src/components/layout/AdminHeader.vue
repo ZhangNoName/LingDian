@@ -1,13 +1,27 @@
 <script setup lang="ts">
 import { Fold, User } from '@lingdian/icons/admin'
 import { computed } from 'vue'
+import { ElMessage } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import { adminSession } from '../../auth/session'
 import ThemeSwitcher from './ThemeSwitcher.vue'
 defineEmits<{ toggle: [] }>()
 const route = useRoute(); const router = useRouter()
 const title = computed(() => String(route.meta.title ?? '管理后台'))
-async function command(value: string) { if (value === 'logout') { await adminSession.logout(); await router.replace('/login') } else await router.push(value) }
+async function command(value: string) {
+  if (value !== 'logout') {
+    await router.push(value)
+    return
+  }
+
+  try {
+    await adminSession.logout()
+  } catch {
+    ElMessage.error('服务端退出失败，本机登录状态已清除，请稍后重试。')
+  } finally {
+    await router.replace('/login')
+  }
+}
 </script>
 
 <template>

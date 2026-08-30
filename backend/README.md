@@ -196,14 +196,21 @@ authentication flow against an isolated MySQL staging database before release.
 
 ### Native uni-app refresh transport
 
-Refresh credentials are never returned in JSON responses. Browsers use the
-HttpOnly refresh cookie; native clients must rely on their platform's
-OS-managed cookie transport for the same cookie. On relaunch the uni-app client
-recreates only the in-memory access token by calling the cookie-backed refresh
-endpoint. It does not write refresh credentials or access tokens to uni-app
-storage, Keychain/Keystore bridges, or any caller-controlled header. A future
-native raw-token transport requires verifiable device attestation and a new
-security review before it can be added.
+Refresh credentials are never returned in JSON responses. H5 uses the
+HttpOnly refresh cookie. WeChat and QQ mini-programs do not rely on cookie
+persistence: after an access token expires or the process relaunches, the
+client obtains a fresh `uni.login` code and calls
+`POST /auth/oauth/:provider/miniapp/session`. The API exchanges that one-time
+platform code, requires an already linked active `USER` identity, and creates a
+new database session. Explicit logout and a server-side 401 block automatic
+recovery until the user signs in again.
+
+Neither refresh credentials nor access tokens are written to uni-app storage,
+Keychain/Keystore bridges, or caller-controlled headers. A future native raw-
+token transport requires verifiable device attestation and a new security
+review. This split follows the documented uni-app transport boundary: the
+[`withCredentials` option applies to H5](https://uniapp.dcloud.net.cn/api/request/request.html),
+not mini-program cookie persistence.
 
 ### Account bootstrap, review, and incidents
 

@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "scripts": {
+    "type-check": "tsc --noEmit -p tsconfig.json"
+  },
   "exports": {
     ".": {
       "types": "./src/index.ts",
@@ -46,5 +49,8 @@
   },
   "peerDependencies": {
     "vue": ">=3.4.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
   }
 }

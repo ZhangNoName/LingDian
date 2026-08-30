@@ -39,3 +39,28 @@ test('channel pickup codes use nullable legacy fields and an atomic per-source s
   assert.match(migration, /CREATE TABLE `pickup_code_sequences`/);
   assert.doesNotMatch(migration, /UPDATE\s+`?orders`?/i, 'legacy orders must not receive invented pickup credentials');
 });
+
+test('payment invariants are preflighted before durable unique indexes are added', async () => {
+  const [schema, migration] = await Promise.all([
+    readFile(new URL('../packages/db/prisma/schema.prisma', import.meta.url), 'utf8'),
+    readFile(new URL(
+      '../packages/db/prisma/migrations/20260830_session_and_payment_invariants/migration.sql',
+      import.meta.url,
+    ), 'utf8'),
+  ]);
+
+  assert.match(schema, /activeOrderKey\s+String\?\s+@unique/);
+  assert.match(schema, /@@unique\(\[provider, accountId, providerTransactionId\]\)/);
+  const activePreflight = migration.indexOf('CREATE TEMPORARY TABLE `_migration_active_payment_order_keys`');
+  const transactionPreflight = migration.indexOf('CREATE TEMPORARY TABLE `_migration_provider_transaction_keys`');
+  const firstDurableAlter = migration.indexOf('DROP INDEX `auth_sessions_userId_audience_device_key`');
+  const globalTransactionIndex = migration.indexOf(
+    'CREATE UNIQUE INDEX `payment_transactions_provider_accountId_providerTransactionId_key`',
+  );
+  assert.ok(activePreflight >= 0 && transactionPreflight > activePreflight);
+  assert.ok(firstDurableAlter > transactionPreflight,
+    'ambiguous legacy payment facts must abort before any durable DDL');
+  assert.ok(globalTransactionIndex > firstDurableAlter);
+  assert.match(migration,
+    /UPDATE `payment_transactions` AS `transaction`[\s\S]*`transaction`\.`provider` = `intent`\.`provider`[\s\S]*`transaction`\.`accountId` = `intent`\.`accountId`/);
+});

@@ -400,6 +400,64 @@ use_release() {
   [[ "$marker" == "$ACTIVE_SHA" ]] || die "Release marker mismatch in $ACTIVE_RELEASE"
 }
 
+prisma_migration_manifest() {
+  local migrations=$1 paths path relative digest top_dirs top_dir migration_count=0
+  [[ -d "$migrations" && ! -L "$migrations" && -r "$migrations" && -x "$migrations" ]] || return 1
+
+  # Capture and check each filesystem operation explicitly. In particular, do
+  # not compare unchecked process substitutions: two failed finds can otherwise
+  # look like two matching empty histories.
+  if ! top_dirs=$(find "$migrations" -mindepth 1 -maxdepth 1 -type d -print | LC_ALL=C sort); then
+    return 1
+  fi
+  while IFS= read -r top_dir; do
+    [[ -n "$top_dir" ]] || continue
+    [[ ! -L "$top_dir" && -r "$top_dir" && -x "$top_dir" &&
+       -f "$top_dir/migration.sql" && ! -L "$top_dir/migration.sql" &&
+       -r "$top_dir/migration.sql" ]] || return 1
+    ((migration_count += 1))
+  done <<<"$top_dirs"
+  (( migration_count > 0 )) || return 1
+
+  if ! paths=$(find "$migrations" -mindepth 1 -print | LC_ALL=C sort); then
+    return 1
+  fi
+  while IFS= read -r path; do
+    [[ -n "$path" ]] || continue
+    relative=${path#"$migrations"/}
+    [[ -n "$relative" && "$relative" != "$path" && "$relative" != *$'\n'* ]] || return 1
+    if [[ -L "$path" ]]; then
+      return 1
+    elif [[ -d "$path" ]]; then
+      [[ -r "$path" && -x "$path" ]] || return 1
+      printf 'D\t%s\n' "$relative"
+    elif [[ -f "$path" ]]; then
+      [[ -r "$path" ]] || return 1
+      digest=$(sha256sum "$path") || return 1
+      digest=${digest%%[[:space:]]*}
+      [[ "$digest" =~ ^[0-9a-fA-F]{64}$ ]] || return 1
+      digest=$(printf '%s' "$digest" | tr 'A-F' 'a-f') || return 1
+      printf 'F\t%s\t%s\n' "$relative" "$digest"
+    else
+      return 1
+    fi
+  done <<<"$paths"
+}
+
+prisma_migration_sets_match() {
+  local left_release=$1 right_release=$2
+  local left_migrations="$left_release/packages/db/prisma/migrations"
+  local right_migrations="$right_release/packages/db/prisma/migrations"
+  local left_manifest right_manifest
+
+  # Application-only rollback is safe only when both retained releases expose
+  # byte-for-byte equivalent, readable Prisma migration trees. Missing, empty,
+  # unreadable, malformed, special-file, or symlinked trees all fail closed.
+  left_manifest=$(prisma_migration_manifest "$left_migrations") || return 1
+  right_manifest=$(prisma_migration_manifest "$right_migrations") || return 1
+  [[ "$left_manifest" == "$right_manifest" ]]
+}
+
 compose() (
   [[ -n ${ACTIVE_RELEASE:-} && -n ${ACTIVE_SHA:-} ]] || die 'No active release selected'
   local profile=() bootstrap_env=${BOOTSTRAP_RUNTIME_ENV:-$API_RUNTIME_ENV}

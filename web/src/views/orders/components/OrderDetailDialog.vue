@@ -52,7 +52,7 @@
           </div>
           <div>
             <span>订单金额</span>
-            <strong>¥{{ order.total_amount.toFixed(2) }}</strong>
+            <strong>¥{{ formatAmount(order.total_amount) }}</strong>
           </div>
           <div>
             <span>应付金额</span>
@@ -166,11 +166,18 @@ import {
   ElTimeline,
   ElTimelineItem,
 } from '@/components/ui/element-plus'
-import type { OrderDetail, OrderStatus, OrderStatusAction, OrderType, PaymentChannel } from '../types'
+import type { OrderDetail, OrderStatus, OrderStatusAction } from '../types'
 import {
+  formatAmount,
+  formatDateTime,
+  orderTypeLabel,
   orderSourceLabel,
+  paymentChannelLabel,
   pickupBusinessDateLabel,
   pickupCodeLabel,
+  statusLabel,
+  statusTagType,
+  timelineType,
 } from '../order-presentation'
 
 const props = defineProps<{
@@ -192,94 +199,6 @@ defineEmits<{
 }>()
 
 const timelineLogs = computed(() => [...(props.order?.status_logs ?? [])].reverse())
-
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  }).format(new Date(value))
-}
-
-function orderTypeLabel(type: OrderType) {
-  return (
-    {
-      DINE_IN: '堂食',
-      TAKEOUT: '外卖',
-      PICKUP: '自取',
-    }[type] ?? type
-  )
-}
-
-function paymentChannelLabel(channel: PaymentChannel) {
-  return (
-    {
-      CASH: '现金',
-      WECHAT: '微信',
-      ALIPAY: '支付宝',
-      CUSTOMER_SCAN: '对方扫码',
-      OTHER: '其他',
-    }[channel] ?? channel
-  )
-}
-
-function statusLabel(status: OrderStatus) {
-  return (
-    {
-      CREATING: '创建中',
-      PENDING_PAYMENT: '待支付',
-      PAID: '已支付',
-      PREPARING: '制作中',
-      READY: '待取餐',
-      COMPLETED: '已完成',
-      TIMED_OUT: '已超时',
-      REFUNDING: '退款中',
-      REFUNDED: '已退款',
-      CANCELLED: '已取消',
-      FAILED: '失败',
-      DELETED: '已删除',
-    }[status] ?? status
-  )
-}
-
-function statusTagType(
-  status: OrderStatus,
-): 'primary' | 'success' | 'warning' | 'danger' | 'info' {
-  const typeMap: Record<OrderStatus, 'primary' | 'success' | 'warning' | 'danger' | 'info'> = {
-    CREATING: 'info',
-    PENDING_PAYMENT: 'warning',
-    PAID: 'success',
-    PREPARING: 'warning',
-    READY: 'success',
-    COMPLETED: 'success',
-    TIMED_OUT: 'info',
-    REFUNDING: 'warning',
-    REFUNDED: 'danger',
-    CANCELLED: 'info',
-    FAILED: 'danger',
-    DELETED: 'info',
-  }
-
-  return typeMap[status]
-}
-
-function timelineType(
-  status: OrderStatus,
-): 'primary' | 'success' | 'warning' | 'danger' | 'info' {
-  const typeMap: Partial<Record<OrderStatus, 'primary' | 'success' | 'warning' | 'danger' | 'info'>> = {
-    PAID: 'success',
-    COMPLETED: 'success',
-    REFUNDING: 'warning',
-    REFUNDED: 'danger',
-    CANCELLED: 'warning',
-    FAILED: 'danger',
-  }
-
-  return typeMap[status] ?? 'primary'
-}
 </script>
 
 <style scoped>

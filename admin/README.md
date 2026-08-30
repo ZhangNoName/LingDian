@@ -22,12 +22,32 @@ corepack pnpm --filter @lingdian/admin build
 ## 路由
 
 - `/login`：管理员登录。
-- `/users`：全平台用户、角色、门店范围和账号状态管理。
+- `/accounts/admins`：平台管理员账号、角色和账号状态管理。
+- `/accounts/merchants`：商家账号、角色、门店范围和账号状态管理。
+- `/accounts/users`：普通用户账号、角色和账号状态管理。
+- `/users`：兼容旧链接，重定向至管理员账号列表。
 - `/system/logs`：系统日志查询与详情。
 - `/profile`：当前管理员个人设置。
 - `/password-change`：临时密码强制修改。
 
 菜单与路由使用同一套角色权限规则。隐藏菜单不代表授权，路由守卫和后端 Guard 会分别执行访问检查。
+
+## 模块与依赖方向
+
+```text
+router / layout
+       │
+       ▼
+views ─► services ─► auth/api-client ─► auth/session ─► backend /api
+  │
+  └────► schema-table / dictionaries / permissions
+```
+
+- `src/auth`：管理员会话、角色权限、令牌刷新和鉴权请求重试。登录只接受 `admin-api` 且包含 `ADMIN` 或 `SUPER_ADMIN` 角色的会话。
+- `src/services`：平台账号和系统日志等业务接口；页面不直接使用无鉴权 `fetch`。
+- `src/components/schema-table`：带搜索、字典、分页和异步格式化能力的通用列表页。
+- `src/dictionaries`：稳定业务值到展示文案的独立映射，不反向依赖页面或服务。
+- `src/views`：页面状态和交互编排；列表请求使用序号防止旧响应覆盖新筛选结果。
 
 ## 主题
 

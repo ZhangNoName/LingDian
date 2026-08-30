@@ -15,6 +15,7 @@
     <view class="body">
       <view class="thumbs">
         <image v-for="thumb in order.productThumbs.slice(0, 3)" :key="thumb" class="thumb" :src="thumb" mode="aspectFill" lazy-load />
+        <view v-if="order.productThumbs.length === 0" class="thumb-empty">商品图片未记录</view>
       </view>
       <view class="summary">
         <text class="price">¥{{ order.totalAmount.toFixed(1) }}</text>
@@ -58,6 +59,7 @@ const statusLabel = computed(() => {
     cancelled: "已取消",
     refunding: "退款中",
     refunded: "已退款",
+    unknown: "状态待刷新",
   };
 
   return labels[props.order.status];
@@ -181,6 +183,17 @@ function formatOrderTime(value: string) {
   height: 84rpx;
   border-radius: var(--ld-radius-8, 8px);
   background: #ffffff;
+}
+
+.thumb-empty {
+  display: grid;
+  width: 196rpx;
+  height: 84rpx;
+  place-items: center;
+  border-radius: var(--ld-radius-8, 8px);
+  background: #f7f7f7;
+  color: #999999;
+  font-size: var(--ld-font-xs, 22rpx);
 }
 
 .summary {

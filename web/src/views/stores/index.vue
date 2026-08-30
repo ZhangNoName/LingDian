@@ -92,16 +92,21 @@ const statusPresentation = computed(() => {
     ? getStoreStatusPresentation(storeState.value.store.status)
     : getStoreStatusPresentation('CLOSED')
 })
+let loadSequence = 0
 
 async function loadStore() {
+  const sequence = ++loadSequence
   loading.value = true
   errorMessage.value = ''
   try {
-    stores.value = await listMerchantStores()
+    const result = await listMerchantStores()
+    if (sequence === loadSequence) stores.value = result
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '门店信息加载失败，请稍后重试。'
+    if (sequence === loadSequence) {
+      errorMessage.value = error instanceof Error ? error.message : '门店信息加载失败，请稍后重试。'
+    }
   } finally {
-    loading.value = false
+    if (sequence === loadSequence) loading.value = false
   }
 }
 

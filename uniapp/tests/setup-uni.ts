@@ -10,6 +10,9 @@ const uniMock = {
   removeStorageSync(key: string) {
     storage.delete(key);
   },
+  getSystemInfoSync() {
+    return { uniPlatform: "web" };
+  },
   reLaunch() {},
 };
 

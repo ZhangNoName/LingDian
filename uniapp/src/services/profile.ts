@@ -1,5 +1,6 @@
 import type { ApiEnvelope, CustomerProfile, UpdateNicknameRequest } from "@lingdian/contracts";
 import { buildApiUrl } from "@/config/api";
+import { usesBrowserCookieTransport } from "@/config/platform";
 import { customerAuth } from "./auth";
 import { request } from "./request";
 
@@ -29,7 +30,14 @@ function uploadAvatarOnce(filePath: string): Promise<CustomerProfile> {
           reject(new AvatarUploadError("头像上传失败，请稍后重试。", response.statusCode));
           return;
         }
-        if (response.statusCode >= 200 && response.statusCode < 300 && envelope.code === 0) {
+        if (
+          response.statusCode >= 200 &&
+          response.statusCode < 300 &&
+          envelope &&
+          typeof envelope === "object" &&
+          envelope.code === 0 &&
+          envelope.data
+        ) {
           resolve(envelope.data);
           return;
         }
@@ -56,12 +64,17 @@ export const profile = {
   },
 
   async uploadAvatar(filePath: string): Promise<CustomerProfile> {
+    const sentAccessToken = customerAuth.getAccessToken();
     try {
       return await uploadAvatarOnce(filePath);
     } catch (error) {
-      if (!(error instanceof AvatarUploadError) || error.statusCode !== 401 || !(await customerAuth.refresh())) {
+      if (!(error instanceof AvatarUploadError) || error.statusCode !== 401) {
         throw error;
       }
+      if (sentAccessToken && !usesBrowserCookieTransport()) {
+        customerAuth.blockAutomaticRecovery();
+      }
+      if (!(await customerAuth.refresh())) throw error;
       return uploadAvatarOnce(filePath);
     }
   },

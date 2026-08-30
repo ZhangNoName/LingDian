@@ -1,4 +1,4 @@
-import type { RES_CODE } from './codes'
+import type { RES_CODE } from './codes.js'
 
 export type ResCodeKey = keyof typeof RES_CODE
 export type ResCodeValue = (typeof RES_CODE)[ResCodeKey]

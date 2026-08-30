@@ -48,6 +48,41 @@ test("delivery order request sends takeout type and the selected address id", as
   });
 });
 
+test("rejects a delivery order without an address before making a request", async () => {
+  const request = vi.fn();
+  Object.assign(uni, { request });
+
+  await expect(createOrderFromCart(directCart, { serviceMode: "delivery" }))
+    .rejects.toThrow("配送订单必须选择收货地址");
+  expect(request).not.toHaveBeenCalled();
+});
+
+test("dine-in order request sends the dine-in order type", async () => {
+  const request = vi.fn((options: UniApp.RequestOptions) => {
+    if (String(options.url).endsWith("/menu/current")) {
+      options.success?.({
+        statusCode: 200,
+        data: { code: 0, data: { store: { id: "store-1", name: "零点店", code: "demo", status: "open", businessHours: "09:00-21:00" }, categories: [] } },
+      } as unknown as UniApp.RequestSuccessCallbackResult);
+    } else {
+      options.success?.({ statusCode: 201, data: { code: 0, data: { id: "order-dine-in" } } } as unknown as UniApp.RequestSuccessCallbackResult);
+    }
+    return { abort() {} } as UniApp.RequestTask;
+  });
+  Object.assign(uni, { request });
+
+  await createOrderFromCart(directCart, {
+    serviceMode: "dineIn",
+    clientRequestId: "checkout-dine-in-1",
+  });
+
+  const orderCall = request.mock.calls.find((call) => String(call[0].url).endsWith("/order/create"));
+  expect(orderCall?.[0].data).toMatchObject({
+    clientRequestId: "checkout-dine-in-1",
+    orderType: "dine_in",
+  });
+});
+
 test("failed order submission keeps the real cart intact", async () => {
   addCartItem({
     id: "product-1", skuId: "sku-1", categoryId: "coffee", name: "拿铁", description: "", imageUrl: "/latte.png",
@@ -98,6 +133,35 @@ test("order history sends pagination parameters and maps the page contract", asy
   assert.equal(result.items[0].orderSource, "MEITUAN_WAIMAI");
   assert.equal(result.items[0].pickupCode, "MT-00021");
   assert.equal(result.items[0].pickupBusinessDate, "2026-08-23");
+  assert.deepEqual(result.items[0].productThumbs, []);
+});
+
+test("preserves dine-in orders instead of presenting them as takeaway", async () => {
+  const request = vi.fn((options: UniApp.RequestOptions) => {
+    options.success?.({
+      statusCode: 200,
+      data: {
+        code: 0,
+        data: {
+          items: [{
+            id: "order-dine-in", order_no: "LD-DINE-IN", store_name: "零点店",
+            order_source: "MINIAPP", pickup_code: "A-001", pickup_business_date: "2026-08-23",
+            customer_name: "顾客", customer_mobile: "13800000000", delivery_address: null,
+            order_type: "DINE_IN", status: "PAID", payment_channel: "CASH", total_amount: 18,
+            payable_amount: 18, remark: null, item_count: 1, item_summary: [],
+            created_at: "2026-08-23T00:00:00.000Z",
+          }],
+          total: 1, page: 1, page_size: 20,
+        },
+      },
+    } as unknown as UniApp.RequestSuccessCallbackResult);
+    return { abort() {} } as UniApp.RequestTask;
+  });
+  Object.assign(uni, { request });
+
+  const result = await fetchOrders();
+
+  assert.equal(result.items[0].serviceMode, "dineIn");
 });
 
 test("order detail shows its source and falls back to the complete order number for historical pickup codes", async () => {
@@ -119,9 +183,14 @@ test("order detail shows its source and falls back to the complete order number 
           order_type: "PICKUP",
           status: "PAID",
           payable_amount: 18,
+          payment_channel: "WECHAT",
           remark: null,
           created_at: "2026-08-23T00:00:00.000Z",
           paid_at: "2026-08-23T00:01:00.000Z",
+          status_logs: [{
+            id: "log-ready", from_status: "PREPARING", to_status: "READY",
+            operator_name: null, note: null, created_at: "2026-08-23T00:10:00.000Z",
+          }],
           items: [],
         },
       },
@@ -130,7 +199,7 @@ test("order detail shows its source and falls back to the complete order number 
   });
   Object.assign(uni, { request });
 
-  const result = await fetchOrderDetail("order-old");
+  const result = await fetchOrderDetail("order-old/with?query");
   const rows = new Map(result.infoRows.map((row) => [row.label, row.value]));
 
   assert.equal(result.orderNo, "LD20260823000021");
@@ -139,4 +208,37 @@ test("order detail shows its source and falls back to the complete order number 
   assert.equal(rows.get("取餐日期"), "2026-08-23");
   assert.equal(rows.get("取餐码"), "LD20260823000021");
   assert.equal(rows.get("订单编号"), "LD20260823000021");
+  assert.equal(rows.get("支付方式"), "微信支付");
+  assert.equal(rows.get("预计取餐时间"), "未记录");
+  assert.equal(rows.get("出餐时间"), "2026-08-23T00:10:00.000Z");
+  assert.deepEqual(result.productThumbs, []);
+  assert.match(String(request.mock.calls[0][0].url), /customer\/orders\/order-old%2Fwith%3Fquery$/);
+});
+
+test("unknown backend statuses stay unknown instead of being presented as unpaid", async () => {
+  const request = vi.fn((options: UniApp.RequestOptions) => {
+    options.success?.({
+      statusCode: 200,
+      data: {
+        code: 0,
+        data: {
+          items: [{
+            id: "order-new-status", order_no: "LD-NEW", store_name: "零点店",
+            order_source: "MINIAPP", pickup_code: null, pickup_business_date: null,
+            customer_name: "顾客", customer_mobile: "13800000000", delivery_address: null,
+            order_type: "PICKUP", status: "AWAITING_CONFIRMATION", payment_channel: "CASH",
+            payable_amount: 18, remark: null, item_count: 1, item_summary: [],
+            created_at: "2026-08-23T00:00:00.000Z",
+          }],
+          total: 1, page: 1, page_size: 20,
+        },
+      },
+    } as unknown as UniApp.RequestSuccessCallbackResult);
+    return { abort() {} } as UniApp.RequestTask;
+  });
+  Object.assign(uni, { request });
+
+  const result = await fetchOrders();
+
+  assert.equal(result.items[0].status, "unknown");
 });

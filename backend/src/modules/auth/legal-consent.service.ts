@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { LEGAL_DOCUMENT_VERSIONS, type LegalConsentInput } from '@lingdian/contracts';
 import type { Prisma } from '@lingdian/db';
 import { PrismaService } from '../../prisma/prisma.service';
-import type { AuthRequestContext } from './auth.service';
+import type { AuthRequestContext } from './auth-request-context';
 import { LegalConsentUpdateRequiredException } from '../../common/exceptions/app.exception';
 
 type ConsentClient = Pick<PrismaService, 'userLegalConsent'> | Prisma.TransactionClient;

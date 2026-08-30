@@ -79,8 +79,7 @@ export const merchantSession = {
   },
 
   async requestPasswordChangeCode(): Promise<void> {
-    const token = this.getAccessToken()
-    if (!token) throw new Error('Please sign in again.')
+    const token = await requireAccessToken()
 
     const response = await fetch(apiUrl('/auth/password/change/code'), {
       method: 'POST',
@@ -92,8 +91,7 @@ export const merchantSession = {
   },
 
   async changePassword(code: string, password: string): Promise<void> {
-    const token = this.getAccessToken()
-    if (!token) throw new Error('Please sign in again.')
+    const token = await requireAccessToken()
 
     const response = await fetch(apiUrl('/auth/password/change'), {
       method: 'POST',
@@ -107,8 +105,7 @@ export const merchantSession = {
   },
 
   async updateNickname(nickname: string): Promise<{ nickname: string }> {
-    const token = this.getAccessToken()
-    if (!token) throw new Error('Please sign in again.')
+    const token = await requireAccessToken()
 
     const response = await fetch(apiUrl('/auth/profile/nickname'), {
       method: 'PATCH',
@@ -135,15 +132,16 @@ export const merchantSession = {
   },
 
   async logout(): Promise<void> {
-    const token = this.getAccessToken()
-
     try {
+      let token = this.getAccessToken()
+      if (!token && currentUser && await this.refresh()) token = this.getAccessToken()
       if (token) {
-        await fetch(apiUrl('/auth/logout'), {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}`, 'X-Device-Id': deviceId() },
-          credentials: 'include',
-        })
+        let response = await postLogout(token)
+        if (response.status === 401 && await this.refresh()) {
+          const refreshedToken = this.getAccessToken()
+          if (refreshedToken) response = await postLogout(refreshedToken)
+        }
+        if (response.status !== 401 && !response.ok) throw new Error('服务端退出失败')
       }
     } finally {
       this.clear()
@@ -153,6 +151,21 @@ export const merchantSession = {
   async ensureAccessToken(): Promise<boolean> {
     return Boolean(this.getAccessToken()) || this.refresh()
   },
+}
+
+async function requireAccessToken(): Promise<string> {
+  let token = merchantSession.getAccessToken()
+  if (!token && await merchantSession.refresh()) token = merchantSession.getAccessToken()
+  if (!token) throw new Error('Please sign in again.')
+  return token
+}
+
+function postLogout(token: string): Promise<Response> {
+  return fetch(apiUrl('/auth/logout'), {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'X-Device-Id': deviceId() },
+    credentials: 'include',
+  })
 }
 
 async function refreshMerchantSession(): Promise<boolean> {

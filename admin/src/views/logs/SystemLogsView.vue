@@ -8,7 +8,7 @@ import {
   type QueryRecord,
   type SchemaAction,
 } from '../../components/schema-table'
-import { getSystemLogs } from '../../services/api'
+import { getSystemLogs } from '../../services/system-logs'
 import LogDetailDrawer from './LogDetailDrawer.vue'
 import { createLogColumns } from './log-columns'
 
@@ -18,6 +18,7 @@ const loading = ref(false)
 const error = ref('')
 const selected = ref<SystemLogRecord>()
 const drawer = ref(false)
+let loadSequence = 0
 const columns = createLogColumns()
 const schemaQuery = computed<QueryRecord>({
   get: () => ({ ...query }),
@@ -30,14 +31,16 @@ const pagination = computed(() => ({
 }))
 
 async function load() {
+  const sequence = ++loadSequence
   loading.value = true
   error.value = ''
   try {
-    result.value = await getSystemLogs(query)
+    const page = await getSystemLogs(query)
+    if (sequence === loadSequence) result.value = page
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : '日志加载失败'
+    if (sequence === loadSequence) error.value = cause instanceof Error ? cause.message : '日志加载失败'
   } finally {
-    loading.value = false
+    if (sequence === loadSequence) loading.value = false
   }
 }
 

@@ -107,6 +107,10 @@ test('production release verifies an immutable bundle and installs validated Ngi
   const installer = await readFile(new URL('../deploy/scripts/install-nginx.sh', import.meta.url), 'utf8');
 
   assert.match(workflow, /sha256sum --check --strict/);
+  assert.match(workflow, /pull_request:/);
+  assert.match(workflow, /if: github\.event_name != 'pull_request'/);
+  assert.match(workflow, /format\('lingdian-pr-\{0\}', github\.event\.pull_request\.number\)/);
+  assert.match(workflow, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}/);
   assert.match(workflow, /printf 'STATE_DIR=%s\/state\\n' "\$ci_dir"/);
   assert.match(workflow, /git --git-dir="\$repository" bundle verify/);
   assert.match(workflow, /bash "\$runner_dir\/deploy\/scripts\/deploy-all\.sh"/);

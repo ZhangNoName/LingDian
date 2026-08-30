@@ -6,7 +6,7 @@
       <view v-if="detail" class="content">
         <view class="status-block">
           <text class="status-title">{{ statusTitle }}</text>
-          <view class="reward">本单获得{{ detail.rewardPoints }}积分</view>
+          <view v-if="detail.rewardPoints != null" class="reward">本单获得{{ detail.rewardPoints }}积分</view>
         </view>
 
         <OrderDetailGoodsCard :detail="detail" />
@@ -45,6 +45,7 @@ const statusTitle = computed(() => {
     cancelled: "订单已取消",
     refunding: "订单退款中",
     refunded: "订单已退款",
+    unknown: "订单状态待刷新",
   };
   return labels[detail.value.status];
 });
@@ -138,4 +139,3 @@ function goMenu() {
   border: 0;
 }
 </style>
-

@@ -52,14 +52,14 @@ import { ElButton, ElDialog, ElFormItem, ElOption, ElSelect } from '@/components
 import { computed, ref, watch } from 'vue'
 import ProductSelectionGroupsEditor from './ProductSelectionGroupsEditor.vue'
 import ProductVariantsEditor from './ProductVariantsEditor.vue'
-import type {
-  ProductConfigForm,
-  ProductRecord,
-  ProductSelectionBindingForm,
-  ProductSelectionGroupForm,
-  ProductVariantForm,
-  SelectionOptionForm,
-} from '../types'
+import {
+  createProductConfigDraft,
+  createProductVariant,
+  createSelectionBinding,
+  createSelectionOption,
+  normalizeProductConfig,
+} from '../product-config'
+import type { ProductConfigForm, ProductRecord } from '../types'
 
 const props = defineProps<{
   open: boolean
@@ -86,98 +86,13 @@ watch(
       return
     }
 
-    draft.value = {
-      type: product.type,
-      variants: product.skus.map((sku) => ({
-        id: sku.id,
-        sku_name: sku.sku_name,
-        price: sku.price,
-        stock_count: sku.stock_count,
-        is_default: sku.is_default,
-        is_active: sku.is_active,
-      })),
-      selection_groups: product.selection_groups.map((binding) => ({
-        id: binding.binding_id,
-        scope: binding.scope,
-        target_variant_id: binding.target_variant_id ?? undefined,
-        sort_order: binding.sort_order,
-        is_enabled: binding.is_enabled,
-        group: {
-          id: binding.group.id,
-          name: binding.group.name,
-          group_type: binding.group.group_type,
-          selection_mode: binding.group.selection_mode,
-          min_select: binding.group.min_select,
-          max_select: binding.group.max_select,
-          is_required: binding.group.is_required,
-          is_active: binding.group.is_active,
-          sort_order: binding.group.sort_order,
-          description: binding.group.description ?? '',
-          options: binding.group.options.map((option) => ({
-            id: option.id,
-            name: option.name,
-            option_type: option.option_type,
-            price_delta: option.price_delta,
-            stock_delta: option.stock_delta,
-            is_default: option.is_default,
-            is_active: option.is_active,
-            sort_order: option.sort_order,
-            referenced_sku_id: option.referenced_sku_id ?? undefined,
-          })),
-        },
-      })),
-    }
+    draft.value = createProductConfigDraft(product)
   },
   { immediate: true },
 )
 
-function createVariant(): ProductVariantForm {
-  return {
-    sku_name: '',
-    price: 0,
-    stock_count: 0,
-    is_default: draft.value?.variants.length === 0,
-    is_active: true,
-  }
-}
-
-function createOption(): SelectionOptionForm {
-  return {
-    name: '',
-    option_type: 'VALUE',
-    price_delta: 0,
-    stock_delta: 0,
-    is_default: false,
-    is_active: true,
-    sort_order: 0,
-  }
-}
-
-function createGroup(): ProductSelectionBindingForm {
-  const nextIndex = draft.value?.selection_groups.length ?? 0
-  const group: ProductSelectionGroupForm = {
-    name: '',
-    group_type: 'MODIFIER',
-    selection_mode: 'SINGLE',
-    min_select: 0,
-    max_select: 1,
-    is_required: false,
-    is_active: true,
-    sort_order: nextIndex,
-    description: '',
-    options: [createOption()],
-  }
-
-  return {
-    scope: 'PRODUCT',
-    sort_order: nextIndex,
-    is_enabled: true,
-    group,
-  }
-}
-
 function addVariant() {
-  draft.value?.variants.push(createVariant())
+  draft.value?.variants.push(createProductVariant(draft.value.variants.length === 0))
 }
 
 function removeVariant(index: number) {
@@ -202,7 +117,8 @@ function setDefaultVariant(index: number) {
 }
 
 function addGroup() {
-  draft.value?.selection_groups.push(createGroup())
+  if (!draft.value) return
+  draft.value.selection_groups.push(createSelectionBinding(draft.value.selection_groups.length))
 }
 
 function removeGroup(index: number) {
@@ -216,7 +132,7 @@ function addOption(groupIndex: number) {
   }
 
   group.group.options.push({
-    ...createOption(),
+    ...createSelectionOption(),
     sort_order: group.group.options.length,
   })
 }
@@ -230,40 +146,8 @@ function removeOption(groupIndex: number, optionIndex: number) {
   group.group.options.splice(optionIndex, 1)
 }
 
-function normalizeDraft() {
-  if (!draft.value) {
-    return null
-  }
-
-  return {
-    type: draft.value.type,
-    variants: draft.value.variants.map((variant, index) => ({
-      ...variant,
-      is_default: variant.is_default || index === 0,
-    })),
-    selection_groups: draft.value.selection_groups.map((binding, bindingIndex) => ({
-      ...binding,
-      sort_order: bindingIndex,
-      group: {
-        ...binding.group,
-        sort_order: bindingIndex,
-        description: binding.group.description || '',
-        options: binding.group.options.map((option, optionIndex) => ({
-          ...option,
-          sort_order: optionIndex,
-        })),
-      },
-    })),
-  }
-}
-
 function submit() {
-  const payload = normalizeDraft()
-  if (!payload) {
-    return
-  }
-
-  emit('save', payload)
+  if (draft.value) emit('save', normalizeProductConfig(draft.value))
 }
 </script>
 

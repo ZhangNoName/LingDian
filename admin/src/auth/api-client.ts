@@ -8,17 +8,20 @@ export async function adminRequest<T>(path: string, init: RequestInit = {}): Pro
 }
 
 async function requestWithRecovery<T>(path: string, init: RequestInit, canRefresh: boolean): Promise<T> {
-  const token = adminSession.getAccessToken()
+  let token = adminSession.getAccessToken()
+  if (!token && await adminSession.ensureAccessToken()) token = adminSession.getAccessToken()
   if (!token) throw new Error('请先登录')
+
+  const headers = new Headers(init.headers)
+  if (!(init.body instanceof FormData) && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json')
+  }
+  headers.set('Authorization', `Bearer ${token}`)
 
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
     credentials: 'include',
-    headers: {
-      ...(init.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
-      Authorization: `Bearer ${token}`,
-      ...init.headers,
-    },
+    headers,
   })
 
   if (response.status === 401 && canRefresh) {

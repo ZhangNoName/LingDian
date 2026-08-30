@@ -96,7 +96,7 @@ it('retries a protected request once after a 401 using the refresh cookie', asyn
   await expect(adminRequest<{ id: string }>('/admin/merchants')).resolves.toEqual({ id: 'merchant-1' })
 
   expect(fetchMock).toHaveBeenCalledTimes(3)
-  expect(fetchMock.mock.calls[2]?.[1]).toMatchObject({ headers: { Authorization: 'Bearer fresh-token' } })
+  expect(new Headers(fetchMock.mock.calls[2]?.[1]?.headers).get('Authorization')).toBe('Bearer fresh-token')
 })
 
 it('clears the session after refresh fails instead of retrying a 401 loop', async () => {
@@ -118,4 +118,59 @@ it('clears the session after refresh fails instead of retrying a 401 loop', asyn
 it('allows merchant management only for a super administrator', () => {
   expect(canManageMerchants(['SUPER_ADMIN', 'ADMIN'])).toBe(true)
   expect(canManageMerchants(['ADMIN'])).toBe(false)
+})
+
+it('rejects a non-admin audience instead of trusting the response payload', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+    code: 0,
+    msg: 'success',
+    data: {
+      access_token: 'merchant-token',
+      expires_in: 900,
+      user: { userId: 'merchant-1', sessionId: 'session-1', audience: 'merchant-api', roles: ['MERCHANT'] },
+    },
+  }), { status: 201 })))
+
+  await expect(adminSession.login('merchant', 'long-password-123')).rejects.toThrow('管理员会话无效')
+  expect(adminSession.getAccessToken()).toBeUndefined()
+})
+
+it('refreshes an expired access token before signing out so the refresh cookie is cleared', async () => {
+  adminSession.acceptLogin({
+    access_token: 'expired-token',
+    expires_in: 0,
+    user: { userId: 'admin-1', sessionId: 'session-1', audience: 'admin-api', roles: ['ADMIN'] },
+  })
+  const fetchMock = vi.fn()
+    .mockResolvedValueOnce(new Response(JSON.stringify({
+      code: 0,
+      msg: 'success',
+      data: {
+        access_token: 'fresh-token',
+        expires_in: 900,
+        user: { userId: 'admin-1', sessionId: 'session-1', audience: 'admin-api', roles: ['ADMIN'] },
+      },
+    }), { status: 201 }))
+    .mockResolvedValueOnce(new Response(null, { status: 204 }))
+  vi.stubGlobal('fetch', fetchMock)
+
+  await adminSession.logout()
+
+  expect(fetchMock).toHaveBeenCalledTimes(2)
+  expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/auth/refresh')
+  expect(fetchMock.mock.calls[1]?.[0]).toBe('/api/auth/logout')
+  expect(new Headers(fetchMock.mock.calls[1]?.[1]?.headers).get('Authorization')).toBe('Bearer fresh-token')
+  expect(adminSession.getAccessToken()).toBeUndefined()
+})
+
+it('reports a server logout failure but still clears the local session', async () => {
+  adminSession.acceptLogin({
+    access_token: 'logout-token',
+    expires_in: 900,
+    user: { userId: 'admin-1', sessionId: 'session-1', audience: 'admin-api', roles: ['ADMIN'] },
+  })
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 503 })))
+
+  await expect(adminSession.logout()).rejects.toThrow('服务端退出失败')
+  expect(adminSession.getAccessToken()).toBeUndefined()
 })

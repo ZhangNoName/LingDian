@@ -9,7 +9,8 @@ export type OrderStatus =
   | "finished"
   | "cancelled"
   | "refunding"
-  | "refunded";
+  | "refunded"
+  | "unknown";
 
 export type OrderSource =
   | "MINIAPP"
@@ -36,7 +37,7 @@ export type OrderSummary = {
 export type OrderDetailItem = {
   id: string;
   name: string;
-  imageUrl: string;
+  imageUrl: string | null;
   quantity: number;
   price: number;
   tag?: string;
@@ -50,13 +51,13 @@ export type OrderInfoRow = {
 };
 
 export type OrderDetail = OrderSummary & {
-  storeAddress: string;
-  rewardPoints: number;
+  storeAddress: string | null;
+  rewardPoints?: number;
   goodsAmount: number;
   discountTitle: string;
   discountAmount: number;
-  expectedTime: string;
-  servedAt: string;
+  expectedTime: string | null;
+  servedAt: string | null;
   paymentMethod: string;
   remark: string;
   items: OrderDetailItem[];

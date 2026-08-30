@@ -2,7 +2,7 @@ import { Inject, Injectable, Optional, UnauthorizedException } from '@nestjs/com
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import type { Prisma } from '@lingdian/db';
-import { createHmac, randomBytes } from 'node:crypto';
+import { createHash, createHmac, randomBytes } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthAudience, AuthenticatedUser, AuthRole } from '../../common/auth/authenticated-user.type';
 import { AUTH_REFRESH_PEPPER } from './verification.service';
@@ -36,6 +36,7 @@ type AccessTokenClaims = {
 };
 
 type SessionWriteClient = PrismaService | Prisma.TransactionClient;
+const SESSION_CREATE_MAX_ATTEMPTS = 3;
 
 @Injectable()
 export class SessionService {
@@ -56,26 +57,34 @@ export class SessionService {
   ): Promise<SessionTokens> {
     const refreshToken = randomBytes(32).toString('base64url');
     const expiresAt = new Date(Date.now() + this.refreshTokenTtlDays * 24 * 60 * 60 * 1000);
-    const session = await client.authSession.upsert({
-      where: { userId_audience_device: { userId: user.id, audience: toDbAudience(audience), device } },
-      create: {
-        userId: user.id,
-        audience: toDbAudience(audience),
-        refreshTokenHash: this.hash(refreshToken),
-        previousRefreshTokenHash: null,
-        refreshTokenHistory: [],
-        device,
-        expiresAt,
-      },
-      update: {
-        refreshTokenHash: this.hash(refreshToken),
-        previousRefreshTokenHash: null,
-        refreshTokenHistory: [],
-        status: 'ACTIVE',
-        revokedAt: null,
-        expiresAt,
-      },
-    });
+    const dbAudience = toDbAudience(audience);
+    const activeDeviceKey = sessionActivityKey(user.id, dbAudience, device);
+    let session: { id: string } | undefined;
+    for (let attempt = 1; attempt <= SESSION_CREATE_MAX_ATTEMPTS; attempt += 1) {
+      const now = new Date();
+      await client.authSession.updateMany({
+        where: { activeDeviceKey, status: 'ACTIVE' },
+        data: { status: 'REVOKED', activeDeviceKey: null, revokedAt: now },
+      });
+      try {
+        session = await client.authSession.create({
+          data: {
+            userId: user.id,
+            audience: dbAudience,
+            activeDeviceKey,
+            refreshTokenHash: this.hash(refreshToken),
+            previousRefreshTokenHash: null,
+            refreshTokenHistory: [],
+            device,
+            expiresAt,
+          },
+        });
+        break;
+      } catch (error) {
+        if (!isPrismaError(error, 'P2002') || attempt === SESSION_CREATE_MAX_ATTEMPTS) throw error;
+      }
+    }
+    if (!session) throw new Error('Session creation retry limit reached.');
     const authenticatedUser = toAuthenticatedUser(user, session.id, audience);
 
     const tokens = {
@@ -169,7 +178,7 @@ export class SessionService {
   async revoke(sessionId: string, context: SessionAuditContext = {}, reason = 'logout'): Promise<void> {
     await this.prisma.authSession.updateMany({
       where: { id: sessionId, status: 'ACTIVE' },
-      data: { status: 'REVOKED', revokedAt: new Date() },
+      data: { status: 'REVOKED', activeDeviceKey: null, revokedAt: new Date() },
     });
     await this.audit?.record({ event: 'SESSION_REVOKED', sessionId, ip: context.ip, device: context.device, metadata: { reason } });
   }
@@ -179,7 +188,7 @@ export class SessionService {
     await this.prisma.$transaction([
       this.prisma.authSession.updateMany({
         where: { userId, status: 'ACTIVE' },
-        data: { status: 'REVOKED', revokedAt: now },
+        data: { status: 'REVOKED', activeDeviceKey: null, revokedAt: now },
       }),
       this.prisma.user.update({ where: { id: userId }, data: { sessionVersion: { increment: 1 } } }),
     ]);
@@ -253,4 +262,16 @@ function appendRefreshTokenHistory(history: unknown, tokenHash: string): string[
   const previous = Array.isArray(history) ? history.filter((value): value is string => typeof value === 'string') : [];
   const next = previous.includes(tokenHash) ? previous : [...previous, tokenHash];
   return next.slice(-32);
+}
+
+function sessionActivityKey(
+  userId: string,
+  audience: 'USER_API' | 'ADMIN_API' | 'MERCHANT_API',
+  device: string,
+): string {
+  return createHash('sha256').update(userId).update('\0').update(audience).update('\0').update(device).digest('hex');
+}
+
+function isPrismaError(error: unknown, code: 'P2002'): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === code;
 }

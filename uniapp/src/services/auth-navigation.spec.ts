@@ -17,6 +17,7 @@ describe('customer authentication navigation', () => {
     expect(isProtectedCustomerRoute('/pages/order/order')).toBe(false)
     expect(isProtectedCustomerRoute('/pages/checkout/checkout')).toBe(true)
     expect(isProtectedCustomerRoute('/pages/his/his')).toBe(true)
+    expect(isProtectedCustomerRoute('/pages/address/address')).toBe(true)
     expect(isProtectedCustomerRoute('/pages/user/user')).toBe(true)
     expect(isProtectedCustomerRoute('/pages/order-detail/order-detail?id=order-1')).toBe(true)
   })
@@ -29,6 +30,7 @@ describe('customer authentication navigation', () => {
 
   it('accepts only registered internal page targets', () => {
     expect(isSafeCustomerReturnUrl('/pages/his/his')).toBe(true)
+    expect(isSafeCustomerReturnUrl('/pages/address/address')).toBe(true)
     expect(isSafeCustomerReturnUrl('/pages/order-detail/order-detail?id=1')).toBe(true)
     expect(isSafeCustomerReturnUrl('//attacker.example')).toBe(false)
     expect(isSafeCustomerReturnUrl('https://attacker.example')).toBe(false)
@@ -50,6 +52,20 @@ describe('customer authentication navigation', () => {
     await expect(requireCustomerAuth('/pages/his/his', auth)).resolves.toBe(false)
     expect(navigateTo).toHaveBeenCalledWith({
       url: '/pages/auth/login?redirect=%2Fpages%2Fhis%2Fhis',
+    })
+  })
+
+  it('preserves the address page when authentication is required there', async () => {
+    const navigateTo = vi.fn()
+    Object.assign(uni, { navigateTo })
+    const auth = {
+      isSignedIn: vi.fn(() => false),
+      refresh: vi.fn(async () => false),
+    }
+
+    await expect(requireCustomerAuth('/pages/address/address', auth)).resolves.toBe(false)
+    expect(navigateTo).toHaveBeenCalledWith({
+      url: '/pages/auth/login?redirect=%2Fpages%2Faddress%2Faddress',
     })
   })
 

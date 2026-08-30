@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "nest start --watch",
     "build": "nest build",
+    "type-check": "tsc --noEmit -p tsconfig.build.json",
     "test": "node --require ts-node/register --test \"src/**/*.spec.ts\"",
     "test:oauth": "node --require ts-node/register --test --test-name-pattern=\"QQ subject|OAuth|PHONE_LINK|state|openid|audits|burn|P2034|bindPending|disabled\" \"src/modules/auth/oauth.service.spec.ts\"",
     "prisma:generate": "pnpm --filter @lingdian/db prisma:generate",

@@ -18,6 +18,7 @@ const emit = defineEmits<{
 
 const expanded = ref(props.defaultExpanded)
 const options = ref<Record<string, readonly DictionaryOption[]>>({})
+let optionsSequence = 0
 const searchColumns = computed(() => props.columns
   .filter((column) => column.isSearch)
   .sort((left, right) => (left.searchOrder ?? 0) - (right.searchOrder ?? 0)))
@@ -31,6 +32,7 @@ function updateField(column: SchemaColumn<Row>, value: unknown): void {
 }
 
 async function loadOptions(): Promise<void> {
+  const sequence = ++optionsSequence
   const resolved: Record<string, readonly DictionaryOption[]> = {}
   await Promise.all(searchColumns.value.map(async (column) => {
     const key = columnKey(column)
@@ -40,7 +42,7 @@ async function loadOptions(): Promise<void> {
       resolved[key] = await dictionaryRegistry.getOptions(column.dictionaryCode)
     }
   }))
-  options.value = resolved
+  if (sequence === optionsSequence) options.value = resolved
 }
 
 onMounted(loadOptions)

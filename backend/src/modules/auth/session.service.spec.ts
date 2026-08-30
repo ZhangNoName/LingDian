@@ -8,6 +8,7 @@ type SessionRecord = {
   id: string;
   userId: string;
   audience: 'USER_API' | 'ADMIN_API';
+  activeDeviceKey: string | null;
   refreshTokenHash: string;
   previousRefreshTokenHash: string | null;
   refreshTokenHistory: string[];
@@ -38,16 +39,11 @@ function createService() {
   };
   const prisma = {
     authSession: {
-      upsert: async ({ create, update }: { create: Omit<SessionRecord, 'id' | 'user'>; update: Partial<SessionRecord> }) => {
-        const existing = sessions.find(
-          (session) =>
-            session.userId === create.userId && session.audience === create.audience && session.device === create.device,
-        );
-        if (existing) {
-          Object.assign(existing, update);
-          return existing;
+      create: async ({ data }: { data: Omit<SessionRecord, 'id' | 'user' | 'status' | 'revokedAt'> }) => {
+        if (data.activeDeviceKey && sessions.some((session) => session.activeDeviceKey === data.activeDeviceKey)) {
+          throw { code: 'P2002' };
         }
-        const { status: _status, revokedAt: _revokedAt, ...persisted } = create;
+        const persisted = data;
         const session = {
           id: `session-${sessions.length + 1}`,
           status: 'ACTIVE' as const,
@@ -66,11 +62,14 @@ function createService() {
         )) ?? null,
       findUnique: async ({ where }: { where: { refreshTokenHash: string } }) =>
         sessions.find((session) => session.refreshTokenHash === where.refreshTokenHash) ?? null,
-      updateMany: async ({ where, data }: { where: { id?: string; userId?: string; status?: 'ACTIVE'; refreshTokenHash?: string; expiresAt?: { gt: Date } }; data: Partial<SessionRecord> }) => {
+      updateMany: async ({ where, data }: { where: { id?: string; userId?: string; audience?: SessionRecord['audience']; activeDeviceKey?: string; device?: string; status?: 'ACTIVE'; refreshTokenHash?: string; expiresAt?: { gt: Date } }; data: Partial<SessionRecord> }) => {
         const matches = sessions.filter(
           (session) =>
             (!where.id || session.id === where.id) &&
             (!where.userId || session.userId === where.userId) &&
+            (!where.audience || session.audience === where.audience) &&
+            (!where.activeDeviceKey || session.activeDeviceKey === where.activeDeviceKey) &&
+            (!where.device || session.device === where.device) &&
             (!where.status || session.status === where.status) &&
             (!where.refreshTokenHash || session.refreshTokenHash === where.refreshTokenHash) &&
             (!where.expiresAt || session.expiresAt > where.expiresAt.gt),
@@ -133,7 +132,8 @@ test('creates both the session and its audit through a supplied transaction clie
   const transactionSessions: unknown[] = [];
   const transactionClient = {
     authSession: {
-      upsert: async (input: unknown) => {
+      updateMany: async () => ({ count: 0 }),
+      create: async (input: unknown) => {
         transactionSessions.push(input);
         return { id: 'transaction-session' };
       },
@@ -182,6 +182,43 @@ test('does not disclose merchant store scopes in a non-merchant audience token',
   const claims = await jwt.verifyAsync(issued.accessToken, { secret: 'a'.repeat(32) });
 
   assert.equal(claims.merchantStoreIds, undefined);
+});
+
+test('same-device login creates a fresh session and keeps the previous access token revoked', async () => {
+  const { jwt, service, sessions } = createService();
+  const first = await service.create(
+    { id: 'user-1', sessionVersion: 4, roles: ['USER'] },
+    'user-api',
+    'device-1',
+  );
+  await service.revoke(first.user.sessionId);
+
+  const second = await service.create(
+    { id: 'user-1', sessionVersion: 4, roles: ['USER'] },
+    'user-api',
+    'device-1',
+  );
+
+  assert.notEqual(second.user.sessionId, first.user.sessionId);
+  assert.equal(sessions[0].status, 'REVOKED');
+  assert.equal(sessions[1].status, 'ACTIVE');
+  const firstClaims = await jwt.verifyAsync(first.accessToken, { secret: 'a'.repeat(32) });
+  assert.equal(firstClaims.sid, sessions[0].id);
+  assert.notEqual(firstClaims.sid, second.user.sessionId);
+});
+
+test('concurrent same-device logins converge to one active database session', async () => {
+  const { service, sessions } = createService();
+
+  const results = await Promise.all([
+    service.create({ id: 'user-1', sessionVersion: 4, roles: ['USER'] }, 'user-api', 'device-1'),
+    service.create({ id: 'user-1', sessionVersion: 4, roles: ['USER'] }, 'user-api', 'device-1'),
+  ]);
+
+  assert.equal(results.length, 2);
+  assert.equal(sessions.filter((session) => session.status === 'ACTIVE').length, 1);
+  assert.equal(sessions.filter((session) => session.activeDeviceKey !== null).length, 1);
+  assert.equal(new Set(results.map((result) => result.user.sessionId)).size, 2);
 });
 
 test('refresh rejects an inactive, expired, or disabled session', async () => {

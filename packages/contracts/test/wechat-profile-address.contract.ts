@@ -3,9 +3,9 @@ import type {
   CustomerProfile,
   UserAddress,
   WechatMiniProgramPhoneLoginRequest,
-} from './auth';
-import { LEGAL_DOCUMENT_VERSIONS } from './auth';
-import type { OrderSummaryContract } from './order';
+} from '../src/auth';
+import { LEGAL_DOCUMENT_VERSIONS } from '../src/auth';
+import type { OrderSummaryContract } from '../src/order';
 
 export function constructWechatProfileAddressContracts() {
   const login = {

@@ -34,7 +34,13 @@
           />
         </label>
 
-        <p v-if="statusMessage" class="text-sm text-red-600" role="alert" aria-live="assertive">{{ statusMessage }}</p>
+        <p
+          v-if="statusMessage"
+          class="text-sm"
+          :class="hasError ? 'text-red-600' : 'text-emerald-600'"
+          :role="hasError ? 'alert' : 'status'"
+          :aria-live="hasError ? 'assertive' : 'polite'"
+        >{{ statusMessage }}</p>
 
         <button
           type="submit"
@@ -57,6 +63,7 @@ import { ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { merchantSession } from '@/auth/session'
 import { merchantLoginPasswordMinimum } from '@/auth/password-policy'
+import { safeInternalRedirect } from '@/auth/redirect'
 import { getMerchantAuthMessage } from '@/auth/user-message'
 
 const router = useRouter()
@@ -64,17 +71,19 @@ const route = useRoute()
 const username = ref('')
 const password = ref('')
 const loggingIn = ref(false)
-const statusMessage = ref('')
+const statusMessage = ref(typeof route.query.message === 'string' ? route.query.message : '')
+const hasError = ref(false)
 
 async function login(): Promise<void> {
   loggingIn.value = true
   statusMessage.value = ''
+  hasError.value = false
 
   try {
     await merchantSession.login(username.value, password.value)
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
-    await router.replace(redirect)
+    await router.replace(safeInternalRedirect(route.query.redirect))
   } catch (error) {
+    hasError.value = true
     statusMessage.value = getMerchantAuthMessage(error)
   } finally {
     loggingIn.value = false

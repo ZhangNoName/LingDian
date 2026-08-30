@@ -6,13 +6,13 @@
         v-for="option in group.options"
         :key="option.id"
         class="card"
-        :class="{ active: selectedId === option.id }"
+        :class="{ active: selectedIds.includes(option.id) }"
         @tap="$emit('select', group.id, option.id)"
       >
         <image v-if="option.imageUrl" class="image" :src="option.imageUrl" mode="aspectFill" />
         <SkeletonBox v-else class="image" radius="md" />
         <text class="name">{{ option.name }}</text>
-        <view class="radio"><text v-if="selectedId === option.id">✓</text></view>
+        <view class="radio"><text v-if="selectedIds.includes(option.id)">✓</text></view>
       </view>
     </view>
   </view>
@@ -24,7 +24,7 @@ import type { OptionGroup } from "@/types/menu";
 
 defineProps<{
   group: OptionGroup;
-  selectedId?: string;
+  selectedIds: string[];
 }>();
 
 defineEmits<{

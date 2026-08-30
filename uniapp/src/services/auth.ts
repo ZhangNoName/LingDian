@@ -1,8 +1,10 @@
 import type { AuthTokens, AuthenticatedUser, LegalConsentInput, PendingOAuthResponse } from "@lingdian/contracts";
 import { ApiError, NetworkError, requestApiEnvelope } from "@/infra/http/uni-http-client";
+import { miniProgramAuthProvider, usesBrowserCookieTransport } from "@/config/platform";
 import { getCustomerAuthMessage } from "./auth-message";
 const DEMO_TOKEN_KEY = "lingdian_demo_token";
 const DEVICE_STORAGE_KEY = "lingdian_customer_device_id";
+const AUTO_RECOVERY_BLOCKED_KEY = "lingdian_customer_auto_recovery_blocked";
 
 export type ThirdPartyProvider = "WECHAT" | "QQ";
 
@@ -84,7 +86,12 @@ export async function beginMiniProgramThirdPartyLogin(provider: ThirdPartyProvid
 
 export const customerAuth = {
   acceptLogin(tokens: AuthTokens): void {
+    if (tokens.user.audience !== "user-api" || !tokens.user.roles.includes("USER")) {
+      this.clear();
+      throw new Error("登录响应不属于顾客端，已拒绝建立会话。");
+    }
     forgetDemoToken();
+    uni.removeStorageSync(AUTO_RECOVERY_BLOCKED_KEY);
     accessToken = tokens.access_token;
     accessTokenExpiresAt = Date.now() + tokens.expires_in * 1000;
     currentUser = tokens.user;
@@ -110,10 +117,15 @@ export const customerAuth = {
     currentUser = undefined;
   },
 
+  blockAutomaticRecovery(): void {
+    this.clear();
+    uni.setStorageSync(AUTO_RECOVERY_BLOCKED_KEY, true);
+  },
+
   async sendCode(phone: string, purpose: SendCodePurpose = "PHONE_LOGIN"): Promise<void> {
     await authRequest("/auth/codes", {
       method: "POST",
-      data: { phone, purpose, deviceId: "uniapp" },
+      data: { phone, purpose, deviceId: deviceId() },
     });
   },
 
@@ -156,6 +168,7 @@ export const customerAuth = {
   },
 
   async refresh(): Promise<boolean> {
+    if (uni.getStorageSync(AUTO_RECOVERY_BLOCKED_KEY) === true) return false;
     if (refreshPromise) return refreshPromise;
     refreshPromise = refreshCustomerSession().finally(() => {
       refreshPromise = undefined;
@@ -164,8 +177,10 @@ export const customerAuth = {
   },
 
   async logout(): Promise<void> {
-    const token = this.getAccessToken();
+    const hadLocalSession = Boolean(accessToken || currentUser);
+    let token = this.getAccessToken();
     try {
+      if (!token && hadLocalSession && await this.refresh()) token = this.getAccessToken();
       if (token) {
         await authRequest<void>("/auth/logout", {
           method: "POST",
@@ -173,7 +188,7 @@ export const customerAuth = {
         });
       }
     } finally {
-      this.clear();
+      this.blockAutomaticRecovery();
     }
   },
 
@@ -190,14 +205,28 @@ export const customerAuth = {
 };
 
 async function refreshCustomerSession(): Promise<boolean> {
-    try {
-      const tokens = await authRequest<AuthTokens>("/auth/refresh", { method: "POST", data: {} });
-      customerAuth.acceptLogin(tokens);
-      return true;
-    } catch {
+  try {
+    let tokens: AuthTokens;
+    if (usesBrowserCookieTransport()) {
+      tokens = await authRequest<AuthTokens>("/auth/refresh", { method: "POST", data: {} });
+    } else {
+      const provider = miniProgramAuthProvider();
+      if (!provider) {
+        customerAuth.clear();
+        return false;
+      }
+      const code = await loginWithProvider(provider);
+      tokens = await authRequest<AuthTokens>(`/auth/oauth/${provider.toLowerCase()}/miniapp/session`, {
+        method: "POST",
+        data: { code, audience: "user-api" },
+      });
+    }
+    customerAuth.acceptLogin(tokens);
+    return true;
+  } catch {
       customerAuth.clear();
       return false;
-    }
+  }
 }
 
 function deviceId(): string {

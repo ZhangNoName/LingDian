@@ -6,7 +6,7 @@
         <MemberStrip :presentation="customerPresentation" @login="goLogin" />
       </view>
       <view class="content">
-        <ServiceModeCards :modes="homeServiceModes" @select="goMenu" />
+        <ServiceModeCards :modes="availableServiceModes" @select="goMenu" />
         <RecommendSection :products="featuredProducts" @browse="goMenu" @select="goSpec" />
       </view>
     </scroll-view>
@@ -22,10 +22,11 @@ import HomeHero from "@/components/home/HomeHero.vue";
 import MemberStrip from "@/components/home/MemberStrip.vue";
 import RecommendSection from "@/components/home/RecommendSection.vue";
 import ServiceModeCards from "@/components/home/ServiceModeCards.vue";
-import { homeServiceModes } from "@/data/mock";
+import { homeServiceModes } from "@/data/home-service-modes";
 import { customerAuth } from "@/services/auth";
 import { fetchMenu, type MenuViewModel } from "@/services/catalog";
 import { buildCustomerPresentation } from "@/services/customer-presentation";
+import { buildServiceModeUrl } from "@/services/service-mode";
 import type { ServiceMode } from "@/types/store";
 
 const menu = ref<MenuViewModel | null>(null);
@@ -33,6 +34,12 @@ const currentUser = ref<AuthenticatedUser | undefined>(customerAuth.getUser());
 
 const featuredProducts = computed(() => {
   return (menu.value?.products ?? []).filter((product) => product.tags.includes("推荐")).slice(0, 6);
+});
+const availableServiceModes = computed(() => {
+  const supportedModes = menu.value?.store.supportModes;
+  return supportedModes
+    ? homeServiceModes.filter((mode) => supportedModes.includes(mode.key))
+    : homeServiceModes;
 });
 const customerPresentation = computed(() => buildCustomerPresentation(currentUser.value));
 
@@ -49,12 +56,18 @@ onShow(async () => {
   currentUser.value = customerAuth.getUser();
 });
 
-function goMenu(_mode?: ServiceMode) {
-  uni.redirectTo({ url: "/pages/order/order" });
+function selectedOrDefaultMode(mode?: ServiceMode): ServiceMode {
+  return mode ?? availableServiceModes.value[0]?.key ?? "takeaway";
+}
+
+function goMenu(mode?: ServiceMode) {
+  uni.redirectTo({ url: buildServiceModeUrl("/pages/order/order", selectedOrDefaultMode(mode)) });
 }
 
 function goSpec(productId: string) {
-  uni.navigateTo({ url: `/pages/spec/spec?id=${productId}` });
+  uni.navigateTo({
+    url: buildServiceModeUrl("/pages/spec/spec", selectedOrDefaultMode(), { id: productId }),
+  });
 }
 
 function goLogin() {

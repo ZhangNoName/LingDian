@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dashboardActions, navigationItems } from './navigation'
+import { createNavigationItems, dashboardActions, navigationItems } from './navigation'
 
 describe('dashboard actions', () => {
   it('links every quick action to an existing merchant navigation destination', () => {
@@ -14,5 +14,10 @@ describe('dashboard actions', () => {
       label: '门店设置',
       caption: '当前门店信息与营业状态',
     })
+  })
+
+  it('hides planned modules from the production navigation by default', () => {
+    expect(navigationItems.map((item) => item.to)).not.toContain('/members')
+    expect(createNavigationItems(true).map((item) => item.to)).toContain('/members')
   })
 })

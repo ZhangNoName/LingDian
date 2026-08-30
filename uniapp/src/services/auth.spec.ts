@@ -17,30 +17,82 @@ const legalConsent = {
 afterEach(() => {
   customerAuth.clear();
   uni.removeStorageSync("lingdian_demo_token");
+  uni.removeStorageSync("lingdian_customer_auto_recovery_blocked");
   vi.restoreAllMocks();
   vi.unstubAllEnvs();
 });
 
-test("recovers a native session after relaunch through its OS-managed cookie transport without storing a raw refresh token", async () => {
+test("recovers a linked WeChat mini-program session with a fresh platform login code", async () => {
+  vi.spyOn(uni, "getSystemInfoSync").mockReturnValue({
+    uniPlatform: "mp-weixin",
+  } as unknown as ReturnType<typeof uni.getSystemInfoSync>);
   const request = vi.fn((options: UniApp.RequestOptions) => {
-    const refresh = request.mock.calls.length > 1;
+    const recovery = String(options.url).endsWith("/auth/oauth/wechat/miniapp/session");
     options.success?.({
       statusCode: 201,
-      data: { code: 0, data: { access_token: refresh ? "recovered-access" : "initial-access", expires_in: 900, user: userProfile } },
+      data: { code: 0, data: { access_token: recovery ? "recovered-access" : "initial-access", expires_in: 900, user: userProfile } },
     } as unknown as UniApp.RequestSuccessCallbackResult);
     return { abort() {} } as UniApp.RequestTask;
   });
-  Object.assign(uni, { request });
+  let loginCalls = 0;
+  Object.assign(uni, {
+    request,
+    login(options: UniApp.LoginOptions) {
+      loginCalls += 1;
+      options.success?.({ code: `mini-login-${loginCalls}`, errMsg: "login:ok" } as UniApp.LoginRes);
+      return {} as UniApp.LoginRes;
+    },
+  });
 
-  await customerAuth.phoneLogin("13800000000", "123456", legalConsent);
+  await customerAuth.wechatPhoneLogin("phone-code", legalConsent);
   assert.equal(customerAuth.getAccessToken(), "initial-access");
 
   await customerAuth.recoverAfterRelaunch();
 
   assert.equal(customerAuth.getAccessToken(), "recovered-access");
-  assert.equal(request.mock.calls[1][0].header?.["x-auth-client"], undefined);
-  assert.deepEqual(request.mock.calls[1][0].data, {});
+  assert.match(String(request.mock.calls[1][0].url), /\/auth\/oauth\/wechat\/miniapp\/session$/);
+  assert.deepEqual(request.mock.calls[1][0].data, { code: "mini-login-2", audience: "user-api" });
+  assert.equal(request.mock.calls[1][0].withCredentials, false);
   assert.equal(uni.getStorageSync("lingdian_refresh_credential"), "");
+});
+
+test("uses the HttpOnly cookie refresh endpoint only on H5", async () => {
+  vi.spyOn(uni, "getSystemInfoSync").mockReturnValue({
+    uniPlatform: "web",
+  } as unknown as ReturnType<typeof uni.getSystemInfoSync>);
+  const request = vi.fn((options: UniApp.RequestOptions) => {
+    options.success?.({
+      statusCode: 201,
+      data: { code: 0, data: { access_token: "browser-access", expires_in: 900, user: userProfile } },
+    } as unknown as UniApp.RequestSuccessCallbackResult);
+    return { abort() {} } as UniApp.RequestTask;
+  });
+  Object.assign(uni, { request });
+
+  assert.equal(await customerAuth.recoverAfterRelaunch(), true);
+  assert.match(String(request.mock.calls[0][0].url), /\/auth\/refresh$/);
+  assert.deepEqual(request.mock.calls[0][0].data, {});
+  assert.equal(request.mock.calls[0][0].withCredentials, true);
+});
+
+test("does not silently recreate a native session after explicit logout", async () => {
+  vi.spyOn(uni, "getSystemInfoSync").mockReturnValue({
+    uniPlatform: "mp-weixin",
+  } as unknown as ReturnType<typeof uni.getSystemInfoSync>);
+  customerAuth.acceptLogin({ access_token: "native-access", expires_in: 900, user: userProfile });
+  const request = vi.fn((options: UniApp.RequestOptions) => {
+    options.success?.({ statusCode: 204, data: undefined } as unknown as UniApp.RequestSuccessCallbackResult);
+    return { abort() {} } as UniApp.RequestTask;
+  });
+  const login = vi.fn();
+  Object.assign(uni, { request, login });
+
+  await customerAuth.logout();
+
+  assert.equal(await customerAuth.recoverAfterRelaunch(), false);
+  assert.equal(request.mock.calls.length, 1);
+  assert.match(String(request.mock.calls[0][0].url), /\/auth\/logout$/);
+  assert.equal(login.mock.calls.length, 0);
 });
 
 test("replaces the demo token with an authenticated access token", () => {
@@ -52,6 +104,22 @@ test("replaces the demo token with an authenticated access token", () => {
   assert.equal(customerAuth.getAccessToken(), "jwt");
 });
 
+test("rejects cross-audience or non-customer sessions", () => {
+  customerAuth.acceptLogin({ access_token: "existing-jwt", expires_in: 900, user: userProfile });
+  expect(() => customerAuth.acceptLogin({
+    access_token: "admin-jwt",
+    expires_in: 900,
+    user: { ...userProfile, audience: "admin-api", roles: ["ADMIN"] },
+  })).toThrow("不属于顾客端");
+  expect(() => customerAuth.acceptLogin({
+    access_token: "merchant-jwt",
+    expires_in: 900,
+    user: { ...userProfile, audience: "user-api", roles: ["MERCHANT"] },
+  })).toThrow("不属于顾客端");
+  assert.equal(customerAuth.getAccessToken(), undefined);
+  assert.equal(customerAuth.getUser(), undefined);
+});
+
 test("sends a phone-login code through the customer endpoint", async () => {
   const request = vi.fn((options: UniApp.RequestOptions) => {
     options.success?.({ statusCode: 201, data: { code: 0, data: { messageId: "code-1" } } } as unknown as UniApp.RequestSuccessCallbackResult);
@@ -61,11 +129,15 @@ test("sends a phone-login code through the customer endpoint", async () => {
 
   await customerAuth.sendCode("13800000000");
 
-  assert.deepEqual(request.mock.calls[0][0].data, {
+  const options = request.mock.calls[0][0];
+  const data = options.data as { phone: string; purpose: string; deviceId: string };
+  assert.deepEqual(data, {
     phone: "13800000000",
     purpose: "PHONE_LOGIN",
-    deviceId: "uniapp",
+    deviceId: data.deviceId,
   });
+  assert.match(data.deviceId, /^customer-/);
+  assert.equal(options.header?.["X-Device-Id"], data.deviceId);
 });
 
 test("accepts a customer session after a phone login", async () => {
@@ -132,6 +204,45 @@ test("treats a 204 logout response as a successful logout", async () => {
 
   assert.equal(customerAuth.getAccessToken(), undefined);
   assert.equal(request.mock.calls[0][0].header?.Authorization, "Bearer jwt");
+});
+
+test("refreshes an expired customer token before revoking the server session", async () => {
+  customerAuth.acceptLogin({ access_token: "expired-jwt", expires_in: 0, user: userProfile });
+  const request = vi.fn((options: UniApp.RequestOptions) => {
+    if (String(options.url).endsWith("/auth/refresh")) {
+      options.success?.({
+        statusCode: 201,
+        data: { code: 0, data: { access_token: "refreshed-jwt", expires_in: 900, user: userProfile } },
+      } as unknown as UniApp.RequestSuccessCallbackResult);
+    } else {
+      options.success?.({ statusCode: 204, data: undefined } as unknown as UniApp.RequestSuccessCallbackResult);
+    }
+    return { abort() {} } as UniApp.RequestTask;
+  });
+  Object.assign(uni, { request });
+
+  await customerAuth.logout();
+
+  assert.match(String(request.mock.calls[0][0].url), /\/auth\/refresh$/);
+  assert.match(String(request.mock.calls[1][0].url), /\/auth\/logout$/);
+  assert.equal(request.mock.calls[1][0].header?.Authorization, "Bearer refreshed-jwt");
+  assert.equal(customerAuth.getAccessToken(), undefined);
+});
+
+test("clears an expired local session even when refresh fails during logout", async () => {
+  customerAuth.acceptLogin({ access_token: "expired-jwt", expires_in: 0, user: userProfile });
+  const request = vi.fn((options: UniApp.RequestOptions) => {
+    options.fail?.({ errMsg: "request:fail offline" } as UniApp.GeneralCallbackResult);
+    return { abort() {} } as UniApp.RequestTask;
+  });
+  Object.assign(uni, { request });
+
+  await expect(customerAuth.logout()).resolves.toBeUndefined();
+
+  assert.equal(request.mock.calls.length, 1);
+  assert.match(String(request.mock.calls[0][0].url), /\/auth\/refresh$/);
+  assert.equal(customerAuth.getAccessToken(), undefined);
+  assert.equal(customerAuth.getUser(), undefined);
 });
 
 test("sends a uni.login code to the mini-program callback endpoint and receives only a pending binding", async () => {

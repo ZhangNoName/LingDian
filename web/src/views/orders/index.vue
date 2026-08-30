@@ -192,21 +192,36 @@ import { RefreshCw } from '@lingdian/icons/web'
 import AppForm from '@/components/form/AppForm.vue'
 import AppFormTable from '@/components/form-table/AppFormTable.vue'
 import AppTable from '@/components/table/AppTable.vue'
-import { requestData } from '@/lib/api'
+import {
+  deleteMerchantOrder,
+  getMerchantOrder,
+  listMerchantOrders,
+  summarizeMerchantOrders,
+  updateMerchantOrderStatus,
+} from '@/services/orders'
 import OrderDetailDialog from './components/OrderDetailDialog.vue'
 import OrderMetricsGrid from './components/OrderMetricsGrid.vue'
-import { orderSourceLabel, pickupCodeLabel } from './order-presentation'
+import {
+  canDeleteOrderStatus,
+  formatDateTime,
+  orderSourceLabel,
+  orderStatusActions,
+  orderTypeLabel,
+  orderTypeOptions,
+  paymentChannelLabel,
+  paymentChannelOptions,
+  pickupCodeLabel,
+  statusLabel,
+  statusOptions,
+  statusTagType,
+} from './order-presentation'
 import type {
   OrderDetail,
   OrderFilters,
   OrderListItem,
-  OrderPageResponse,
   OrderStatus,
-  OrderStatusAction,
   OrderSummaryMetric,
   OrderSummaryResponse,
-  OrderType,
-  PaymentChannel,
 } from './types'
 
 const loading = ref(false)
@@ -220,6 +235,8 @@ const total = ref(0)
 const activeOrder = ref<OrderDetail | null>(null)
 const detailDialogOpen = ref(false)
 const actionNote = ref('')
+let listRequestSequence = 0
+let detailRequestSequence = 0
 const summary = ref<OrderSummaryResponse>({
   total_count: 0,
   pending_payment_count: 0,
@@ -237,35 +254,6 @@ const filters = reactive<OrderFilters>({
   dateRange: [],
 })
 
-const statusOptions: Array<{ label: string; value: OrderStatus }> = [
-  { label: '创建中', value: 'CREATING' },
-  { label: '待支付', value: 'PENDING_PAYMENT' },
-  { label: '已支付', value: 'PAID' },
-  { label: '制作中', value: 'PREPARING' },
-  { label: '待取餐', value: 'READY' },
-  { label: '已完成', value: 'COMPLETED' },
-  { label: '已超时', value: 'TIMED_OUT' },
-  { label: '退款中', value: 'REFUNDING' },
-  { label: '已退款', value: 'REFUNDED' },
-  { label: '已取消', value: 'CANCELLED' },
-  { label: '失败', value: 'FAILED' },
-  { label: '已删除', value: 'DELETED' },
-]
-
-const orderTypeOptions: Array<{ label: string; value: OrderType }> = [
-  { label: '堂食', value: 'DINE_IN' },
-  { label: '外卖', value: 'TAKEOUT' },
-  { label: '自取', value: 'PICKUP' },
-]
-
-const paymentChannelOptions: Array<{ label: string; value: PaymentChannel }> = [
-  { label: '现金', value: 'CASH' },
-  { label: '微信', value: 'WECHAT' },
-  { label: '支付宝', value: 'ALIPAY' },
-  { label: '对方扫码', value: 'CUSTOMER_SCAN' },
-  { label: '其他', value: 'OTHER' },
-]
-
 const metrics = computed<OrderSummaryMetric[]>(() => [
   { label: '订单总数', value: summary.value.total_count, note: '当前筛选范围内的订单量' },
   { label: '待支付', value: summary.value.pending_payment_count, note: '需要尽快确认付款' },
@@ -279,204 +267,53 @@ const metrics = computed<OrderSummaryMetric[]>(() => [
   },
 ])
 
-const detailActions = computed<OrderStatusAction[]>(() => {
-  const status = activeOrder.value?.status
-
-  if (!status) {
-    return []
-  }
-
-  const actionsByStatus: Record<OrderStatus, OrderStatusAction[]> = {
-    CREATING: [
-      { label: '转待支付', value: 'PENDING_PAYMENT', type: 'primary' },
-      { label: '标记取消', value: 'CANCELLED', type: 'warning' },
-      { label: '标记失败', value: 'FAILED', type: 'danger' },
-    ],
-    PENDING_PAYMENT: [
-      { label: '标记已支付', value: 'PAID', type: 'success' },
-      { label: '标记超时', value: 'TIMED_OUT', type: 'warning' },
-      { label: '取消订单', value: 'CANCELLED', type: 'info' },
-      { label: '标记失败', value: 'FAILED', type: 'danger' },
-    ],
-    PAID: [
-      { label: '进入制作', value: 'PREPARING', type: 'primary' },
-      { label: '待取餐', value: 'READY', type: 'primary' },
-      { label: '已完成', value: 'COMPLETED', type: 'success' },
-      { label: '发起退款', value: 'REFUNDING', type: 'warning' },
-      { label: '直接退款', value: 'REFUNDED', type: 'danger' },
-    ],
-    PREPARING: [
-      { label: '待取餐', value: 'READY', type: 'primary' },
-      { label: '已完成', value: 'COMPLETED', type: 'success' },
-      { label: '发起退款', value: 'REFUNDING', type: 'warning' },
-      { label: '直接退款', value: 'REFUNDED', type: 'danger' },
-    ],
-    READY: [
-      { label: '已完成', value: 'COMPLETED', type: 'success' },
-      { label: '发起退款', value: 'REFUNDING', type: 'warning' },
-      { label: '直接退款', value: 'REFUNDED', type: 'danger' },
-    ],
-    COMPLETED: [
-      { label: '发起退款', value: 'REFUNDING', type: 'warning' },
-      { label: '直接退款', value: 'REFUNDED', type: 'danger' },
-    ],
-    TIMED_OUT: [],
-    REFUNDING: [
-      { label: '退款完成', value: 'REFUNDED', type: 'danger' },
-      { label: '标记失败', value: 'FAILED', type: 'warning' },
-    ],
-    REFUNDED: [],
-    CANCELLED: [],
-    FAILED: [],
-    DELETED: [],
-  }
-
-  return actionsByStatus[status]
-})
-
-const canDeleteOrder = computed(() => {
-  const status = activeOrder.value?.status
-  return ['CANCELLED', 'TIMED_OUT', 'FAILED', 'REFUNDED', 'COMPLETED'].includes(status ?? '')
-})
-
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(value))
-}
-
-function statusLabel(status: OrderStatus) {
-  return (
-    {
-      CREATING: '创建中',
-      PENDING_PAYMENT: '待支付',
-      PAID: '已支付',
-      PREPARING: '制作中',
-      READY: '待取餐',
-      COMPLETED: '已完成',
-      TIMED_OUT: '已超时',
-      REFUNDING: '退款中',
-      REFUNDED: '已退款',
-      CANCELLED: '已取消',
-      FAILED: '失败',
-      DELETED: '已删除',
-    }[status] ?? status
-  )
-}
-
-function statusTagType(
-  status: OrderStatus,
-): 'primary' | 'success' | 'warning' | 'danger' | 'info' {
-  const typeMap: Record<OrderStatus, 'primary' | 'success' | 'warning' | 'danger' | 'info'> = {
-    CREATING: 'info',
-    PENDING_PAYMENT: 'warning',
-    PAID: 'success',
-    PREPARING: 'warning',
-    READY: 'primary',
-    COMPLETED: 'success',
-    TIMED_OUT: 'info',
-    REFUNDING: 'warning',
-    REFUNDED: 'danger',
-    CANCELLED: 'info',
-    FAILED: 'danger',
-    DELETED: 'info',
-  }
-
-  return typeMap[status]
-}
-
-function orderTypeLabel(type: OrderType) {
-  return (
-    {
-      DINE_IN: '堂食',
-      TAKEOUT: '外卖',
-      PICKUP: '自取',
-    }[type] ?? type
-  )
-}
-
-function paymentChannelLabel(channel: PaymentChannel) {
-  return (
-    {
-      CASH: '现金',
-      WECHAT: '微信',
-      ALIPAY: '支付宝',
-      CUSTOMER_SCAN: '对方扫码',
-      OTHER: '其他',
-    }[channel] ?? channel
-  )
-}
-
-function buildQueryParams() {
-  const params = new URLSearchParams()
-  params.set('page', String(page.value))
-  params.set('pageSize', String(pageSize.value))
-
-  if (filters.keyword.trim()) {
-    params.set('keyword', filters.keyword.trim())
-  }
-
-  if (filters.status) {
-    params.set('status', filters.status)
-  }
-
-  if (filters.orderType) {
-    params.set('orderType', filters.orderType)
-  }
-
-  if (filters.paymentChannel) {
-    params.set('paymentChannel', filters.paymentChannel)
-  }
-
-  if (filters.dateRange.length === 2) {
-    const [start, end] = filters.dateRange
-    const startDate = new Date(start)
-    const endDate = new Date(end)
-    startDate.setHours(0, 0, 0, 0)
-    endDate.setHours(23, 59, 59, 999)
-    params.set('startDate', startDate.toISOString())
-    params.set('endDate', endDate.toISOString())
-  }
-
-  return params.toString()
-}
+const detailActions = computed(() => orderStatusActions(
+  activeOrder.value?.status,
+  activeOrder.value?.payment_channel,
+))
+const canDeleteOrder = computed(() => canDeleteOrderStatus(activeOrder.value?.status))
 
 async function fetchOrders() {
+  const requestSequence = ++listRequestSequence
   loading.value = true
 
   try {
-    const query = buildQueryParams()
+    const query = { ...filters, dateRange: [...filters.dateRange] as OrderFilters['dateRange'], page: page.value, pageSize: pageSize.value }
     const [summaryData, listData] = await Promise.all([
-      requestData<OrderSummaryResponse>(`/api/merchant/orders/summary${query ? `?${query}` : ''}`),
-      requestData<OrderPageResponse>(`/api/merchant/orders${query ? `?${query}` : ''}`),
+      summarizeMerchantOrders(query),
+      listMerchantOrders(query),
     ])
 
+    if (requestSequence !== listRequestSequence) return
     summary.value = summaryData
     orders.value = listData.items
     total.value = listData.total
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '订单数据加载失败')
+    if (requestSequence === listRequestSequence) {
+      ElMessage.error(error instanceof Error ? error.message : '订单数据加载失败')
+    }
   } finally {
-    loading.value = false
+    if (requestSequence === listRequestSequence) loading.value = false
   }
 }
 
 async function openOrderDetail(orderId: string) {
+  const requestSequence = ++detailRequestSequence
   detailDialogOpen.value = true
   detailLoading.value = true
+  activeOrder.value = null
   actionNote.value = ''
 
   try {
-    activeOrder.value = await requestData<OrderDetail>(`/api/merchant/orders/${orderId}`)
+    const order = await getMerchantOrder(orderId)
+    if (requestSequence === detailRequestSequence) activeOrder.value = order
   } catch (error) {
-    detailDialogOpen.value = false
-    ElMessage.error(error instanceof Error ? error.message : '订单详情加载失败')
+    if (requestSequence === detailRequestSequence) {
+      detailDialogOpen.value = false
+      ElMessage.error(error instanceof Error ? error.message : '订单详情加载失败')
+    }
   } finally {
-    detailLoading.value = false
+    if (requestSequence === detailRequestSequence) detailLoading.value = false
   }
 }
 
@@ -485,20 +322,12 @@ async function handleStatusChange(status: OrderStatus) {
     return
   }
 
+  const orderId = activeOrder.value.id
   savingStatus.value = status
 
   try {
-    activeOrder.value = await requestData<OrderDetail>(`/api/merchant/orders/${activeOrder.value.id}/status`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        status,
-        operatorName: '订单后台',
-        note: actionNote.value.trim() || undefined,
-      }),
-    })
+    const updated = await updateMerchantOrderStatus(orderId, status, actionNote.value.trim())
+    if (activeOrder.value?.id === orderId) activeOrder.value = updated
 
     actionNote.value = ''
     ElMessage.success(`订单已更新为${statusLabel(status)}`)
@@ -532,9 +361,9 @@ async function handleDeleteOrder() {
   deletingOrder.value = true
 
   try {
-    activeOrder.value = await requestData<OrderDetail>(`/api/merchant/orders/${activeOrder.value.id}?operatorName=订单后台`, {
-      method: 'DELETE',
-    })
+    const orderId = activeOrder.value.id
+    const deleted = await deleteMerchantOrder(orderId)
+    if (activeOrder.value?.id === orderId) activeOrder.value = deleted
     ElMessage.success('订单已标记为删除')
     await fetchOrders()
   } catch (error) {

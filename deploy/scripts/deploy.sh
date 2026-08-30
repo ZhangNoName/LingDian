@@ -203,8 +203,24 @@ fi
 exec 7>"$STATE_DIR/backup.lock"
 flock -n 7 || die 'A scheduled backup started before deployment could lock migrations; retry the deployment'
 
+log 'Stopping API writes for the database migration window'
+if ! compose stop api; then
+  die 'Could not stop the API before database migration; no migration was attempted'
+fi
 log 'Applying database migrations through the safe deployment wrapper'
-compose --profile operations run --rm --no-deps migrate
+if ! compose --profile operations run --rm --no-deps migrate; then
+  warn 'Database migration failed after the API was stopped; refusing to restart an application against an uncertain schema'
+  if ! compose stop api app merchant admin; then
+    warn 'Could not stop every core container after migration failure; immediate operator intervention is required'
+  fi
+  if [[ "$backup_completed" == true ]]; then
+    last_backup=$(state_read last-backup)
+    [[ -z "$last_backup" ]] || warn "Restore the verified pre-deploy backup if roll-forward repair is not possible: $last_backup"
+  else
+    warn 'No new pre-deploy backup was created for this attempt; do not assume the last-backup record matches the current schema'
+  fi
+  die 'Database migration failed; core remains stopped. Roll forward with a corrected release or restore a verified compatible backup'
+fi
 
 if [[ ! -r "$STATE_DIR/bootstrap-complete" ]]; then
   [[ -r "$BOOTSTRAP_RUNTIME_ENV" ]] || die 'One-time bootstrap environment was not generated'
@@ -241,7 +257,13 @@ fi
 
 if [[ "$activation_failed" == true ]]; then
   activation_recovered=false
-  if is_true "$(dotenv_get AUTO_ROLLBACK "$ENV_FILE" true)" && [[ "$old_sha" =~ ^[0-9a-f]{40}$ && -d "$RELEASES_DIR/$old_sha" ]]; then
+  auto_rollback_enabled=$(dotenv_get AUTO_ROLLBACK "$ENV_FILE" true)
+  rollback_schema_compatible=false
+  if [[ "$old_sha" =~ ^[0-9a-f]{40}$ && -d "$RELEASES_DIR/$old_sha" ]] &&
+     prisma_migration_sets_match "$PREPARED_RELEASE" "$RELEASES_DIR/$old_sha"; then
+    rollback_schema_compatible=true
+  fi
+  if is_true "$auto_rollback_enabled" && [[ "$rollback_schema_compatible" == true ]]; then
     warn "Activation failed; restoring containers from $old_sha"
     use_release "$RELEASES_DIR/$old_sha" "$old_sha"
     if ! compose up -d api app merchant admin; then
@@ -252,11 +274,18 @@ if [[ "$activation_failed" == true ]]; then
       activation_recovered=true
     fi
   else
-    warn 'Activation failed and no previous release was available for automatic rollback'
+    if [[ "$old_sha" =~ ^[0-9a-f]{40}$ && "$rollback_schema_compatible" != true ]]; then
+      warn 'Activation failed and automatic application rollback is blocked because the Prisma migration histories differ or are unavailable'
+      warn 'Roll forward with a corrected release, or restore the verified pre-deploy backup before starting the previous application release'
+    elif [[ "$rollback_schema_compatible" == true ]]; then
+      warn 'Activation failed and schema-compatible automatic rollback is disabled by AUTO_ROLLBACK=false'
+    else
+      warn 'Activation failed and no schema-compatible automatic rollback was available'
+    fi
     if ! compose stop api app merchant admin; then
       warn 'Could not stop every newly activated core container; immediate operator intervention is required'
     else
-      warn 'Stopped the uncommitted core release so a failed first deployment is not left live without TLS or monitoring'
+      warn 'Stopped the uncommitted core release so it is not left live without a safe application/schema pairing'
       activation_recovered=true
     fi
   fi

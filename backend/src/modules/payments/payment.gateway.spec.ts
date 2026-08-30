@@ -38,3 +38,89 @@ test('payment webhook requires an untampered body and a fresh signature', () => 
     'x-lingdian-timestamp': now, 'x-lingdian-nonce': nonce, 'x-lingdian-signature': `sha256=${signature}`,
   }), /signature/i);
 });
+
+test('payment gateway rejects a terminal synchronous status', async () => {
+  const gateway = new SignedPaymentGateway(account, 'https://connector.example', secret, async () =>
+    new Response(JSON.stringify({
+      providerIntentId: 'wx-intent-failed', status: 'FAILED', accountExternalId: 'merchant-1',
+      amountMinor: 1880, currency: 'CNY', clientAction: null,
+    }), { status: 200, headers: { 'content-type': 'application/json' } }),
+  );
+
+  await assert.rejects(
+    () => gateway.createIntent({
+      paymentNo: 'PAY-FAILED', orderNo: 'LD1', amountMinor: 1880, currency: 'CNY',
+      expiresAt: new Date('2026-08-29T10:00:00Z'),
+    }),
+    /invalid response/i,
+  );
+});
+
+test('payment gateway closes an unknown provider attempt by stable payment number', async () => {
+  let requestedUrl = '';
+  let requestedBody = '';
+  let requestedHeaders: HeadersInit | undefined;
+  const gateway = new SignedPaymentGateway(
+    account,
+    'https://connector.example',
+    secret,
+    async (url, init) => {
+      requestedUrl = String(url);
+      requestedBody = String(init?.body);
+      requestedHeaders = init?.headers;
+      return new Response(JSON.stringify({
+        paymentNo: 'PAY-UNKNOWN-CREATE',
+        providerIntentId: null,
+        accountExternalId: 'merchant-1',
+        status: 'CLOSED',
+        closureId: 'close-1',
+      }), { status: 200, headers: { 'content-type': 'application/json' } });
+    },
+  );
+
+  const result = await gateway.closeIntent({
+    paymentNo: 'PAY-UNKNOWN-CREATE',
+    providerIntentId: null,
+    reason: 'EXPIRED',
+  });
+
+  assert.equal(new URL(requestedUrl).pathname, '/v1/payment-intents/close');
+  assert.deepEqual(JSON.parse(requestedBody), {
+    payment_no: 'PAY-UNKNOWN-CREATE',
+    provider_intent_id: null,
+    provider: 'WECHAT_PAY',
+    account_external_id: 'merchant-1',
+    reason: 'EXPIRED',
+  });
+  assert.ok((requestedHeaders as Record<string, string>)['X-LingDian-Signature'].startsWith('sha256='));
+  assert.equal(result.status, 'CLOSED');
+  assert.equal(result.closureId, 'close-1');
+});
+
+test('payment gateway rejects CLOSED without a durable closure receipt', async () => {
+  const gateway = new SignedPaymentGateway(account, 'https://connector.example', secret, async () =>
+    new Response(JSON.stringify({
+      paymentNo: 'PAY1', providerIntentId: 'wx-1', accountExternalId: 'merchant-1',
+      status: 'CLOSED', closureId: null,
+    }), { status: 200, headers: { 'content-type': 'application/json' } }),
+  );
+
+  await assert.rejects(
+    () => gateway.closeIntent({ paymentNo: 'PAY1', providerIntentId: 'wx-1', reason: 'EXPIRED' }),
+    /invalid close response/i,
+  );
+});
+
+test('payment gateway rejects a non-string closure receipt', async () => {
+  const gateway = new SignedPaymentGateway(account, 'https://connector.example', secret, async () =>
+    new Response(JSON.stringify({
+      paymentNo: 'PAY1', providerIntentId: 'wx-1', accountExternalId: 'merchant-1',
+      status: 'CLOSED', closureId: { id: 'not-a-stable-scalar' },
+    }), { status: 200, headers: { 'content-type': 'application/json' } }),
+  );
+
+  await assert.rejects(
+    () => gateway.closeIntent({ paymentNo: 'PAY1', providerIntentId: 'wx-1', reason: 'EXPIRED' }),
+    /invalid close response/i,
+  );
+});

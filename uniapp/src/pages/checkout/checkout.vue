@@ -21,7 +21,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { onShow } from "@dcloudio/uni-app";
+import { onLoad, onShow } from "@dcloudio/uni-app";
 import AppNavBar from "@/components/app/AppNavBar.vue";
 import Layout from "@/layout/layout.vue";
 import CheckoutProductCard from "@/components/checkout/CheckoutProductCard.vue";
@@ -34,24 +34,27 @@ import { createOrderFromCart, createOrderRequestId } from "@/services/orders";
 import { requireCustomerAuth } from "@/services/auth-navigation";
 import { canCheckout, canSubmitCheckout } from "@/services/checkout-state";
 import { addresses } from "@/services/addresses";
+import { buildServiceModeUrl, parseServiceMode } from "@/services/service-mode";
 import type { CartSummary } from "@/types/cart";
-import type { StoreSummary } from "@/types/store";
+import type { ServiceMode, StoreSummary } from "@/types/store";
 import type { UserAddress } from "@lingdian/contracts";
 
 const cart = ref<CartSummary>(getCartSummary());
 const orderRequestId = ref(createOrderRequestId());
-const serviceMode = ref<"takeaway" | "delivery">("takeaway");
+const serviceMode = ref<ServiceMode>("takeaway");
 const addressList = ref<UserAddress[]>([]);
 const selectedAddress = computed(() => addressList.value.find((address) => address.isDefault) ?? addressList.value[0]);
 const submitAllowed = computed(() => canSubmitCheckout({
   itemCount: cart.value.itemCount,
   serviceMode: serviceMode.value,
   addressId: selectedAddress.value?.id,
+  businessStatus: store.value.businessStatus,
+  supportedModes: store.value.supportModes,
 }));
 const store = ref<StoreSummary>({
   id: "",
   name: "零点点餐",
-  address: "当前门店",
+  businessText: "正在加载营业信息",
   distanceText: "当前门店",
   businessStatus: "open",
   supportModes: ["dineIn", "takeaway"],
@@ -60,7 +63,7 @@ const store = ref<StoreSummary>({
 const checkoutModel = computed(() => ({
   store: store.value,
   serviceMode: serviceMode.value,
-  pickupTimeText: "立即取餐",
+  pickupTimeText: "时间未提供",
   items: cart.value.items,
   addOns: [],
   amount: {
@@ -71,8 +74,13 @@ const checkoutModel = computed(() => ({
   },
 }));
 
+onLoad((query) => {
+  serviceMode.value = parseServiceMode(query?.mode) ?? "takeaway";
+});
+
 onShow(async () => {
-  if (!(await requireCustomerAuth("/pages/checkout/checkout"))) return;
+  const checkoutUrl = buildServiceModeUrl("/pages/checkout/checkout", serviceMode.value);
+  if (!(await requireCustomerAuth(checkoutUrl))) return;
   cart.value = getCartSummary();
   if (!canCheckout(cart.value)) {
     uni.showToast({ title: "购物车为空，请先选择餐品", icon: "none" });
@@ -81,6 +89,10 @@ onShow(async () => {
   }
   try {
     store.value = (await fetchMenu()).store;
+    if (!store.value.supportModes.includes(serviceMode.value)) {
+      const nextMode = store.value.supportModes[0];
+      if (nextMode) serviceMode.value = nextMode;
+    }
   } catch {
     // 结算页仍允许展示本地购物车，提交时会给出接口错误。
   }
@@ -113,7 +125,8 @@ async function submitOrder() {
   }
 }
 
-function selectMode(mode: "takeaway" | "delivery") {
+function selectMode(mode: ServiceMode) {
+  if (!store.value.supportModes.includes(mode)) return;
   serviceMode.value = mode;
 }
 

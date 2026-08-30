@@ -18,7 +18,10 @@
     "tsconfig.json"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json"
+    "prebuild": "node scripts/clean-dist.mjs",
+    "build": "tsc -p tsconfig.json",
+    "type-check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json",
+    "test": "pnpm run build && tsc --noEmit -p tsconfig.test.json && node --test test/*.test.mjs"
   },
   "devDependencies": {
     "typescript": "^5.9.3"

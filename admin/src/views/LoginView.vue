@@ -5,9 +5,10 @@ import { adminSession } from '../auth/session'
 import { firstAccessibleRoute } from '../auth/permissions'
 import ThemeSwitcher from '../components/layout/ThemeSwitcher.vue'
 import { getAdminAuthMessage } from '../auth/user-message'
+import { safeInternalRedirect } from '../auth/redirect'
 const route = useRoute(); const router = useRouter()
 const form = reactive({ username: '', password: '' }); const loading = ref(false); const error = ref('')
-async function submit() { error.value = ''; loading.value = true; try { await adminSession.login(form.username, form.password); const fallback = firstAccessibleRoute(adminSession.currentUser.value?.roles ?? []); const redirect = typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/') ? route.query.redirect : fallback; await router.replace(redirect) } catch (cause) { error.value = getAdminAuthMessage(cause) } finally { loading.value = false } }
+async function submit() { error.value = ''; loading.value = true; try { await adminSession.login(form.username, form.password); const fallback = firstAccessibleRoute(adminSession.currentUser.value?.roles ?? []); await router.replace(safeInternalRedirect(route.query.redirect, fallback)) } catch (cause) { error.value = getAdminAuthMessage(cause) } finally { loading.value = false } }
 </script>
 
 <template>

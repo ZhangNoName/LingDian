@@ -463,6 +463,7 @@ model PaymentAccount {
   updatedAt          DateTime              @updatedAt
   store              Store                 @relation(fields: [storeId], references: [id], onDelete: Restrict)
   paymentIntents     PaymentIntent[]
+  paymentTransactions PaymentTransaction[]
   webhookEvents      PaymentWebhookEvent[]
 
   @@unique([storeId, provider, channel])
@@ -473,6 +474,7 @@ model PaymentAccount {
 model PaymentIntent {
   id                   String                      @id @default(cuid())
   paymentNo            String                      @unique @db.VarChar(64)
+  activeOrderKey       String?                     @unique @db.VarChar(191)
   orderId              String
   accountId            String
   provider             PaymentProvider
@@ -507,6 +509,8 @@ model PaymentTransaction {
   id                    String                   @id @default(cuid())
   transactionNo         String                   @unique @db.VarChar(64)
   paymentIntentId       String
+  provider              PaymentProvider
+  accountId             String
   type                  PaymentTransactionType
   status                PaymentTransactionStatus
   amountMinor           BigInt
@@ -518,10 +522,13 @@ model PaymentTransaction {
   createdAt             DateTime                 @default(now())
   updatedAt             DateTime                 @updatedAt
   paymentIntent         PaymentIntent            @relation(fields: [paymentIntentId], references: [id], onDelete: Restrict)
+  account               PaymentAccount            @relation(fields: [accountId], references: [id], onDelete: Restrict)
 
   @@unique([paymentIntentId, type, idempotencyKey])
   @@unique([paymentIntentId, providerTransactionId])
+  @@unique([provider, accountId, providerTransactionId])
   @@index([paymentIntentId, createdAt])
+  @@index([accountId], map: "payment_transactions_accountId_fkey")
   @@map("payment_transactions")
 }
 
@@ -710,6 +717,7 @@ model AuthSession {
   id                       String        @id @default(cuid())
   userId                   String
   audience                 AuthAudience
+  activeDeviceKey          String?       @unique @db.Char(64)
   refreshTokenHash         String        @unique
   previousRefreshTokenHash String?       @unique
   refreshTokenHistory      Json?
@@ -721,7 +729,7 @@ model AuthSession {
   updatedAt                DateTime      @updatedAt
   user                     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, audience, device])
+  @@index([userId, audience, device, status])
   @@index([userId, status])
   @@index([expiresAt])
   @@map("auth_sessions")

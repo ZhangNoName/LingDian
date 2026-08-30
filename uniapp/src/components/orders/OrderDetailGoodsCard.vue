@@ -9,7 +9,8 @@
     </view>
 
     <view v-for="item in detail.items" :key="item.id" class="item">
-      <image class="image" :src="item.imageUrl" mode="aspectFill" />
+      <image v-if="item.imageUrl" class="image" :src="item.imageUrl" mode="aspectFill" />
+      <view v-else class="image image-empty">暂无图片</view>
       <view class="info">
         <text class="name">{{ item.name }}</text>
         <text v-if="item.tag" class="tag">{{ item.tag }}</text>
@@ -89,6 +90,14 @@ function formatAmount(value: number) {
   height: 80rpx;
   border-radius: var(--ld-radius-8, 8px);
   background: #ffffff;
+}
+
+.image-empty {
+  display: grid;
+  place-items: center;
+  color: #999999;
+  font-size: var(--ld-font-xs, 22rpx);
+  text-align: center;
 }
 
 .name,

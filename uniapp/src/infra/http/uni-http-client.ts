@@ -1,5 +1,6 @@
 import type { ApiEnvelope } from "@lingdian/contracts";
 import { API_TIMEOUT_MS, buildApiUrl } from "@/config/api";
+import { usesBrowserCookieTransport } from "@/config/platform";
 
 export type HttpMethod = NonNullable<UniApp.RequestOptions["method"]> | "PATCH";
 
@@ -53,7 +54,9 @@ export class UniHttpTransport implements HttpTransport {
         url: buildApiUrl(path),
         method: method as UniApp.RequestOptions["method"],
         timeout: options.timeout ?? API_TIMEOUT_MS,
-        withCredentials: true,
+        // uni.request only maintains cookies automatically on H5. Native
+        // mini-program sessions recover through a fresh provider login code.
+        withCredentials: usesBrowserCookieTransport(),
         header: {
           "Content-Type": "application/json",
           ...(header ?? {}),

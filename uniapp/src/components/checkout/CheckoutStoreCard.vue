@@ -4,42 +4,50 @@
       <text class="title">{{ store.name }}</text>
       <text class="distance">{{ store.distanceText }}</text>
     </view>
-    <text class="address">{{ store.address }}</text>
+    <text class="business-text">{{ store.businessText }}</text>
     <view class="mode-grid">
-      <view :class="['mode', { active: serviceMode === 'takeaway' }]" role="button" tabindex="0" @tap="$emit('select-mode', 'takeaway')">
+      <view v-if="store.supportModes.includes('dineIn')" :class="['mode', { active: serviceMode === 'dineIn' }]" role="button" tabindex="0" @tap="$emit('select-mode', 'dineIn')">
+        <view class="mode-icon-shell">
+          <CheckoutDineInIcon class="mode-icon" aria-hidden="true" />
+        </view>
+        <text class="mode-title">到店堂食</text>
+        <text class="mode-subtitle">店内就餐</text>
+      </view>
+      <view v-if="store.supportModes.includes('takeaway')" :class="['mode', { active: serviceMode === 'takeaway' }]" role="button" tabindex="0" @tap="$emit('select-mode', 'takeaway')">
         <view class="mode-icon-shell">
           <CheckoutTakeawayIcon class="mode-icon" aria-hidden="true" />
         </view>
         <text class="mode-title">门店自取</text>
         <text class="mode-subtitle">到店打包带走</text>
       </view>
-      <view :class="['mode', { active: serviceMode === 'delivery' }]" role="button" tabindex="0" @tap="$emit('select-mode', 'delivery')">
+      <view v-if="store.supportModes.includes('delivery')" :class="['mode', { active: serviceMode === 'delivery' }]" role="button" tabindex="0" @tap="$emit('select-mode', 'delivery')">
         <view class="mode-icon-shell">
           <HomeDeliveryIcon class="mode-icon" aria-hidden="true" />
         </view>
         <text class="mode-title">配送到家</text>
         <text class="mode-subtitle">送到收货地址</text>
       </view>
+      <text v-if="store.supportModes.length === 0" class="mode-unavailable">当前门店暂不支持下单</text>
     </view>
     <view class="pickup">
-      <text>{{ serviceMode === "delivery" ? "配送时间" : "取餐时间" }} <text class="tag">出餐保障</text></text>
-      <text class="pickup-time">{{ serviceMode === "delivery" ? "尽快送达" : pickupTimeText }} ›</text>
+      <text>{{ serviceMode === "delivery" ? "配送时间" : serviceMode === "dineIn" ? "就餐时间" : "取餐时间" }}</text>
+      <text class="pickup-time">{{ serviceMode === "delivery" ? "时间未提供" : pickupTimeText }}</text>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { CheckoutTakeawayIcon, HomeDeliveryIcon } from "@lingdian/icons/miniapp";
-import type { StoreSummary } from "@/types/store";
+import { CheckoutDineInIcon, CheckoutTakeawayIcon, HomeDeliveryIcon } from "@lingdian/icons/miniapp";
+import type { ServiceMode, StoreSummary } from "@/types/store";
 
 defineProps<{
   store: StoreSummary;
   pickupTimeText: string;
-  serviceMode: "takeaway" | "delivery";
+  serviceMode: ServiceMode;
 }>();
 
 defineEmits<{
-  (event: "select-mode", value: "takeaway" | "delivery"): void;
+  (event: "select-mode", value: ServiceMode): void;
 }>();
 </script>
 
@@ -66,12 +74,12 @@ defineEmits<{
 }
 
 .distance,
-.address {
+.business-text {
   color: #777777;
   font-size: 26rpx;
 }
 
-.address {
+.business-text {
   display: block;
   margin: 12rpx 0 22rpx;
   line-height: 1.45;
@@ -79,8 +87,13 @@ defineEmits<{
 
 .mode-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(240rpx, 1fr));
   gap: 20rpx;
+}
+
+.mode-unavailable {
+  color: var(--ld-mini-text-muted);
+  font-size: var(--ld-font-sm, 24rpx);
 }
 
 .mode {

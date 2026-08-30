@@ -199,7 +199,7 @@ async function upsertBootstrapUser(tx, input) {
     await tx.user.update({ where: { id: user.id }, data: { sessionVersion: { increment: 1 } } });
     await tx.authSession.updateMany({
       where: { userId: user.id, status: 'ACTIVE' },
-      data: { status: 'REVOKED', revokedAt: now },
+      data: { status: 'REVOKED', activeDeviceKey: null, revokedAt: now },
     });
   }
 

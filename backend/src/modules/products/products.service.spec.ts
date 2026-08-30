@@ -3,6 +3,11 @@ import { test } from 'node:test';
 import { ForbiddenException } from '@nestjs/common';
 import { ProductStatus, SelectionMode, SelectionOptionType } from '@lingdian/db';
 import { ProductsService } from './products.service';
+import { ProductConfigurationService } from './product-configuration.service';
+import {
+  PRODUCT_MANAGEMENT_INCLUDE,
+  PRODUCT_MENU_INCLUDE,
+} from './product-query-shapes';
 
 const primaryStoreId = 'store-1';
 
@@ -38,6 +43,10 @@ function createStoreContext() {
     }),
     assertReady: async () => undefined,
   };
+}
+
+function createProductsService(prisma: any, stores: any = createStoreContext()) {
+  return new ProductsService(prisma, stores, new ProductConfigurationService(prisma));
 }
 
 const productRecord = {
@@ -84,7 +93,7 @@ test('createProduct creates a product with one default sku', async () => {
       },
     },
   };
-  const service = new ProductsService(prisma as never, createStoreContext() as never);
+  const service = createProductsService(prisma as never, createStoreContext() as never);
 
   const result = await service.createProduct({
     category_id: 'category-1',
@@ -144,9 +153,9 @@ test('selection options may reference another SKU from the same store', async ()
       },
     },
   };
-  const service = new ProductsService({} as never, createStoreContext() as never);
+  const configuration = new ProductConfigurationService({} as never);
 
-  await (service as any).syncSelectionOptions(
+  await (configuration as any).syncSelectionOptions(
     tx,
     'store-1',
     'group-1',
@@ -158,14 +167,14 @@ test('selection options may reference another SKU from the same store', async ()
 });
 
 test('selection options reject a referenced SKU outside the store', async () => {
-  const service = new ProductsService({} as never, createStoreContext() as never);
+  const configuration = new ProductConfigurationService({} as never);
   const tx = {
     selectionOption: { findMany: async () => [] },
     productSKU: { findMany: async () => [] },
   };
 
   await assert.rejects(
-    () => (service as any).syncSelectionOptions(
+    () => (configuration as any).syncSelectionOptions(
       tx,
       'store-1',
       'group-1',
@@ -177,7 +186,7 @@ test('selection options reject a referenced SKU outside the store', async () => 
 });
 
 test('selection configuration rejects impossible selection rules before writing', () => {
-  const service = new ProductsService({} as never, createStoreContext() as never);
+  const configuration = new ProductConfigurationService({} as never);
   const base = {
     variants: [{ sku_name: '默认', price: 18, stock_count: 0 }],
     selection_groups: [{
@@ -189,7 +198,70 @@ test('selection configuration rejects impossible selection rules before writing'
     }],
   };
 
-  assert.throws(() => (service as any).validateSelectionConfiguration(base), /最少选择数不能大于最多选择数/);
+  assert.throws(
+    () => (configuration as any).validateSelectionConfiguration(base),
+    /最少选择数不能大于最多选择数/,
+  );
+
+  assert.throws(
+    () => (configuration as any).validateSelectionConfiguration({
+      variants: base.variants,
+      selection_groups: [{
+        scope: 'PRODUCT',
+        group: {
+          name: '加料', group_type: 'MODIFIER', selection_mode: SelectionMode.MULTIPLE,
+          min_select: 2, max_select: 3,
+          options: [
+            { name: '珍珠', option_type: SelectionOptionType.VALUE, is_active: true },
+            { name: '椰果', option_type: SelectionOptionType.VALUE, is_active: false },
+          ],
+        },
+      }],
+    }),
+    /没有足够的可选项/,
+  );
+});
+
+test('management details retain disabled bindings and options while the public menu filters them', () => {
+  const managementSkuBindings = (PRODUCT_MANAGEMENT_INCLUDE.skus.include as any).selectionBindings;
+  const managementProductBindings = PRODUCT_MANAGEMENT_INCLUDE.selectionBindings as any;
+  const menuSkuBindings = (PRODUCT_MENU_INCLUDE.skus.include as any).selectionBindings;
+  const menuProductBindings = PRODUCT_MENU_INCLUDE.selectionBindings as any;
+
+  assert.equal(managementSkuBindings.where, undefined);
+  assert.equal(managementSkuBindings.include.group.include.options.where, undefined);
+  assert.equal(managementProductBindings.where, undefined);
+  assert.equal(managementProductBindings.include.group.include.options.where, undefined);
+  assert.deepEqual((PRODUCT_MENU_INCLUDE.skus as any).where, { isActive: true });
+  assert.deepEqual(menuSkuBindings.where, { isEnabled: true, group: { isActive: true } });
+  assert.deepEqual(menuSkuBindings.include.group.include.options.where, { isActive: true });
+  assert.deepEqual(menuProductBindings.where, { isEnabled: true, group: { isActive: true } });
+});
+
+test('a newly created variant explicitly marked default remains the default', async () => {
+  let createdCount = 0;
+  let selectedDefaultId: string | undefined;
+  const tx = {
+    productSKU: {
+      findMany: async () => [],
+      create: async ({ data }: any) => ({ id: `sku-${++createdCount}`, ...data }),
+      updateMany: async () => ({ count: 0 }),
+      update: async ({ where }: any) => {
+        selectedDefaultId = where.id;
+        return { id: where.id };
+      },
+    },
+  };
+  const configuration = new ProductConfigurationService({} as never);
+
+  await (configuration as any).syncVariants(tx, 'product-1', {
+    variants: [
+      { sku_name: '小杯', price: 12, stock_count: 10 },
+      { sku_name: '大杯', price: 16, stock_count: 8, is_default: true },
+    ],
+  });
+
+  assert.equal(selectedDefaultId, 'sku-2');
 });
 
 test('product list is paginated and returns lightweight rows without nested option payloads', async () => {
@@ -212,7 +284,7 @@ test('product list is paginated and returns lightweight rows without nested opti
       count: async ({ where }: any) => { countWhere = where; return 31; },
     },
   };
-  const service = new ProductsService(prisma as never, createStoreContext() as never);
+  const service = createProductsService(prisma as never, createStoreContext() as never);
 
   const result = await service.getProducts(
     { page: 2, pageSize: 20, keyword: '拿铁', type: 'SINGLE' } as any,
@@ -253,7 +325,7 @@ test('product stats and SKU reference options stay scoped to merchant stores', a
       count: async (query: any) => { countCalls.push(['binding', query]); return 5; },
     },
   };
-  const service = new ProductsService(prisma as never, createStoreContext() as never);
+  const service = createProductsService(prisma as never, createStoreContext() as never);
 
   const [stats, options] = await Promise.all([
     service.getProductStats(['store-1']),
@@ -277,7 +349,7 @@ test('product stats reuse a short-lived store-scoped cache', async () => {
     productSKU: { count: async () => 0 },
     productSelectionGroup: { count: async () => 0 },
   };
-  const service = new ProductsService(prisma as never, createStoreContext() as never);
+  const service = createProductsService(prisma as never, createStoreContext() as never);
 
   const first = await service.getProductStats(['store-1']);
   const second = await service.getProductStats(['store-1']);
@@ -301,7 +373,7 @@ test('admin product queries default to the configured primary store', async () =
       },
     },
   };
-  const service = new ProductsService(prisma as never, createStoreContext() as never);
+  const service = createProductsService(prisma as never, createStoreContext() as never);
 
   await service.getProducts();
 
@@ -323,7 +395,7 @@ test('product queries reject a store scope outside the configured primary store'
       },
     },
   };
-  const service = new ProductsService(prisma as never, createStoreContext() as never);
+  const service = createProductsService(prisma as never, createStoreContext() as never);
 
   await assert.rejects(
     () => service.getProducts(undefined, ['store-other']),

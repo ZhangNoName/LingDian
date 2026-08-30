@@ -41,6 +41,7 @@ const error = ref('')
 const editorOpen = ref(false)
 const passwordOpen = ref(false)
 const selected = ref<PlatformUserSummary>()
+let loadSequence = 0
 const rank: Record<AuthRole, number> = { USER: 0, MERCHANT: 1, ADMIN: 2, SUPER_ADMIN: 3 }
 const columns = computed(() => createUserColumns(accountType.value, stores.value))
 const schemaQuery = computed<QueryRecord>({
@@ -50,16 +51,19 @@ const schemaQuery = computed<QueryRecord>({
 const pagination = computed(() => ({ page: query.page, pageSize: query.pageSize, total: total.value }))
 
 async function load() {
+  const sequence = ++loadSequence
   loading.value = true
   error.value = ''
   try {
     const page = await listUsers(query)
-    users.value = page.items
-    total.value = page.total
+    if (sequence === loadSequence) {
+      users.value = page.items
+      total.value = page.total
+    }
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : '用户加载失败'
+    if (sequence === loadSequence) error.value = cause instanceof Error ? cause.message : '用户加载失败'
   } finally {
-    loading.value = false
+    if (sequence === loadSequence) loading.value = false
   }
 }
 
@@ -189,6 +193,9 @@ onMounted(async () => {
 })
 
 watch(accountType, (value) => {
+  editorOpen.value = false
+  passwordOpen.value = false
+  selected.value = undefined
   Object.assign(query, { keyword: undefined, role: undefined, status: undefined, storeId: undefined, page: 1, accountType: value })
   void load()
 })

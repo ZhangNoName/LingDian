@@ -231,6 +231,10 @@ importers:
       vue:
         specifier: '>=3.4.0'
         version: 3.5.39(typescript@5.9.3)
+    devDependencies:
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
 
   packages/observability:
     devDependencies:

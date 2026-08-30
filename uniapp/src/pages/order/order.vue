@@ -56,8 +56,9 @@ import { getCartSummary } from "@/services/cart";
 import { requireCustomerAuth } from "@/services/auth-navigation";
 import { canCheckout } from "@/services/checkout-state";
 import { resolveMenuViewState, type MenuViewState } from "@/services/menu-view-state";
+import { buildServiceModeUrl, parseServiceMode } from "@/services/service-mode";
 import type { CartSummary } from "@/types/cart";
-import type { StoreSummary } from "@/types/store";
+import type { ServiceMode, StoreSummary } from "@/types/store";
 
 const menu = ref<MenuViewModel | null>(null);
 const loading = ref(false);
@@ -68,6 +69,7 @@ const sectionOffsets = ref<Array<{ id: string; top: number }>>([]);
 const scrollMetrics = ref({ viewportHeight: 0, contentHeight: 0 });
 const isCategoryJumping = ref(false);
 const cartSummary = ref<CartSummary>(getCartSummary());
+const serviceMode = ref<ServiceMode>("takeaway");
 const instance = getCurrentInstance();
 let initialMeasureTimer: ReturnType<typeof setTimeout> | undefined;
 let categoryJumpTimer: ReturnType<typeof setTimeout> | undefined;
@@ -75,7 +77,7 @@ let categoryJumpTimer: ReturnType<typeof setTimeout> | undefined;
 const fallbackStore: StoreSummary = {
   id: "",
   name: "零点点餐",
-  address: "正在加载门店",
+  businessText: "正在加载营业信息",
   distanceText: "当前门店",
   businessStatus: "open",
   supportModes: ["dineIn", "takeaway"],
@@ -110,7 +112,10 @@ const menuState = computed<MenuViewState>(() =>
   }),
 );
 
-onLoad(loadMenu);
+onLoad((query) => {
+  serviceMode.value = parseServiceMode(query?.mode) ?? "takeaway";
+  void loadMenu();
+});
 
 onShow(() => {
   cartSummary.value = getCartSummary();
@@ -126,6 +131,9 @@ async function loadMenu() {
   failed.value = false;
   try {
     menu.value = await fetchMenu();
+    if (!menu.value.store.supportModes.includes(serviceMode.value)) {
+      serviceMode.value = menu.value.store.supportModes[0] ?? "takeaway";
+    }
     activeCategoryId.value = menu.value.categories[0]?.id ?? "";
     nextTick(() => {
       measureSectionOffsets();
@@ -207,7 +215,9 @@ function measureSectionOffsets() {
 }
 
 function goSpec(productId: string) {
-  uni.navigateTo({ url: `/pages/spec/spec?id=${productId}` });
+  uni.navigateTo({
+    url: buildServiceModeUrl("/pages/spec/spec", serviceMode.value, { id: productId }),
+  });
 }
 
 async function goCheckout() {
@@ -215,8 +225,9 @@ async function goCheckout() {
     uni.showToast({ title: "请先选择餐品", icon: "none" });
     return;
   }
-  if (!(await requireCustomerAuth("/pages/checkout/checkout"))) return;
-  uni.navigateTo({ url: "/pages/checkout/checkout" });
+  const checkoutUrl = buildServiceModeUrl("/pages/checkout/checkout", serviceMode.value);
+  if (!(await requireCustomerAuth(checkoutUrl))) return;
+  uni.navigateTo({ url: checkoutUrl });
 }
 </script>
 

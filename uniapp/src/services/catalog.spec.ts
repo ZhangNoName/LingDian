@@ -50,3 +50,110 @@ test("force refresh bypasses a fresh menu cache", async () => {
 
   assert.equal(request.mock.calls.length, 2);
 });
+
+test("maps store fulfilment flags instead of advertising unavailable modes", async () => {
+  const request = vi.fn((options: UniApp.RequestOptions) => {
+    options.success?.({
+      statusCode: 200,
+      data: {
+        code: 0,
+        data: {
+          ...menu,
+          store: {
+            ...menu.store,
+            dineInEnabled: false,
+            pickupEnabled: true,
+            takeoutEnabled: true,
+          },
+        },
+      },
+    } as unknown as UniApp.RequestSuccessCallbackResult);
+    return { abort() {} } as UniApp.RequestTask;
+  });
+  Object.assign(uni, { request });
+
+  const result = await fetchMenu();
+
+  assert.deepEqual(result.store.supportModes, ["takeaway", "delivery"]);
+});
+
+test("exposes only product and selected-variant option groups", async () => {
+  const product = menu.categories[0].products[0];
+  const group = (id: string) => ({
+    binding_id: `binding-${id}`,
+    scope: "PRODUCT" as const,
+    target_variant_id: null,
+    sort_order: 0,
+    is_enabled: true,
+    group: {
+      id,
+      name: id,
+      group_type: "MODIFIER" as const,
+      selection_mode: "SINGLE" as const,
+      min_select: 0,
+      max_select: 1,
+      is_required: false,
+      is_active: true,
+      sort_order: 0,
+      description: null,
+      options: [],
+    },
+  });
+  const currentVariant = { ...group("current"), scope: "VARIANT" as const, target_variant_id: "sku-1" };
+  const otherVariant = { ...group("other"), scope: "VARIANT" as const, target_variant_id: "sku-2" };
+  const disabled = { ...group("disabled"), is_enabled: false };
+  const request = vi.fn((options: UniApp.RequestOptions) => {
+    options.success?.({
+      statusCode: 200,
+      data: {
+        code: 0,
+        data: {
+          ...menu,
+          categories: [{
+            ...menu.categories[0],
+            products: [{
+              ...product,
+              skus: [
+                ...product.skus,
+                { ...product.skus[0], id: "sku-2", is_default: false },
+              ],
+              selection_groups: [group("product"), currentVariant, otherVariant, disabled],
+            }],
+          }],
+        },
+      },
+    } as unknown as UniApp.RequestSuccessCallbackResult);
+    return { abort() {} } as UniApp.RequestTask;
+  });
+  Object.assign(uni, { request });
+
+  const result = await fetchMenu();
+
+  assert.deepEqual(result.productDetails["product-1"].optionGroups.map((item) => item.id), ["product", "current"]);
+});
+
+test("does not let an older request overwrite a newer forced refresh", async () => {
+  const successes: Array<NonNullable<UniApp.RequestOptions["success"]>> = [];
+  const request = vi.fn((options: UniApp.RequestOptions) => {
+    if (options.success) successes.push(options.success);
+    return { abort() {} } as UniApp.RequestTask;
+  });
+  Object.assign(uni, { request });
+
+  const olderRequest = fetchMenu();
+  const newerRequest = fetchMenu({ force: true });
+  successes[1]({
+    statusCode: 200,
+    data: { code: 0, data: { ...menu, store: { ...menu.store, name: "新菜单" } } },
+  } as unknown as UniApp.RequestSuccessCallbackResult);
+  assert.equal((await newerRequest).store.name, "新菜单");
+
+  successes[0]({
+    statusCode: 200,
+    data: { code: 0, data: { ...menu, store: { ...menu.store, name: "旧菜单" } } },
+  } as unknown as UniApp.RequestSuccessCallbackResult);
+  assert.equal((await olderRequest).store.name, "旧菜单");
+
+  assert.equal((await fetchMenu()).store.name, "新菜单");
+  assert.equal(request.mock.calls.length, 2);
+});

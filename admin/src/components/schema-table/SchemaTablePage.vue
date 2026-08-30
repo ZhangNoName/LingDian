@@ -36,6 +36,7 @@ const emit = defineEmits<{
 
 const formatted = ref<Record<string, string>>({})
 const slots = useSlots()
+let formattingSequence = 0
 const visibleColumns = computed(() => props.columns.filter((column) => !column.hidden))
 const hasSearchColumns = computed(() => props.searchable && props.columns.some((column) => column.isSearch))
 const hasToolbarActions = computed(() => Boolean(slots['toolbar-actions'] || slots.toolbar))
@@ -50,11 +51,12 @@ function formattedKey(rowIndex: number, column: SchemaColumn<Row>): string {
 }
 
 async function refreshFormattedValues(): Promise<void> {
+  const sequence = ++formattingSequence
   const next: Record<string, string> = {}
   await Promise.all(props.data.flatMap((row, rowIndex) => visibleColumns.value.map(async (column) => {
     next[formattedKey(rowIndex, column)] = await formatCellValue(column, row, undefined, rowIndex)
   })))
-  formatted.value = next
+  if (sequence === formattingSequence) formatted.value = next
 }
 
 watch([() => props.data, () => props.columns], refreshFormattedValues, { immediate: true, deep: true })

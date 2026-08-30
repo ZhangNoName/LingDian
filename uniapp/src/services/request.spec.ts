@@ -12,6 +12,7 @@ const userProfile: AuthenticatedUser = {
 
 afterEach(() => {
   customerAuth.clear();
+  uni.removeStorageSync("lingdian_customer_auto_recovery_blocked");
   vi.restoreAllMocks();
 });
 
@@ -48,6 +49,59 @@ test("clears the session and directs the customer to login when refresh fails", 
 
   await expect(request("/orders")).rejects.toThrow("登录状态已失效，请重新登录。");
 
+  assert.equal(customerAuth.getAccessToken(), undefined);
+  assert.deepEqual(reLaunch.mock.calls[0][0], { url: "/pages/auth/login" });
+});
+
+test("does not silently reauthenticate a rejected native access token", async () => {
+  vi.spyOn(uni, "getSystemInfoSync").mockReturnValue({
+    uniPlatform: "mp-weixin",
+  } as unknown as ReturnType<typeof uni.getSystemInfoSync>);
+  customerAuth.acceptLogin({ access_token: "revoked-jwt", expires_in: 900, user: userProfile });
+  const reLaunch = vi.fn();
+  const login = vi.fn();
+  const requestMock = vi.fn((options: UniApp.RequestOptions) => {
+    options.success?.({ statusCode: 401, data: { code: 401, msg: "revoked" } } as unknown as UniApp.RequestSuccessCallbackResult);
+    return { abort() {} } as UniApp.RequestTask;
+  });
+  Object.assign(uni, { request: requestMock, reLaunch, login });
+
+  await expect(request("/orders")).rejects.toThrow("登录状态已失效，请重新登录。");
+
+  assert.equal(requestMock.mock.calls.length, 1);
+  assert.equal(login.mock.calls.length, 0);
+  assert.equal(customerAuth.getAccessToken(), undefined);
+  assert.deepEqual(reLaunch.mock.calls[0][0], { url: "/pages/auth/login" });
+});
+
+test("blocks further native recovery when the request still fails after platform reauthentication", async () => {
+  vi.spyOn(uni, "getSystemInfoSync").mockReturnValue({
+    uniPlatform: "mp-weixin",
+  } as unknown as ReturnType<typeof uni.getSystemInfoSync>);
+  customerAuth.acceptLogin({ access_token: "expired-jwt", expires_in: 0, user: userProfile });
+  const reLaunch = vi.fn();
+  const login = vi.fn((options: UniApp.LoginOptions) => {
+    options.success?.({ code: "fresh-platform-code", errMsg: "login:ok" } as UniApp.LoginRes);
+    return {} as UniApp.LoginRes;
+  });
+  const requestMock = vi.fn((options: UniApp.RequestOptions) => {
+    if (String(options.url).endsWith("/miniapp/session")) {
+      options.success?.({
+        statusCode: 201,
+        data: { code: 0, data: { access_token: "recovered-jwt", expires_in: 900, user: userProfile } },
+      } as unknown as UniApp.RequestSuccessCallbackResult);
+    } else {
+      options.success?.({ statusCode: 401, data: { code: 401, msg: "rejected" } } as unknown as UniApp.RequestSuccessCallbackResult);
+    }
+    return { abort() {} } as UniApp.RequestTask;
+  });
+  Object.assign(uni, { request: requestMock, reLaunch, login });
+
+  await expect(request("/orders")).rejects.toThrow("登录状态已失效，请重新登录。");
+
+  assert.equal(login.mock.calls.length, 1);
+  assert.equal(await customerAuth.refresh(), false);
+  assert.equal(login.mock.calls.length, 1);
   assert.equal(customerAuth.getAccessToken(), undefined);
   assert.deepEqual(reLaunch.mock.calls[0][0], { url: "/pages/auth/login" });
 });
@@ -89,6 +143,7 @@ test("does not destroy a valid customer session when a public endpoint rejects a
   await expect(request("/menu/current", { requiresAuth: false })).rejects.toThrow();
 
   expect(customerAuth.getAccessToken()).toBe("still-valid");
+  expect(requestMock.mock.calls[0][0].header?.Authorization).toBeUndefined();
 });
 
 test("accepts an empty 204 response for delete operations", async () => {
