@@ -1,0 +1,165 @@
+groups:
+  - name: lingdian-api
+    rules:
+      - alert: LingDianApiDown
+        expr: up{job="lingdian-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: LingDian API 指标端点不可达
+          description: Prometheus 已连续 2 分钟无法抓取 {{ $labels.instance }}。
+
+      - alert: LingDianApiHighErrorRate
+        expr: |
+          (
+            sum(rate(lingdian_http_requests_total{status_code=~"5.."}[5m]))
+            /
+            clamp_min(sum(rate(lingdian_http_requests_total[5m])), 0.001)
+          ) > 0.05
+          and sum(rate(lingdian_http_requests_total[5m])) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: LingDian API 5xx 比例过高
+          description: 最近 5 分钟 5xx 比例连续 10 分钟高于 5%。
+
+      - alert: LingDianApiHighLatency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(lingdian_http_request_duration_seconds_bucket[5m])) by (le)
+          ) > 2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: LingDian API P95 延迟过高
+          description: 最近 5 分钟 HTTP P95 延迟连续 10 分钟超过 2 秒。
+
+      - alert: LingDianApiEventLoopLag
+        expr: nodejs_eventloop_lag_p99_seconds{job="lingdian-api"} > 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: LingDian API 事件循环阻塞
+          description: Node.js 事件循环 P99 延迟连续 10 分钟超过 500ms。
+
+  - name: lingdian-public-endpoints
+    rules:
+      - alert: LingDianPublicEndpointDown
+        expr: probe_success{job="blackbox-http"} == 0
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: LingDian 公网端点不可用
+          description: 合成探测已连续 3 分钟无法访问 {{ $labels.instance }}。
+
+      - alert: LingDianCertificateExpiringSoon
+        expr: (probe_ssl_earliest_cert_expiry{job="blackbox-http"} - time()) < 7 * 24 * 3600
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: LingDian TLS 证书即将过期
+          description: '{{ $labels.instance }} 的证书将在 7 天内过期。'
+
+  - name: lingdian-host
+    rules:
+      - alert: LingDianHostDiskSpaceLow
+        expr: |
+          (
+            node_filesystem_avail_bytes{job="node-exporter",fstype!~"tmpfs|overlay|squashfs"}
+            /
+            node_filesystem_size_bytes{job="node-exporter",fstype!~"tmpfs|overlay|squashfs"}
+          ) < 0.15
+          and node_filesystem_readonly{job="node-exporter"} == 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: 服务器磁盘可用空间低
+          description: '{{ $labels.mountpoint }} 可用空间连续 15 分钟低于 15%，日志与指标可能停止写入。'
+
+      - alert: LingDianHostDiskWillFill
+        expr: |
+          predict_linear(node_filesystem_avail_bytes{job="node-exporter",fstype!~"tmpfs|overlay|squashfs"}[6h], 24 * 3600) < 0
+          and node_filesystem_readonly{job="node-exporter"} == 0
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: 服务器磁盘预计 24 小时内写满
+          description: 按最近 6 小时趋势，{{ $labels.mountpoint }} 预计在 24 小时内耗尽。
+
+      - alert: LingDianHostMemoryPressure
+        expr: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 0.9
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: 服务器内存压力过高
+          description: 服务器内存使用率连续 15 分钟超过 90%。
+
+      - alert: LingDianHostCpuPressure
+        expr: 1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) > 0.9
+        for: 20m
+        labels:
+          severity: warning
+        annotations:
+          summary: 服务器 CPU 压力过高
+          description: 服务器 CPU 使用率连续 20 分钟超过 90%。
+
+      - alert: LingDianExporterDown
+        expr: up{job=~"node-exporter|cadvisor|loki|alloy|alertmanager|grafana|blackbox-http"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 监控组件不可达
+          description: '{{ $labels.job }} / {{ $labels.instance }} 已连续 5 分钟不可达。'
+
+      - alert: LingDianContainerMemoryNearLimit
+        expr: |
+          (
+            container_memory_working_set_bytes{name!="",container_label_com_docker_compose_project=~"lingdian.*"}
+            /
+            container_spec_memory_limit_bytes{name!="",container_label_com_docker_compose_project=~"lingdian.*"}
+          ) > 0.9
+          and container_spec_memory_limit_bytes{name!="",container_label_com_docker_compose_project=~"lingdian.*"} > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: 容器接近内存上限
+          description: '{{ $labels.name }} 内存使用连续 10 分钟超过限制的 90%。'
+
+      - alert: LingDianBackupLastAttemptFailed
+        expr: lingdian_backup_last_attempt_success == 0
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: 最近一次生产备份失败
+          description: 备份开始后 10 分钟仍未成功完成，请检查 systemd timer 和备份日志。
+
+      - alert: LingDianBackupStale
+        expr: time() - lingdian_backup_last_success_timestamp_seconds > 30 * 3600
+        for: 30m
+        labels:
+          severity: critical
+        annotations:
+          summary: 生产备份超过 30 小时未更新
+          description: 最近一次成功备份已超过 30 小时，请立即检查定时任务与存储空间。
+
+      - alert: LingDianBackupMetricMissing
+        expr: absent(lingdian_backup_last_success_timestamp_seconds)
+        for: 30h
+        labels:
+          severity: warning
+        annotations:
+          summary: 未发现生产备份状态指标
+          description: 监控安装超过 30 小时仍没有成功备份记录，请检查 timer 是否启用。

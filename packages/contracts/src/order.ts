@@ -14,6 +14,7 @@ export type OrderStatus =
 
 export type OrderType = 'DINE_IN' | 'TAKEOUT' | 'PICKUP';
 export type PaymentChannel = 'CASH' | 'WECHAT' | 'ALIPAY' | 'UNIONPAY' | 'STRIPE' | 'PAYPAL' | 'CUSTOMER_SCAN' | 'OTHER';
+export type OrderSource = 'MINIAPP' | 'MEITUAN_WAIMAI' | 'JD_DAOJIA' | 'POS' | 'MANUAL';
 
 export type OrderItemSummaryContract = {
   id: string;
@@ -26,6 +27,9 @@ export type OrderItemSummaryContract = {
 export type OrderSummaryContract = {
   id: string;
   order_no: string;
+  order_source: OrderSource;
+  pickup_code: string | null;
+  pickup_business_date: string | null;
   store_id?: string;
   store_name: string;
   customer_name: string;

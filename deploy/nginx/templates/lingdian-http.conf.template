@@ -1,0 +1,59 @@
+log_format lingdian_json escape=json '{"time":"$time_iso8601","remote_addr":"$remote_addr","host":"$host","method":"$request_method","uri":"$uri","protocol":"$server_protocol","status":$status,"bytes":$body_bytes_sent,"request_time":$request_time,"upstream":"$upstream_addr","upstream_status":"$upstream_status","upstream_time":"$upstream_response_time","user_agent":"$http_user_agent","request_id":"$request_id"}';
+
+map $http_upgrade $lingdian_connection_upgrade {
+    default upgrade;
+    '' close;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name __APP_DOMAIN__;
+    access_log /var/log/lingdian/nginx/access.log lingdian_json;
+    error_log /var/log/lingdian/nginx/error.log warn;
+    server_tokens off;
+
+    location ^~ /.well-known/acme-challenge/ { root /var/www/lingdian-acme; }
+    location ~* ^/api/metrics(?:/|$) { return 404; }
+    location / { return 503; }
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name __MERCHANT_DOMAIN__;
+    access_log /var/log/lingdian/nginx/access.log lingdian_json;
+    error_log /var/log/lingdian/nginx/error.log warn;
+    server_tokens off;
+
+    location ^~ /.well-known/acme-challenge/ { root /var/www/lingdian-acme; }
+    location ~* ^/api/metrics(?:/|$) { return 404; }
+    location / { return 503; }
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name __ADMIN_DOMAIN__;
+    access_log /var/log/lingdian/nginx/access.log lingdian_json;
+    error_log /var/log/lingdian/nginx/error.log warn;
+    server_tokens off;
+
+    location ^~ /.well-known/acme-challenge/ { root /var/www/lingdian-acme; }
+    location ~* ^/api/metrics(?:/|$) { return 404; }
+    location / { return 503; }
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name __API_DOMAIN__;
+    client_max_body_size 20m;
+    access_log /var/log/lingdian/nginx/access.log lingdian_json;
+    error_log /var/log/lingdian/nginx/error.log warn;
+    server_tokens off;
+
+    location ^~ /.well-known/acme-challenge/ { root /var/www/lingdian-acme; }
+    location ~* ^/api/metrics(?:/|$) { return 404; }
+    location / { return 503; }
+}

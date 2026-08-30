@@ -1,0 +1,20 @@
+[Unit]
+Description=LingDian production backup
+Requires=docker.service
+After=docker.service network-online.target
+RequiresMountsFor=__DEPLOY_ROOT__ __DATA_DIR__ __BACKUP_DIR__ __RELEASES_DIR__ __STATE_DIR__ __ENV_FILE__
+ConditionPathExists=__DEPLOY_ROOT__/current/deploy/scripts/backup.sh
+
+[Service]
+Type=oneshot
+User=__DEPLOY_USER__
+Environment=LINGDIAN_ENV_FILE=__ENV_FILE__
+ExecStart=/bin/bash __DEPLOY_ROOT__/current/deploy/scripts/backup.sh --env __ENV_FILE__
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=__DEPLOY_ROOT__ __DATA_DIR__ __BACKUP_DIR__ __RELEASES_DIR__ __STATE_DIR__

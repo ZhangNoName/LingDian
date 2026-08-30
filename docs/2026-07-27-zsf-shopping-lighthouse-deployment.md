@@ -1,15 +1,21 @@
-# LingDian 在 zsf.shopping 的 Lighthouse 部署文档
+# [已废弃] LingDian 在 zsf.shopping 的 Lighthouse 部署草案
+
+> [!WARNING]
+> 本文是 2026-07-27 的历史方案，**不再是部署基线，也不能用于新服务器部署**。
+> 当前唯一入口是 [`deploy/README.md`](../deploy/README.md) 和
+> `deploy/scripts/deploy-all.sh`。新流程已经替代本文的固定服务器路径、外部数据库前提、
+> 手工 TLS、旧 `release.sh` 容器切换以及旧环境变量约定。
 
 ## 文档状态
 
-- 状态：部署方案已确认，尚未执行。
+- 状态：已被单机 quick-deploy 流程取代，仅保留作历史记录。
 - 日期：2026-07-27。
 - 仓库：`git@github.com:ZhangNoName/LingDian.git`。
 - 发布分支：`main`。
 - 目标服务器：与 `sun-world` 相同的腾讯云 Lighthouse，公网 IPv4 为 `81.70.43.189`。
 - 参考方案：`sun-world` 的 GitHub Actions、SSH、服务器本地 Docker 构建、候选容器健康检查和失败回滚流程。
 
-本文是后续实施和运维的唯一部署基线。本文落库不代表已经修改 DNS、服务器、Nginx、GitHub Secrets 或生产数据库。
+本文不是后续实施和运维的依据。请以 [`deploy/README.md`](../deploy/README.md) 为准。
 
 ## 1. 范围与非目标
 
@@ -284,7 +290,8 @@ location / {
 
 ## 9. 宿主机 Nginx 规划
 
-完整配置以 `deploy/nginx/lingdian-subdomains.conf` 为唯一来源。它负责：
+当时的完整配置以现已删除的 `deploy/nginx/lingdian-subdomains.conf` 为来源；该静态配置
+缺少当前的 metrics 阻断、结构化日志和动态域名校验，不得恢复使用。历史上它负责：
 
 - 80 端口统一使用 301 跳转 HTTPS。
 - 四个生产子域名在 443 端口终止 TLS，并启用 HTTP/2。

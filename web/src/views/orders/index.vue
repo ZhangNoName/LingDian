@@ -77,6 +77,21 @@
           empty-text="暂无订单数据"
         >
           <el-table-column prop="order_no" label="订单号" min-width="180" />
+          <el-table-column label="取餐码" width="104" align="center">
+            <template #default="{ row }">
+              <strong v-if="row.pickup_code" class="pickup-code-cell">
+                {{ pickupCodeLabel(row.pickup_code) }}
+              </strong>
+              <span v-else class="empty-cell">—</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="来源" width="124">
+            <template #default="{ row }">
+              <el-tag :type="row.order_source ? 'primary' : 'info'" effect="plain">
+                {{ orderSourceLabel(row.order_source) }}
+              </el-tag>
+            </template>
+          </el-table-column>
           <el-table-column prop="customer_name" label="顾客" width="120" />
           <el-table-column prop="customer_mobile" label="手机号" width="140" />
           <el-table-column label="类型" width="100">
@@ -180,6 +195,7 @@ import AppTable from '@/components/table/AppTable.vue'
 import { requestData } from '@/lib/api'
 import OrderDetailDialog from './components/OrderDetailDialog.vue'
 import OrderMetricsGrid from './components/OrderMetricsGrid.vue'
+import { orderSourceLabel, pickupCodeLabel } from './order-presentation'
 import type {
   OrderDetail,
   OrderFilters,
@@ -565,6 +581,17 @@ onMounted(fetchOrders)
   display: flex;
   justify-content: flex-end;
   padding-top: 16px;
+}
+
+.pickup-code-cell {
+  color: var(--primary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 15px;
+  letter-spacing: 0.08em;
+}
+
+.empty-cell {
+  color: var(--muted-foreground);
 }
 
 .item-summary {

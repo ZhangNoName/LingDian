@@ -1,0 +1,325 @@
+name: lingdian-observability
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
+x-service-defaults: &service-defaults
+  restart: unless-stopped
+  logging: *default-logging
+  cap_drop: [ALL]
+  security_opt:
+    - no-new-privileges:true
+  networks:
+    - monitoring
+
+services:
+  prometheus:
+    <<: *service-defaults
+    image: prom/prometheus:v3.5.0@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-30d}
+      - --storage.tsdb.retention.size=${PROMETHEUS_RETENTION_SIZE:-20GB}
+    networks:
+      - lingdian
+      - monitoring
+    ports:
+      - 127.0.0.1:${PROMETHEUS_PORT:-9090}:9090
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+      - ${OBSERVABILITY_STATE_DIR:-./generated}/blackbox-targets.yml:/etc/prometheus/generated/blackbox-targets.yml:ro
+      - prometheus_data:/prometheus
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,noexec,nosuid,nodev
+    mem_limit: ${PROMETHEUS_MEMORY_LIMIT:-768m}
+    cpus: ${PROMETHEUS_CPU_LIMIT:-0.75}
+    healthcheck:
+      test: [CMD-SHELL, "wget -qO- http://127.0.0.1:9090/-/ready >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      alertmanager:
+        condition: service_healthy
+
+  alertmanager:
+    <<: *service-defaults
+    image: prom/alertmanager:v0.28.1@sha256:27c475db5fb156cab31d5c18a4251ac7ed567746a2483ff264516437a39b15ba
+    networks:
+      - monitoring
+      - observability_egress
+    user: "0:0"
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+      - --data.retention=${ALERTMANAGER_RETENTION:-120h}
+    ports:
+      - 127.0.0.1:${ALERTMANAGER_PORT:-9093}:9093
+    volumes:
+      - ${OBSERVABILITY_STATE_DIR:-./generated}/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid,nodev
+    mem_limit: ${ALERTMANAGER_MEMORY_LIMIT:-128m}
+    cpus: ${ALERTMANAGER_CPU_LIMIT:-0.25}
+    healthcheck:
+      test: [CMD-SHELL, "wget -qO- http://127.0.0.1:9093/-/ready >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  loki:
+    <<: *service-defaults
+    image: grafana/loki:3.5.2@sha256:d0a95e651bb7d0a5a6468035c5b49c52f4678d90d598f853c06716bca102686b
+    command:
+      - -config.file=/etc/loki/loki.yml
+      - -config.expand-env=true
+    environment:
+      LOKI_RETENTION: ${LOKI_RETENTION:-336h}
+    volumes:
+      - ./loki/loki.yml:/etc/loki/loki.yml:ro
+      - ./loki/rules:/etc/loki/rules:ro
+      - loki_data:/loki
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,noexec,nosuid,nodev
+    mem_limit: ${LOKI_MEMORY_LIMIT:-768m}
+    cpus: ${LOKI_CPU_LIMIT:-0.75}
+    healthcheck:
+      test: [CMD, /usr/bin/loki, -version]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  alloy:
+    <<: *service-defaults
+    image: grafana/alloy:v1.10.2@sha256:bcf27f18c4402869af112fb39e35e1db3804a404686f4caa20bdf77814219223
+    user: "473:473"
+    group_add:
+      - ${NGINX_LOG_GROUP_GID:-4}
+    command:
+      - run
+      - --disable-reporting
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    environment:
+      DOCKER_HOST: tcp://docker-socket-proxy:2375
+      LINGDIAN_PROJECT_REGEX: ${CORE_COMPOSE_PROJECT_NAME:-lingdian}|lingdian-observability
+    networks:
+      - monitoring
+      - docker_socket
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/log/lingdian/nginx:/var/log/nginx:ro
+      - alloy_data:/var/lib/alloy/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,noexec,nosuid,nodev
+    mem_limit: ${ALLOY_MEMORY_LIMIT:-256m}
+    cpus: ${ALLOY_CPU_LIMIT:-0.5}
+    healthcheck:
+      test: [CMD, /bin/alloy, validate, /etc/alloy/config.alloy]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      loki:
+        condition: service_healthy
+      docker-socket-proxy:
+        condition: service_healthy
+
+  grafana:
+    <<: *service-defaults
+    image: grafana/grafana:12.1.0@sha256:6ac590e7cabc2fbe8d7b8fc1ce9c9f0582177b334e0df9c927ebd9670469440f
+    networks:
+      - monitoring
+      - observability_egress
+    user: "0:0"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SECURITY_COOKIE_SECURE: "false"
+      GF_SECURITY_DISABLE_GRAVATAR: "true"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_SERVER_ROOT_URL: http://127.0.0.1:${GRAFANA_PORT:-3001}
+      GF_LOG_MODE: console
+      GF_LOG_LEVEL: warn
+    secrets:
+      - grafana_admin_password
+    ports:
+      - 127.0.0.1:${GRAFANA_PORT:-3001}:3000
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,noexec,nosuid,nodev
+    mem_limit: ${GRAFANA_MEMORY_LIMIT:-512m}
+    cpus: ${GRAFANA_CPU_LIMIT:-0.5}
+    healthcheck:
+      test: [CMD-SHELL, "wget -qO- http://127.0.0.1:3000/api/health >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+
+  node-exporter:
+    <<: *service-defaults
+    image: prom/node-exporter:v1.9.1@sha256:d00a542e409ee618a4edc67da14dd48c5da66726bbd5537ab2af9c1dfc442c8a
+    pid: host
+    command:
+      - --path.rootfs=/host
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/docker/.+|var/lib/containers/storage/.+)($|/)
+      - --collector.textfile.directory=/textfile
+    volumes:
+      - /:/host:ro,rslave
+      - ${OBSERVABILITY_STATE_DIR:-./generated}/node-exporter-textfile:/textfile:ro
+    read_only: true
+    mem_limit: ${NODE_EXPORTER_MEMORY_LIMIT:-128m}
+    cpus: ${NODE_EXPORTER_CPU_LIMIT:-0.2}
+    healthcheck:
+      test: [CMD, /bin/node_exporter, --version]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  cadvisor:
+    restart: unless-stopped
+    image: gcr.io/cadvisor/cadvisor:v0.52.1@sha256:f40e65878e25c2e78ea037f73a449527a0fb994e303dc3e34cb6b187b4b91435
+    privileged: true
+    command:
+      - --docker_only=true
+      - --housekeeping_interval=15s
+      - --store_container_labels=false
+      - --whitelisted_container_labels=com.docker.compose.project,com.docker.compose.service
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    logging: *default-logging
+    networks:
+      - monitoring
+    mem_limit: ${CADVISOR_MEMORY_LIMIT:-256m}
+    cpus: ${CADVISOR_CPU_LIMIT:-0.5}
+    healthcheck:
+      test: [CMD, /usr/bin/cadvisor, --version]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  blackbox-exporter:
+    <<: *service-defaults
+    image: prom/blackbox-exporter:v0.27.0@sha256:a50c4c0eda297baa1678cd4dc4712a67fdea713b832d43ce7fcc5f9bea05094d
+    networks:
+      - monitoring
+      - observability_egress
+    command:
+      - --config.file=/etc/blackbox_exporter/blackbox.yml
+    volumes:
+      - ./blackbox/blackbox.yml:/etc/blackbox_exporter/blackbox.yml:ro
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid,nodev
+    mem_limit: ${BLACKBOX_MEMORY_LIMIT:-64m}
+    cpus: ${BLACKBOX_CPU_LIMIT:-0.2}
+    healthcheck:
+      test: [CMD, /bin/blackbox_exporter, --version]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  docker-socket-proxy:
+    <<: *service-defaults
+    image: tecnativa/docker-socket-proxy:0.3.0@sha256:9e4b9e7517a6b660f2cc903a19b257b1852d5b3344794e3ea334ff00ae677ac2
+    entrypoint: [/usr/local/sbin/haproxy]
+    command: [-W, -db, -f, /usr/local/etc/haproxy/lingdian.cfg]
+    environment:
+      ALLOW_RESTARTS: "0"
+      AUTH: "0"
+      BUILD: "0"
+      COMMIT: "0"
+      CONFIGS: "0"
+      CONTAINERS: "1"
+      DISABLE_IPV6: "1"
+      DISTRIBUTION: "0"
+      EVENTS: "1"
+      EXEC: "0"
+      IMAGES: "0"
+      INFO: "1"
+      LOG_LEVEL: warning
+      NETWORKS: "1"
+      NODES: "0"
+      PING: "1"
+      PLUGINS: "0"
+      POST: "0"
+      SECRETS: "0"
+      SERVICES: "0"
+      SESSION: "0"
+      SWARM: "0"
+      SYSTEM: "0"
+      TASKS: "0"
+      VERSION: "1"
+      VOLUMES: "0"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./docker-socket-proxy/haproxy.cfg:/usr/local/etc/haproxy/lingdian.cfg:ro
+    networks:
+      - docker_socket
+    read_only: true
+    tmpfs:
+      - /run:size=8m,nosuid,nodev
+      - /tmp:size=8m,noexec,nosuid,nodev
+    mem_limit: ${SOCKET_PROXY_MEMORY_LIMIT:-64m}
+    cpus: ${SOCKET_PROXY_CPU_LIMIT:-0.2}
+    healthcheck:
+      test: [CMD-SHELL, "wget -qO- http://127.0.0.1:2375/_ping | grep -q OK"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+networks:
+  lingdian:
+    name: ${LINGDIAN_NETWORK:-lingdian}
+    external: true
+  docker_socket:
+    internal: true
+  monitoring:
+    internal: true
+  observability_egress: {}
+
+volumes:
+  prometheus_data:
+  alertmanager_data:
+  loki_data:
+  alloy_data:
+  grafana_data:
+
+secrets:
+  grafana_admin_password:
+    file: ${OBSERVABILITY_STATE_DIR:-./generated}/grafana-admin-password

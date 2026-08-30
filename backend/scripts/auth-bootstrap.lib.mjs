@@ -2,30 +2,19 @@ import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:cry
 
 const SCRYPT_OPTIONS = { N: 32768, r: 8, p: 1, maxmem: 64 * 1024 * 1024 };
 const MAX_TRANSACTION_ATTEMPTS = 3;
+const MIN_BOOTSTRAP_PASSWORD_LENGTH = 12;
+const MAX_BOOTSTRAP_PASSWORD_LENGTH = 128;
+const WEAK_PASSWORD_TOKENS = ['password', 'passwd', 'admin', 'merchant', 'qwerty', 'letmein', 'changeme', '123456'];
 
 export async function bootstrapAccounts({ prisma, env }) {
-  const config = readBootstrapConfig(env);
-  assertDistinctPrincipals(config);
+  const config = validateBootstrapAccountsConfig(env);
 
   for (let attempt = 1; attempt <= MAX_TRANSACTION_ATTEMPTS; attempt += 1) {
     try {
-      return await prisma.$transaction(async (tx) => {
-        await assertMerchantStoresExist(tx, config.merchant.storeIds);
-        const admin = await upsertBootstrapUser(tx, {
-          ...config.admin,
-          roles: [
-            { role: 'SUPER_ADMIN', scopeType: 'GLOBAL', scopeId: '' },
-            { role: 'ADMIN', scopeType: 'GLOBAL', scopeId: '' },
-          ],
-          replaceMerchantScopes: false,
-        });
-        const merchant = await upsertBootstrapUser(tx, {
-          ...config.merchant,
-          roles: config.merchant.storeIds.map((scopeId) => ({ role: 'MERCHANT', scopeType: 'STORE', scopeId })),
-          replaceMerchantScopes: true,
-        });
-        return { admin, merchant };
-      }, { isolationLevel: 'Serializable' });
+      return await prisma.$transaction(
+        (tx) => bootstrapAccountsInTransaction({ tx, config }),
+        { isolationLevel: 'Serializable' },
+      );
     } catch (error) {
       if (!isRetryableWriteConflict(error) || attempt === MAX_TRANSACTION_ATTEMPTS) throw error;
     }
@@ -34,7 +23,25 @@ export async function bootstrapAccounts({ prisma, env }) {
   throw new Error('Bootstrap account transaction retry limit reached.');
 }
 
-function readBootstrapConfig(env) {
+export async function bootstrapAccountsInTransaction({ tx, config }) {
+  await assertMerchantStoresExist(tx, config.merchant.storeIds);
+  const admin = await upsertBootstrapUser(tx, {
+    ...config.admin,
+    roles: [
+      { role: 'SUPER_ADMIN', scopeType: 'GLOBAL', scopeId: '' },
+      { role: 'ADMIN', scopeType: 'GLOBAL', scopeId: '' },
+    ],
+    replaceMerchantScopes: false,
+  });
+  const merchant = await upsertBootstrapUser(tx, {
+    ...config.merchant,
+    roles: config.merchant.storeIds.map((scopeId) => ({ role: 'MERCHANT', scopeType: 'STORE', scopeId })),
+    replaceMerchantScopes: true,
+  });
+  return { admin, merchant };
+}
+
+export function validateBootstrapAccountsConfig(env) {
   const primaryStoreId = env.PRIMARY_STORE_ID?.trim();
   if (env.STORE_MODE !== 'single' || !primaryStoreId) {
     throw new Error('Bootstrap requires STORE_MODE=single and PRIMARY_STORE_ID.');
@@ -43,13 +50,15 @@ function readBootstrapConfig(env) {
   if (merchantStoreIds.length !== 1 || merchantStoreIds[0] !== primaryStoreId) {
     throw new Error('AUTH_BOOTSTRAP_MERCHANT_STORE_IDS must contain only PRIMARY_STORE_ID in single-store mode.');
   }
-  return {
+  const config = {
     admin: readAccount(env, 'SUPER_ADMIN'),
     merchant: {
       ...readAccount(env, 'MERCHANT'),
       storeIds: merchantStoreIds,
     },
   };
+  assertDistinctPrincipals(config);
+  return config;
 }
 
 function readAccount(env, kind) {
@@ -62,8 +71,23 @@ function readAccount(env, kind) {
 
   const username = normalizeAccountName(env[`${prefix}USERNAME`]);
   const password = env[`${prefix}PASSWORD`];
-  if (password.length < 8) throw new Error(`${prefix}PASSWORD must be at least 8 characters long.`);
-  return { username, password, phone: normalizeChinesePhone(env[`${prefix}PHONE`]) };
+  const phone = normalizeChinesePhone(env[`${prefix}PHONE`]);
+  assertStrongBootstrapPassword(password, { name: `${prefix}PASSWORD`, username, phone });
+  return { username, password, phone };
+}
+
+function assertStrongBootstrapPassword(password, { name, username, phone }) {
+  if (password.length < MIN_BOOTSTRAP_PASSWORD_LENGTH || password.length > MAX_BOOTSTRAP_PASSWORD_LENGTH) {
+    throw new Error(`${name} must contain 12-128 characters.`);
+  }
+  if (/\s/.test(password) || !/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/\d/.test(password) || !/[^A-Za-z0-9\s]/.test(password)) {
+    throw new Error(`${name} must include lowercase, uppercase, numeric, and symbol characters without whitespace.`);
+  }
+  const normalized = password.toLowerCase();
+  const localPhone = phone.replace(/^\+86/, '');
+  if (WEAK_PASSWORD_TOKENS.some((token) => normalized.includes(token)) || normalized.includes(username) || normalized.includes(localPhone)) {
+    throw new Error(`${name} contains a weak or account-derived value.`);
+  }
 }
 
 function readStoreIds(value) {
@@ -93,6 +117,9 @@ function assertDistinctPrincipals(config) {
   if (merchantIdentifiers.some((identifier) => adminIdentifiers.has(identifier))) {
     throw new Error('Bootstrap super administrator and merchant credentials must not collide.');
   }
+  if (config.admin.password === config.merchant.password) {
+    throw new Error('Bootstrap super administrator and merchant passwords must be different.');
+  }
 }
 
 function phoneAliases(phone) {
@@ -117,7 +144,7 @@ async function upsertBootstrapUser(tx, input) {
   });
   assertIdentityInvariants(account, phone, input);
   if (account && phone && account.userId !== phone.userId) {
-    throw new Error(`Bootstrap account ${input.username} conflicts with the configured phone identity.`);
+    throw new Error('Bootstrap account conflicts with the configured phone identity.');
   }
 
   const existingUser = account?.user ?? phone?.user;
@@ -144,6 +171,7 @@ async function upsertBootstrapUser(tx, input) {
   }
 
   const credential = await tx.passwordCredential.findUnique({ where: { identityId: accountIdentity.id } });
+  let passwordChanged = false;
   if (!credential || !await verifyPassword(input.password, credential.passwordHash)) {
     const passwordHash = await hashPassword(input.password);
     await tx.passwordCredential.upsert({
@@ -152,10 +180,15 @@ async function upsertBootstrapUser(tx, input) {
       update: { passwordHash, passwordChangedAt: new Date() },
     });
     changed = true;
+    passwordChanged = true;
   }
 
   const rolesChanged = await ensureRoles(tx, user.id, input.roles, input.replaceMerchantScopes);
   changed ||= rolesChanged;
+  if ((created || passwordChanged) && user.mustChangePassword !== true) {
+    await tx.user.update({ where: { id: user.id }, data: { mustChangePassword: true } });
+    changed = true;
+  }
   if (user.status !== 'ACTIVE') {
     await tx.user.update({ where: { id: user.id }, data: { status: 'ACTIVE' } });
     changed = true;
@@ -170,15 +203,15 @@ async function upsertBootstrapUser(tx, input) {
     });
   }
 
-  return { created };
+  return { created, changed };
 }
 
 function assertIdentityInvariants(account, phone, input) {
   if (account && (account.provider !== 'ACCOUNT' || account.subject !== input.username || account.accountName !== input.username)) {
-    throw new Error(`Bootstrap account identity invariant failed for ${input.username}.`);
+    throw new Error('Bootstrap account identity invariant failed.');
   }
   if (phone && (phone.provider !== 'PHONE' || phone.subject !== input.phone || phone.phoneE164 !== input.phone)) {
-    throw new Error(`Bootstrap phone identity invariant failed for ${input.phone}.`);
+    throw new Error('Bootstrap phone identity invariant failed.');
   }
 }
 

@@ -4,6 +4,7 @@ export {
   IntegrationDeliveryStatus,
   IntegrationProvider,
   LegalDocumentType,
+  OrderSource,
   OrderStatus,
   OrderType,
   PaymentChannel,
@@ -44,3 +45,8 @@ export type {
   VerificationCode,
   SystemLog,
 } from '@prisma/client';
+
+export {
+  createMariaDbConnectionConfig,
+  type MariaDbConnectionConfigOptions,
+} from './connection-options';

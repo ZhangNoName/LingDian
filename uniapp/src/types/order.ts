@@ -11,8 +11,19 @@ export type OrderStatus =
   | "refunding"
   | "refunded";
 
+export type OrderSource =
+  | "MINIAPP"
+  | "MEITUAN_WAIMAI"
+  | "JD_DAOJIA"
+  | "POS"
+  | "MANUAL";
+
 export type OrderSummary = {
   id: string;
+  orderNo: string;
+  orderSource: OrderSource | string | null;
+  pickupCode: string;
+  pickupBusinessDate: string | null;
   storeName: string;
   serviceMode: ServiceMode;
   status: OrderStatus;
@@ -44,7 +55,6 @@ export type OrderDetail = OrderSummary & {
   goodsAmount: number;
   discountTitle: string;
   discountAmount: number;
-  pickupNo: string;
   expectedTime: string;
   servedAt: string;
   paymentMethod: string;

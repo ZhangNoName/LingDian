@@ -2,6 +2,10 @@ import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { OrdersService } from './orders.service';
 
+function fakePickupCodeSequence(lastValue = 1) {
+  return { upsert: async () => ({ lastValue }) };
+}
+
 function fakeStores(overrides: Record<string, unknown> = {}) {
   return {
     mode: 'single',
@@ -32,6 +36,9 @@ test('createOrder does not block checkout when sku stock is zero', async () => {
     id: 'order-1',
     orderNo: 'LD1',
     storeId: 'store-1',
+    orderSource: 'MINIAPP',
+    pickupCode: 'U-0001',
+    pickupBusinessDate: new Date('2026-06-25T00:00:00.000Z'),
     customerName: '演示用户',
     customerMobile: '13800000000',
     deliveryAddress: null,
@@ -86,6 +93,7 @@ test('createOrder does not block checkout when sku stock is zero', async () => {
     selectionOption: {
       findMany: async () => [],
     },
+    pickupCodeSequence: fakePickupCodeSequence(),
     order: {
       create: async () => createdOrder,
     },
@@ -105,6 +113,8 @@ test('createOrder does not block checkout when sku stock is zero', async () => {
   });
 
   assert.equal(order.id, 'order-1');
+  assert.equal(order.order_source, 'MINIAPP');
+  assert.equal(order.pickup_code, 'U-0001');
   assert.equal(order.total_amount, 18);
   assert.equal(order.items[0].sku_id, 'sku-1');
 });
@@ -132,6 +142,7 @@ test('checkout defaults an omitted store id to the configured primary store', as
       },
     },
     selectionOption: { findMany: async () => [] },
+    pickupCodeSequence: fakePickupCodeSequence(),
     order: {
       create: async ({ data }: any) => {
         createdStoreId = data.storeId;
@@ -221,6 +232,7 @@ test('takeout checkout snapshots the owned address and uses its recipient detail
       }],
     },
     selectionOption: { findMany: async () => [] },
+    pickupCodeSequence: fakePickupCodeSequence(),
     authIdentity: {
       findFirst: async () => ({ phoneE164: '+8613900000000' }),
     },
@@ -229,6 +241,8 @@ test('takeout checkout snapshots the owned address and uses its recipient detail
         createdData = data;
         return {
           id: 'order-1', orderNo: 'LD1', storeId: 'store-1', customerName: data.customerName,
+          orderSource: data.orderSource, pickupCode: data.pickupCode,
+          pickupBusinessDate: data.pickupBusinessDate,
           customerMobile: data.customerMobile, deliveryAddress: data.deliveryAddress, orderType: 'TAKEOUT',
           status: 'PENDING_PAYMENT', paymentChannel: 'CASH', totalAmount: 18, payableAmount: 18, remark: null,
           isDeleted: false, deletedAt: null, paidAt: null, cancelledAt: null, refundingAt: null, refundedAt: null,
@@ -296,6 +310,7 @@ test('checkout accepts duplicate SKU lines and charges selections for every item
       id: 'option-1', groupId: group.id, name: '椰果', optionType: 'VALUE', priceDelta: 0.2,
       referencedSkuId: null, group, referencedSku: null,
     }] },
+    pickupCodeSequence: fakePickupCodeSequence(),
     order: { create: async ({ data }: any) => { createdData = data; return orderRecord(data); } },
   };
   const service = new OrdersService(
@@ -395,6 +410,7 @@ test('order list returns a stable pagination contract and applies ownership scop
         listQuery = query;
         return [{
           id: 'order-1', orderNo: 'LD1', storeId: 'store-1', customerName: '顾客', customerMobile: '13800000000',
+          orderSource: 'MINIAPP', pickupCode: 'U-0001', pickupBusinessDate: now,
           deliveryAddress: null, orderType: 'PICKUP', status: 'PAID', paymentChannel: 'CASH', totalAmount: 18,
           payableAmount: 18, remark: null, createdAt: now, updatedAt: now, store: { id: 'store-1', name: '零点店' },
           items: [{ id: 'item-1', productName: '拿铁', skuName: '默认', quantity: 2, subtotal: 18 }],
@@ -407,6 +423,9 @@ test('order list returns a stable pagination contract and applies ownership scop
   const result = await service.getOrders({ page: 2, pageSize: 20 }, { customerUserId: 'user-1' });
 
   assert.deepEqual(result, { items: [result.items[0]], total: 41, page: 2, page_size: 20 });
+  assert.equal(result.items[0].order_source, 'MINIAPP');
+  assert.equal(result.items[0].pickup_code, 'U-0001');
+  assert.equal(result.items[0].pickup_business_date, '2026-08-23');
   assert.equal(result.items[0].item_count, 2);
   assert.equal(listQuery.skip, 20);
   assert.equal(listQuery.take, 20);
@@ -414,6 +433,21 @@ test('order list returns a stable pagination contract and applies ownership scop
   assert.deepEqual(listQuery.where.storeId, { in: ['store-1'] });
   assert.equal(listQuery.where.customerUserId, 'user-1');
   assert.equal(listQuery.where.isDeleted, false);
+});
+
+test('order keyword search includes the channel pickup code', async () => {
+  let listWhere: any;
+  const service = new OrdersService({
+    order: {
+      findMany: async ({ where }: any) => { listWhere = where; return []; },
+      count: async () => 0,
+    },
+  } as never, {} as never, fakeStores());
+
+  await service.getOrders({ keyword: 'MT-00042', page: 1, pageSize: 20 });
+
+  assert.ok(listWhere.OR.some((condition: any) =>
+    condition.pickupCode?.contains === 'MT-00042'));
 });
 
 test('status update rejects a concurrent order change and does not write a misleading log', async () => {
@@ -455,6 +489,8 @@ function orderRecord(data: any) {
   const now = new Date('2026-08-23T00:00:00.000Z');
   return {
     id: 'order-1', orderNo: data.orderNo, storeId: data.storeId,
+    orderSource: data.orderSource ?? 'MINIAPP', pickupCode: data.pickupCode ?? 'U-0001',
+    pickupBusinessDate: data.pickupBusinessDate ?? now,
     customerName: data.customerName, customerMobile: data.customerMobile,
     deliveryAddress: data.deliveryAddress ?? null, orderType: data.orderType,
     status: data.status, paymentChannel: data.paymentChannel,

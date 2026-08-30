@@ -1,11 +1,20 @@
 import type { OrderDetailContract, OrderPageContract, OrderSummaryContract } from "@lingdian/contracts";
 import type { CartSummary } from "@/types/cart";
-import type { OrderDetail, OrderSummary, OrderStatus } from "@/types/order";
+import type { OrderDetail, OrderSource, OrderSummary, OrderStatus } from "@/types/order";
+import { formatOrderSource, resolvePickupCode } from "@/utils/order-presentation";
 import { getCurrentStoreId } from "./catalog";
 import { clearCart } from "./cart";
 import { request } from "./request";
 
-type ApiOrder = OrderSummaryContract &
+type ApiChannelFields = {
+  order_source?: OrderSource | string | null;
+  pickup_code?: string | null;
+  pickup_business_date?: string | null;
+};
+
+type ApiOrderSummary = Omit<OrderSummaryContract, keyof ApiChannelFields> & ApiChannelFields;
+type ApiOrderPage = Omit<OrderPageContract, "items"> & { items: ApiOrderSummary[] };
+type ApiOrder = ApiOrderSummary &
   Partial<Pick<OrderDetailContract, "items" | "paid_at">>;
 
 const statusMap: Record<string, OrderStatus> = {
@@ -63,10 +72,14 @@ export function createOrderRequestId(): string {
 }
 
 export async function fetchOrders(page = 1, pageSize = 20) {
-  const result = await request<OrderPageContract>(`/customer/orders?page=${page}&pageSize=${pageSize}`);
+  const result = await request<ApiOrderPage>(`/customer/orders?page=${page}&pageSize=${pageSize}`);
   return {
     items: result.items.map<OrderSummary>((order) => ({
       id: order.id,
+      orderNo: order.order_no,
+      orderSource: order.order_source ?? null,
+      pickupCode: resolvePickupCode(order.order_no, order.pickup_code),
+      pickupBusinessDate: order.pickup_business_date ?? null,
       storeName: order.store_name,
       serviceMode: order.order_type === "TAKEOUT" ? "delivery" : "takeaway",
       status: mapStatus(order.status),
@@ -88,6 +101,10 @@ export async function fetchOrderDetail(orderId: string) {
 
   return {
     id: order.id,
+    orderNo: order.order_no,
+    orderSource: order.order_source ?? null,
+    pickupCode: resolvePickupCode(order.order_no, order.pickup_code),
+    pickupBusinessDate: order.pickup_business_date ?? null,
     storeName: order.store_name,
     serviceMode: order.order_type === "TAKEOUT" ? "delivery" : "takeaway",
     status: mapStatus(order.status),
@@ -100,7 +117,6 @@ export async function fetchOrderDetail(orderId: string) {
     goodsAmount,
     discountTitle: "暂无优惠",
     discountAmount: 0,
-    pickupNo: order.order_no.slice(-3),
     expectedTime: "立即取餐",
     servedAt: order.paid_at ?? "制作中",
     paymentMethod: "模拟支付",
@@ -118,8 +134,10 @@ export async function fetchOrderDetail(orderId: string) {
     })),
     infoRows: [
       { label: "订单类型", value: order.order_type === "TAKEOUT" ? "配送" : "自取" },
+      { label: "订单来源", value: formatOrderSource(order.order_source) },
       ...(order.delivery_address ? [{ label: "配送地址", value: order.delivery_address }] : []),
-      { label: "取餐号", value: order.order_no.slice(-3) },
+      ...(order.pickup_business_date ? [{ label: "取餐日期", value: order.pickup_business_date }] : []),
+      { label: "取餐码", value: resolvePickupCode(order.order_no, order.pickup_code) },
       { label: "订单编号", value: order.order_no, copyable: true },
       { label: "下单时间", value: order.created_at },
       { label: "支付方式", value: "模拟支付" },

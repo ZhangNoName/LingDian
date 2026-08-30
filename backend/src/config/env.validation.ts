@@ -21,8 +21,18 @@ export function validateEnv(config: EnvRecord) {
     errors.push('PORT must be a valid number');
   }
 
+  if (
+    config.TRUST_PROXY_HOPS !== undefined &&
+    (!Number.isInteger(Number(config.TRUST_PROXY_HOPS)) || Number(config.TRUST_PROXY_HOPS) < 0)
+  ) {
+    errors.push('TRUST_PROXY_HOPS must be a non-negative integer');
+  }
+
   if (config.DATABASE_URL && !config.DATABASE_URL.startsWith('mysql://')) {
     errors.push('DATABASE_URL must use the mysql:// scheme');
+  }
+  if (config.DATABASE_MODE !== undefined && !['local', 'external'].includes(config.DATABASE_MODE)) {
+    errors.push('DATABASE_MODE must be local or external');
   }
 
   validatePositiveInteger(config, 'AUTH_ACCESS_TOKEN_TTL_SECONDS', errors);
@@ -32,6 +42,21 @@ export function validateEnv(config: EnvRecord) {
   validatePaymentConnectorEnv(config, errors);
 
   if (config.NODE_ENV === 'production') {
+    validateRequiredValue(config, 'DATABASE_URL', errors);
+    validateProductionDatabase(config, errors);
+    validateCorsOrigins(config, errors);
+    if (config.TRUST_PROXY_HOPS !== '1') {
+      errors.push('TRUST_PROXY_HOPS must be exactly 1 in the supported production proxy topology');
+    }
+
+    if (
+      config.AUTH_JWT_ACCESS_SECRET &&
+      config.AUTH_REFRESH_PEPPER &&
+      config.AUTH_JWT_ACCESS_SECRET === config.AUTH_REFRESH_PEPPER
+    ) {
+      errors.push('AUTH_JWT_ACCESS_SECRET and AUTH_REFRESH_PEPPER must be different secrets');
+    }
+
     validateExpectedValue(
       config,
       'AUTH_ACCESS_TOKEN_TTL_SECONDS',
@@ -54,6 +79,7 @@ export function validateEnv(config: EnvRecord) {
     }
     validateRequiredValue(config, 'SMS_WEBHOOK_URL', errors);
     validateRequiredValue(config, 'SMS_WEBHOOK_TOKEN', errors);
+    validateDeploymentSecret(config, 'SMS_WEBHOOK_TOKEN', errors);
     validateHttpsUrl(config, 'SMS_WEBHOOK_URL', errors);
 
     validateRequiredValue(config, 'WECHAT_APP_ID', errors);
@@ -87,6 +113,47 @@ export function validateEnv(config: EnvRecord) {
   }
 
   return config;
+}
+
+function validateProductionDatabase(config: EnvRecord, errors: string[]): void {
+  if (!config.DATABASE_MODE) {
+    errors.push('DATABASE_MODE is required in production');
+    return;
+  }
+  if (!['local', 'external'].includes(config.DATABASE_MODE) || !config.DATABASE_URL) return;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(config.DATABASE_URL);
+  } catch {
+    errors.push('DATABASE_URL must be a valid mysql:// URL');
+    return;
+  }
+  if (parsed.protocol !== 'mysql:' || !parsed.hostname || !parsed.pathname.slice(1)) return;
+
+  if (config.DATABASE_MODE === 'local') {
+    if (parsed.hostname !== 'db') {
+      errors.push('local production DATABASE_URL hostname must be db');
+    }
+    if (parsed.searchParams.getAll('allowPublicKeyRetrieval').length !== 1 ||
+        parsed.searchParams.get('allowPublicKeyRetrieval') !== 'true') {
+      errors.push('local production DATABASE_URL must include allowPublicKeyRetrieval=true');
+    }
+    if (parsed.searchParams.has('sslaccept') || parsed.searchParams.has('sslcert')) {
+      errors.push('local production DATABASE_URL must not include external TLS parameters');
+    }
+    return;
+  }
+
+  if (parsed.searchParams.getAll('sslaccept').length !== 1 ||
+      parsed.searchParams.get('sslaccept') !== 'strict' ||
+      parsed.searchParams.getAll('sslcert').length !== 1 ||
+      parsed.searchParams.get('sslcert') !== 'external-mysql-ca.pem') {
+    errors.push('external production DATABASE_URL must include sslaccept=strict and sslcert=external-mysql-ca.pem');
+  }
+  if (parsed.searchParams.get('allowPublicKeyRetrieval') === 'true') {
+    errors.push('external production DATABASE_URL must not enable allowPublicKeyRetrieval');
+  }
 }
 
 function validatePaymentConnectorEnv(config: EnvRecord, errors: string[]): void {
@@ -199,6 +266,65 @@ function validateSecret(
     errors.push(`${name} is required outside test`);
   } else if (value.length < 32) {
     errors.push(`${name} must be at least 32 characters`);
+  } else if (looksLikeExampleSecret(value)) {
+    errors.push(`${name} must not use a public example or placeholder value`);
+  }
+}
+
+function validateDeploymentSecret(
+  config: EnvRecord,
+  name: 'SMS_WEBHOOK_TOKEN',
+  errors: string[],
+): void {
+  const value = config[name];
+  if (!value) return;
+  if (value.length < 32) {
+    errors.push(`${name} must be at least 32 characters`);
+  } else if (looksLikeExampleSecret(value)) {
+    errors.push(`${name} must not use a public example or placeholder value`);
+  }
+}
+
+function looksLikeExampleSecret(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return normalized.includes('replace-with') ||
+    normalized.includes('change-me') ||
+    normalized.includes('changeme') ||
+    normalized.includes('example-secret') ||
+    normalized.includes('placeholder');
+}
+
+function validateCorsOrigins(config: EnvRecord, errors: string[]): void {
+  const value = config.CORS_ALLOWED_ORIGINS?.trim();
+  if (!value) {
+    errors.push('CORS_ALLOWED_ORIGINS is required in production');
+    return;
+  }
+
+  const origins = value.split(',').map((origin) => origin.trim()).filter(Boolean);
+  if (origins.length === 0 || new Set(origins).size !== origins.length) {
+    errors.push('CORS_ALLOWED_ORIGINS must contain unique absolute HTTPS origins');
+    return;
+  }
+
+  for (const origin of origins) {
+    try {
+      const parsed = new URL(origin);
+      if (
+        parsed.protocol !== 'https:' ||
+        parsed.username ||
+        parsed.password ||
+        parsed.pathname !== '/' ||
+        parsed.search ||
+        parsed.hash ||
+        parsed.origin !== origin
+      ) {
+        throw new Error('invalid');
+      }
+    } catch {
+      errors.push('CORS_ALLOWED_ORIGINS must contain only absolute HTTPS origins without paths');
+      return;
+    }
   }
 }
 
@@ -220,7 +346,7 @@ function validateExpectedValue(
   expected: '900' | '30',
   errors: string[],
 ) {
-  if (config[name] !== undefined && config[name] !== expected) {
+  if (config[name] !== expected) {
     errors.push(`${name} must be exactly ${expected}`);
   }
 }
@@ -228,6 +354,7 @@ function validateExpectedValue(
 function validateRequiredValue(
   config: EnvRecord,
   name:
+    | 'DATABASE_URL'
     | 'SMS_WEBHOOK_URL'
     | 'SMS_WEBHOOK_TOKEN'
     | 'WECHAT_APP_ID'

@@ -14,6 +14,8 @@ export type OrderStatus =
 
 export type OrderType = 'DINE_IN' | 'TAKEOUT' | 'PICKUP'
 
+export type OrderSource = 'MINIAPP' | 'MEITUAN_WAIMAI' | 'JD_DAOJIA' | 'POS' | 'MANUAL'
+
 export type PaymentChannel =
   | 'CASH'
   | 'WECHAT'
@@ -39,6 +41,9 @@ export type OrderSummaryResponse = {
 export type OrderListItem = {
   id: string
   order_no: string
+  order_source: OrderSource | null
+  pickup_code: string | null
+  pickup_business_date: string | null
   store_id: string
   store_name: string
   customer_name: string
@@ -71,6 +76,9 @@ export type OrderPageResponse = {
 export type OrderDetail = {
   id: string
   order_no: string
+  order_source: OrderSource | null
+  pickup_code: string | null
+  pickup_business_date: string | null
   store_id: string
   store_name: string
   store_code: string

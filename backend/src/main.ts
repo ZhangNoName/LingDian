@@ -1,4 +1,4 @@
-import { ValidationPipe } from '@nestjs/common';
+import { ConsoleLogger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
@@ -12,11 +12,22 @@ import { createValidationException } from './common/exceptions/validation.except
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { SystemLogService } from './modules/system-log/system-log.service';
 import { isSwaggerEnabled } from './config/swagger.config';
+import { createHttpObservabilityMiddleware } from './common/observability/http-observability.middleware';
+import { MetricsService } from './modules/metrics/metrics.service';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
-  app.set('trust proxy', 'loopback');
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    rawBody: true,
+    logger: new ConsoleLogger({ json: true, colors: false }),
+  });
+  app.set(
+    'trust proxy',
+    process.env.TRUST_PROXY_HOPS === undefined
+      ? 'loopback'
+      : Number(process.env.TRUST_PROXY_HOPS),
+  );
   const systemLogs = app.get(SystemLogService);
+  const metrics = app.get(MetricsService);
   const uploadsDir = join(process.cwd(), 'uploads');
   mkdirSync(uploadsDir, { recursive: true });
   app.useStaticAssets(uploadsDir, {
@@ -29,6 +40,7 @@ async function bootstrap() {
   });
   app.setGlobalPrefix('api');
   app.use(cookieParser());
+  app.use(createHttpObservabilityMiddleware(metrics));
   app.enableCors(corsOptions());
   app.useGlobalPipes(
     new ValidationPipe({
@@ -66,24 +78,42 @@ async function bootstrap() {
     event: 'API_STARTED',
     message: `API process started on port ${port}`,
   }).catch(() => undefined);
-  installProcessLogging(systemLogs);
+  installProcessLogging(app, systemLogs);
 }
 
 bootstrap();
 
-function installProcessLogging(systemLogs: SystemLogService): void {
-  const stop = (signal: 'SIGINT' | 'SIGTERM') => {
-    exitAfterLog(systemLogs.record({
-      source: 'SERVER',
-      level: 'INFO',
-      category: 'LIFECYCLE',
-      event: 'API_STOPPING',
-      message: `API process received ${signal}`,
-    }), 0);
+function installProcessLogging(
+  app: NestExpressApplication,
+  systemLogs: SystemLogService,
+): void {
+  let shuttingDown = false;
+  const stop = async (signal: 'SIGINT' | 'SIGTERM') => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    const forcedExit = setTimeout(() => process.exit(1), 15_000);
+    forcedExit.unref();
+    try {
+      await Promise.race([
+        systemLogs.record({
+          source: 'SERVER',
+          level: 'INFO',
+          category: 'LIFECYCLE',
+          event: 'API_STOPPING',
+          message: `API process received ${signal}`,
+        }),
+        new Promise<void>((resolve) => setTimeout(resolve, 2_000)),
+      ]);
+      await app.close();
+      clearTimeout(forcedExit);
+      process.exit(0);
+    } catch {
+      process.exit(1);
+    }
   };
 
-  process.once('SIGINT', () => stop('SIGINT'));
-  process.once('SIGTERM', () => stop('SIGTERM'));
+  process.once('SIGINT', () => void stop('SIGINT'));
+  process.once('SIGTERM', () => void stop('SIGTERM'));
   process.once('uncaughtException', (error) => {
     exitAfterLog(systemLogs.record({
       source: 'SERVER',

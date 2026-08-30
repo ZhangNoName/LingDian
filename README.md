@@ -1,6 +1,21 @@
 # LingDian
 
-零点点餐一体化项目初始化仓库，面向餐饮门店的多端点餐与经营管理场景。
+零点点餐一体化项目，面向餐饮门店的多端点餐与经营管理场景。
+
+## 生产部署
+
+Ubuntu/Debian 新服务器使用统一的单机部署入口。主机初始化并填写受保护的生产配置后，
+一条命令完成不可变镜像构建、MySQL 迁移与首店初始化、健康门禁、TLS，以及
+Prometheus/Grafana/Loki/Alloy 日志指标告警栈：
+
+```bash
+sudo bash deploy/scripts/bootstrap-host.sh --user "$USER"
+# 编辑 /etc/lingdian/production.env，替换所有 CHANGE_ME
+bash deploy/scripts/deploy-all.sh --sha "$(git rev-parse HEAD)"
+```
+
+完整前置条件、配置、备份恢复、回滚和监控访问方式见
+[生产部署 Runbook](./deploy/README.md)。历史 Lighthouse 文档不再作为执行依据。
 
 当前技术方向：
 
@@ -14,7 +29,7 @@
 - `theme/`：统一设计令牌，保证 Web 与 uni-app 颜色配置一致
 - `docs/`：PRD、架构说明、开发约定
 
-## 当前初始化目标
+## 当前工程目标
 
 - 统一三端技术基线
 - 建立可复用的品牌主题与颜色令牌
@@ -50,9 +65,9 @@ pnpm run prisma:generate
 pnpm run build:packages
 ```
 
-### 2. 配置数据库与唯一门店
+### 2. 配置本地开发数据库与唯一门店
 
-API 启动前必须先准备 `backend/.env`、数据库结构和 `PRIMARY_STORE_ID` 对应的门店行：
+本地开发 API 启动前准备 `backend/.env`、数据库结构和 `PRIMARY_STORE_ID` 对应的门店行：
 
 ```bash
 cp backend/.env.example backend/.env
@@ -66,7 +81,7 @@ pnpm run db:push
 NODE_ENV=development ALLOW_DEMO_SEED=true pnpm run db:seed:demo
 ```
 
-演示 seed 只接受 `NODE_ENV=development` 或 `NODE_ENV=test`，且必须同时设置 `ALLOW_DEMO_SEED=true`；生产和共享数据库禁止运行。生产/共享环境使用迁移并预先只读确认主门店，不能用 `db:push` 或 demo seed 初始化。
+演示 seed 只接受 `NODE_ENV=development` 或 `NODE_ENV=test`，且必须同时设置 `ALLOW_DEMO_SEED=true`；生产和共享数据库禁止运行。生产环境使用安全迁移和幂等 production bootstrap，不能用 `db:push` 或 demo seed 初始化。
 
 ### 3. 启动开发服务
 
@@ -112,15 +127,17 @@ pnpm run db:push
 NODE_ENV=development ALLOW_DEMO_SEED=true pnpm run db:seed:demo
 ```
 
-`db:push` 与 demo seed 都只用于可丢弃的本地开发/测试库。生产或共享环境必须执行已审查的迁移，并在启动 API 前确认 `PRIMARY_STORE_ID` 已存在。
+`db:push` 与 demo seed 都只用于可丢弃的本地开发/测试库。生产环境由部署脚本执行
+`db:migrate:deploy`；该命令会识别空库/兼容旧库、应用已审查迁移，并在结束后检查实际
+结构与 `schema.prisma` 是否漂移。不要在生产库运行 `db:push`。
 
 ## 认证账户初始化（灵点点餐系统）
 
-生产或共享开发环境使用 Prisma 迁移部署认证表，不能以 `db:push` 替代：
+生产首装使用合并后的幂等 bootstrap，同时创建/校验主门店、超级管理员和商家账号：
 
 ```bash
 corepack pnpm run db:migrate:deploy
-corepack pnpm --filter @lingdian/api db:seed:auth-bootstrap
+corepack pnpm run db:bootstrap:production
 ```
 
 初始化命令从部署环境读取以下变量，仓库、文档和日志均不得写入它们的实际密码值：
@@ -135,9 +152,15 @@ AUTH_BOOTSTRAP_MERCHANT_USERNAME=
 AUTH_BOOTSTRAP_MERCHANT_PASSWORD=
 AUTH_BOOTSTRAP_MERCHANT_PHONE=
 AUTH_BOOTSTRAP_MERCHANT_STORE_IDS=<same-value-as-PRIMARY_STORE_ID>
+STORE_BOOTSTRAP_CODE=
+STORE_BOOTSTRAP_NAME=
 ```
 
-单店构建要求 `STORE_MODE=single`，并要求 `AUTH_BOOTSTRAP_MERCHANT_STORE_IDS` 只包含一个值且与 `PRIMARY_STORE_ID` 完全相同；该门店必须已经存在。脚本可重复执行，用于同步启动超级管理员和测试商家；配置缺失、启动账户密码少于 8 个字符或门店不存在时会失败且不会创建不完整账户。此 8 字符规则只适用于受控启动初始化；商家 Web 的忘记/修改密码仍要求至少 12 个字符。仅商家 `web/` 提供忘记密码和修改密码页面；`admin/` 只有账号密码登录，`uniapp/` 只提供用户的手机号或第三方登录。
+单店构建要求 `STORE_MODE=single`，且
+`AUTH_BOOTSTRAP_MERCHANT_STORE_IDS` 必须与 `PRIMARY_STORE_ID` 完全相同。bootstrap
+会在串行化事务中幂等创建尚不存在的门店与账号；初始密码必须为 12–128 位并包含
+大小写字母、数字和符号，两个账号不能共用密码。新建或由 bootstrap 更新凭据的账号会
+被标记为首次登录必须改密。正式部署成功后，一次性账号凭据默认从生产配置中清除。
 
 ## 微信小程序用户能力
 

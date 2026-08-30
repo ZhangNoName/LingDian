@@ -1,6 +1,6 @@
 import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { PrismaMariaDb } from '@prisma/adapter-mariadb';
-import { PrismaClient } from '@lingdian/db';
+import { createMariaDbConnectionConfig, PrismaClient } from '@lingdian/db';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
@@ -12,7 +12,10 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
     }
 
     super({
-      adapter: new PrismaMariaDb(databaseUrl),
+      adapter: new PrismaMariaDb(createMariaDbConnectionConfig(databaseUrl, {
+        requireTls: process.env.DATABASE_MODE === 'external' ||
+          (process.env.NODE_ENV === 'production' && process.env.DATABASE_MODE !== 'local'),
+      })),
     });
   }
 

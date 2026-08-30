@@ -4,6 +4,7 @@ import {
   OrderStatus,
   OrderType,
   PaymentChannel,
+  createMariaDbConnectionConfig,
   PrismaClient,
   ProductStatus,
   ProductType,
@@ -31,7 +32,10 @@ if (!primaryStoreId) {
 }
 
 const prisma = new PrismaClient({
-  adapter: new PrismaMariaDb(databaseUrl),
+  adapter: new PrismaMariaDb(createMariaDbConnectionConfig(databaseUrl, {
+    requireTls: process.env.DATABASE_MODE === 'external' ||
+      (process.env.NODE_ENV === 'production' && process.env.DATABASE_MODE !== 'local'),
+  })),
 });
 
 const storeSeed = {

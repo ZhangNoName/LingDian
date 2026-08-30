@@ -17,6 +17,7 @@ import { AdminUsersModule } from './modules/admin-users/admin-users.module';
 import { AddressesModule } from './modules/addresses/addresses.module';
 import { IntegrationsModule } from './modules/integrations/integrations.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { MetricsModule } from './modules/metrics/metrics.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { PaymentsModule } from './modules/payments/payments.module';
       { name: 'default', ttl: 60_000, limit: 120 },
     ]),
     PrismaModule,
+    MetricsModule,
     AdminUsersModule,
     AddressesModule,
     IntegrationsModule,

@@ -13,6 +13,7 @@ import type {
 import { randomBytes } from 'node:crypto';
 import {
   OrderStatus,
+  OrderSource,
   OrderType,
   PaymentChannel,
   Prisma,
@@ -25,6 +26,7 @@ import { AddressesService } from '../addresses/addresses.service';
 import type { UserAddress } from '@lingdian/contracts';
 import { IntegrationOutboxService } from '../integrations/integration-outbox.service';
 import { StoreContextResolver } from '../stores/store-context.resolver';
+import { allocatePickupCode } from './pickup-code.service';
 
 const NOOP_INTEGRATION_OUTBOX = {
   enqueueOrderCreated: async () => undefined,
@@ -119,7 +121,11 @@ export class OrdersService {
     private readonly integrationOutbox: IntegrationOutboxService = NOOP_INTEGRATION_OUTBOX as IntegrationOutboxService,
   ) {}
 
-  async createOrder(body: CreateOrderDto, customerUserId?: string) {
+  async createOrder(
+    body: CreateOrderDto,
+    customerUserId?: string,
+    orderSource: OrderSource = OrderSource.MINIAPP,
+  ) {
     const storeId = this.stores.resolveRequestedStoreId(body.storeId);
     const existingOrder = await this.findIdempotentOrder(
       this.prisma,
@@ -300,10 +306,14 @@ export class OrdersService {
         });
       }
 
+      const pickup = await allocatePickupCode(tx, { storeId, orderSource });
       const order = await tx.order.create({
         data: {
           orderNo: `LD${Date.now()}${randomBytes(4).toString('hex').toUpperCase()}`,
           storeId,
+          orderSource,
+          pickupCode: pickup.pickupCode,
+          pickupBusinessDate: pickup.pickupBusinessDate,
           customerUserId,
           clientRequestId: customerUserId ? body.clientRequestId : undefined,
           customerName: customer.name,
@@ -508,6 +518,9 @@ export class OrdersService {
     const items: OrderSummaryContract[] = orders.map((order) => ({
       id: order.id,
       order_no: order.orderNo,
+      order_source: order.orderSource,
+      pickup_code: order.pickupCode,
+      pickup_business_date: this.toDateOnly(order.pickupBusinessDate),
       store_id: order.storeId,
       store_name: order.store.name,
       customer_name: order.customerName,
@@ -701,6 +714,11 @@ export class OrdersService {
           },
         },
         {
+          pickupCode: {
+            contains: keyword,
+          },
+        },
+        {
           customerName: {
             contains: keyword,
           },
@@ -780,6 +798,9 @@ export class OrdersService {
     return {
       id: order.id,
       order_no: order.orderNo,
+      order_source: order.orderSource,
+      pickup_code: order.pickupCode,
+      pickup_business_date: this.toDateOnly(order.pickupBusinessDate),
       store_id: order.storeId,
       store_name: order.store.name,
       store_code: order.store.code,
@@ -841,6 +862,10 @@ export class OrdersService {
     }
 
     return Number(value);
+  }
+
+  private toDateOnly(value: Date | null | undefined): string | null {
+    return value ? value.toISOString().slice(0, 10) : null;
   }
 }
 

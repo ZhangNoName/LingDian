@@ -29,6 +29,7 @@
 | 文档 | 说明 |
 | --- | --- |
 | [../README.md](../README.md) | 仓库启动、构建与常用命令 |
+| [../deploy/README.md](../deploy/README.md) | 当前唯一生产部署 Runbook：新机初始化、TLS、监控、备份、回滚与恢复 |
 | [../backend/README.md](../backend/README.md) | NestJS 后端与认证运维入口 |
 | [01-overview.md](./01-overview.md) | 项目概览；以 11–13 的当前审查结论为准 |
 | [02-directory-structure.md](./02-directory-structure.md) | 目录说明 |
@@ -36,7 +37,7 @@
 | [04-frontend-admin.md](./04-frontend-admin.md) | 管理端基础说明；权限现状见 13 |
 | [05-backend-python.md](./05-backend-python.md) | 历史文件名，内容已迁移到 NestJS 语境；后续应重命名 |
 | [06-development-guide.md](./06-development-guide.md) | 开发指南 |
-| [2026-07-27-zsf-shopping-lighthouse-deployment.md](./2026-07-27-zsf-shopping-lighthouse-deployment.md) | 历史部署方案；与当前脚本存在偏差，执行前须对照 11 和 13 |
+| [2026-07-27-zsf-shopping-lighthouse-deployment.md](./2026-07-27-zsf-shopping-lighthouse-deployment.md) | 已废弃的历史部署方案，不可用于新服务器部署 |
 
 ## 文档维护规则
 

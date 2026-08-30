@@ -1,0 +1,14 @@
+/var/log/lingdian/nginx/*.log {
+    daily
+    rotate 14
+    size 10M
+    missingok
+    notifempty
+    compress
+    delaycompress
+    sharedscripts
+    create 0640 www-data adm
+    postrotate
+        test ! -s /run/nginx.pid || kill -USR1 "$(cat /run/nginx.pid)"
+    endscript
+}

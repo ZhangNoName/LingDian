@@ -36,6 +36,10 @@ test('accepts a complete auth configuration', () => {
   );
 });
 
+test('accepts a complete production configuration', () => {
+  assert.equal(validateEnv(productionEnv()).NODE_ENV, 'production');
+});
+
 test('requires an explicit single-store runtime configuration in production', () => {
   assert.throws(
     () => validateEnv(productionEnv({ STORE_MODE: undefined })),
@@ -96,7 +100,82 @@ test('rejects a short refresh pepper outside test', () => {
   );
 });
 
+test('rejects public placeholder and reused production secrets', () => {
+  assert.throws(
+    () => validateEnv(productionEnv({
+      AUTH_JWT_ACCESS_SECRET: 'replace-with-at-least-32-random-characters',
+    })),
+    /must not use a public example or placeholder value/,
+  );
+  assert.throws(
+    () => validateEnv(productionEnv({
+      AUTH_REFRESH_PEPPER: 'a'.repeat(32),
+    })),
+    /must be different secrets/,
+  );
+});
+
+test('requires a production database and explicit HTTPS CORS origins', () => {
+  assert.throws(
+    () => validateEnv(productionEnv({ DATABASE_URL: undefined })),
+    /DATABASE_URL is required in production/,
+  );
+  assert.throws(
+    () => validateEnv(productionEnv({ CORS_ALLOWED_ORIGINS: undefined })),
+    /CORS_ALLOWED_ORIGINS is required in production/,
+  );
+  assert.throws(
+    () => validateEnv(productionEnv({ CORS_ALLOWED_ORIGINS: 'http://app.example.com' })),
+    /absolute HTTPS origins/,
+  );
+  assert.throws(
+    () => validateEnv(productionEnv({ CORS_ALLOWED_ORIGINS: 'https://app.example.com/api' })),
+    /without paths/,
+  );
+});
+
+test('production database mode fails closed for local and external transports', () => {
+  assert.throws(
+    () => validateEnv(productionEnv({ DATABASE_MODE: undefined })),
+    /DATABASE_MODE is required in production/,
+  );
+  assert.throws(
+    () => validateEnv(productionEnv({ DATABASE_URL: 'mysql://root:password@localhost:3306/lingdian' })),
+    /hostname must be db/,
+  );
+  assert.throws(
+    () => validateEnv(productionEnv({
+      DATABASE_MODE: 'external',
+      DATABASE_URL: 'mysql://service:password@db.example.com:3306/lingdian',
+    })),
+    /sslaccept=strict/,
+  );
+  assert.equal(validateEnv(productionEnv({
+    DATABASE_MODE: 'external',
+    DATABASE_URL: 'mysql://service:password@db.example.com:3306/lingdian?sslaccept=strict&sslcert=external-mysql-ca.pem',
+  })).DATABASE_MODE, 'external');
+});
+
+test('requires exactly one trusted reverse-proxy hop in production', () => {
+  assert.throws(
+    () => validateEnv(productionEnv({ TRUST_PROXY_HOPS: undefined })),
+    /TRUST_PROXY_HOPS must be exactly 1/,
+  );
+  assert.throws(
+    () => validateEnv(productionEnv({ TRUST_PROXY_HOPS: '2' })),
+    /TRUST_PROXY_HOPS must be exactly 1/,
+  );
+  assert.throws(
+    () => validateEnv({ NODE_ENV: 'test', TRUST_PROXY_HOPS: '-1' }),
+    /non-negative integer/,
+  );
+});
+
 test('requires the access token TTL to remain 900 seconds in production', () => {
+  assert.throws(
+    () => validateEnv(productionEnv({ AUTH_ACCESS_TOKEN_TTL_SECONDS: undefined })),
+    /AUTH_ACCESS_TOKEN_TTL_SECONDS must be exactly 900/,
+  );
   assert.throws(
     () => validateEnv(productionEnv({ AUTH_ACCESS_TOKEN_TTL_SECONDS: '901' })),
     /AUTH_ACCESS_TOKEN_TTL_SECONDS must be exactly 900/,
@@ -104,6 +183,10 @@ test('requires the access token TTL to remain 900 seconds in production', () => 
 });
 
 test('requires the refresh token TTL to remain 30 days in production', () => {
+  assert.throws(
+    () => validateEnv(productionEnv({ AUTH_REFRESH_TOKEN_TTL_DAYS: undefined })),
+    /AUTH_REFRESH_TOKEN_TTL_DAYS must be exactly 30/,
+  );
   assert.throws(
     () => validateEnv(productionEnv({ AUTH_REFRESH_TOKEN_TTL_DAYS: '31' })),
     /AUTH_REFRESH_TOKEN_TTL_DAYS must be exactly 30/,
@@ -161,14 +244,20 @@ test('rejects a partially configured bootstrap account group', () => {
 function productionEnv(overrides: Record<string, string | undefined> = {}) {
   return {
     NODE_ENV: 'production',
+    DATABASE_MODE: 'local',
     STORE_MODE: 'single',
     PRIMARY_STORE_ID: 'store-1',
-    DATABASE_URL: 'mysql://root:password@localhost:3306/lingdian',
+    DATABASE_URL: 'mysql://root:password@db:3306/lingdian?allowPublicKeyRetrieval=true',
     AUTH_JWT_ACCESS_SECRET: 'a'.repeat(32),
     AUTH_REFRESH_PEPPER: 'b'.repeat(32),
     AUTH_ACCESS_TOKEN_TTL_SECONDS: '900',
     AUTH_REFRESH_TOKEN_TTL_DAYS: '30',
     AUTH_COOKIE_SECURE: 'true',
+    TRUST_PROXY_HOPS: '1',
+    CORS_ALLOWED_ORIGINS: 'https://app.example.com,https://merchant.example.com,https://admin.example.com',
+    SMS_PROVIDER: 'webhook',
+    SMS_WEBHOOK_URL: 'https://sms.example.com/send',
+    SMS_WEBHOOK_TOKEN: 's'.repeat(32),
     WECHAT_APP_ID: 'wechat-app-id',
     WECHAT_APP_SECRET: 'wechat-app-secret',
     WECHAT_REDIRECT_URI: 'https://example.com/auth/wechat/callback',

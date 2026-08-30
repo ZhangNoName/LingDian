@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import type { OrderCreatedIntegrationEvent } from '@lingdian/contracts';
-import { Prisma, type IntegrationOutbox } from '@lingdian/db';
+import { Prisma, type IntegrationOutbox, type OrderSource } from '@lingdian/db';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { IntegrationCatalogService } from './integration-catalog.service';
@@ -13,6 +13,9 @@ const POLL_INTERVAL_MS = 5_000;
 type CreatedOrder = {
   id: string;
   orderNo: string;
+  orderSource?: OrderSource;
+  pickupCode?: string | null;
+  pickupBusinessDate?: Date | null;
   storeId: string;
   orderType: string;
   status: string;
@@ -171,6 +174,11 @@ export class IntegrationOutboxService implements OnApplicationBootstrap, OnModul
       order: {
         id: order.id,
         order_no: order.orderNo,
+        order_source: order.orderSource,
+        pickup_code: order.pickupCode ?? null,
+        pickup_business_date: order.pickupBusinessDate
+          ? order.pickupBusinessDate.toISOString().slice(0, 10)
+          : null,
         order_type: order.orderType,
         status: order.status,
         payment_channel: order.paymentChannel,

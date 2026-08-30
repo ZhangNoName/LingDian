@@ -38,6 +38,7 @@ corepack pnpm run db:sync-local-config -- --config "E:\\私人\\local.yml"
 ### 方式二：手动配置 `.env`
 
 ```env
+DATABASE_MODE=local
 DATABASE_URL=mysql://username:password@host:3306/database
 STORE_MODE=single
 PRIMARY_STORE_ID=<existing-store-id>
@@ -45,16 +46,34 @@ PRIMARY_STORE_ID=<existing-store-id>
 
 `PRIMARY_STORE_ID` 必须引用数据库中已有门店。API 启动和 readiness 会精确校验该行；门店处于 `CLOSED` 或 `RESTING` 仍保持 ready，但不能下单。演示 seed 使用这个固定 ID，不会在读取菜单时创建门店；它会重置演示业务数据，只允许 `NODE_ENV=development` 或 `NODE_ENV=test` 的可丢弃库，并要求显式设置 `ALLOW_DEMO_SEED=true`。
 
+MySQL 8.4 默认账号通常使用 `caching_sha2_password`。仅当数据库位于受信任的本机或 Docker 私有网络且没有 TLS 时，可在 URL 后增加
+`?allowPublicKeyRetrieval=true`；公网或跨主机数据库应配置 TLS，或向客户端提供固定的 RSA 公钥，不能依赖动态公钥获取。
+
 ### 常用命令
 
 ```bash
 corepack pnpm run prisma:generate
 corepack pnpm run db:push
+corepack pnpm run db:migrate:deploy
 NODE_ENV=development ALLOW_DEMO_SEED=true corepack pnpm run db:seed:demo
 corepack pnpm run prisma:studio
 ```
 
 `db:push` 和 demo seed 不得用于生产或共享数据库；这些环境必须执行已审查的迁移，并在启动前只读确认主门店。
+
+`db:migrate:deploy` 包含新旧数据库安全门禁：真正的空库会从
+`20260710_fresh_business_baseline` 开始完整重放；已有 11 张历史业务表的数据库会先校验每张表的历史列签名和主键，再使用 `prisma migrate resolve` 只记录该基线。只存在部分业务表、存在无关的非空 schema、基线记录与实际表矛盾时都会停止，不会静默建表或覆盖。
+
+可用一个独立的空数据库做真实迁移验收；该命令绝不清空数据库，目标非空时会拒绝：
+
+```bash
+FRESH_DATABASE_URL='mysql://user:password@127.0.0.1:3306/lingdian_fresh_verify?allowPublicKeyRetrieval=true' \
+  corepack pnpm run db:migrate:fresh:verify
+```
+
+验收会重放全部迁移、检查失败记录和核心表，然后将数据库与
+`schema.prisma` 做 drift 对比。`FRESH_DATABASE_URL` 不得与运行时
+`DATABASE_URL` 相同。
 
 ## 目录说明
 
@@ -155,18 +174,17 @@ network or an allowlist.
 
 ### Database migration, backup, and rollback
 
-Authentication schema is deployed by the checked-in Prisma migration; do not
-use `db:push` in production. From the repository root, with the production
+The complete schema is deployed by the checked-in Prisma migrations; do not use
+`db:push` in production. From the repository root, with the production
 `DATABASE_URL` supplied through the deployment secret store:
 
 ```bash
 mysqldump --single-transaction --routines --triggers --host="$DB_HOST" --user="$DB_USER" --password="$DB_PASSWORD" "$DB_NAME" > lingdian-pre-auth-$(date +%F-%H%M%S).sql
-pnpm --filter @lingdian/db migrate:deploy
+corepack pnpm run db:migrate:deploy
 ```
 
-Record the migration output and verify `auth_sessions`, `auth_identities`,
-`verification_codes`, and `auth_audit_logs` exist before enabling traffic. The
-migration is additive and Prisma has no safe automatic down migration. To roll
+Record the migration output and verify the readiness endpoint before enabling
+traffic. Migrations are forward-only and Prisma has no safe automatic down migration. To roll
 back an unsuccessful deployment, stop API traffic, restore the pre-migration
 backup to the affected database (or remove the new auth tables only if no auth
 data was written), then redeploy the prior API version. Practice this in
@@ -189,20 +207,29 @@ security review before it can be added.
 
 ### Account bootstrap, review, and incidents
 
-Deploy the checked-in migrations before starting a version that uses account
-authentication, then run the idempotent bootstrap command from the repository
-root:
+Deploy the checked-in migrations, then run the idempotent production bootstrap
+from the repository root. It creates the first store and both controlled
+accounts in one serializable transaction:
 
 ```bash
 corepack pnpm run db:migrate:deploy
-corepack pnpm --filter @lingdian/api db:seed:auth-bootstrap
+corepack pnpm run db:bootstrap:production
 ```
 
-In addition to `STORE_MODE=single` and an existing `PRIMARY_STORE_ID`, the
-bootstrap command requires these seven deployment-secret variables. Keep their
-values out of source control, shell history, command output, and logs:
+The command requires `NODE_ENV=production`, `STORE_MODE=single`, one explicit
+store identity, and the seven account variables below. Keep their values out of
+source control, shell history, command output, and logs:
 
 ```dotenv
+PRIMARY_STORE_ID=<stable-production-store-id>
+STORE_BOOTSTRAP_CODE=<stable-production-store-code>
+STORE_BOOTSTRAP_NAME=<production-store-name>
+# Optional; defaults to CLOSED for a newly created store.
+STORE_BOOTSTRAP_STATUS=CLOSED
+STORE_BOOTSTRAP_CONTACT_NAME=
+STORE_BOOTSTRAP_CONTACT_PHONE=
+STORE_BOOTSTRAP_ADDRESS=
+STORE_BOOTSTRAP_BUSINESS_HOURS=
 AUTH_BOOTSTRAP_SUPER_ADMIN_USERNAME=
 AUTH_BOOTSTRAP_SUPER_ADMIN_PASSWORD=
 AUTH_BOOTSTRAP_SUPER_ADMIN_PHONE=
@@ -213,13 +240,17 @@ AUTH_BOOTSTRAP_MERCHANT_STORE_IDS=<same-value-as-PRIMARY_STORE_ID>
 ```
 
 In this single-store build, `AUTH_BOOTSTRAP_MERCHANT_STORE_IDS` must contain
-exactly one value and it must equal `PRIMARY_STORE_ID`. The command validates
-that store before writing either bootstrap principal, and fails if a credential
-group is incomplete or a bootstrap password is shorter than 8 characters.
-Re-running it synchronizes the configured super administrator and test merchant
-without writing plaintext credentials. This 8-character minimum is limited to
-the controlled bootstrap path; merchant password reset and change remain at a
-12-character minimum. The bootstrap administrator receives `SUPER_ADMIN` and
+exactly one value and equal `PRIMARY_STORE_ID`. Both passwords must be different,
+12-128 characters, contain lowercase, uppercase, numeric, and symbol characters,
+and must not contain common weak tokens or account-derived values. Demo/test
+store or account identities and `ALLOW_DEMO_SEED=true` are rejected. A newly created store
+defaults to `CLOSED`; explicitly set `STORE_BOOTSTRAP_STATUS=OPEN` only when its
+catalogue and integrations are ready. Re-running the command verifies the
+immutable store ID/code pair and synchronizes only changed account state without
+printing identifiers, phone numbers, or plaintext credentials. Creating an
+account or changing its bootstrap password sets `mustChangePassword=true`;
+re-running with an unchanged password does not re-enable that flag after the
+user has completed the forced change. The bootstrap administrator receives `SUPER_ADMIN` and
 `ADMIN` global roles; the merchant receives only one `MERCHANT` role scoped to
 the primary store.
 

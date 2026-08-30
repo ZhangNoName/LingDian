@@ -13,6 +13,7 @@ overrides:
   brace-expansion@1: 1.1.18
   brace-expansion@2: 2.1.4
   brace-expansion@5: 5.0.9
+  deepmerge-ts@<8.0.0: 8.0.0
   fast-uri@<3.1.5: 3.1.5
   glob@>=11 <11.1.0: 11.1.0
   hono@<4.12.34: 4.12.34
@@ -86,7 +87,7 @@ importers:
         version: 7.0.0(vite@8.1.0(@types/node@24.13.2)(jiti@2.7.0)(stylus@0.57.0)(terser@5.48.0))(vue@3.5.39(typescript@5.9.3))
       vitest:
         specifier: ^4.1.0
-        version: 4.1.10(@types/node@24.13.2)(jsdom@28.1.0)(vite@8.1.0(@types/node@24.13.2)(jiti@2.7.0)(stylus@0.57.0)(terser@5.48.0))
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(jsdom@28.1.0)(vite@8.1.0(@types/node@24.13.2)(jiti@2.7.0)(stylus@0.57.0)(terser@5.48.0))
       vue-tsc:
         specifier: ^3.2.5
         version: 3.3.5(typescript@5.9.3)
@@ -126,6 +127,9 @@ importers:
       '@prisma/adapter-mariadb':
         specifier: ^7.8.0
         version: 7.8.0
+      '@prometheus-io/client':
+        specifier: 0.16.1
+        version: 0.16.1
       class-transformer:
         specifier: ^0.5.1
         version: 0.5.1
@@ -202,6 +206,9 @@ importers:
       '@prisma/client':
         specifier: ^7.8.0
         version: 7.8.0(prisma@7.8.0(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)(typescript@5.9.3))(typescript@5.9.3)
+      mariadb:
+        specifier: ^3.5.3
+        version: 3.5.3
     devDependencies:
       '@types/node':
         specifier: ^24.7.2
@@ -411,7 +418,7 @@ importers:
         version: 7.0.0(vite@8.1.0(@types/node@24.13.2)(jiti@2.7.0)(stylus@0.57.0)(terser@5.48.0))(vue@3.5.39(typescript@5.9.3))
       vitest:
         specifier: ^4.1.0
-        version: 4.1.10(@types/node@24.13.2)(jsdom@28.1.0)(vite@8.1.0(@types/node@24.13.2)(jiti@2.7.0)(stylus@0.57.0)(terser@5.48.0))
+        version: 4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(jsdom@28.1.0)(vite@8.1.0(@types/node@24.13.2)(jiti@2.7.0)(stylus@0.57.0)(terser@5.48.0))
       vue-tsc:
         specifier: ^3.2.5
         version: 3.3.5(typescript@5.9.3)
@@ -2554,6 +2561,10 @@ packages:
   '@one-ini/wasm@0.1.1':
     resolution: {integrity: sha512-XuySG1E38YScSJoMlqovLru4KTUNSjgVTIjyh7qMX6aNN5HY5Ct5LhRJdxO79JtTzKfzV/bnWpz+zquYrISsvw==}
 
+  '@opentelemetry/api@1.9.1':
+    resolution: {integrity: sha512-gLyJlPHPZYdAk1JENA9LeHejZe1Ti77/pTeFm/nMXmQH/HFZlcS/O2XJB+L8fkbrNSqhdtlvjBVjxwUYanNH5Q==}
+    engines: {node: '>=8.0.0'}
+
   '@oxc-project/types@0.137.0':
     resolution: {integrity: sha512-WT+Gb24i8hmvo85AIv2oEYouEXkRlKAlT9WaCa3TfLgNCN+GhrJOGZuIlMouAh38Qe4QOx26eUOVsq70qXrywA==}
 
@@ -2623,6 +2634,10 @@ packages:
       '@types/react': ^18.0.0 || ^19.0.0
       react: ^18.0.0 || ^19.0.0
       react-dom: ^18.0.0 || ^19.0.0
+
+  '@prometheus-io/client@0.16.1':
+    resolution: {integrity: sha512-XkFPsGFGoSs/UMg/vh0QLDpanl/tsrOV5PLHdpGe8Ho+ir/Llhytr15j6y8ZwLrpIGzK9gTVVpIalA6C4UjUZw==}
+    engines: {node: ^22 || ^24 || >=26}
 
   '@radix-ui/primitive@1.1.3':
     resolution: {integrity: sha512-JTF99U/6XIjCBo0wqkU5sK10glYe27MRRsfwoiq5zzOEZLHU3A3KCMa5X/azekYRCJ0HlwI0crAXS/5dEHTzDg==}
@@ -3775,6 +3790,9 @@ packages:
     resolution: {integrity: sha512-Ceh+7ox5qe7LJuLHoY0feh3pHuUDHAcRUeyL2VYghZwfpkNIy/+8Ocg0a3UuSoYzavmylwuLWQOf3hl0jjMMIw==}
     engines: {node: '>=8'}
 
+  bintrees@1.0.2:
+    resolution: {integrity: sha512-VOMgTMwjAaUG580SXn3LacVgjurrbMme7ZZNYGSSV7mmtY6QQRh0Eg3pwIcntQ77DErK1L0NxkbetjcoXzVwKw==}
+
   bl@4.1.0:
     resolution: {integrity: sha512-1W07cM9gS6DcLperZfFSj+bWLtaPGSOHWhPiGzXmvVJbRLdG82sH/Kn8EtW1VqWVA54AKf2h5k5BbnIbwF3h6w==}
 
@@ -4280,8 +4298,8 @@ packages:
   deep-is@0.1.4:
     resolution: {integrity: sha512-oIPzksmTg4/MriiaYGO+okXDT7ztn/w3Eptv/+gSIdMdKsJo0u4CfYNFJPy+4SKMuCqGw2wxnA+URMg3t8a/bQ==}
 
-  deepmerge-ts@7.1.5:
-    resolution: {integrity: sha512-HOJkrhaYsweh+W+e74Yn7YStZOilkoPb6fycpwNLKzSPtruFs48nYis0zy5yJz1+ktUhHxoRDJ27RQAWLIJVJw==}
+  deepmerge-ts@8.0.0:
+    resolution: {integrity: sha512-ICNjaP0ML+eSdEpJYQC46XiAn/UjAdwbEl0dE8p85ZTeNDinN4Kd4+9jS4OSAuH7st6eC7rQhsqTF5zIDaUm2g==}
     engines: {node: '>=16.0.0'}
 
   deepmerge@4.3.1:
@@ -6946,6 +6964,9 @@ packages:
   tapable@2.3.3:
     resolution: {integrity: sha512-uxc/zpqFg6x7C8vOE7lh6Lbda8eEL9zmVm/PLeTPBRhh1xCgdWaQ+J1CUieGpIfm2HdtsUpRv+HshiasBMcc6A==}
     engines: {node: '>=6'}
+
+  tdigest@0.1.3:
+    resolution: {integrity: sha512-zbRt+lT+/H4fRItHshczHErVCQnitJk8MfMT24MqFJf3YL7SJJPqGIGeuOdvxXxM/AHFzKBl7WoyaYwqO9s3Kw==}
 
   terminal-link@2.1.1:
     resolution: {integrity: sha512-un0FmiRUQNr5PJqy9kP7c40F5BOfpGlYTrxonDChEZB7pzZxRNp/bt+ymiy9/npwXya9KH99nJ/GXFIiUkYGFQ==}
@@ -10680,6 +10701,8 @@ snapshots:
 
   '@one-ini/wasm@0.1.1': {}
 
+  '@opentelemetry/api@1.9.1': {}
+
   '@oxc-project/types@0.137.0': {}
 
   '@pkgjs/parseargs@0.11.0':
@@ -10702,7 +10725,7 @@ snapshots:
   '@prisma/config@7.8.0':
     dependencies:
       c12: 3.3.4
-      deepmerge-ts: 7.1.5
+      deepmerge-ts: 8.0.0
       effect: 3.20.0
       empathic: 2.0.0
     transitivePeerDependencies:
@@ -10779,6 +10802,11 @@ snapshots:
       react-dom: 19.2.7(react@19.2.7)
     transitivePeerDependencies:
       - '@types/react-dom'
+
+  '@prometheus-io/client@0.16.1':
+    dependencies:
+      '@opentelemetry/api': 1.9.1
+      tdigest: 0.1.3
 
   '@radix-ui/primitive@1.1.3': {}
 
@@ -11952,6 +11980,8 @@ snapshots:
 
   binary-extensions@2.3.0: {}
 
+  bintrees@1.0.2: {}
+
   bl@4.1.0:
     dependencies:
       buffer: 5.7.1
@@ -12440,7 +12470,7 @@ snapshots:
 
   deep-is@0.1.4: {}
 
-  deepmerge-ts@7.1.5: {}
+  deepmerge-ts@8.0.0: {}
 
   deepmerge@4.3.1: {}
 
@@ -15517,6 +15547,10 @@ snapshots:
 
   tapable@2.3.3: {}
 
+  tdigest@0.1.3:
+    dependencies:
+      bintrees: 1.0.2
+
   terminal-link@2.1.1:
     dependencies:
       ansi-escapes: 4.3.2
@@ -15943,7 +15977,7 @@ snapshots:
       - supports-color
       - terser
 
-  vitest@4.1.10(@types/node@24.13.2)(jsdom@28.1.0)(vite@8.1.0(@types/node@24.13.2)(jiti@2.7.0)(stylus@0.57.0)(terser@5.48.0)):
+  vitest@4.1.10(@opentelemetry/api@1.9.1)(@types/node@24.13.2)(jsdom@28.1.0)(vite@8.1.0(@types/node@24.13.2)(jiti@2.7.0)(stylus@0.57.0)(terser@5.48.0)):
     dependencies:
       '@vitest/expect': 4.1.10
       '@vitest/mocker': 4.1.10(vite@8.1.0(@types/node@24.13.2)(jiti@2.7.0)(stylus@0.57.0)(terser@5.48.0))
@@ -15966,6 +16000,7 @@ snapshots:
       vite: 8.1.0(@types/node@24.13.2)(jiti@2.7.0)(stylus@0.57.0)(terser@5.48.0)
       why-is-node-running: 2.3.0
     optionalDependencies:
+      '@opentelemetry/api': 1.9.1
       '@types/node': 24.13.2
       jsdom: 28.1.0
     transitivePeerDependencies:

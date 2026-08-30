@@ -24,6 +24,23 @@
           </div>
         </header>
 
+        <div class="fulfillment-summary">
+          <div :class="['pickup-code-card', { 'pickup-code-card--empty': !order.pickup_code }]">
+            <span>取餐码</span>
+            <strong>{{ pickupCodeLabel(order.pickup_code) }}</strong>
+            <small>
+              取餐营业日：{{ pickupBusinessDateLabel(order.pickup_business_date) }}
+            </small>
+          </div>
+          <div class="order-source-card">
+            <span>订单来源</span>
+            <el-tag :type="order.order_source ? 'primary' : 'info'" effect="light" size="large">
+              {{ orderSourceLabel(order.order_source) }}
+            </el-tag>
+            <small v-if="!order.order_source">历史订单未记录来源</small>
+          </div>
+        </div>
+
         <div class="detail-meta">
           <div>
             <span>创建时间</span>
@@ -150,6 +167,11 @@ import {
   ElTimelineItem,
 } from '@/components/ui/element-plus'
 import type { OrderDetail, OrderStatus, OrderStatusAction, OrderType, PaymentChannel } from '../types'
+import {
+  orderSourceLabel,
+  pickupBusinessDateLabel,
+  pickupCodeLabel,
+} from '../order-presentation'
 
 const props = defineProps<{
   open: boolean
@@ -319,6 +341,57 @@ function timelineType(
   gap: 10px;
 }
 
+.fulfillment-summary {
+  display: grid;
+  grid-template-columns: minmax(240px, 1.2fr) minmax(180px, 0.8fr);
+  gap: 12px;
+}
+
+.pickup-code-card,
+.order-source-card {
+  display: grid;
+  align-content: center;
+  gap: 6px;
+  min-height: 112px;
+  padding: 16px 18px;
+  border-radius: 12px;
+}
+
+.pickup-code-card {
+  background: linear-gradient(135deg, var(--primary), #0f5ec7);
+  color: #ffffff;
+}
+
+.pickup-code-card--empty {
+  background: #eef3f8;
+  color: #526174;
+}
+
+.pickup-code-card span,
+.order-source-card span {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pickup-code-card strong {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 32px;
+  line-height: 1;
+  letter-spacing: 0.12em;
+}
+
+.pickup-code-card small,
+.order-source-card small {
+  opacity: 0.82;
+}
+
+.order-source-card {
+  justify-items: start;
+  border: 1px solid #d9e5f1;
+  background: #f3f8fd;
+  color: #33465d;
+}
+
 .detail-meta {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -388,7 +461,8 @@ function timelineType(
 
 @media (max-width: 960px) {
   .detail-grid,
-  .detail-meta {
+  .detail-meta,
+  .fulfillment-summary {
     grid-template-columns: 1fr;
   }
 

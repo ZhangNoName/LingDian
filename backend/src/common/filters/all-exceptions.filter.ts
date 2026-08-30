@@ -13,6 +13,10 @@ import {
 } from '@lingdian/common';
 import { AppException } from '../exceptions/app.exception';
 import { SystemLogService } from '../../modules/system-log/system-log.service';
+import {
+  resolveRouteTemplate,
+  type ObservableHttpRequest,
+} from '../observability/http-observability.middleware';
 
 type ErrorResponseBody = {
   code: ResCodeValue;
@@ -33,18 +37,17 @@ export class AllExceptionsFilter implements ExceptionFilter {
         json: (body: ErrorResponseBody) => void;
       };
     }>();
-    const request = ctx.getRequest<{
-      method?: string;
-      url?: string;
+    const request = ctx.getRequest<ObservableHttpRequest & {
       ip?: string;
       user?: { userId?: string };
     }>();
 
     const { status, body } = this.normalizeException(exception);
+    const route = resolveRouteTemplate(request);
 
     if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
       this.logger.error(
-        `${request.method} ${request.url}`,
+        `${request.method} ${route}`,
         exception instanceof Error ? exception.stack : JSON.stringify(exception),
       );
       void this.systemLogs?.record({
@@ -54,7 +57,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         event: 'HTTP_REQUEST_FAILED',
         message: body.msg,
         method: request.method,
-        path: request.url,
+        path: route,
         statusCode: status,
         ip: request.ip,
         userId: request.user?.userId,
@@ -64,7 +67,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       }).catch(() => undefined);
     } else {
       this.logger.warn(
-        `${request.method} ${request.url} -> ${body.msg}`,
+        `${request.method} ${route} -> ${body.msg}`,
       );
     }
 

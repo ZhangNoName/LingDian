@@ -1,0 +1,221 @@
+name: ${COMPOSE_PROJECT_NAME:-lingdian}
+
+x-common-logging: &common-logging
+  driver: json-file
+  options:
+    max-size: ${DOCKER_LOG_MAX_SIZE:-20m}
+    max-file: "${DOCKER_LOG_MAX_FILES:-5}"
+
+x-common-labels: &common-labels
+  com.lingdian.managed: "true"
+  com.lingdian.release: ${RELEASE_SHA:?RELEASE_SHA is required}
+
+services:
+  db:
+    profiles: [local-db]
+    image: ${MYSQL_IMAGE:-mysql:8.4@sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb}
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:?MYSQL_DATABASE is required for local database mode}
+      MYSQL_USER: ${MYSQL_USER:?MYSQL_USER is required for local database mode}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?MYSQL_PASSWORD is required for local database mode}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required for local database mode}
+      TZ: ${TZ:-Asia/Shanghai}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --skip-name-resolve
+    volumes:
+      - ${DATA_DIR:?DATA_DIR is required}/mysql:/var/lib/mysql
+    networks: [lingdian]
+    healthcheck:
+      test: [CMD-SHELL, "mysqladmin ping --host=127.0.0.1 --user=root --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+    stop_grace_period: 60s
+    security_opt:
+      - no-new-privileges:true
+    logging: *common-logging
+    labels:
+      <<: *common-labels
+      com.lingdian.component: database
+    mem_limit: ${MYSQL_MEMORY_LIMIT:-2g}
+    cpus: ${MYSQL_CPU_LIMIT:-2.0}
+
+  api:
+    image: lingdian/api:${RELEASE_SHA:?RELEASE_SHA is required}
+    build:
+      context: ..
+      dockerfile: Dockerfile.api
+      args:
+        PNPM_REGISTRY: ${PNPM_REGISTRY:-https://registry.npmjs.org}
+        DEBIAN_MIRROR: ${DEBIAN_MIRROR:-}
+        DEBIAN_SECURITY_MIRROR: ${DEBIAN_SECURITY_MIRROR:-}
+    restart: unless-stopped
+    init: true
+    env_file:
+      - path: ${LINGDIAN_API_ENV_FILE:?LINGDIAN_API_ENV_FILE is required}
+        format: raw
+    environment:
+      NODE_ENV: production
+      PORT: "9000"
+      RELEASE_SHA: ${RELEASE_SHA}
+    ports:
+      - 127.0.0.1:${API_PORT:-9000}:9000
+    volumes:
+      - ${DATA_DIR:?DATA_DIR is required}/uploads:/workspace/uploads
+      - ${STATE_DIR:?STATE_DIR is required}/external-mysql-ca.pem:/workspace/packages/db/prisma/external-mysql-ca.pem:ro
+    networks: [lingdian]
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:9000/api/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    stop_grace_period: 30s
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    logging: *common-logging
+    labels:
+      <<: *common-labels
+      com.lingdian.component: api
+    mem_limit: ${API_MEMORY_LIMIT:-1g}
+    cpus: ${API_CPU_LIMIT:-1.5}
+
+  migrate:
+    profiles: [operations]
+    image: lingdian/api:${RELEASE_SHA:?RELEASE_SHA is required}
+    env_file:
+      - path: ${LINGDIAN_API_ENV_FILE:?LINGDIAN_API_ENV_FILE is required}
+        format: raw
+    environment:
+      NODE_ENV: production
+    command: [node, packages/db/scripts/migrate-deploy-safe.mjs]
+    volumes:
+      - ${STATE_DIR:?STATE_DIR is required}/external-mysql-ca.pem:/workspace/packages/db/prisma/external-mysql-ca.pem:ro
+    networks: [lingdian]
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    logging: *common-logging
+    labels:
+      <<: *common-labels
+      com.lingdian.component: migration
+
+  bootstrap:
+    profiles: [operations]
+    image: lingdian/api:${RELEASE_SHA:?RELEASE_SHA is required}
+    env_file:
+      - path: ${LINGDIAN_BOOTSTRAP_ENV_FILE:?LINGDIAN_BOOTSTRAP_ENV_FILE is required}
+        format: raw
+    environment:
+      NODE_ENV: production
+    command: [node, backend/scripts/bootstrap-production.mjs]
+    volumes:
+      - ${STATE_DIR:?STATE_DIR is required}/external-mysql-ca.pem:/workspace/packages/db/prisma/external-mysql-ca.pem:ro
+    networks: [lingdian]
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    logging: *common-logging
+    labels:
+      <<: *common-labels
+      com.lingdian.component: bootstrap
+
+  app:
+    image: lingdian/app:${RELEASE_SHA:?RELEASE_SHA is required}
+    build:
+      context: ..
+      dockerfile: Dockerfile.frontend
+      args:
+        APP: app
+        VITE_API_BASE: ${VITE_API_BASE:?VITE_API_BASE is required}
+        PNPM_REGISTRY: ${PNPM_REGISTRY:-https://registry.npmjs.org}
+    restart: unless-stopped
+    init: true
+    ports:
+      - 127.0.0.1:${APP_PORT:-8082}:80
+    networks: [lingdian]
+    healthcheck:
+      test: [CMD, wget, -qO-, http://127.0.0.1/healthz]
+      interval: 20s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    logging: *common-logging
+    labels:
+      <<: *common-labels
+      com.lingdian.component: app
+    mem_limit: ${FRONTEND_MEMORY_LIMIT:-256m}
+    cpus: ${FRONTEND_CPU_LIMIT:-0.5}
+
+  merchant:
+    image: lingdian/merchant:${RELEASE_SHA:?RELEASE_SHA is required}
+    build:
+      context: ..
+      dockerfile: Dockerfile.frontend
+      args:
+        APP: merchant
+        VITE_API_BASE: ${VITE_API_BASE:?VITE_API_BASE is required}
+        PNPM_REGISTRY: ${PNPM_REGISTRY:-https://registry.npmjs.org}
+    restart: unless-stopped
+    init: true
+    ports:
+      - 127.0.0.1:${MERCHANT_PORT:-8083}:80
+    networks: [lingdian]
+    healthcheck:
+      test: [CMD, wget, -qO-, http://127.0.0.1/healthz]
+      interval: 20s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    logging: *common-logging
+    labels:
+      <<: *common-labels
+      com.lingdian.component: merchant
+    mem_limit: ${FRONTEND_MEMORY_LIMIT:-256m}
+    cpus: ${FRONTEND_CPU_LIMIT:-0.5}
+
+  admin:
+    image: lingdian/admin:${RELEASE_SHA:?RELEASE_SHA is required}
+    build:
+      context: ..
+      dockerfile: Dockerfile.frontend
+      args:
+        APP: admin
+        VITE_API_BASE: ${VITE_API_BASE:?VITE_API_BASE is required}
+        PNPM_REGISTRY: ${PNPM_REGISTRY:-https://registry.npmjs.org}
+    restart: unless-stopped
+    init: true
+    ports:
+      - 127.0.0.1:${ADMIN_PORT:-8084}:80
+    networks: [lingdian]
+    healthcheck:
+      test: [CMD, wget, -qO-, http://127.0.0.1/healthz]
+      interval: 20s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    logging: *common-logging
+    labels:
+      <<: *common-labels
+      com.lingdian.component: admin
+    mem_limit: ${FRONTEND_MEMORY_LIMIT:-256m}
+    cpus: ${FRONTEND_CPU_LIMIT:-0.5}
+
+networks:
+  lingdian:
+    name: ${COMPOSE_NETWORK:-lingdian}

@@ -8,6 +8,7 @@ const event: OrderCreatedIntegrationEvent = {
   occurred_at: '2026-08-29T00:00:00.000Z', store_id: 'store-1',
   order: {
     id: 'order-1', order_no: 'LD1', order_type: 'PICKUP', status: 'PENDING_PAYMENT',
+    order_source: 'MEITUAN_WAIMAI', pickup_code: 'MT-00001', pickup_business_date: '2026-08-29',
     payment_channel: 'CASH', total_amount: 20, payable_amount: 20,
     customer_name: '顾客', customer_mobile: '13800000000', delivery_address: null, remark: null,
     items: [],
@@ -31,7 +32,10 @@ test('connector delivery is versioned, idempotent and HMAC signed', async () => 
   const headers = captured?.init?.headers as Record<string, string>;
   assert.equal(headers['X-LingDian-Event-Id'], 'event-1');
   assert.match(headers['X-LingDian-Signature'], /^sha256=[0-9a-f]{64}$/);
-  assert.equal(JSON.parse(captured?.init?.body as string).schema_version, 1);
+  const payload = JSON.parse(captured?.init?.body as string);
+  assert.equal(payload.schema_version, 1);
+  assert.equal(payload.order.order_source, 'MEITUAN_WAIMAI');
+  assert.equal(payload.order.pickup_code, 'MT-00001');
 });
 
 test('connector failures expose status only and never persist a response body', async () => {

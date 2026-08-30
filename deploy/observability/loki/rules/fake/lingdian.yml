@@ -1,0 +1,30 @@
+groups:
+  - name: lingdian-log-alerts
+    interval: 1m
+    rules:
+      - alert: LingDianErrorLogBurst
+        expr: sum(count_over_time({compose_project=~"lingdian.*", level=~"ERROR|FATAL"}[5m])) > 20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: LingDian 错误日志突增
+          description: 过去 5 分钟 ERROR/FATAL 日志超过 20 条，且持续 5 分钟。
+
+      - alert: LingDianApiFatalLog
+        expr: sum(count_over_time({compose_service="api"} |~ "PROCESS_(UNCAUGHT_EXCEPTION|UNHANDLED_REJECTION)" [5m])) > 0
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: LingDian API 出现致命进程错误
+          description: API stdout 出现未捕获异常或未处理 Promise 拒绝。
+
+      - alert: LingDianNginx5xxBurst
+        expr: sum(count_over_time({job="nginx", status=~"5.."}[5m])) > 20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Nginx 5xx 日志突增
+          description: Nginx 过去 5 分钟产生超过 20 条 5xx 访问日志，且持续 5 分钟。

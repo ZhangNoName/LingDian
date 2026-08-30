@@ -1,0 +1,137 @@
+logging {
+  level  = "info"
+  format = "json"
+}
+
+discovery.docker "containers" {
+  host             = sys.env("DOCKER_HOST")
+  refresh_interval = "10s"
+}
+
+discovery.relabel "lingdian_containers" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    regex         = sys.env("LINGDIAN_PROJECT_REGEX")
+    action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+    replacement   = "$1"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    target_label  = "compose_project"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "compose_service"
+  }
+
+  rule {
+    target_label = "job"
+    replacement  = "docker"
+  }
+}
+
+loki.source.docker "lingdian" {
+  host             = sys.env("DOCKER_HOST")
+  targets          = discovery.relabel.lingdian_containers.output
+  forward_to       = [loki.process.docker.receiver]
+  refresh_interval = "10s"
+}
+
+loki.process "docker" {
+  stage.docker {}
+
+  stage.json {
+    expressions = {
+      level      = "level",
+      event      = "event",
+      method     = "method",
+      route      = "route",
+      status     = "statusCode",
+      request_id = "requestId",
+      duration   = "durationMs",
+    }
+  }
+
+  stage.labels {
+    values = {
+      level = "",
+      event = "",
+    }
+  }
+
+  stage.replace {
+    expression = "(?i)(token=[^&\\s\\\"]+|code=[^&\\s\\\"]+|authorization=[^&\\s\\\"]+|password=[^&\\s\\\"]+|secret=[^&\\s\\\"]+)"
+    replace    = "[REDACTED]"
+  }
+
+  forward_to = [loki.write.local.receiver]
+}
+
+local.file_match "nginx" {
+  path_targets = [{
+    __path__ = "/var/log/nginx/*.log",
+    host     = constants.hostname,
+    job      = "nginx",
+  }]
+  sync_period = "10s"
+}
+
+loki.source.file "nginx" {
+  targets    = local.file_match.nginx.targets
+  forward_to = [loki.process.nginx.receiver]
+}
+
+loki.process "nginx" {
+  stage.json {
+    expressions = {
+      host            = "host",
+      method          = "method",
+      protocol        = "protocol",
+      request_id      = "request_id",
+      request_time    = "request_time",
+      status          = "status",
+      timestamp       = "time",
+      upstream_status = "upstream_status",
+      upstream_time   = "upstream_time",
+      uri             = "uri",
+    }
+  }
+
+  stage.labels {
+    values = {
+      status = "",
+    }
+  }
+
+  stage.timestamp {
+    source = "timestamp"
+    format = "RFC3339"
+  }
+
+  stage.replace {
+    expression = "(?i)(token=[^&\\s\\\"]+|code=[^&\\s\\\"]+|authorization=[^&\\s\\\"]+|password=[^&\\s\\\"]+|secret=[^&\\s\\\"]+)"
+    replace    = "[REDACTED]"
+  }
+
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  external_labels = {
+    cluster = "lingdian",
+  }
+
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

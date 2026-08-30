@@ -93,7 +93,7 @@ flowchart TB
 
 `GET /api/health` 与 `/api/health/live` 只证明进程可响应，属于 liveness。`GET /api/health/ready` 已通过 `StoreContextResolver` 检查数据库可达且 `PRIMARY_STORE_ID` 对应门店存在；它仍不检查迁移漂移、磁盘/上传目录或 Connector，因此只是当前阶段的基础 readiness。
 
-现有 Prisma 迁移历史也不是空库完整基线：最早的迁移明确针对既有数据库，门店、商品、SKU、订单等核心表没有对应初始建表迁移，后续迁移已直接 `ALTER orders`。因此新环境或灾备恢复不能只靠当前 `prisma migrate deploy` 重建系统。
+Prisma 迁移现已包含 `20260710_fresh_business_baseline`，空库可完整重建门店、商品、SKU、订单等历史核心表，再顺序应用认证及后续迁移。生产统一使用仓库根目录的 `db:migrate:deploy` 安全包装：空库正常执行基线；完整既有核心表先校验历史列签名与主键，再显式 `migrate resolve` 基线；部分表、无关非空 schema 或迁移记录与表状态矛盾都会拒绝。可使用独立空库和 `FRESH_DATABASE_URL` 运行 `db:migrate:fresh:verify`，真实重放并检查 schema drift。
 
 ## 4. Monorepo 目录与职责
 

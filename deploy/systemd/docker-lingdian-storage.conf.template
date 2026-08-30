@@ -1,0 +1,4 @@
+[Unit]
+# Docker restart policies must never create fresh bind-mount directories on the
+# underlying root filesystem while LingDian's persistent filesystem is absent.
+RequiresMountsFor=__DEPLOY_ROOT__ __DATA_DIR__ __BACKUP_DIR__ __RELEASES_DIR__ __STATE_DIR__

@@ -1,3 +1,5 @@
+import type { OrderSource } from './order';
+
 /** Stable provider identifiers shared by API, management UI and connectors. */
 export const INTEGRATION_PROVIDERS = [
   'CASHIER',
@@ -37,6 +39,11 @@ export type OrderCreatedIntegrationEvent = {
   order: {
     id: string;
     order_no: string;
+    /** Internal source used to route and visually distinguish fulfilment work. */
+    order_source?: OrderSource;
+    /** Store-facing pickup code. Older version-1 events may omit it. */
+    pickup_code?: string | null;
+    pickup_business_date?: string | null;
     order_type: string;
     status: string;
     payment_channel: string;

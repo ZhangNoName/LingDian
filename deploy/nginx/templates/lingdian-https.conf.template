@@ -1,0 +1,83 @@
+log_format lingdian_json escape=json '{"time":"$time_iso8601","remote_addr":"$remote_addr","host":"$host","method":"$request_method","uri":"$uri","protocol":"$server_protocol","status":$status,"bytes":$body_bytes_sent,"request_time":$request_time,"upstream":"$upstream_addr","upstream_status":"$upstream_status","upstream_time":"$upstream_response_time","user_agent":"$http_user_agent","request_id":"$request_id"}';
+
+map $http_upgrade $lingdian_connection_upgrade {
+    default upgrade;
+    '' close;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name __APP_DOMAIN__ __MERCHANT_DOMAIN__ __ADMIN_DOMAIN__ __API_DOMAIN__;
+    access_log /var/log/lingdian/nginx/access.log lingdian_json;
+    error_log /var/log/lingdian/nginx/error.log warn;
+    server_tokens off;
+    location ^~ /.well-known/acme-challenge/ { root /var/www/lingdian-acme; }
+    location ~* ^/api/metrics(?:/|$) { return 404; }
+    location / { return 301 https://$host$request_uri; }
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name __APP_DOMAIN__;
+    ssl_certificate /etc/letsencrypt/live/__CERT_NAME__/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/__CERT_NAME__/privkey.pem;
+    include /etc/nginx/snippets/lingdian-tls.conf;
+    access_log /var/log/lingdian/nginx/access.log lingdian_json;
+    error_log /var/log/lingdian/nginx/error.log warn;
+
+    location ~* ^/api/metrics(?:/|$) { return 404; }
+    location /api/ { proxy_pass http://127.0.0.1:__API_PORT__; include /etc/nginx/snippets/lingdian-proxy.conf; }
+    location / { proxy_pass http://127.0.0.1:__APP_PORT__; include /etc/nginx/snippets/lingdian-proxy.conf; }
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name __MERCHANT_DOMAIN__;
+    ssl_certificate /etc/letsencrypt/live/__CERT_NAME__/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/__CERT_NAME__/privkey.pem;
+    include /etc/nginx/snippets/lingdian-tls.conf;
+    access_log /var/log/lingdian/nginx/access.log lingdian_json;
+    error_log /var/log/lingdian/nginx/error.log warn;
+
+    location ~* ^/api/metrics(?:/|$) { return 404; }
+    location /api/ { proxy_pass http://127.0.0.1:__API_PORT__; include /etc/nginx/snippets/lingdian-proxy.conf; }
+    location / { proxy_pass http://127.0.0.1:__MERCHANT_PORT__; include /etc/nginx/snippets/lingdian-proxy.conf; }
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name __ADMIN_DOMAIN__;
+    ssl_certificate /etc/letsencrypt/live/__CERT_NAME__/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/__CERT_NAME__/privkey.pem;
+    include /etc/nginx/snippets/lingdian-tls.conf;
+    access_log /var/log/lingdian/nginx/access.log lingdian_json;
+    error_log /var/log/lingdian/nginx/error.log warn;
+
+    location ~* ^/api/metrics(?:/|$) { return 404; }
+    location /api/ { proxy_pass http://127.0.0.1:__API_PORT__; include /etc/nginx/snippets/lingdian-proxy.conf; }
+    location / { proxy_pass http://127.0.0.1:__ADMIN_PORT__; include /etc/nginx/snippets/lingdian-proxy.conf; }
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name __API_DOMAIN__;
+    client_max_body_size 20m;
+    ssl_certificate /etc/letsencrypt/live/__CERT_NAME__/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/__CERT_NAME__/privkey.pem;
+    include /etc/nginx/snippets/lingdian-tls.conf;
+    access_log /var/log/lingdian/nginx/access.log lingdian_json;
+    error_log /var/log/lingdian/nginx/error.log warn;
+
+    location ~* ^/api/metrics(?:/|$) { return 404; }
+    location / {
+        proxy_pass http://127.0.0.1:__API_PORT__;
+        include /etc/nginx/snippets/lingdian-proxy.conf;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $lingdian_connection_upgrade;
+    }
+}

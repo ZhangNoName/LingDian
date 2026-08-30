@@ -8,11 +8,11 @@ const loadBootstrap = () => new Function('path', 'return import(path)')('../../.
 const environment = {
   STORE_MODE: 'single',
   PRIMARY_STORE_ID: 'store-1',
-  AUTH_BOOTSTRAP_SUPER_ADMIN_USERNAME: 'admin-root',
-  AUTH_BOOTSTRAP_SUPER_ADMIN_PASSWORD: 'admin-password-123',
+  AUTH_BOOTSTRAP_SUPER_ADMIN_USERNAME: 'platform-root',
+  AUTH_BOOTSTRAP_SUPER_ADMIN_PASSWORD: 'K7!vN2#qP9@x',
   AUTH_BOOTSTRAP_SUPER_ADMIN_PHONE: '13800000001',
-  AUTH_BOOTSTRAP_MERCHANT_USERNAME: 'merchant-demo',
-  AUTH_BOOTSTRAP_MERCHANT_PASSWORD: 'merchant-password-123',
+  AUTH_BOOTSTRAP_MERCHANT_USERNAME: 'store-operator',
+  AUTH_BOOTSTRAP_MERCHANT_PASSWORD: 'R4@tY8!mQ2#z',
   AUTH_BOOTSTRAP_MERCHANT_PHONE: '13800000002',
   AUTH_BOOTSTRAP_MERCHANT_STORE_IDS: 'store-1',
 };
@@ -60,21 +60,32 @@ test('first bootstrap creates the required administrator and store-scoped mercha
   );
 });
 
-test('bootstrap accepts a nine-character password and rejects a password shorter than eight characters', async () => {
+test('bootstrap requires distinct 12-character complex passwords and rejects weak values before writing', async () => {
   const { bootstrapAccounts } = await loadBootstrap();
-  const nineCharacterPassword = 'boot-pass';
+  const persistence = createPersistence();
 
-  await bootstrapAccounts({
-    prisma: createPersistence(),
-    env: { ...environment, AUTH_BOOTSTRAP_SUPER_ADMIN_PASSWORD: nineCharacterPassword },
-  });
+  await bootstrapAccounts({ prisma: persistence, env: environment });
 
   await assert.rejects(
     () => bootstrapAccounts({
       prisma: createPersistence(),
-      env: { ...environment, AUTH_BOOTSTRAP_SUPER_ADMIN_PASSWORD: 'short7!' },
+      env: { ...environment, AUTH_BOOTSTRAP_SUPER_ADMIN_PASSWORD: 'Short7!' },
     }),
-    /at least 8 characters/i,
+    /12-128 characters/i,
+  );
+  await assert.rejects(
+    () => bootstrapAccounts({
+      prisma: createPersistence(),
+      env: { ...environment, AUTH_BOOTSTRAP_SUPER_ADMIN_PASSWORD: 'Password123!' },
+    }),
+    /weak or account-derived/i,
+  );
+  await assert.rejects(
+    () => bootstrapAccounts({
+      prisma: createPersistence(),
+      env: { ...environment, AUTH_BOOTSTRAP_MERCHANT_PASSWORD: environment.AUTH_BOOTSTRAP_SUPER_ADMIN_PASSWORD },
+    }),
+    /passwords must be different/i,
   );
 });
 
@@ -95,13 +106,21 @@ test('bootstrap rejects admin and merchant principal collisions before starting 
 test('bootstrap rejects an account-name match whose provider or subject violates the account invariant', async () => {
   const persistence = createPersistence({
     accountIdentity: {
-      id: 'identity-1', userId: 'user-1', provider: 'PHONE', subject: 'not-admin-root', accountName: 'admin-root',
+      id: 'identity-1', userId: 'user-1', provider: 'PHONE', subject: 'not-platform-root', accountName: 'platform-root',
       user: { id: 'user-1', status: 'ACTIVE' },
     },
   });
   const { bootstrapAccounts } = await loadBootstrap();
 
-  await assert.rejects(() => bootstrapAccounts({ prisma: persistence, env: environment }), /account identity invariant/i);
+  await assert.rejects(
+    () => bootstrapAccounts({ prisma: persistence, env: environment }),
+    (error: unknown) => {
+      assert.ok(error instanceof Error);
+      assert.match(error.message, /account identity invariant/i);
+      assert.doesNotMatch(error.message, /platform-root|13800000001/);
+      return true;
+    },
+  );
   assert.equal(persistence.writes, 0);
 });
 
@@ -114,7 +133,15 @@ test('bootstrap rejects a phone-identity match whose provider or subject violate
   });
   const { bootstrapAccounts } = await loadBootstrap();
 
-  await assert.rejects(() => bootstrapAccounts({ prisma: persistence, env: environment }), /phone identity invariant/i);
+  await assert.rejects(
+    () => bootstrapAccounts({ prisma: persistence, env: environment }),
+    (error: unknown) => {
+      assert.ok(error instanceof Error);
+      assert.match(error.message, /phone identity invariant/i);
+      assert.doesNotMatch(error.message, /13800000002|\+8613800000002/);
+      return true;
+    },
+  );
   assert.equal(persistence.identityUpdates, 0);
 });
 

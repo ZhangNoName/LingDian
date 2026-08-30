@@ -1,14 +1,12 @@
-name: Deploy LingDian
+name: Verify and deploy LingDian
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      targets:
-        description: Comma-separated app,merchant,admin,api or all
-        required: true
-        default: all
+
+permissions:
+  contents: read
 
 concurrency:
   group: lingdian-production
@@ -16,69 +14,340 @@ concurrency:
 
 jobs:
   verify:
+    name: Verify immutable revision
     runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      verified_sha: ${{ steps.revision.outputs.sha }}
+    services:
+      mysql:
+        image: mysql:8.4@sha256:b3b90af2a6552ae30c266fdb7d5dd55f3afb72404bb78d37fe8a23eb857fd3fb
+        env:
+          MYSQL_DATABASE: lingdian_fresh_ci
+          MYSQL_USER: lingdian_ci
+          MYSQL_PASSWORD: lingdian_ci_password
+          MYSQL_ROOT_PASSWORD: lingdian_ci_root_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --host=127.0.0.1 --user=lingdian_ci --password=lingdian_ci_password --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+          --health-start-period=20s
     env:
-      DATABASE_URL: mysql://build:build@127.0.0.1:3306/build
+      DATABASE_URL: mysql://lingdian_ci:lingdian_ci_password@127.0.0.1:3306/lingdian_build_ci?allowPublicKeyRetrieval=true
+      FRESH_DATABASE_URL: mysql://lingdian_ci:lingdian_ci_password@127.0.0.1:3306/lingdian_fresh_ci?allowPublicKeyRetrieval=true
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
+      - name: Check out requested revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Record immutable revision
+        id: revision
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          actual_sha="$(git rev-parse --verify 'HEAD^{commit}')"
+          [[ "$actual_sha" == "$GITHUB_SHA" ]]
+          [[ "$actual_sha" =~ ^[0-9a-f]{40}$ ]]
+          printf 'sha=%s\n' "$actual_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
         with:
           version: 11.7.0
-      - uses: actions/setup-node@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm run check:deployment
-      - run: pnpm run build
-      - run: pnpm test
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify migrations on an empty MySQL 8.4 database
+        run: pnpm run db:migrate:fresh:verify
+
+      - name: Run deployment contract tests
+        run: pnpm run check:deployment
+
+      - name: Run all tests
+        run: pnpm test
+
+      - name: Run type checks
+        run: pnpm run type-check
+
+      - name: Build all packages and applications
+        run: pnpm run build
+
+      - name: Validate deployment shell syntax
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          bash -n deploy/scripts/*.sh
+          bash -n deploy/observability/observability.sh
+          grep -Eq '^OBSERVABILITY_ENABLED=true$' deploy/production.env.example
+          grep -Fq 'dotenv_get OBSERVABILITY_ENABLED' deploy/scripts/deploy-all.sh
+          grep -Eq 'bash .*observability_script.* install' deploy/scripts/deploy-all.sh
+
+      - name: Run Dockerfile build checks
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          docker buildx build --check --file Dockerfile.api .
+          docker buildx build --check --build-arg APP=app --file Dockerfile.frontend .
+          docker buildx build --load --tag lingdian/api:ci --file Dockerfile.api .
+          docker run --rm --network none --entrypoint node lingdian/api:ci \
+            --check packages/db/scripts/migrate-deploy-safe.mjs
+          docker run --rm --network none --entrypoint node lingdian/api:ci \
+            --check backend/scripts/bootstrap-production.mjs
+
+      - name: Validate core and observability Compose models
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          ci_dir="$(mktemp -d "$RUNNER_TEMP/lingdian-compose.XXXXXX")"
+          trap 'rm -rf -- "$ci_dir"' EXIT
+          mkdir -p "$ci_dir/data/uploads" "$ci_dir/state" "$ci_dir/observability"
+
+          printf '%s\n' \
+            'NODE_ENV=production' \
+            'DATABASE_URL=mysql://lingdian_ci:lingdian_ci_password@db:3306/lingdian_fresh_ci' \
+            > "$ci_dir/api-runtime.env"
+          cp "$ci_dir/api-runtime.env" "$ci_dir/bootstrap-runtime.env"
+          printf 'ci-only-password\n' > "$ci_dir/observability/grafana-admin-password"
+          : > "$ci_dir/observability/alertmanager.yml"
+          : > "$ci_dir/observability/blackbox-targets.yml"
+          chmod 0644 \
+            "$ci_dir/observability/grafana-admin-password" \
+            "$ci_dir/observability/alertmanager.yml" \
+            "$ci_dir/observability/blackbox-targets.yml"
+
+          {
+            printf 'COMPOSE_PROJECT_NAME=lingdian-ci\n'
+            printf 'COMPOSE_NETWORK=lingdian-ci\n'
+            printf 'RELEASE_SHA=%s\n' "$GITHUB_SHA"
+            printf 'DATA_DIR=%s/data\n' "$ci_dir"
+            printf 'STATE_DIR=%s/state\n' "$ci_dir"
+            printf 'LINGDIAN_API_ENV_FILE=%s/api-runtime.env\n' "$ci_dir"
+            printf 'LINGDIAN_BOOTSTRAP_ENV_FILE=%s/bootstrap-runtime.env\n' "$ci_dir"
+            printf 'MYSQL_DATABASE=lingdian_fresh_ci\n'
+            printf 'MYSQL_USER=lingdian_ci\n'
+            printf 'MYSQL_PASSWORD=lingdian_ci_password\n'
+            printf 'MYSQL_ROOT_PASSWORD=lingdian_ci_root_password\n'
+            printf 'VITE_API_BASE=https://api.example.test/api\n'
+          } > "$ci_dir/core.env"
+
+          docker compose \
+            --env-file "$ci_dir/core.env" \
+            --project-directory "$GITHUB_WORKSPACE/deploy" \
+            --file deploy/compose.yml \
+            --profile local-db \
+            --profile operations \
+            config --quiet
+
+          api_context="$(docker compose \
+            --env-file "$ci_dir/core.env" \
+            --project-directory "$GITHUB_WORKSPACE/deploy" \
+            --file deploy/compose.yml \
+            config --format json | jq -r '.services.api.build.context')"
+          [[ "$api_context" == "$GITHUB_WORKSPACE" ]] || {
+            printf 'API build context resolved outside the release: %s\n' "$api_context" >&2
+            exit 1
+          }
+
+          OBSERVABILITY_STATE_DIR="$ci_dir/observability" \
+            docker compose \
+              --env-file deploy/observability/.env.example \
+              --file deploy/observability/compose.yml \
+              config --quiet
+          socket_proxy_image='tecnativa/docker-socket-proxy:0.3.0@sha256:9e4b9e7517a6b660f2cc903a19b257b1852d5b3344794e3ea334ff00ae677ac2'
+          docker run --rm --cap-drop ALL --user 0:0 \
+            -v "$ci_dir/observability/grafana-admin-password:/input:ro" \
+            --entrypoint /bin/cat "$socket_proxy_image" /input >/dev/null
+          docker run --rm --cap-drop ALL --user 0:0 \
+            -v "$ci_dir/observability/alertmanager.yml:/input:ro" \
+            --entrypoint /bin/cat "$socket_proxy_image" /input >/dev/null
+          jq --exit-status empty deploy/observability/grafana/dashboards/*.json
+
+      - name: Bundle the verified revision
+        shell: bash
+        env:
+          VERIFIED_SHA: ${{ steps.revision.outputs.sha }}
+        run: |
+          set -Eeuo pipefail
+          bundle_ref=refs/heads/deployment-bundle
+          bundle_file="$RUNNER_TEMP/lingdian-deploy.bundle"
+          git update-ref "$bundle_ref" "$VERIFIED_SHA"
+          git bundle create "$bundle_file" "$bundle_ref"
+          bundle_sha="$(git bundle list-heads "$bundle_file" "$bundle_ref" | awk 'NR == 1 { print $1 }')"
+          [[ "$bundle_sha" == "$VERIFIED_SHA" ]]
+          (
+            cd "$RUNNER_TEMP"
+            sha256sum lingdian-deploy.bundle > lingdian-deploy.bundle.sha256
+          )
+
+      - name: Store verified deployment bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: lingdian-deploy-${{ steps.revision.outputs.sha }}
+          path: |
+            ${{ runner.temp }}/lingdian-deploy.bundle
+            ${{ runner.temp }}/lingdian-deploy.bundle.sha256
+          if-no-files-found: error
+          compression-level: 0
+          overwrite: true
+          retention-days: 1
 
   deploy:
+    name: Deploy verified revision
     needs: verify
     runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment: production
+    env:
+      VERIFIED_SHA: ${{ needs.verify.outputs.verified_sha }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Download verified deployment bundle
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
-          fetch-depth: 0
-      - id: targets
+          name: lingdian-deploy-${{ needs.verify.outputs.verified_sha }}
+          path: ${{ runner.temp }}/deployment-bundle
+
+      - name: Deploy bundle to production
+        shell: bash
         env:
-          MANUAL_TARGETS: ${{ inputs.targets }}
-          PUSH_BEFORE: ${{ github.event.before }}
-          PUSH_SHA: ${{ github.sha }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
         run: |
-          if [ -n "$MANUAL_TARGETS" ]; then
-            echo "value=$MANUAL_TARGETS" >> "$GITHUB_OUTPUT"
-          else
-            if [ -n "$PUSH_BEFORE" ] && [ "$PUSH_BEFORE" != "0000000000000000000000000000000000000000" ]; then
-              git diff --name-only "$PUSH_BEFORE" "$PUSH_SHA" | node scripts/print-deployment-targets.mjs >> "$GITHUB_OUTPUT"
-            else
-              echo "value=all" >> "$GITHUB_OUTPUT"
+          set -Eeuo pipefail
+          : "${DEPLOY_HOST:?DEPLOY_HOST secret is required}"
+          : "${DEPLOY_USER:?DEPLOY_USER secret is required}"
+          : "${DEPLOY_SSH_KEY:?DEPLOY_SSH_KEY secret is required}"
+          : "${DEPLOY_KNOWN_HOSTS:?DEPLOY_KNOWN_HOSTS secret is required}"
+          [[ "$VERIFIED_SHA" =~ ^[0-9a-f]{40}$ ]]
+
+          deploy_port="${DEPLOY_PORT:-22}"
+          [[ "$deploy_port" =~ ^[0-9]{1,5}$ ]] && (( deploy_port >= 1 && deploy_port <= 65535 ))
+          [[ "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ ]]
+          [[ "$DEPLOY_HOST" =~ ^[A-Za-z0-9][A-Za-z0-9.:-]*$ ]]
+
+          artifact_dir="$RUNNER_TEMP/deployment-bundle"
+          bundle_file="$artifact_dir/lingdian-deploy.bundle"
+          checksum_file="$artifact_dir/lingdian-deploy.bundle.sha256"
+          [[ -r "$bundle_file" && -r "$checksum_file" ]]
+          (
+            cd "$artifact_dir"
+            sha256sum --check --strict lingdian-deploy.bundle.sha256
+          )
+          bundle_sha="$(git bundle list-heads "$bundle_file" refs/heads/deployment-bundle | awk 'NR == 1 { print $1 }')"
+          [[ "$bundle_sha" == "$VERIFIED_SHA" ]]
+          expected_checksum="$(awk 'NR == 1 { print $1 }' "$checksum_file")"
+          [[ "$expected_checksum" =~ ^[0-9a-f]{64}$ ]]
+
+          ssh_dir="$RUNNER_TEMP/lingdian-ssh"
+          install -d -m 0700 "$ssh_dir"
+          cleanup_ssh() { rm -f -- "$ssh_dir/key" "$ssh_dir/known_hosts"; }
+          trap cleanup_ssh EXIT
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$ssh_dir/key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$ssh_dir/known_hosts"
+          chmod 0600 "$ssh_dir/key" "$ssh_dir/known_hosts"
+
+          ssh_options=(
+            -i "$ssh_dir/key"
+            -p "$deploy_port"
+            -o BatchMode=yes
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$ssh_dir/known_hosts"
+          )
+          scp_options=(
+            -i "$ssh_dir/key"
+            -P "$deploy_port"
+            -o BatchMode=yes
+            -o IdentitiesOnly=yes
+            -o StrictHostKeyChecking=yes
+            -o "UserKnownHostsFile=$ssh_dir/known_hosts"
+          )
+          destination="$DEPLOY_USER@$DEPLOY_HOST"
+          deploy_root=/opt/lingdian
+          env_file=/etc/lingdian/production.env
+          incoming_dir="$deploy_root/incoming"
+          remote_part="$incoming_dir/lingdian-$VERIFIED_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT.bundle.part"
+
+          ssh "${ssh_options[@]}" "$destination" \
+            bash -s -- "$incoming_dir" <<'REMOTE_PREPARE'
+          set -Eeuo pipefail
+          incoming_dir=$1
+          [[ "$incoming_dir" == /opt/lingdian/incoming ]]
+          install -d -m 0700 "$incoming_dir"
+          REMOTE_PREPARE
+
+          scp "${scp_options[@]}" -- "$bundle_file" "$destination:$remote_part"
+
+          ssh "${ssh_options[@]}" "$destination" \
+            bash -s -- \
+              "$VERIFIED_SHA" "$expected_checksum" "$remote_part" "$deploy_root" "$env_file" <<'REMOTE_DEPLOY'
+          set -Eeuo pipefail
+          sha=$1
+          expected_checksum=$2
+          uploaded_bundle=$3
+          deploy_root=$4
+          env_file=$5
+
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$expected_checksum" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$deploy_root" == /opt/lingdian ]]
+          [[ "$env_file" == /etc/lingdian/production.env ]]
+          [[ "$uploaded_bundle" == "$deploy_root/incoming/lingdian-$sha-"*.bundle.part ]]
+          [[ -f "$uploaded_bundle" && ! -L "$uploaded_bundle" ]]
+
+          repository="$deploy_root/repository.git"
+          runner_dir=
+          cleanup() {
+            rm -f -- "$uploaded_bundle"
+            if [[ -n "$runner_dir" && "$runner_dir" == "$deploy_root/state/ci-runner."* ]]; then
+              rm -rf -- "$runner_dir"
             fi
+          }
+          trap cleanup EXIT
+
+          actual_checksum="$(sha256sum "$uploaded_bundle" | awk '{ print $1 }')"
+          [[ "$actual_checksum" == "$expected_checksum" ]]
+          if [[ ! -d "$repository/objects" ]]; then
+            git init --bare "$repository" >/dev/null
+            chmod 0700 "$repository"
           fi
-      - name: Bundle verified revision
-        if: steps.targets.outputs.value != 'none'
-        run: |
-          git branch deployment-bundle "${{ github.sha }}"
-          git bundle create lingdian-deploy.bundle deployment-bundle
-      - uses: appleboy/scp-action@v1
-        if: steps.targets.outputs.value != 'none'
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: lingdian-deploy.bundle
-          target: /home/lighthouse/apps
-      - uses: appleboy/ssh-action@v1.2.2
-        if: steps.targets.outputs.value != 'none'
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          script: |
-            set -eu
-            git -C /home/lighthouse/apps/lingdian fetch /home/lighthouse/apps/lingdian-deploy.bundle deployment-bundle
-            rm -f /home/lighthouse/apps/lingdian-deploy.bundle
-            release_script=$(mktemp /tmp/lingdian-release.XXXXXX)
-            trap 'rm -f "$release_script"' EXIT
-            git -C /home/lighthouse/apps/lingdian show '${{ github.sha }}:deploy/scripts/release.sh' > "$release_script"
-            LINGDIAN_SYNC_NGINX=1 bash "$release_script" '${{ github.sha }}' '${{ steps.targets.outputs.value }}'
+          git --git-dir="$repository" bundle verify "$uploaded_bundle" >/dev/null
+          advertised_sha="$(git bundle list-heads "$uploaded_bundle" refs/heads/deployment-bundle | awk 'NR == 1 { print $1 }')"
+          [[ "$advertised_sha" == "$sha" ]]
+
+          deploy_ref="refs/lingdian/deploy/$sha"
+          if git --git-dir="$repository" show-ref --verify --quiet "$deploy_ref"; then
+            existing_sha="$(git --git-dir="$repository" rev-parse --verify "$deploy_ref^{commit}")"
+            [[ "$existing_sha" == "$sha" ]]
+          else
+            git --git-dir="$repository" fetch --no-tags "$uploaded_bundle" \
+              "refs/heads/deployment-bundle:$deploy_ref"
+          fi
+          fetched_sha="$(git --git-dir="$repository" rev-parse --verify "$deploy_ref^{commit}")"
+          [[ "$fetched_sha" == "$sha" ]]
+
+          install -d -m 0700 "$deploy_root/state"
+          runner_dir="$(mktemp -d "$deploy_root/state/ci-runner.XXXXXX")"
+          git --git-dir="$repository" archive --format=tar "$sha" deploy/scripts | tar -xf - -C "$runner_dir"
+          [[ -r "$runner_dir/deploy/scripts/deploy.sh" ]]
+          [[ -r "$runner_dir/deploy/scripts/deploy-all.sh" ]]
+
+          GIT_DIR="$repository" \
+            bash "$runner_dir/deploy/scripts/deploy-all.sh" \
+              --env "$env_file" \
+              --sha "$sha"
+          REMOTE_DEPLOY

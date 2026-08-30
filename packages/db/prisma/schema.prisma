@@ -30,6 +30,14 @@ enum OrderType {
   PICKUP
 }
 
+enum OrderSource {
+  MINIAPP
+  MEITUAN_WAIMAI
+  JD_DAOJIA
+  POS
+  MANUAL
+}
+
 enum OrderStatus {
   CREATING
   PENDING_PAYMENT
@@ -196,26 +204,27 @@ enum IntegrationDeliveryStatus {
 }
 
 model Store {
-  id                String              @id @default(cuid())
-  code              String              @unique
-  name              String
-  contactName       String?
-  contactPhone      String?
-  address           String?
-  businessHours     String?
-  status            StoreStatus         @default(OPEN)
-  dineInEnabled     Boolean             @default(true)
-  takeoutEnabled    Boolean             @default(true)
-  pickupEnabled     Boolean             @default(true)
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
-  categories        Category[]
-  products          Product[]
-  selectionGroups   SelectionGroup[]
-  orders            Order[]
-  integrations      StoreIntegration[]
-  integrationEvents IntegrationOutbox[]
-  paymentAccounts   PaymentAccount[]
+  id                  String               @id @default(cuid())
+  code                String               @unique
+  name                String
+  contactName         String?
+  contactPhone        String?
+  address             String?
+  businessHours       String?
+  status              StoreStatus          @default(OPEN)
+  dineInEnabled       Boolean              @default(true)
+  takeoutEnabled      Boolean              @default(true)
+  pickupEnabled       Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  categories          Category[]
+  products            Product[]
+  selectionGroups     SelectionGroup[]
+  orders              Order[]
+  integrations        StoreIntegration[]
+  integrationEvents   IntegrationOutbox[]
+  paymentAccounts     PaymentAccount[]
+  pickupCodeSequences PickupCodeSequence[]
 
   @@map("stores")
 }
@@ -385,41 +394,59 @@ model ProductSelectionGroup {
 }
 
 model Order {
-  id              String           @id @default(cuid())
-  orderNo         String           @unique
-  storeId         String
-  customerUserId  String?
-  clientRequestId String?          @db.VarChar(64)
-  customerName    String
-  customerMobile  String
-  deliveryAddress String?          @db.Text
-  orderType       OrderType
-  status          OrderStatus      @default(CREATING)
-  paymentChannel  PaymentChannel   @default(CASH)
-  totalAmount     Decimal          @db.Decimal(10, 2)
-  payableAmount   Decimal          @db.Decimal(10, 2)
-  remark          String?
-  isDeleted       Boolean          @default(false)
-  deletedAt       DateTime?
-  paidAt          DateTime?
-  cancelledAt     DateTime?
-  refundingAt     DateTime?
-  refundedAt      DateTime?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  store           Store            @relation(fields: [storeId], references: [id], onDelete: Restrict)
-  customerUser    User?            @relation(fields: [customerUserId], references: [id], onDelete: SetNull)
-  items           OrderItem[]
-  statusLogs      OrderStatusLog[]
-  paymentIntents  PaymentIntent[]
+  id                 String           @id @default(cuid())
+  orderNo            String           @unique
+  storeId            String
+  customerUserId     String?
+  clientRequestId    String?          @db.VarChar(64)
+  customerName       String
+  customerMobile     String
+  deliveryAddress    String?          @db.Text
+  orderType          OrderType
+  orderSource        OrderSource      @default(MINIAPP)
+  pickupCode         String?          @db.VarChar(16)
+  pickupBusinessDate DateTime?        @db.Date
+  status             OrderStatus      @default(CREATING)
+  paymentChannel     PaymentChannel   @default(CASH)
+  totalAmount        Decimal          @db.Decimal(10, 2)
+  payableAmount      Decimal          @db.Decimal(10, 2)
+  remark             String?
+  isDeleted          Boolean          @default(false)
+  deletedAt          DateTime?
+  paidAt             DateTime?
+  cancelledAt        DateTime?
+  refundingAt        DateTime?
+  refundedAt         DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  store              Store            @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  customerUser       User?            @relation(fields: [customerUserId], references: [id], onDelete: SetNull)
+  items              OrderItem[]
+  statusLogs         OrderStatusLog[]
+  paymentIntents     PaymentIntent[]
 
   @@unique([storeId, customerUserId, clientRequestId])
+  @@unique([storeId, pickupBusinessDate, pickupCode])
   @@index([storeId, createdAt])
   @@index([customerUserId, createdAt])
   @@index([status])
   @@index([isDeleted, createdAt])
   @@index([storeId, status, isDeleted])
   @@map("orders")
+}
+
+model PickupCodeSequence {
+  id           String      @id @default(cuid())
+  storeId      String
+  businessDate DateTime    @db.Date
+  orderSource  OrderSource
+  lastValue    Int         @default(0)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  store        Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, businessDate, orderSource])
+  @@map("pickup_code_sequences")
 }
 
 /// A store-owned receiving account. Credentials and private keys are never stored here;
@@ -472,6 +499,7 @@ model PaymentIntent {
   @@unique([provider, providerIntentId])
   @@index([orderId, createdAt])
   @@index([status, expiresAt])
+  @@index([accountId], map: "payment_intents_accountId_fkey")
   @@map("payment_intents")
 }
 
@@ -512,6 +540,7 @@ model PaymentWebhookEvent {
 
   @@unique([provider, accountId, eventId])
   @@index([processedAt, createdAt])
+  @@index([accountId], map: "payment_webhook_events_accountId_fkey")
   @@map("payment_webhook_events")
 }
 

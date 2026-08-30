@@ -1,14 +1,17 @@
 <template>
   <view class="card" @tap="$emit('detail', order.id)">
     <view class="title-row">
-      <text class="badge">堂食</text>
+      <text class="badge">{{ serviceModeLabel }}</text>
       <text class="store">{{ order.storeName }}</text>
       <view class="status-wrap">
         <text class="status">{{ statusLabel }}</text>
         <ChevronRightIcon class="status-icon" aria-hidden="true" />
       </view>
     </view>
-    <text class="time">{{ formatOrderTime(order.createdAt) }}</text>
+    <view class="meta-row">
+      <text class="time">{{ formatOrderTime(order.createdAt) }}</text>
+      <text class="pickup-code">{{ sourceLabel }} · 取餐码 {{ order.pickupCode }}</text>
+    </view>
     <view class="body">
       <view class="thumbs">
         <image v-for="thumb in order.productThumbs.slice(0, 3)" :key="thumb" class="thumb" :src="thumb" mode="aspectFill" lazy-load />
@@ -26,6 +29,7 @@
 import { computed } from "vue";
 import { ChevronRightIcon } from "@lingdian/icons/miniapp";
 import type { OrderSummary } from "@/types/order";
+import { formatOrderSource } from "@/utils/order-presentation";
 
 const props = defineProps<{
   order: OrderSummary;
@@ -35,6 +39,14 @@ const emit = defineEmits<{
   (event: "reorder", orderId: string): void;
   (event: "detail", orderId: string): void;
 }>();
+
+const serviceModeLabel = computed(() => ({
+  dineIn: "堂食",
+  takeaway: "自取",
+  delivery: "配送",
+})[props.order.serviceMode]);
+
+const sourceLabel = computed(() => formatOrderSource(props.order.orderSource));
 
 const statusLabel = computed(() => {
   const labels: Record<OrderSummary["status"], string> = {
@@ -132,8 +144,23 @@ function formatOrderTime(value: string) {
 }
 
 .time {
-  display: block;
+  flex: none;
+}
+
+.meta-row {
+  display: flex;
+  gap: 20rpx;
+  align-items: flex-start;
+  justify-content: space-between;
   margin: 14rpx 0 18rpx;
+}
+
+.pickup-code {
+  color: var(--ld-mini-primary);
+  font-size: var(--ld-font-sm, 24rpx);
+  font-weight: 800;
+  text-align: right;
+  word-break: break-all;
 }
 
 .body {
