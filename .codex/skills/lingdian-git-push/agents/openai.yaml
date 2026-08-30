@@ -1,0 +1,4 @@
+interface:
+  display_name: "LingDian Git 推送"
+  short_description: "安全提交并推送 LingDian 代码到 GitHub"
+  default_prompt: "使用 $lingdian-git-push 检查、提交并推送当前 LingDian 改动。"
