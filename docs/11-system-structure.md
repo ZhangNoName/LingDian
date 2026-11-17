@@ -1,6 +1,6 @@
 # LingDian 系统结构与架构边界
 
-> 审查基线：2026-08-30 当前工作区。本文只描述仓库中已经存在的运行结构；模块成熟度见 [模块目录](./12-module-catalog.md)，上线约束见 [权限与缺口分析](./13-permission-and-gap-analysis.md)，本轮问题与修复证据见 [代码库全面审查](./14-codebase-review-2026-08-30.md)。
+> 审查基线：2026-08-30；库存模块增量更新：2026-11-17。本文只描述仓库中已经存在的运行结构；模块成熟度见 [模块目录](./12-module-catalog.md)，上线约束见 [权限与缺口分析](./13-permission-and-gap-analysis.md)，本轮问题与修复证据见 [代码库全面审查](./14-codebase-review-2026-08-30.md)。
 
 ## 1. 架构结论
 
@@ -52,7 +52,7 @@ flowchart LR
 | 路径 | 主要职责 | 可依赖 | 不应承担 |
 | --- | --- | --- | --- |
 | `uniapp/` | 顾客菜单、规格、购物车、结算、订单、认证、地址 | contracts、icons、observability、common/theme | 商户密钥、服务端定价、权限判定 |
-| `web/` | 商家单店工作台、商品配置、订单、集成开关 | contracts、icons、observability、common/theme | 平台治理、仅靠隐藏按钮授权 |
+| `web/` | 商家单店工作台、商品配置、订单、原料库存台账、集成开关 | contracts、icons、observability、common/theme | 平台治理、仅靠隐藏按钮授权 |
 | `admin/` | 平台账号、系统日志、个人设置 | contracts、icons、observability、common/theme | 商家经营流程、直接访问数据库 |
 | `backend/` | HTTP 边界、鉴权、业务规则、事务、状态机、Connector 调度 | db、contracts、common | 页面状态、厂商私有协议实现 |
 | `packages/contracts/` | 跨端 API 与事件契约 | TypeScript 标准能力 | Prisma 模型、页面 ViewModel |
@@ -113,6 +113,7 @@ flowchart LR
 - `auth` 拥有身份、会话、验证码、OAuth、法律同意与认证审计；
 - `stores` / `merchant` 拥有主门店解析和商家 scope；
 - `products` / `menu` 拥有分类、SPU、SKU、选择组和公开菜单；
+- `inventory` 拥有门店原料台账、预警阈值和不可改写的库存流水；独立于 SKU 库存与订单，不自动扣料；
 - `orders` 拥有服务端报价快照、订单状态与订单 outbox 写入；
 - `payments` 拥有支付意图、资金流水和验签回调；订单只有在支付域确认资金事实后进入在线 `PAID`；
 - `integrations` 拥有可选 Connector 开关、可靠投递和重试；
@@ -218,3 +219,11 @@ flowchart TB
 6. 静态页面不能以模拟数字伪装真实能力；未闭环模块默认 feature flag 关闭。
 7. 任何新模块必须同时补契约、鉴权、异常语义、测试、模块目录和上线风险说明。
 8. 迁移只前向演进；发布前备份不能替代隔离恢复演练和向后兼容设计。
+
+## 2026-11-17 库存增量
+
+新增 `InventoryModule` 和 `/merchant/stores/:storeId/inventory`：所有入口先验证 merchant audience/角色，再由 `MerchantStoreScope` 校验服务端授权门店。原料和流水均保留 `storeId`；流水通过 `(itemId, storeId)` 复合外键引用原料，阻止跨门店关联。生产仍使用现有单店 resolver，未在本轮启用多店运行时。
+
+数量按单位的千分之一保存为整数，API 返回至多三位小数；新增原料初始为零。入库、出库、盘点和阈值变更使用版本条件更新，并在同一事务插入 actor/reason/before/after 流水。`storeId + requestId` 唯一键约束幂等，重放也先做 scope 检查。列表、计数和流水分页采用一致快照；预警按零库存优先、正库存小于等于阈值为低库存计算。
+
+实现与验收边界见 [库存迭代记录](./15-inventory-iteration-2026-11-17.md)。

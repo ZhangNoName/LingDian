@@ -225,8 +225,53 @@ model Store {
   integrationEvents   IntegrationOutbox[]
   paymentAccounts     PaymentAccount[]
   pickupCodeSequences PickupCodeSequence[]
+  inventoryItems      InventoryItem[]
 
   @@map("stores")
+}
+
+// Quantities use thousandths of the item's fixed unit to avoid floating point drift.
+model InventoryItem {
+  id           String              @id @default(cuid())
+  storeId      String
+  code         String              @db.VarChar(64)
+  name         String              @db.VarChar(120)
+  unit         String              @db.VarChar(16)
+  quantity     Int                 @default(0)
+  reorderPoint Int                 @default(0)
+  version      Int                 @default(0)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  store        Store               @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  movements    InventoryMovement[]
+
+  @@unique([storeId, code])
+  @@unique([id, storeId])
+  @@index([storeId, updatedAt])
+  @@map("inventory_items")
+}
+
+model InventoryMovement {
+  id                 String        @id @default(cuid())
+  storeId            String
+  itemId             String
+  requestId          String        @db.VarChar(64)
+  kind               String        @db.VarChar(16)
+  amount             Int
+  quantityBefore     Int
+  quantityAfter      Int
+  reorderPointBefore Int
+  reorderPointAfter  Int
+  versionBefore      Int
+  actorId            String
+  reason             String        @db.VarChar(240)
+  createdAt          DateTime      @default(now())
+  item               InventoryItem @relation(fields: [itemId, storeId], references: [id, storeId], onDelete: Restrict)
+
+  @@unique([storeId, requestId])
+  @@index([storeId, itemId, createdAt])
+  @@index([storeId, createdAt])
+  @@map("inventory_movements")
 }
 
 model StoreIntegration {

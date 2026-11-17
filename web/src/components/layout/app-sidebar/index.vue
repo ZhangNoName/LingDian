@@ -25,8 +25,8 @@
               !mobile && collapsed ? 'pointer-events-none translate-x-1 opacity-0' : 'translate-x-0 opacity-100',
             ]"
           >
-            <p class="truncate text-sm font-semibold text-foreground">零点管理后台</p>
-            <p class="mt-1 truncate text-xs text-muted-foreground">门店经营工作台</p>
+            <p class="truncate text-sm font-semibold text-foreground">{{ locale === 'en-US' ? 'LingDian Console' : '零点管理后台' }}</p>
+            <p class="mt-1 truncate text-xs text-muted-foreground">{{ locale === 'en-US' ? 'Store operations' : '门店经营工作台' }}</p>
           </div>
         </div>
       </div>
@@ -40,7 +40,7 @@
           :to="item.to"
           :title="!mobile && collapsed ? item.label : ''"
           class="group rounded-2xl border border-transparent transition-colors"
-          active-class="bg-primary/8 border-primary/15"
+          exact-active-class="bg-primary/8 border-primary/15"
           @click="$emit('navigate')"
         >
           <div
@@ -75,9 +75,25 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { Separator } from '@/baseComponents/separator'
-import { navigationItems } from '@/config/navigation'
+import { navigationItems as configuredNavigation } from '@/config/navigation'
+import { useLocale } from '@/i18n/locale'
+
+const { locale } = useLocale()
+const english: Record<string, [string, string]> = {
+  '/': ['Overview', 'Modules and quick actions'],
+  '/stores': ['Store settings', 'Store information and opening status'],
+  '/products': ['Products & menu', 'Products, categories and variants'],
+  '/orders': ['Orders', 'Order search and status history'],
+  '/warehouse': ['Inventory', 'Materials, alerts and movements'],
+  '/settings': ['Settings', 'Account and integrations'],
+}
+const navigationItems = computed(() => configuredNavigation.map((item) => {
+  const translated = locale.value === 'en-US' ? english[item.to] : undefined
+  return translated ? { ...item, label: translated[0], caption: translated[1] } : item
+}))
 
 withDefaults(defineProps<{
   collapsed: boolean

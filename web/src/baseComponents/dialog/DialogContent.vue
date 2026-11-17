@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import {
   DialogClose,
   DialogContent,
@@ -11,8 +12,11 @@ import { X } from '@lingdian/icons/web'
 import { cn } from '@/lib/utils'
 import { Button } from '@/baseComponents/button'
 
-const props = defineProps<DialogContentProps & { class?: string }>()
-const forwarded = useForwardProps(props)
+const props = defineProps<DialogContentProps & { class?: string; closeLabel?: string }>()
+const forwarded = useForwardProps(computed(() => {
+  const { closeLabel: _closeLabel, ...rest } = props
+  return rest
+}))
 </script>
 
 <template>
@@ -38,7 +42,7 @@ const forwarded = useForwardProps(props)
           class="absolute right-4 top-4 size-9 rounded-md text-muted-foreground hover:bg-muted"
         >
           <X class="size-4" />
-          <span class="sr-only">关闭</span>
+          <span class="sr-only">{{ props.closeLabel ?? '关闭' }}</span>
         </Button>
       </DialogClose>
     </DialogContent>

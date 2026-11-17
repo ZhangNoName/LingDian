@@ -5,7 +5,7 @@ describe('dashboard actions', () => {
   it('links every quick action to an existing merchant navigation destination', () => {
     const destinations = new Set(navigationItems.map((item) => item.to))
 
-    expect(dashboardActions).toHaveLength(4)
+    expect(dashboardActions.map((action) => action.to)).toContain('/warehouse')
     expect(dashboardActions.every((action) => destinations.has(action.to))).toBe(true)
   })
 

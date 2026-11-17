@@ -57,6 +57,7 @@ const capabilities = [
   { label: '门店信息', description: '查看当前账号唯一可管理的主门店与营业状态。', to: '/stores' },
   { label: '商品与菜单', description: '维护商品配置、SKU 价格库存与选择组。', to: '/products' },
   { label: '订单管理', description: '查询订单、查看详情并执行服务端允许的状态流转。', to: '/orders' },
+  { label: '库存管理', description: '登记原料出入库、盘点，查看预警与变动记录。', to: '/warehouse' },
   { label: '外部集成', description: '查看并启停部署端已经配置的连接器能力。', to: '/settings' },
 ]
 </script>

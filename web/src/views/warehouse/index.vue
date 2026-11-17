@@ -1,59 +1,192 @@
-﻿<template>
-  <div class="grid gap-5">
-    <div class="grid gap-4 md:grid-cols-2">
-      <Card class="rounded-lg border-border/80">
-        <CardContent class="p-5">
-          <p class="text-sm text-muted-foreground">低库存原料</p>
-          <p class="mt-3 text-2xl font-semibold text-foreground">12</p>
-          <p class="mt-2 text-xs text-muted-foreground">建议立即补货 4 项</p>
-        </CardContent>
-      </Card>
-      <Card class="rounded-lg border-border/80">
-        <CardContent class="p-5">
-          <p class="text-sm text-muted-foreground">待入库采购单</p>
-          <p class="mt-3 text-2xl font-semibold text-foreground">5</p>
-          <p class="mt-2 text-xs text-muted-foreground">今日到货 2 单</p>
-        </CardContent>
-      </Card>
-    </div>
+<script setup lang="ts">
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import type { InventoryItemContract, InventoryMovementKind, InventoryMovementPage, InventoryPage, InventoryStatus } from '@lingdian/contracts'
+import { Button } from '@/baseComponents/button'
+import { useLocale } from '@/i18n/locale'
+import { listMerchantStores, type MerchantStoreSummary } from '@/services/integrations'
+import { listInventory, listInventoryMovements } from '@/services/inventory'
+import InventoryEditor from './InventoryEditor.vue'
+import { en, zh, type MessageKey } from './messages'
+import { downloadCsv } from './report'
 
-    <div class="grid gap-5 xl:grid-cols-2">
-      <Card class="rounded-lg border-border/80">
-        <CardHeader>
-          <CardTitle class="text-xl">仓储页面清单</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div class="flex flex-wrap gap-2">
-            <Badge variant="outline">仓库列表</Badge>
-            <Badge variant="outline">库存商品</Badge>
-            <Badge variant="outline">入库单</Badge>
-            <Badge variant="outline">出库单</Badge>
-            <Badge variant="outline">调拨单</Badge>
-            <Badge variant="outline">盘点单</Badge>
-            <Badge variant="outline">损耗记录</Badge>
-            <Badge variant="outline">采购单</Badge>
-            <Badge variant="outline">供应商管理</Badge>
-          </div>
-        </CardContent>
-      </Card>
+const { locale } = useLocale()
+const t = (key: MessageKey) => (locale.value === 'en-US' ? en : zh)[key]
+const stores = ref<MerchantStoreSummary[]>([])
+const storeId = ref('')
+const storeName = computed(() => stores.value.find((store) => store.id === storeId.value)?.name ?? '')
+const view = ref<'inventory' | 'history'>('inventory')
+const page = ref(1)
+const keyword = ref('')
+const appliedKeyword = ref('')
+const status = ref<InventoryStatus | ''>('')
+const historyItem = ref<InventoryItemContract>()
+const inventory = ref<InventoryPage>()
+const movements = ref<InventoryMovementPage>()
+const loading = ref(true)
+const errorKey = ref<MessageKey | ''>('')
+const notice = ref(false)
+const editorOpen = ref(false)
+const selectedItem = ref<InventoryItemContract>()
+let sequence = 0
+const total = computed(() => view.value === 'inventory' ? inventory.value?.total ?? 0 : movements.value?.total ?? 0)
+const pageCount = computed(() => Math.max(1, Math.ceil(total.value / 20)))
+const hasRows = computed(() => view.value === 'inventory' ? !!inventory.value?.items.length : !!movements.value?.items.length)
+const statusKey: Record<InventoryStatus, MessageKey> = { HEALTHY: 'healthy', LOW: 'low', OUT: 'out' }
+const kindKey: Record<InventoryMovementKind, MessageKey> = { RECEIVE: 'receive', ISSUE: 'issue', COUNT: 'count', THRESHOLD: 'setThreshold' }
+const format = (value: number) => value.toLocaleString(locale.value, { maximumFractionDigits: 3 })
+const date = (value: string) => new Intl.DateTimeFormat(locale.value, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value))
 
-      <Card class="rounded-lg border-border/80">
-        <CardHeader>
-          <CardTitle class="text-xl">库存页建议字段</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ul class="list-disc space-y-2 pl-5 text-sm leading-7 text-muted-foreground">
-            <li>原料名称、编码、单位、当前库存</li>
-            <li>安全库存、最近入库时间、仓库位置</li>
-            <li>状态、近 7 日出库量、操作入口</li>
-          </ul>
-        </CardContent>
-      </Card>
+async function load() {
+  const current = ++sequence
+  loading.value = true
+  errorKey.value = ''
+  try {
+    if (!stores.value.length) {
+      const result = await listMerchantStores()
+      if (current !== sequence) return
+      stores.value = result
+      storeId.value = result[0]?.id ?? ''
+    }
+    if (!storeId.value) { errorKey.value = 'noStore'; return }
+    const id = storeId.value
+    if (view.value === 'inventory') {
+      const result = await listInventory(id, { page: page.value, pageSize: 20, keyword: appliedKeyword.value, status: status.value || undefined })
+      if (current === sequence) inventory.value = result
+    } else {
+      const result = await listInventoryMovements(id, page.value, historyItem.value?.id)
+      if (current === sequence) movements.value = result
+    }
+  } catch { if (current === sequence) errorKey.value = 'loadFailed' }
+  finally { if (current === sequence) loading.value = false }
+}
+function resetStore() {
+  inventory.value = undefined
+  movements.value = undefined
+  historyItem.value = undefined
+  selectedItem.value = undefined
+  editorOpen.value = false
+  notice.value = false
+  page.value = 1
+  void load()
+}
+function switchView(value: 'inventory' | 'history') { view.value = value; page.value = 1; void load() }
+function filter(value: InventoryStatus | '') { status.value = value; page.value = 1; void load() }
+function search() { appliedKeyword.value = keyword.value.trim(); page.value = 1; void load() }
+function clear() { keyword.value = ''; appliedKeyword.value = ''; status.value = ''; page.value = 1; void load() }
+function go(value: number) { page.value = value; void load() }
+function edit(item?: InventoryItemContract) { selectedItem.value = item; editorOpen.value = true; notice.value = false }
+function showHistory(item?: InventoryItemContract) { historyItem.value = item; switchView('history') }
+function saved() { notice.value = true; void load() }
+function exportPage() {
+  const rows: (string | number)[][] = [
+    [t('store'), storeName.value, storeId.value],
+    [t('currentPage'), page.value, t('total'), total.value],
+    [t('time'), new Date().toISOString()],
+  ]
+  if (view.value === 'inventory') {
+    rows.push([t('search'), appliedKeyword.value, t('status'), status.value ? t(statusKey[status.value]) : t('all')])
+    rows.push([t('code'), t('name'), t('unit'), t('quantity'), t('threshold'), t('shortage'), t('status'), t('updated')])
+    for (const item of inventory.value?.items ?? []) rows.push([item.code, item.name, item.unit, item.quantity, item.reorderPoint, item.shortage, t(statusKey[item.status]), item.updatedAt])
+  } else {
+    rows.push([t('name'), historyItem.value?.name ?? t('allRecords')])
+    rows.push([t('time'), t('code'), t('name'), t('unit'), t('operation'), t('amount'), t('before'), t('after'), t('delta'), t('threshold') + ' · ' + t('before'), t('threshold') + ' · ' + t('after'), t('actor'), t('reason')])
+    for (const row of movements.value?.items ?? []) rows.push([row.createdAt, row.itemCode, row.itemName, row.unit, t(kindKey[row.kind]), row.amount, row.quantityBefore, row.quantityAfter, Number((row.quantityAfter - row.quantityBefore).toFixed(3)), row.reorderPointBefore, row.reorderPointAfter, row.actorId, row.reason])
+  }
+  downloadCsv(`inventory-${view.value}-${new Date().toISOString().slice(0, 10)}-p${page.value}.csv`, rows)
+}
+onMounted(load)
+onBeforeUnmount(() => { sequence++ })
+</script>
+
+<template>
+  <section class="inventory-page" :lang="locale">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <p class="text-sm text-muted-foreground">{{ t('subtitle') }}</p>
+        <p v-if="storeName" class="mt-1 text-sm font-medium">{{ storeName }}</p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <label class="sr-only" for="inventory-language">{{ t('language') }}</label>
+        <select id="inventory-language" v-model="locale" class="control"><option value="zh-CN">简体中文</option><option value="en-US">English</option></select>
+        <label v-if="stores.length > 1" class="flex items-center gap-2 text-sm">{{ t('store') }}<select v-model="storeId" class="control" :disabled="loading" @change="resetStore"><option v-for="store in stores" :key="store.id" :value="store.id">{{ store.name }}</option></select></label>
+        <Button variant="outline" :disabled="loading" @click="load">{{ t('refresh') }}</Button>
+        <Button :disabled="!storeId || loading || !!errorKey" @click="edit()">{{ t('newItem') }}</Button>
+      </div>
     </div>
-  </div>
+    <p v-if="notice" role="status" class="text-sm text-emerald-700">{{ t('saved') }}</p>
+    <template v-if="view === 'inventory' && inventory && !errorKey">
+      <div class="grid grid-cols-3 gap-3" :aria-label="t('summaryHint')">
+        <button v-for="metric in [{ key: 'all' as const, value: inventory.summary.total, filter: '' as const }, { key: 'low' as const, value: inventory.summary.low, filter: 'LOW' as const }, { key: 'out' as const, value: inventory.summary.out, filter: 'OUT' as const }]" :key="metric.key" class="metric" :class="{ chosen: status === metric.filter }" :aria-pressed="status === metric.filter" :disabled="loading" @click="filter(metric.filter)">
+          <span class="block min-h-8 text-xs text-muted-foreground sm:min-h-0 sm:text-sm">{{ t(metric.key) }}</span><strong class="mt-2 block text-2xl font-semibold tabular-nums">{{ format(metric.value) }}</strong>
+        </button>
+      </div>
+      <p class="text-xs text-muted-foreground">{{ t('summaryHint') }}</p>
+    </template>
+    <div class="panel">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b p-4">
+        <div class="flex gap-1" :aria-label="t('title')">
+          <Button :variant="view === 'inventory' ? 'secondary' : 'ghost'" :aria-pressed="view === 'inventory'" @click="switchView('inventory')">{{ t('inventory') }}</Button>
+          <Button :variant="view === 'history' ? 'secondary' : 'ghost'" :aria-pressed="view === 'history'" @click="showHistory()">{{ t('history') }}</Button>
+        </div>
+        <Button variant="outline" size="sm" :disabled="loading || !!errorKey || !hasRows" @click="exportPage">{{ t('export') }}</Button>
+      </div>
+      <form v-if="view === 'inventory'" class="flex flex-wrap items-center gap-2 border-b p-4" @submit.prevent="search">
+        <label class="sr-only" for="inventory-search">{{ t('search') }}</label>
+        <input id="inventory-search" v-model="keyword" type="search" maxlength="120" class="control w-full sm:w-64" :placeholder="t('search')" />
+        <Button type="submit" variant="outline" :disabled="loading">{{ t('searchButton') }}</Button>
+        <label class="sr-only" for="inventory-status">{{ t('status') }}</label>
+        <select id="inventory-status" :value="status" class="control" :disabled="loading" @change="filter(($event.target as HTMLSelectElement).value as InventoryStatus | '')">
+          <option value="">{{ t('all') }}</option><option value="HEALTHY">{{ t('healthy') }}</option><option value="LOW">{{ t('low') }}</option><option value="OUT">{{ t('out') }}</option>
+        </select>
+      </form>
+      <div v-else-if="historyItem" class="flex items-center justify-between gap-2 border-b p-4 text-sm"><span>{{ historyItem.name }} · {{ historyItem.code }}</span><Button variant="ghost" size="sm" @click="showHistory()">{{ t('allRecords') }}</Button></div>
+      <div v-if="loading" class="empty" role="status">{{ t('loading') }}</div>
+      <div v-else-if="errorKey" class="empty" role="alert"><p>{{ t(errorKey) }}</p><Button variant="outline" class="mt-3" @click="load">{{ t('refresh') }}</Button></div>
+      <div v-else-if="!hasRows" class="empty">
+        <p class="font-medium text-foreground">{{ t(view === 'history' ? 'noHistory' : inventory?.summary.total === 0 ? 'empty' : 'noResults') }}</p>
+        <p class="mt-2">{{ t(view === 'history' ? 'noHistoryHint' : inventory?.summary.total === 0 ? 'emptyHint' : 'search') }}</p>
+        <Button v-if="view === 'inventory'" variant="outline" class="mt-4" @click="inventory?.summary.total === 0 ? edit() : clear()">{{ t(inventory?.summary.total === 0 ? 'newItem' : 'clear') }}</Button>
+      </div>
+      <div v-else class="overflow-x-auto" tabindex="0" :aria-label="t(view === 'inventory' ? 'inventory' : 'history')">
+        <table v-if="view === 'inventory'">
+          <thead><tr><th>{{ t('name') }}</th><th>{{ t('status') }}</th><th class="number">{{ t('quantity') }}</th><th class="number">{{ t('threshold') }}</th><th class="number">{{ t('shortage') }}</th><th>{{ t('updated') }}</th><th class="text-right">{{ t('actions') }}</th></tr></thead>
+          <tbody><tr v-for="item in inventory?.items" :key="item.id">
+            <td><span class="font-medium">{{ item.name }}</span><span class="mt-1 block font-mono text-xs text-muted-foreground">{{ item.code }}</span></td>
+            <td><span class="stock-status" :data-status="item.status">{{ t(statusKey[item.status]) }}</span></td>
+            <td class="number font-semibold">{{ format(item.quantity) }} <span class="text-xs font-normal text-muted-foreground">{{ item.unit }}</span></td>
+            <td class="number">{{ format(item.reorderPoint) }}</td><td class="number">{{ format(item.shortage) }}</td><td class="text-xs text-muted-foreground">{{ date(item.updatedAt) }}</td>
+            <td><div class="flex justify-end gap-1"><Button variant="outline" size="sm" :aria-label="`${t('adjust')} ${item.name}`" @click="edit(item)">{{ t('adjust') }}</Button><Button variant="ghost" size="sm" :aria-label="`${t('records')} ${item.name}`" @click="showHistory(item)">{{ t('records') }}</Button></div></td>
+          </tr></tbody>
+        </table>
+        <table v-else>
+          <thead><tr><th>{{ t('time') }}</th><th>{{ t('name') }}</th><th>{{ t('operation') }}</th><th class="number">{{ t('before') }} → {{ t('after') }}</th><th>{{ t('reason') }}</th><th>{{ t('actor') }}</th></tr></thead>
+          <tbody><tr v-for="row in movements?.items" :key="row.id"><td class="text-xs whitespace-nowrap">{{ date(row.createdAt) }}</td><td>{{ row.itemName }}<span class="mt-1 block font-mono text-xs text-muted-foreground">{{ row.itemCode }}</span></td><td class="whitespace-nowrap">{{ t(kindKey[row.kind]) }}</td><td class="number whitespace-nowrap">{{ row.kind === 'THRESHOLD' ? `${format(row.reorderPointBefore)} → ${format(row.reorderPointAfter)}` : `${format(row.quantityBefore)} → ${format(row.quantityAfter)}` }} {{ row.unit }}<span v-if="row.kind === 'THRESHOLD'" class="block text-xs text-muted-foreground">{{ t('threshold') }}</span></td><td class="min-w-48 max-w-80 break-words">{{ row.reason }}</td><td class="max-w-48 break-all font-mono text-xs text-muted-foreground">{{ row.actorId }}</td></tr></tbody>
+        </table>
+      </div>
+      <div v-if="!loading && !errorKey" class="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm text-muted-foreground">
+        <p>{{ format(total) }} {{ t('total') }} · {{ t('page') }} {{ page }} / {{ pageCount }}</p><div class="flex gap-2"><Button variant="outline" size="sm" :disabled="page <= 1" @click="go(page - 1)">{{ t('previous') }}</Button><Button variant="outline" size="sm" :disabled="page >= pageCount" @click="go(page + 1)">{{ t('next') }}</Button></div>
+      </div>
+    </div>
+    <p class="text-xs leading-5 text-muted-foreground">{{ t('scopeHint') }}<br />{{ t('reportHint') }}</p>
+    <InventoryEditor v-model:open="editorOpen" :store-id="storeId" :item="selectedItem" @saved="saved" />
+  </section>
 </template>
 
-<script setup lang="ts">
-import { Badge } from '@/baseComponents/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/baseComponents/card'
-</script>
+<style scoped>
+.inventory-page { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; gap: 1rem; }
+.panel, .metric { background: var(--ld-bg-elevated); border: 1px solid var(--ld-border-default); border-radius: .5rem; }
+.metric { padding: 1rem; text-align: start; transition: border-color .15s; }
+.metric:hover, .metric.chosen { border-color: var(--ld-color-primary); }
+.control { min-height: 2.25rem; max-width: 100%; border: 1px solid var(--ld-border-default); border-radius: .375rem; padding: .5rem .75rem; background: var(--ld-bg-elevated); color: var(--ld-text-heading); font-size: .875rem; }
+.control:focus-visible, .metric:focus-visible { outline: 2px solid var(--ld-color-primary); outline-offset: 2px; }
+.empty { padding: 3rem 1.5rem; text-align: center; color: var(--ld-text-muted); font-size: .875rem; }
+table { width: 100%; text-align: start; border-collapse: collapse; font-size: .875rem; }
+th { color: var(--ld-text-muted); font-size: .75rem; font-weight: 500; background: var(--ld-bg-muted); white-space: nowrap; }
+th, td { padding: .875rem 1rem; border-bottom: 1px solid var(--ld-border-default); }
+tr:last-child td { border-bottom: 0; }
+tbody tr:hover { background: var(--ld-bg-muted); }
+.number { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.stock-status { display: inline-block; white-space: nowrap; font-size: .75rem; border-radius: .25rem; padding: .25rem .5rem; background: #ecfdf5; color: #065f46; }
+.stock-status[data-status='LOW'] { background: #fffbeb; color: #92400e; }
+.stock-status[data-status='OUT'] { background: #fef2f2; color: #991b1b; }
+</style>

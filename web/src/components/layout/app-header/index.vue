@@ -6,7 +6,7 @@
           variant="outline"
           size="icon"
           class="size-10 rounded-xl md:hidden"
-          aria-label="打开导航菜单"
+          :aria-label="english ? 'Open navigation' : '打开导航菜单'"
           aria-controls="merchant-mobile-navigation"
           :aria-expanded="mobileNavigationOpen"
           @click="$emit('open-mobile-navigation')"
@@ -17,7 +17,7 @@
           variant="outline"
           size="icon"
           class="hidden size-10 rounded-xl md:inline-flex"
-          :aria-label="sidebarCollapsed ? '展开侧栏' : '收起侧栏'"
+          :aria-label="english ? (sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar') : (sidebarCollapsed ? '展开侧栏' : '收起侧栏')"
           @click="$emit('toggle-desktop-sidebar')"
         >
           <PanelLeft class="size-4" />
@@ -34,14 +34,14 @@
       <div class="flex flex-wrap items-center gap-2">
         <Badge variant="secondary" class="rounded-full px-3 py-1 text-xs">
           <span class="mr-1 inline-block size-2 rounded-full bg-emerald-500"></span>
-          {{ storeCount > 0 ? `可管理 ${storeCount} 家门店` : '商家工作台' }}
+          {{ english ? `${storeCount} authorized ${storeCount === 1 ? 'store' : 'stores'}` : storeCount > 0 ? `可管理 ${storeCount} 家门店` : '商家工作台' }}
         </Badge>
         <Badge variant="outline" class="hidden rounded-full px-3 py-1 text-xs text-muted-foreground md:inline-flex">
-          {{ sidebarCollapsed ? '侧栏已收起' : '侧栏已展开' }}
+          {{ english ? (sidebarCollapsed ? 'Sidebar collapsed' : 'Sidebar expanded') : (sidebarCollapsed ? '侧栏已收起' : '侧栏已展开') }}
         </Badge>
         <Badge variant="outline" class="rounded-full px-3 py-1 text-xs text-muted-foreground">{{ userLabel }}</Badge>
         <Button variant="outline" size="sm" :disabled="loggingOut" @click="$emit('logout')">
-          {{ loggingOut ? '退出中…' : '退出登录' }}
+          {{ english ? (loggingOut ? 'Signing out…' : 'Sign out') : (loggingOut ? '退出中…' : '退出登录') }}
         </Button>
       </div>
     </div>
@@ -49,9 +49,14 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useLocale } from '@/i18n/locale'
 import { PanelLeft } from '@lingdian/icons/web'
 import { Badge } from '@/baseComponents/badge'
 import { Button } from '@/baseComponents/button'
+
+const { locale } = useLocale()
+const english = computed(() => locale.value === 'en-US')
 
 defineEmits<{
   (event: 'toggle-desktop-sidebar'): void

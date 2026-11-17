@@ -18,6 +18,7 @@ import { AddressesModule } from './modules/addresses/addresses.module';
 import { IntegrationsModule } from './modules/integrations/integrations.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { MetricsModule } from './modules/metrics/metrics.module';
+import { InventoryModule } from './modules/inventory/inventory.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { MetricsModule } from './modules/metrics/metrics.module';
     IntegrationsModule,
     AuthModule,
     MerchantModule,
+    InventoryModule,
     HealthModule,
     StoresModule,
     MenuModule,

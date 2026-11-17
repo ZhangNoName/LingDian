@@ -7,9 +7,10 @@ describe('merchant router', () => {
     expect(router.hasRoute('stores')).toBe(true)
     expect(router.hasRoute('products')).toBe(true)
     expect(router.hasRoute('orders')).toBe(true)
+    expect(router.hasRoute('warehouse')).toBe(true)
     expect(router.hasRoute('settings')).toBe(true)
 
-    for (const route of ['members', 'marketing', 'analytics', 'warehouse', 'finance']) {
+    for (const route of ['members', 'marketing', 'analytics', 'finance']) {
       expect(router.hasRoute(route)).toBe(false)
     }
   })

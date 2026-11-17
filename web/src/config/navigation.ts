@@ -51,6 +51,12 @@ const implementedNavigationItems: NavigationItem[] = [
     icon: ShoppingCart,
   },
   {
+    label: '库存管理',
+    caption: '原料、补货预警与变动记录',
+    to: '/warehouse',
+    icon: Package,
+  },
+  {
     label: '系统设置',
     caption: '账号角色、权限与设备设置',
     to: '/settings',
@@ -62,7 +68,6 @@ const plannedNavigationItems: NavigationItem[] = [
   { label: '用户与会员', caption: '会员等级、积分与优惠资产', to: '/members', icon: ShieldCheck },
   { label: '营销中心', caption: '活动、Banner 与推荐位配置', to: '/marketing', icon: Megaphone },
   { label: '统计分析', caption: '经营分析、商品排行与活动效果', to: '/analytics', icon: BarChart3 },
-  { label: '仓库管理', caption: '库存、采购与出入库管理', to: '/warehouse', icon: Package },
   { label: '财务结算', caption: '支付流水、退款与对账结算', to: '/finance', icon: Wallet },
 ]
 
@@ -77,6 +82,7 @@ export const navigationItems = createNavigationItems(plannedModulesEnabled)
 export const dashboardActions: DashboardAction[] = [
   { label: '管理商品', to: '/products' },
   { label: '查看订单', to: '/orders' },
+  { label: '管理库存', to: '/warehouse' },
   { label: '查看门店', to: '/stores' },
   { label: '配置外部集成', to: '/settings' },
 ]
