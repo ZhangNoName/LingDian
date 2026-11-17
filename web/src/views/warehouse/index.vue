@@ -7,6 +7,7 @@ import { useLocale } from '@/i18n/locale'
 import { merchantStore } from '@/auth/merchant-store'
 import { listInventory } from '@/services/inventory'
 import Purchasing from './purchasing/index.vue'
+import Stocktakes from './stocktakes/index.vue'
 import { replenishmentFocus } from './purchasing/replenishment-state'
 import InventoryHolds from './InventoryHolds.vue'
 import InventoryAlerts from './InventoryAlerts.vue'
@@ -21,7 +22,7 @@ const t = (key: MessageKey) => (locale.value === 'en-US' ? en : zh)[key]
 const storeId = merchantStore.selectedId
 const storeName = computed(() => merchantStore.stores.value.find((store) => store.id === storeId.value)?.name ?? '')
 const route = useRoute(), router = useRouter()
-const view = computed(() => route.query.view === 'purchases' ? 'purchases' : route.query.view === 'holds' ? 'holds' : route.query.view === 'alerts' ? 'alerts' : route.query.view === 'recipes' ? 'recipes' : route.query.view === 'report' ? 'report' : route.query.view === 'history' ? 'history' : 'inventory')
+const view = computed(() => route.query.view === 'stocktakes' ? 'stocktakes' : route.query.view === 'purchases' ? 'purchases' : route.query.view === 'holds' ? 'holds' : route.query.view === 'alerts' ? 'alerts' : route.query.view === 'recipes' ? 'recipes' : route.query.view === 'report' ? 'report' : route.query.view === 'history' ? 'history' : 'inventory')
 const page = ref(1)
 const keyword = ref('')
 const appliedKeyword = ref('')
@@ -52,7 +53,7 @@ async function load() {
   } catch { if (current === sequence) errorKey.value = 'loadFailed' }
   finally { if (current === sequence) loading.value = false }
 }
-function switchView(value: 'inventory' | 'history' | 'report' | 'recipes' | 'alerts' | 'holds' | 'purchases') { void router.push({ query: { ...route.query, view: value, page: undefined, itemId: undefined, purchaseId: undefined } }) }
+function switchView(value: 'inventory' | 'history' | 'report' | 'recipes' | 'alerts' | 'holds' | 'purchases' | 'stocktakes') { void router.push({ query: { ...route.query, view: value, page: undefined, itemId: undefined, purchaseId: undefined, stocktakeId: undefined } }) }
 function replenish(itemId: string) { void router.push({ query: { ...route.query, ...replenishmentFocus(itemId) } }) }
 function stockFromAlert(code: string) { keyword.value = code; appliedKeyword.value = code; status.value = ''; page.value = 1; switchView('inventory') }
 function filter(value: InventoryStatus | '') { status.value = value; page.value = 1; void load() }
@@ -104,6 +105,7 @@ onBeforeUnmount(() => { sequence++ })
       <div class="flex flex-wrap items-center justify-between gap-3 border-b p-4">
         <div class="flex max-w-full flex-nowrap gap-1 overflow-x-auto [&>button]:shrink-0" :aria-label="t('title')">
           <Button :variant="view === 'inventory' ? 'secondary' : 'ghost'" :aria-pressed="view === 'inventory'" @click="switchView('inventory')">{{ t('inventory') }}</Button>
+          <Button :variant="view === 'stocktakes' ? 'secondary' : 'ghost'" :aria-pressed="view === 'stocktakes'" @click="switchView('stocktakes')">{{ locale === 'en-US' ? 'Stocktakes' : '盘点单' }}</Button>
           <Button :variant="view === 'purchases' ? 'secondary' : 'ghost'" :aria-pressed="view === 'purchases'" @click="switchView('purchases')">{{ locale === 'en-US' ? 'Purchasing' : '采购与补货' }}</Button>
           <Button :variant="view === 'history' ? 'secondary' : 'ghost'" :aria-pressed="view === 'history'" @click="showHistory()">{{ t('history') }}</Button>
           <Button :variant="view === 'report' ? 'secondary' : 'ghost'" :aria-pressed="view === 'report'" @click="switchView('report')">{{ t('report') }}</Button>
@@ -113,7 +115,8 @@ onBeforeUnmount(() => { sequence++ })
         </div>
         <Button v-if="view === 'inventory'" variant="outline" size="sm" :disabled="loading || !!errorKey || !hasRows" @click="exportPage">{{ t('export') }}</Button>
       </div>
-      <Purchasing v-if="view === 'purchases'" :store-id="storeId" :store-name="storeName" />
+      <Stocktakes v-if="view === 'stocktakes'" :store-id="storeId" :store-name="storeName" />
+      <Purchasing v-else-if="view === 'purchases'" :store-id="storeId" :store-name="storeName" />
       <InventoryHolds v-else-if="view === 'holds'" />
       <InventoryAlerts v-else-if="view === 'alerts'" :store-id="storeId" :store-name="storeName" @stock="stockFromAlert" @replenish="replenish" />
       <InventoryRecipes v-else-if="view === 'recipes'" :store-id="storeId" />

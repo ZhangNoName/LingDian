@@ -225,6 +225,7 @@ model Store {
   integrationEvents   IntegrationOutbox[]
   paymentAccounts     PaymentAccount[]
   pickupCodeSequences PickupCodeSequence[]
+  stocktakes          InventoryStocktake[]
   inventoryItems      InventoryItem[]
   suppliers           Supplier[]
 
@@ -251,6 +252,7 @@ model InventoryItem {
   reservations InventoryReservation[]
   alerts       InventoryAlert[]
   purchaseLines PurchaseOrderLine[]
+  stocktakeLines InventoryStocktakeLine[]
 
   @@unique([storeId, code])
   @@unique([id, storeId])
@@ -263,6 +265,8 @@ model InventoryMovement {
   storeId            String
   itemId             String
   requestId          String        @db.VarChar(64)
+  stocktakeId        String?
+  stocktake          InventoryStocktake? @relation(fields: [stocktakeId, storeId], references: [id, storeId], onDelete: Restrict, onUpdate: Restrict)
   purchaseReceiptId  String?
   purchaseReceipt    PurchaseReceipt? @relation(fields: [purchaseReceiptId, storeId], references: [id, storeId], onDelete: Restrict, onUpdate: Restrict)
   kind               String        @db.VarChar(16)
@@ -280,6 +284,7 @@ model InventoryMovement {
   item               InventoryItem @relation(fields: [itemId, storeId], references: [id, storeId], onDelete: Restrict)
 
   @@unique([storeId, requestId])
+  @@index([stocktakeId, storeId])
   @@index([purchaseReceiptId, storeId])
   @@index([itemId, storeId], map: "inventory_movements_itemId_storeId_fkey")
   @@index([storeId, itemId, createdAt])
@@ -1040,4 +1045,52 @@ model PurchaseReceiptLine {
   @@index([orderLineId,storeId])
   @@index([storeId,receiptId])
   @@map("purchase_receipt_lines")
+}
+
+model InventoryStocktake {
+  id String @id @default(cuid())
+  storeId String
+  requestId String @db.VarChar(64)
+  fingerprint String @db.Char(64)
+  title String @db.VarChar(120)
+  note String @db.VarChar(240)
+  status String @default("DRAFT") @db.VarChar(16)
+  version Int @default(0)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  postedBy String?
+  postedAt DateTime?
+  cancelledBy String?
+  cancelledAt DateTime?
+  store Store @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  lines InventoryStocktakeLine[]
+  movements InventoryMovement[]
+
+  @@unique([id, storeId])
+  @@unique([storeId, requestId])
+  @@index([storeId, status, createdAt])
+  @@map("inventory_stocktakes")
+}
+
+model InventoryStocktakeLine {
+  id String @id @default(cuid())
+  storeId String
+  stocktakeId String
+  itemId String
+  itemName String @db.VarChar(120)
+  itemCode String @db.VarChar(64)
+  unit String @db.VarChar(16)
+  expectedQuantity Int
+  reservedQuantity Int
+  itemVersion Int
+  capturedAt DateTime @default(now())
+  countedQuantity Int?
+  stocktake InventoryStocktake @relation(fields: [stocktakeId, storeId], references: [id, storeId], onDelete: Restrict, onUpdate: Restrict)
+  item InventoryItem @relation(fields: [itemId, storeId], references: [id, storeId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([stocktakeId, itemId])
+  @@index([stocktakeId, storeId])
+  @@index([itemId, storeId])
+  @@map("inventory_stocktake_lines")
 }

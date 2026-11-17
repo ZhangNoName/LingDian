@@ -138,7 +138,7 @@ function presentItem(item: Item): InventoryItemContract {
 }
 
 function presentMovement(movement: Movement & { purchaseReceipt?: { orderId: string } | null }): InventoryMovementContract {
-  return { ...(movement.purchaseReceipt ? { purchaseOrderId: movement.purchaseReceipt.orderId } : {}), id: movement.id, itemId: movement.itemId, itemName: movement.item.name, itemCode: movement.item.code, unit: movement.item.unit,
+  return { ...(movement.stocktakeId ? { stocktakeId: movement.stocktakeId } : {}), ...(movement.purchaseReceipt ? { purchaseOrderId: movement.purchaseReceipt.orderId } : {}), id: movement.id, itemId: movement.itemId, itemName: movement.item.name, itemCode: movement.item.code, unit: movement.item.unit,
     kind: movement.kind as InventoryMovementKind, amount: movement.amount / 1000,
     quantityBefore: movement.quantityBefore / 1000, quantityAfter: movement.quantityAfter / 1000,
     reservedBefore: movement.reservedBefore / 1000, reservedAfter: movement.reservedAfter / 1000,

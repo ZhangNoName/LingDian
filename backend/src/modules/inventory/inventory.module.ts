@@ -11,11 +11,13 @@ import { InventoryRecipeService } from './inventory-recipe.service';
 import { OrderStockService } from './order-stock.service';
 import { InventoryReportService } from './inventory-report.service';
 import { InventoryService } from './inventory.service';
+import { StocktakeController } from './stocktakes/stocktake.controller';
+import { StocktakeService } from './stocktakes/stocktake.service';
 
 @Module({
   imports: [AuthModule, MerchantModule],
-  controllers: [InventoryController, PurchasingController],
-  providers: [PurchasingAnalysisService, PurchasingService, SupplierService, InventoryAlertService, InventoryService, InventoryReportService, InventoryRecipeService, OrderStockService],
+  controllers: [InventoryController, PurchasingController, StocktakeController],
+  providers: [StocktakeService, PurchasingAnalysisService, PurchasingService, SupplierService, InventoryAlertService, InventoryService, InventoryReportService, InventoryRecipeService, OrderStockService],
   exports: [OrderStockService],
 })
 export class InventoryModule {}

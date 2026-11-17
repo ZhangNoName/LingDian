@@ -38,6 +38,7 @@ export interface AdjustInventoryRequest {
   reason: string;
 }
 export interface InventoryMovementContract {
+  stocktakeId?: string;
   purchaseOrderId?: string;
   id: string;
   itemId: string;
