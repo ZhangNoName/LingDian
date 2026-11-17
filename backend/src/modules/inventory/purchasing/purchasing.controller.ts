@@ -1,3 +1,5 @@
+import { PurchasingAnalysisService } from './purchasing-analysis.service';
+import { PurchaseReportQueryDto, ReplenishmentQueryDto } from './purchasing-analysis.dto';
 import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AccessTokenGuard } from '../../../common/auth/access-token.guard';
@@ -22,6 +24,7 @@ export class PurchasingController {
   constructor(
     private readonly purchasing: PurchasingService,
     private readonly suppliers: SupplierService,
+    private readonly analysis: PurchasingAnalysisService,
   ) {}
   @Get('suppliers') listSuppliers(
     @CurrentUser() user: AuthenticatedUser,
@@ -58,6 +61,20 @@ export class PurchasingController {
     @Body() body: CreatePurchaseDto,
   ) {
     return this.purchasing.create(user, storeId, body);
+  }
+  @Get('purchases/report') report(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('storeId') storeId: string,
+    @Query() query: PurchaseReportQueryDto,
+  ) {
+    return this.analysis.report(user, storeId, query);
+  }
+  @Get('purchases/replenishment') replenishment(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('storeId') storeId: string,
+    @Query() query: ReplenishmentQueryDto,
+  ) {
+    return this.analysis.replenishment(user, storeId, query);
   }
   @Get('purchases/:id') detail(
     @CurrentUser() user: AuthenticatedUser,

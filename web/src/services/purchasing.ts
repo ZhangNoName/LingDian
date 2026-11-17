@@ -74,3 +74,21 @@ export function cancelPurchase(
 ): Promise<PurchaseRecord> {
   return write(`${base(store)}/purchases/${encodeURIComponent(id)}/cancel`, body)
 }
+
+export function purchaseReport(
+  store: string,
+  filter: import('@lingdian/contracts').PurchaseReportFilter,
+): Promise<import('@lingdian/contracts').PurchaseReceiptReport> {
+  const params = new URLSearchParams({ startAt: filter.startAt, endAt: filter.endAt })
+  for (const key of ['keyword', 'itemId', 'supplierId'] as const) if (filter[key]) params.set(key, filter[key])
+  return requestData(apiUrl(`${base(store)}/purchases/report?${params}`))
+}
+export function replenishmentSnapshot(
+  store: string,
+  filter: { keyword?: string; itemId?: string } = {},
+): Promise<import('@lingdian/contracts').ReplenishmentSnapshot> {
+  const params = new URLSearchParams()
+  if (filter.keyword) params.set('keyword', filter.keyword)
+  if (filter.itemId) params.set('itemId', filter.itemId)
+  return requestData(apiUrl(`${base(store)}/purchases/replenishment?${params}`))
+}

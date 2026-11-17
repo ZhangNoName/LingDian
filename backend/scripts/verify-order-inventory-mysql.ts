@@ -1,5 +1,6 @@
 /** Opt-in integration verification. Never reads .env or uses the application's DATABASE_URL. */
 import 'reflect-metadata';
+import { verifyPurchasingAnalysis } from './verify-purchasing-analysis-mysql';
 import { verifyPurchasing } from './verify-purchasing-mysql';
 import { verifyCatalog } from './verify-catalog-mysql';
 import { verifyMerchantOperations } from './verify-merchant-operations-mysql';
@@ -148,6 +149,7 @@ async function main() {
     await verifyMerchantOperations(prisma);
     await verifyCatalog(prisma);
     await verifyPurchasing(prisma);
+    await verifyPurchasingAnalysis(prisma);
     console.log('Synthetic fixtures retained in the disposable test database for inspection.');
   } finally { await db.$disconnect(); }
 }

@@ -1,7 +1,15 @@
 import { expect, it, vi } from 'vitest'
 const { requestData } = vi.hoisted(() => ({ requestData: vi.fn() }))
 vi.mock('@/lib/api', () => ({ requestData }))
-import { purchaseList, purchaseReceipts, receivePurchase, createPurchase, saveSupplier } from './purchasing'
+import {
+  purchaseList,
+  purchaseReceipts,
+  receivePurchase,
+  createPurchase,
+  saveSupplier,
+  purchaseReport,
+  replenishmentSnapshot,
+} from './purchasing'
 it('scopes purchase filters, receipt pages and mutations to encoded store/object ids', async () => {
   await purchaseList('store/a', 2, ' Flour & milk ', 'PARTIAL')
   let url = new URL(requestData.mock.calls.at(-1)![0])
@@ -41,4 +49,23 @@ it('scopes purchase filters, receipt pages and mutations to encoded store/object
   )
   expect(requestData.mock.calls.at(-1)![1].method).toBe('PUT')
   expect(JSON.parse(requestData.mock.calls.at(-1)![1].body).expectedVersion).toBe(4)
+})
+
+it('requests complete scoped analysis snapshots with exact receipt instants and material filters', async () => {
+  const filter = {
+    startAt: '2026-01-01T10:30:00+08:00',
+    endAt: '2026-02-01T10:30:00+08:00',
+    supplierId: 's/1',
+    itemId: 'i/1',
+    keyword: 'Flour & milk',
+  }
+  await purchaseReport('store/a', filter)
+  let url = new URL(requestData.mock.calls.at(-1)![0])
+  expect(url.pathname).toContain('/store%2Fa/inventory/purchases/report')
+  expect(Object.fromEntries(url.searchParams)).toEqual(filter)
+  expect(url.searchParams.has('page')).toBe(false)
+  await replenishmentSnapshot('store/a', { itemId: 'i/1' })
+  url = new URL(requestData.mock.calls.at(-1)![0])
+  expect(url.pathname).toContain('/store%2Fa/inventory/purchases/replenishment')
+  expect(url.searchParams.get('itemId')).toBe('i/1')
 })

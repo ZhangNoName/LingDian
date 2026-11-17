@@ -1,3 +1,4 @@
+import { PurchasingAnalysisService } from './purchasing/purchasing-analysis.service';
 import { PurchasingController } from './purchasing/purchasing.controller';
 import { PurchasingService } from './purchasing/purchasing.service';
 import { SupplierService } from './purchasing/supplier.service';
@@ -14,7 +15,7 @@ import { InventoryService } from './inventory.service';
 @Module({
   imports: [AuthModule, MerchantModule],
   controllers: [InventoryController, PurchasingController],
-  providers: [PurchasingService, SupplierService, InventoryAlertService, InventoryService, InventoryReportService, InventoryRecipeService, OrderStockService],
+  providers: [PurchasingAnalysisService, PurchasingService, SupplierService, InventoryAlertService, InventoryService, InventoryReportService, InventoryRecipeService, OrderStockService],
   exports: [OrderStockService],
 })
 export class InventoryModule {}

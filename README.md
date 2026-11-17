@@ -191,3 +191,5 @@ AppSecret 只能配置在 API 部署环境，不能写入 `uniapp/`、前端环�
 商品与菜单的中英文、手机布局、配置版本/审计与兼容边界见 [商品配置迭代](./docs/22-product-catalog-2026-11-17.md)。本轮新增 `products.configurationVersion` 迁移；先走安全迁移入口，再同步发布 API 与商家 Web。商家旧客户端缺少 `expected_version` 的修改将被拒绝；平台旧接口仍兼容无版本写入。
 
 供应商、采购单和分批入库见 [采购迭代](./docs/23-purchasing-2026-11-17.md)。部署本轮前需通过安全迁移入口应用 `20261117_warehouse_purchasing`；既有手工库存记录不补造采购来源，采购入库自动进入原料流水、预警和区间报表。
+
+收货期间分析、完整快照 CSV 与未收采购补货建议见 [采购分析](./docs/24-purchasing-analysis-2026-11-17.md)。本轮增加查询索引迁移 `20261117_warehouse_reports`；补货建议不增加现货或下单可用库存。

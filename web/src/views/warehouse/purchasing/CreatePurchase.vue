@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import type { InventoryItemContract, SupplierRecord } from '@lingdian/contracts'
+import { onBeforeUnmount, ref, watch } from 'vue'
+import type { InventoryItemContract, SupplierRecord, ReplenishmentRow } from '@lingdian/contracts'
 import { Button } from '@/baseComponents/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/baseComponents/dialog'
-import { supplierList, createPurchase } from '@/services/purchasing'
+import { supplierList, createPurchase, replenishmentSnapshot } from '@/services/purchasing'
 import { listInventory } from '@/services/inventory'
 import { errorKey, usePurchasingLocale, type Key } from './locale'
-const props = defineProps<{ open: boolean; storeId: string }>(),
+const props = defineProps<{ open: boolean; storeId: string; seedItem?: ReplenishmentRow }>(),
   emit = defineEmits<{ 'update:open': [boolean]; saved: [id: string] }>()
 const { t } = usePurchasingLocale(),
   suppliers = ref<SupplierRecord[]>([]),
@@ -20,7 +20,8 @@ const { t } = usePurchasingLocale(),
   saving = ref(false),
   finding = ref(false),
   error = ref<Key>(),
-  lines = ref<Array<{ item: InventoryItemContract; quantity: number; unitPrice: number }>>([])
+  lines = ref<Array<{ item: InventoryItemContract; quantity: number; unitPrice: number; pendingQuantity: number }>>([])
+let disposed = false
 let requestId = '',
   lookupSequence = 0
 watch(
@@ -37,22 +38,31 @@ watch(
       lines.value = []
       requestId = crypto.randomUUID()
       error.value = undefined
-      void lookup('both')
+      void lookup('both', props.seedItem?.id)
     }
   },
 )
-async function lookup(kind: 'supplier' | 'material' | 'both') {
+async function lookup(kind: 'supplier' | 'material' | 'both', seedId?: string) {
   const current = ++lookupSequence
   finding.value = true
   error.value = undefined
   try {
-    const [a, b] = await Promise.all([
+    const [a, b, seed] = await Promise.all([
       kind !== 'material' ? supplierList(props.storeId, 1, supplierKeyword.value.trim(), true) : null,
       kind !== 'supplier'
         ? listInventory(props.storeId, { page: 1, pageSize: 20, keyword: materialKeyword.value.trim() })
         : null,
+      seedId ? replenishmentSnapshot(props.storeId, { itemId: seedId }) : null,
     ])
     if (current === lookupSequence) {
+      if (seed) {
+        const row = seed.rows[0]
+        if (row)
+          lines.value = [
+            { item: row, quantity: row.recommendedQuantity, unitPrice: 0, pendingQuantity: row.pendingQuantity },
+          ]
+        else error.value = 'materialUnavailable'
+      }
       if (a) {
         suppliers.value = a.items
         if (!a.items.some((record) => record.id === supplier.value)) supplier.value = ''
@@ -68,11 +78,32 @@ async function lookup(kind: 'supplier' | 'material' | 'both') {
     if (current === lookupSequence) finding.value = false
   }
 }
-function add() {
-  const item = items.value.find((item) => item.id === selectedItem.value)
-  if (item && !lines.value.some((line) => line.item.id === item.id) && lines.value.length < 50)
-    lines.value.push({ item, quantity: Math.max(0.001, item.shortage), unitPrice: 0 })
-  selectedItem.value = ''
+async function add() {
+  const id = selectedItem.value
+  if (!id || finding.value || lines.value.some((line) => line.item.id === id) || lines.value.length >= 50) return
+  const current = ++lookupSequence
+  finding.value = true
+  error.value = undefined
+  try {
+    const snapshot = await replenishmentSnapshot(props.storeId, { itemId: id })
+    if (current !== lookupSequence) return
+    const row = snapshot.rows[0]
+    if (!row) {
+      error.value = 'materialUnavailable'
+      return
+    }
+    lines.value.push({
+      item: row,
+      quantity: row.recommendedQuantity,
+      unitPrice: 0,
+      pendingQuantity: row.pendingQuantity,
+    })
+    selectedItem.value = ''
+  } catch {
+    if (current === lookupSequence) error.value = 'failed'
+  } finally {
+    if (current === lookupSequence) finding.value = false
+  }
 }
 function close(open: boolean) {
   if (!saving.value) emit('update:open', open)
@@ -93,6 +124,7 @@ async function submit() {
       ...(expectedAt.value ? { expectedAt: new Date(expectedAt.value + 'T00:00:00').toISOString() } : {}),
       lines: lines.value.map((line) => ({ itemId: line.item.id, quantity: line.quantity, unitPrice: line.unitPrice })),
     })
+    if (disposed || !props.open) return
     emit('saved', result.id)
     emit('update:open', false)
   } catch (e) {
@@ -101,6 +133,10 @@ async function submit() {
     saving.value = false
   }
 }
+onBeforeUnmount(() => {
+  disposed = true
+  lookupSequence++
+})
 </script>
 <template>
   <Dialog :open="open" @update:open="close">
@@ -200,6 +236,9 @@ async function submit() {
                 {{ t('remove') }}
               </Button>
             </div>
+            <p class="help sm:col-span-2">
+              {{ t('pending') }}: {{ line.pendingQuantity }} {{ line.item.unit }} · {{ t('pendingHint') }}
+            </p>
             <label>
               {{ t('quantity') }}
               <input
