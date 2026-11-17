@@ -360,6 +360,11 @@ onBeforeUnmount(() => {
       @saved="saved"
       @history="activity($event, 'history')"
       @report="activity($event, 'report')"
+      @trend="
+        router.push({
+          query: { ...materialActivityTarget(route.query, $event, 'report'), reportView: 'trend' },
+        })
+      "
       @replenish="$emit('replenish', $event)"
     />
     <InventoryEditor v-model:open="editorOpen" :store-id="storeId" :item="selected" @saved="saved" />

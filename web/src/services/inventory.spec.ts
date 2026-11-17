@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 const { requestData } = vi.hoisted(() => ({ requestData: vi.fn() }))
 vi.mock('@/lib/api', () => ({ requestData }))
-import { inventoryMaterialChanges, renameInventoryMaterial, getInventoryAlert, getInventoryUsage, getInventoryRecipe, changeInventoryLifecycle, inventoryItemDetail, listInventory, getInventoryReport, listInventoryMovements, listInventoryAlerts, acknowledgeInventoryAlert } from './inventory'
+import { inventoryDailyTrend, inventoryMaterialChanges, renameInventoryMaterial, getInventoryAlert, getInventoryUsage, getInventoryRecipe, changeInventoryLifecycle, inventoryItemDetail, listInventory, getInventoryReport, listInventoryMovements, listInventoryAlerts, acknowledgeInventoryAlert } from './inventory'
 
 describe('inventory report and history requests', () => {
   beforeEach(() => requestData.mockReset())
@@ -74,4 +74,13 @@ it('scopes name-only writes and fixed-page change history without accepting quan
   const url = new URL(requestData.mock.calls.at(-1)![0])
   expect(url.pathname).toContain('/store%2Fa/inventory/items/item%2F1/changes')
   expect(Object.fromEntries(url.searchParams)).toEqual({ kind: 'RESTORE', page: '2' })
+})
+
+it('requests one material daily snapshot with exact instants or calendar dates and explicit zone', async () => {
+  await inventoryDailyTrend('store/a','item/1', {startAt:'2026-03-01T00:00:00.123+08:00',endAt:'2026-03-31T12:00:00.456Z',timeZone:'America/New_York'})
+  let url=new URL(requestData.mock.calls.at(-1)![0])
+  expect(url.pathname).toContain('/store%2Fa/inventory/items/item%2F1/trend')
+  expect(Object.fromEntries(url.searchParams)).toEqual({startAt:'2026-03-01T00:00:00.123+08:00',endAt:'2026-03-31T12:00:00.456Z',timeZone:'America/New_York'})
+  await inventoryDailyTrend('store/a','item/1',{fromDate:'2026-03-07',toDate:'2026-03-09',timeZone:'America/New_York'})
+  url=new URL(requestData.mock.calls.at(-1)![0]);expect(Object.fromEntries(url.searchParams)).toEqual({fromDate:'2026-03-07',toDate:'2026-03-09',timeZone:'America/New_York'})
 })

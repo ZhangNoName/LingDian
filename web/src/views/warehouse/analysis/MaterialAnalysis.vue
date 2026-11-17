@@ -3,10 +3,12 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { Button } from '@/baseComponents/button'
 import type { InventoryMovementKind } from '@lingdian/contracts'
 import { analysisBars, type AnalysisRow } from './model'
+import { useTrendLocale } from '../trend/locale'
 import { useAnalysisLocale } from './locale'
 const props = defineProps<{ row: AnalysisRow; disabled: boolean }>(),
-  emit = defineEmits<{ history: [InventoryMovementKind]; clear: [] }>(),
+  emit = defineEmits<{ history: [InventoryMovementKind]; clear: []; trend: [] }>(),
   { t, number, percent } = useAnalysisLocale()
+const { t: tt } = useTrendLocale()
 const bars = computed(() => analysisBars(props.row)),
   heading = ref<HTMLHeadingElement>()
 watch(
@@ -23,7 +25,12 @@ watch(
   <section aria-labelledby="material-analysis-title" class="grid min-w-0 gap-4 rounded-md border p-4">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div class="min-w-0">
-        <h3 ref="heading" tabindex="-1" id="material-analysis-title" class="break-words text-sm font-semibold">
+        <h3
+          ref="heading"
+          tabindex="-1"
+          id="material-analysis-title"
+          class="break-words text-sm font-semibold"
+        >
           {{ t('detail') }} · {{ row.name }}
         </h3>
         <p class="mt-1 break-all text-xs text-muted-foreground">{{ row.code }} · {{ row.unit }}</p>
@@ -61,6 +68,9 @@ watch(
     </ul>
     <p class="text-xs leading-5 text-muted-foreground">{{ t('comparisonHint') }}</p>
     <div class="flex flex-wrap gap-2">
+      <Button size="sm" variant="outline" :disabled="disabled" @click="$emit('trend')">{{
+        tt('open')
+      }}</Button>
       <Button
         type="button"
         size="sm"
@@ -75,9 +85,14 @@ watch(
         :disabled="disabled || row.lost === 0"
         @click="$emit('history', 'LOSS')"
         >{{ t('lossRecords') }}</Button
-      ><Button type="button" size="sm" variant="outline" :disabled="disabled" @click="$emit('history', 'COUNT')">{{
-        t('countRecords')
-      }}</Button>
+      ><Button
+        type="button"
+        size="sm"
+        variant="outline"
+        :disabled="disabled"
+        @click="$emit('history', 'COUNT')"
+        >{{ t('countRecords') }}</Button
+      >
     </div>
   </section>
 </template>

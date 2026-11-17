@@ -21,12 +21,14 @@ import { useMaterialLocale } from './locale'
 import { useMaterialProfileLocale } from './profile-locale'
 import EditMaterialName from './EditMaterialName.vue'
 import MaterialChanges from './MaterialChanges.vue'
+import { useTrendLocale } from '../trend/locale'
 const props = defineProps<{ id: string; storeId: string; storeName: string }>(),
   emit = defineEmits<{
     close: []
     saved: []
     history: [id: string]
     report: [id: string]
+    trend: [id: string]
     replenish: [id: string]
   }>()
 const { locale } = useLocale(),
@@ -34,6 +36,7 @@ const { locale } = useLocale(),
   { t: lt } = useLifecycleLocale(),
   { t: ut } = useUsageLocale(),
   { t: pt } = useMaterialProfileLocale()
+const { t: tt } = useTrendLocale()
 const t = (key: MessageKey) => (locale.value === 'en-US' ? en : zh)[key]
 const row = ref<InventoryItemContract>(),
   loading = ref(true),
@@ -177,7 +180,8 @@ onBeforeUnmount(() => {
             t('replenish')
           }}</Button
           ><Button variant="outline" @click="$emit('history', row.id)">{{ mt('history') }}</Button
-          ><Button variant="outline" @click="$emit('report', row.id)">{{ mt('report') }}</Button>
+          ><Button variant="outline" @click="$emit('report', row.id)">{{ mt('report') }}</Button
+          ><Button variant="outline" @click="$emit('trend', row.id)">{{ tt('near') }}</Button>
         </div>
         <div class="grid min-w-0 gap-2">
           <Button

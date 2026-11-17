@@ -1,3 +1,5 @@
+import { InventoryTrendService } from './trend/inventory-trend.service';
+import { InventoryTrendDto } from './trend/inventory-trend.dto';
 import { InventoryMaterialService } from './inventory-material.service';
 import { InventoryMaterialChangesDto, RenameInventoryMaterialDto } from './dto/inventory-material.dto';
 import { InventoryUsageService } from './inventory-usage.service';
@@ -22,7 +24,7 @@ import { InventoryService } from './inventory.service';
 @UseGuards(AccessTokenGuard, MerchantGuard)
 @Controller('merchant/stores/:storeId/inventory')
 export class InventoryController {
-  constructor(private readonly materials: InventoryMaterialService, private readonly usage: InventoryUsageService, private readonly lifecycle: InventoryLifecycleService, private readonly inventory: InventoryService, private readonly reports: InventoryReportService, private readonly recipes: InventoryRecipeService, private readonly alerts: InventoryAlertService) {}
+  constructor(private readonly trends: InventoryTrendService, private readonly materials: InventoryMaterialService, private readonly usage: InventoryUsageService, private readonly lifecycle: InventoryLifecycleService, private readonly inventory: InventoryService, private readonly reports: InventoryReportService, private readonly recipes: InventoryRecipeService, private readonly alerts: InventoryAlertService) {}
 
   @Get()
   list(@CurrentUser() user: AuthenticatedUser, @Param('storeId') storeId: string, @Query() query: InventoryQueryDto) {
@@ -77,6 +79,9 @@ export class InventoryController {
   detail(@CurrentUser() user: AuthenticatedUser, @Param('storeId') storeId: string, @Param('itemId') itemId: string) { return this.lifecycle.detail(user, storeId, itemId); }
   @Put('items/:itemId/lifecycle')
   changeLifecycle(@CurrentUser() user: AuthenticatedUser, @Param('storeId') storeId: string, @Param('itemId') itemId: string, @Body() body: ChangeInventoryLifecycleDto) { return this.lifecycle.change(user, storeId, itemId, body); }
+
+  @Get('items/:itemId/trend')
+  materialTrend(@CurrentUser() user: AuthenticatedUser, @Param('storeId') storeId: string, @Param('itemId') itemId: string, @Query() query: InventoryTrendDto) { return this.trends.report(user, storeId, itemId, query); }
 
   @Put('items/:itemId/name')
   renameMaterial(@CurrentUser() user: AuthenticatedUser, @Param('storeId') storeId: string, @Param('itemId') itemId: string, @Body() body: RenameInventoryMaterialDto) { return this.materials.rename(user, storeId, itemId, body); }

@@ -152,9 +152,9 @@
 
 ## 6. 依赖风险例外
 
-`pnpm audit --prod --audit-level high` 当前仍报告 **1 high + 4 moderate**，都来自 DCloud/uni-app 锁定的 Vite 5 开发工具链（Vite、esbuild、launch-editor/phin 链路），不是已清零状态。
+`pnpm audit --prod --audit-level high` 在 2026-11-18 重新查询公告后报告 **1 critical + 52 high + 57 moderate + 12 low**（122 项），命令非零。此前“1 high + 4 moderate”只代表旧公告快照，已不适用。当前包含 backend → Express → proxy-addr 等运行时依赖，以及上传、图像、数据库驱动和 DCloud/uni-app 工具链；不能一概按开发服务器风险例外处理。本轮新增 Temporal/D3 依赖未出现在这些告警中。下一轮优先核对运行时修复版本、更新兼容补丁并回归认证/IP、上传及真实数据库路径，再处理工具链兼容性。
 
-当前缓解：
+以下现有缓解仅针对开发工具链，不关闭 API 运行时依赖告警：
 
 - uni-app 开发服务器固定 `127.0.0.1`，不对局域网暴露；
 - Windows 上按路径边界阻断 `/__open-in-editor` 及其变体，并以真实中间件请求测试；
@@ -284,3 +284,5 @@ audit:read             system_logs:read
 原料详情链接继续依赖已授权选店和既有复合门店键接口；切店清理对象 ID，前端再核对响应身份并丢弃迟到响应。清单上下文不向记录/报表传播 storeId/tenantId，预警不再按相似编码定位。此项不新增角色、审批或写权限。见 [原料工作区](./36-material-workspace-2026-11-18.md)。
 
 原料更名及档案读取先检查商家门店，再按原料复合键隔离；新记录表以门店复合 FK 防错店，事务失败回滚名称/启停及记录，不暴露通用认证审计元数据。原料更名/启停领域记录可查询，但仍非统一业务审计中心，也不关闭员工动作权限缺口。见 [原料档案](./37-material-profile-history-2026-11-18.md)。
+
+按日趋势先执行商家门店 scope，原料复合键与全部聚合 SQL 同时限定门店/原料；只读 RepeatableRead 不扩展权限，切店清理来源对象并卸载旧报表缓存。未建档/未来不补零，非法数值或余额不平衡失败，CSV 与完整快照一致；仍不关闭动作权限、估值或跨店分析缺口。见 [按日趋势](./38-inventory-daily-trend-2026-11-18.md)。

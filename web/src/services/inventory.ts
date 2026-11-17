@@ -68,3 +68,9 @@ export function renameInventoryMaterial(storeId: string, itemId: string, body: i
 export function inventoryMaterialChanges(storeId: string, itemId: string, kind: import('@lingdian/contracts').InventoryMaterialChangeKind | 'ALL', page = 1): Promise<import('@lingdian/contracts').InventoryMaterialChangePage> {
   return requestData(apiUrl(`${base(storeId)}/items/${encodeURIComponent(itemId)}/changes?${new URLSearchParams({ kind, page: String(page) })}`))
 }
+
+export function inventoryDailyTrend(storeId: string, itemId: string, filter: import('@lingdian/contracts').InventoryTrendFilter): Promise<import('@lingdian/contracts').InventoryDailyTrend> {
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(filter)) if (value) params.set(key, value)
+  return requestData(apiUrl(`${base(storeId)}/items/${encodeURIComponent(itemId)}/trend?${params}`))
+}

@@ -9,8 +9,14 @@ import { downloadCsv } from '../report'
 import { analyzeRows, filterAnalysis, type AnalysisOrder, type AnalysisSubset } from './model'
 import { analysisQuery, parseAnalysisState } from './state'
 import MaterialAnalysis from './MaterialAnalysis.vue'
+import { trendTarget } from '../trend/state'
 import { useAnalysisLocale } from './locale'
-const props = defineProps<{ report: InventoryPeriodReport; state: ActivityState; storeName: string; dirty: boolean }>(),
+const props = defineProps<{
+    report: InventoryPeriodReport
+    state: ActivityState
+    storeName: string
+    dirty: boolean
+  }>(),
   route = useRoute(),
   router = useRouter(),
   { t, number, percent } = useAnalysisLocale()
@@ -44,10 +50,20 @@ const subset = computed({
 const metrics = computed(() => [
   { label: 'total' as const, value: all.value.length },
   { label: 'lossMaterials' as const, value: all.value.filter((row) => row.lost > 0).length },
-  { label: 'countMaterials' as const, value: all.value.filter((row) => row.countGain > 0 || row.countLoss > 0).length },
+  {
+    label: 'countMaterials' as const,
+    value: all.value.filter((row) => row.countGain > 0 || row.countLoss > 0).length,
+  },
 ])
 function navigate(next = state.value, page = props.state.page, replace = false) {
-  const target = { query: { view: 'report', ...inventoryNavigationContext(route.query), ...activityQuery({ ...props.state, page }), ...analysisQuery(next) } }
+  const target = {
+    query: {
+      view: 'report',
+      ...inventoryNavigationContext(route.query),
+      ...activityQuery({ ...props.state, page }),
+      ...analysisQuery(next),
+    },
+  }
   return replace ? router.replace(target) : router.push(target)
 }
 watch(
@@ -62,17 +78,25 @@ async function focus(itemId: string) {
   await navigate({ ...state.value, itemId })
   if (!itemId) {
     await nextTick()
-    const button = Array.from(root.value?.querySelectorAll<HTMLButtonElement>('button[data-analysis-item]') ?? []).find(
-      (button) => button.dataset.analysisItem === previous && button.offsetParent !== null,
-    )
+    const button = Array.from(
+      root.value?.querySelectorAll<HTMLButtonElement>('button[data-analysis-item]') ?? [],
+    ).find((button) => button.dataset.analysisItem === previous && button.offsetParent !== null)
     ;(button ?? root.value?.querySelector<HTMLSelectElement>('select'))?.focus()
   }
 }
 function history(kind: InventoryMovementKind) {
   if (selected.value)
     void router.push({
-      query: { view: 'history', ...inventoryNavigationContext(route.query), ...activityQuery({ ...props.state, itemId: selected.value.itemId, kind, page: 1 }) },
+      query: {
+        view: 'history',
+        ...inventoryNavigationContext(route.query),
+        ...activityQuery({ ...props.state, itemId: selected.value.itemId, kind, page: 1 }),
+      },
     })
+}
+function trend() {
+  if (selected.value && !props.dirty)
+    void router.push({ query: trendTarget(route.query, props.state, selected.value.itemId) })
 }
 function exportSnapshot() {
   if (props.dirty || derived.value.failed || !rows.value.length) return
@@ -122,7 +146,10 @@ function exportSnapshot() {
       row.closing,
       row.movementCount,
     ])
-  downloadCsv(`inventory-analysis-${props.report.startAt.slice(0, 10)}-${props.report.endAt.slice(0, 10)}.csv`, data)
+  downloadCsv(
+    `inventory-analysis-${props.report.startAt.slice(0, 10)}-${props.report.endAt.slice(0, 10)}.csv`,
+    data,
+  )
 }
 </script>
 <template>
@@ -169,8 +196,19 @@ function exportSnapshot() {
         <p class="mt-2">{{ t('countHint') }}</p>
         <p class="mt-2">{{ t('exportHint') }}</p>
       </details>
-      <MaterialAnalysis v-if="selected" :row="selected" :disabled="dirty" @clear="focus('')" @history="history" />
-      <div v-else-if="state.itemId" role="status" class="grid justify-items-start gap-2 rounded-md border p-3 text-sm">
+      <MaterialAnalysis
+        v-if="selected"
+        :row="selected"
+        :disabled="dirty"
+        @clear="focus('')"
+        @history="history"
+        @trend="trend"
+      />
+      <div
+        v-else-if="state.itemId"
+        role="status"
+        class="grid justify-items-start gap-2 rounded-md border p-3 text-sm"
+      >
         <p>{{ t('unavailable') }}</p>
         <Button size="sm" variant="ghost" :disabled="dirty" @click="focus('')">{{ t('clear') }}</Button>
       </div>
@@ -191,7 +229,11 @@ function exportSnapshot() {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in visible" :key="row.itemId" :class="{ 'bg-muted/40': row.itemId === state.itemId }">
+              <tr
+                v-for="row in visible"
+                :key="row.itemId"
+                :class="{ 'bg-muted/40': row.itemId === state.itemId }"
+              >
                 <th scope="row" class="max-w-60 font-medium">
                   <span class="break-words">{{ row.name }}</span
                   ><span class="mt-1 block break-all text-xs font-normal text-muted-foreground"
@@ -241,7 +283,9 @@ function exportSnapshot() {
               </div>
               <div>
                 <dt class="text-xs text-muted-foreground">{{ t('countDifference') }}</dt>
-                <dd class="mt-1 break-words tabular-nums">{{ number(row.countDifference) }} {{ row.unit }}</dd>
+                <dd class="mt-1 break-words tabular-nums">
+                  {{ number(row.countDifference) }} {{ row.unit }}
+                </dd>
               </div>
             </dl>
             <Button
@@ -257,8 +301,13 @@ function exportSnapshot() {
           </li>
         </ul>
       </template>
-      <div class="flex flex-wrap items-center justify-between gap-3 border-t pt-3 text-sm text-muted-foreground">
-        <span>{{ number(rows.length) }} {{ t('records') }} · {{ t('page') }} {{ props.state.page }} / {{ pages }}</span>
+      <div
+        class="flex flex-wrap items-center justify-between gap-3 border-t pt-3 text-sm text-muted-foreground"
+      >
+        <span
+          >{{ number(rows.length) }} {{ t('records') }} · {{ t('page') }} {{ props.state.page }} /
+          {{ pages }}</span
+        >
         <div class="flex gap-2">
           <Button
             size="sm"

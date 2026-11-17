@@ -25,6 +25,7 @@
     "test:inventory-material-migration:mysql": "node --require ts-node/register ./scripts/verify-inventory-material-migration-mysql.ts"
   },
   "dependencies": {
+    "@js-temporal/polyfill": "0.5.1",
     "@lingdian/common": "workspace:*",
     "@lingdian/contracts": "workspace:*",
     "@lingdian/db": "workspace:*",

@@ -154,3 +154,23 @@ export interface InventoryMaterialChangePage {
   page: number; pageSize: number; total: number; kind: InventoryMaterialChangeKind | 'ALL';
   items: InventoryMaterialChangeRecord[];
 }
+
+export type InventoryTrendFilter = { timeZone: string } & (
+  | { startAt: string; endAt: string; fromDate?: never; toDate?: never }
+  | { fromDate: string; toDate: string; startAt?: never; endAt?: never }
+);
+export interface InventoryTrendFlows {
+  received: number; issued: number; lost: number; countGain: number; countLoss: number; movementCount: number;
+}
+export interface InventoryTrendBalances {
+  opening: number | null; closing: number | null; reservedOpening: number | null;
+  reservedClosing: number | null; availableClosing: number | null;
+}
+export interface InventoryTrendDay extends InventoryTrendFlows, InventoryTrendBalances {
+  date: string; startAt: string; endAt: string; partial: boolean; state: 'RECORDED' | 'NOT_CREATED' | 'FUTURE';
+}
+export interface InventoryDailyTrend {
+  storeId: string; item: InventoryItemContract; startAt: string; endAt: string; timeZone: string; asOfAt: string; generatedAt: string;
+  summary: InventoryTrendFlows & InventoryTrendBalances;
+  days: InventoryTrendDay[];
+}

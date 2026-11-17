@@ -50,6 +50,12 @@ function switchView(value: string) {
       stocktakeId: undefined,
       alertId: undefined,
       materialId: undefined,
+      ...(route.query.reportView === 'trend' ? { reportView: undefined } : {}),
+      trendItem: undefined,
+      trendStartAt: undefined,
+      trendEndAt: undefined,
+      trendDay: undefined,
+      trendPage: undefined,
     },
   })
 }
@@ -139,7 +145,7 @@ function stockFromAlert(itemId: string, lifecycle: 'ACTIVE' | 'ARCHIVED') {
       <InventoryRecipes v-else-if="view === 'recipes'" :store-id="storeId" />
       <InventoryActivity
         v-else-if="view === 'history' || view === 'report'"
-        :key="view"
+        :key="`${storeId}:${view}`"
         :store-id="storeId"
         :store-name="storeName"
         :mode="view"
