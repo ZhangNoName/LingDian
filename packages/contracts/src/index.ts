@@ -9,3 +9,4 @@ export * from './inventory';
 export * from './dashboard';
 export * from './purchasing';
 export * from './purchasing-analysis';
+export * from './merchant-catalog';

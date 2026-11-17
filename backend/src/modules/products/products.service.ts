@@ -420,7 +420,7 @@ export class ProductsService {
     }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
   }
 
-  private invalidateProductStats() {
+  invalidateProductStats() {
     this.statsCache.clear();
   }
 

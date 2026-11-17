@@ -408,12 +408,14 @@ model Product {
   storeId           String
   categoryId        String
   name              String
-  description       String?
+  description       String? @db.Text
   imageUrl          String?
   type              ProductType             @default(SINGLE)
   price             Decimal                 @db.Decimal(10, 2)
   status            ProductStatus           @default(DRAFT)
   isFeatured        Boolean                 @default(false)
+  creationRequestId String? @db.VarChar(64)
+  creationFingerprint String? @db.Char(64)
   configurationVersion Int                  @default(0)
   stock             Int                     @default(0)
   createdAt         DateTime                @default(now())
@@ -424,6 +426,7 @@ model Product {
   selectionBindings ProductSelectionGroup[]
   orderItems        OrderItem[]
 
+  @@unique([storeId,creationRequestId])
   @@index([storeId, status])
   @@index([categoryId])
   @@map("products")

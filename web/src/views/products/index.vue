@@ -9,6 +9,9 @@ import {
   listMerchantSkuOptions,
   saveMerchantProductConfig,
 } from '@/services/products'
+import { merchantStore } from '@/auth/merchant-store'
+import NewProductDialog from './components/NewProductDialog.vue'
+import { useCatalogLocale } from './catalog-management-locale'
 import ProductConfigDialog from './components/ProductConfigDialog.vue'
 import ProductMetricsGrid from './components/ProductMetricsGrid.vue'
 import { useProductLocale } from './use-product-locale'
@@ -18,6 +21,8 @@ import type { ProductMessageKey } from './messages'
 const { locale, t, money } = useProductLocale(),
   route = useRoute(),
   router = useRouter()
+const { t: ct } = useCatalogLocale(),
+  newProductOpen = ref(false)
 const state = ref(parseProductState(route.query)),
   filters = reactive({ keyword: '', type: '' as ProductFilterState['type'] })
 const products = ref<ProductListRecord[]>([]),
@@ -119,6 +124,18 @@ async function save(payload: ProductConfigForm) {
     saving.value = false
   }
 }
+function updated(record: ProductRecord) {
+  active.value = record
+  saved.value = true
+  void load()
+}
+async function created(record: ProductRecord) {
+  newProductOpen.value = false
+  filters.keyword = ''
+  filters.type = ''
+  await navigate({ ...state.value, keyword: '', type: '', page: 1, productId: record.id })
+  await load()
+}
 async function apply() {
   const next = { ...state.value, keyword: filters.keyword.trim(), type: filters.type, page: 1 }
   if (productListKey(next) === productListKey(state.value)) await load()
@@ -170,7 +187,7 @@ onBeforeUnmount(() => {
   <section class="grid min-w-0 gap-4" :lang="locale">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <p class="text-sm text-muted-foreground">{{ t('subtitle') }}</p>
-
+      <Button @click="newProductOpen = true">{{ ct('newProduct') }}</Button>
     </div>
     <ProductMetricsGrid :metrics="metrics" />
     <p class="text-xs text-muted-foreground">{{ t('metricsHint') }}</p>
@@ -330,13 +347,15 @@ onBeforeUnmount(() => {
     </div>
     <footer class="text-xs leading-5 text-muted-foreground">
       <p>{{ t('stockHint') }}</p>
-      <p>{{ t('noNewProduct') }}</p>
+      <p>{{ ct('imagesHint') }}</p>
       <RouterLink class="mt-2 inline-block text-sm text-primary" to="/warehouse?view=recipes">
         {{ t('recipeLink') }}
       </RouterLink>
     </footer>
+    <NewProductDialog v-model:open="newProductOpen" :store-id="merchantStore.selectedId.value" @saved="created" />
     <ProductConfigDialog
       :open="configOpen"
+      :store-id="merchantStore.selectedId.value"
       :product="active"
       :saving="saving"
       :loading="configLoading"
@@ -345,6 +364,7 @@ onBeforeUnmount(() => {
       @update:open="close"
       @save="save"
       @retry="loadConfig"
+      @updated="updated"
     />
   </section>
 </template>

@@ -62,3 +62,49 @@ export function updateMerchantSkuStock(skuId: string, stockCount: number, expect
     body: JSON.stringify({ sku_id: skuId, stock_count: stockCount, expected_version: expectedVersion }),
   })
 }
+
+const catalogBase = (storeId: string) => `/merchant/stores/${encodeURIComponent(storeId)}`
+function catalogWrite<T>(url: string, body: unknown, method = 'POST'): Promise<T> {
+  return requestData(apiUrl(url), {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+}
+export function merchantCategories(
+  storeId: string,
+  keyword = '',
+  categoryId = '',
+): Promise<import('@lingdian/contracts').MerchantCategoryPage> {
+  return requestData(
+    apiUrl(
+      `${catalogBase(storeId)}/categories?${new URLSearchParams({ page: '1', pageSize: '50', keyword, ...(categoryId ? { categoryId } : {}) })}`,
+    ),
+  )
+}
+export function createMerchantCategory(
+  storeId: string,
+  name: string,
+): Promise<import('@lingdian/contracts').CategoryContract> {
+  return catalogWrite(`${catalogBase(storeId)}/categories`, { name })
+}
+export function createMerchantProduct(
+  storeId: string,
+  body: import('@lingdian/contracts').CreateMerchantProduct,
+): Promise<ProductRecord> {
+  return catalogWrite(`${catalogBase(storeId)}/products`, body)
+}
+export function updateMerchantProductDetails(
+  storeId: string,
+  id: string,
+  body: import('@lingdian/contracts').UpdateMerchantProductDetails,
+): Promise<ProductRecord> {
+  return catalogWrite(`${catalogBase(storeId)}/products/${encodeURIComponent(id)}/details`, body, 'PATCH')
+}
+export function updateMerchantProductStatus(
+  storeId: string,
+  id: string,
+  body: import('@lingdian/contracts').UpdateMerchantProductStatus,
+): Promise<ProductRecord> {
+  return catalogWrite(`${catalogBase(storeId)}/products/${encodeURIComponent(id)}/status`, body, 'PATCH')
+}

@@ -1,3 +1,5 @@
+import { MerchantCatalogController } from './merchant/merchant-catalog.controller';
+import { MerchantCatalogService } from './merchant/merchant-catalog.service';
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { StoresModule } from '../stores/stores.module';
@@ -8,8 +10,8 @@ import { ProductConfigurationService } from './product-configuration.service';
 
 @Module({
   imports: [AuthModule, StoresModule, MerchantModule],
-  controllers: [ProductsController],
-  providers: [ProductsService, ProductConfigurationService],
+  controllers: [ProductsController, MerchantCatalogController],
+  providers: [MerchantCatalogService, ProductsService, ProductConfigurationService],
   exports: [ProductsService],
 })
 export class ProductsModule {}
