@@ -199,3 +199,5 @@ AppSecret 只能配置在 API 部署环境，不能写入 `uniapp/`、前端环�
 预警和库存可直接定位补货原料，并追查尚未收齐的采购单；已收齐原料不再计入部分收货单的未收单数。见 [补货追查迭代](./docs/27-replenishment-follow-through-2026-11-17.md)，本轮无需新增迁移。
 
 库存增加可保存实盘与复核差异的独立盘点单，确认后整单过账至流水、报表和预警。部署前通过安全迁移入口应用 `20261118_warehouse_stocktakes` 并重新生成 Prisma Client，详见 [盘点单迭代](./docs/28-stocktakes-2026-11-18.md)。
+
+商家分类改名、排序和菜单展示维护见 [分类管理](./docs/29-category-management-2026-11-18.md)。部署前应用 `20261118_z_category_version` 并重新生成 Prisma Client；隐藏分类只影响菜单展示，停止销售仍需下架商品。

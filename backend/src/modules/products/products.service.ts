@@ -86,6 +86,7 @@ export class ProductsService {
         id: categoryId,
       },
       data: {
+        version: { increment: 1 },
         ...(payload.name !== undefined ? { name: payload.name } : {}),
         ...(payload.sort_order !== undefined ? { sortOrder: payload.sort_order } : {}),
         ...(payload.is_visible !== undefined ? { isVisible: payload.is_visible } : {}),
@@ -328,6 +329,7 @@ export class ProductsService {
       include: {
         products: {
           where: {
+            storeId: store.id,
             status: ProductStatus.ACTIVE,
           },
           orderBy: [{ isFeatured: 'desc' }, { updatedAt: 'desc' }],

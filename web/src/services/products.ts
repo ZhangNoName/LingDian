@@ -75,10 +75,11 @@ export function merchantCategories(
   storeId: string,
   keyword = '',
   categoryId = '',
+  page = 1,
 ): Promise<import('@lingdian/contracts').MerchantCategoryPage> {
   return requestData(
     apiUrl(
-      `${catalogBase(storeId)}/categories?${new URLSearchParams({ page: '1', pageSize: '50', keyword, ...(categoryId ? { categoryId } : {}) })}`,
+      `${catalogBase(storeId)}/categories?${new URLSearchParams({ page: String(page), pageSize: '50', keyword, ...(categoryId ? { categoryId } : {}) })}`,
     ),
   )
 }
@@ -107,4 +108,8 @@ export function updateMerchantProductStatus(
   body: import('@lingdian/contracts').UpdateMerchantProductStatus,
 ): Promise<ProductRecord> {
   return catalogWrite(`${catalogBase(storeId)}/products/${encodeURIComponent(id)}/status`, body, 'PATCH')
+}
+
+export function updateMerchantCategory(storeId: string, id: string, body: import('@lingdian/contracts').UpdateMerchantCategory): Promise<import('@lingdian/contracts').MerchantCategoryRecord> {
+  return catalogWrite(`${catalogBase(storeId)}/categories/${encodeURIComponent(id)}`, body, 'PATCH')
 }

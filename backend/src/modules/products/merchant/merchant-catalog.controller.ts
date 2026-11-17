@@ -4,6 +4,7 @@ import { AccessTokenGuard } from '../../../common/auth/access-token.guard';
 import { MerchantGuard } from '../../../common/auth/merchant.guard';
 import { CurrentUser } from '../../../common/auth/current-user.decorator';
 import type { AuthenticatedUser } from '../../../common/auth/authenticated-user.type';
+import { MerchantCategoryService } from './merchant-category.service';
 import { MerchantCatalogService } from './merchant-catalog.service';
 import {
   CreateMerchantProductDto,
@@ -11,13 +12,17 @@ import {
   MerchantCategoryQueryDto,
   MerchantProductStatusDto,
   UpdateMerchantProductDto,
+  UpdateMerchantCategoryDto,
 } from './merchant-catalog.dto';
 @ApiTags('Merchant catalogue')
 @ApiBearerAuth()
 @UseGuards(AccessTokenGuard, MerchantGuard)
 @Controller('merchant/stores/:storeId')
 export class MerchantCatalogController {
-  constructor(private readonly catalog: MerchantCatalogService) {}
+  constructor(
+    private readonly catalog: MerchantCatalogService,
+    private readonly categoriesService: MerchantCategoryService,
+  ) {}
   @Get('categories') categories(
     @CurrentUser() user: AuthenticatedUser,
     @Param('storeId') storeId: string,
@@ -31,6 +36,14 @@ export class MerchantCatalogController {
     @Body() body: MerchantCategoryDto,
   ) {
     return this.catalog.createCategory(user, storeId, body);
+  }
+  @Patch('categories/:id') updateCategory(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('storeId') store: string,
+    @Param('id') id: string,
+    @Body() body: UpdateMerchantCategoryDto,
+  ) {
+    return this.categoriesService.update(user, store, id, body);
   }
   @Post('products') create(
     @CurrentUser() user: AuthenticatedUser,

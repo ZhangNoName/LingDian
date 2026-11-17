@@ -7,6 +7,7 @@ import {
   createMerchantProduct,
   updateMerchantProductDetails,
   updateMerchantProductStatus,
+  updateMerchantCategory,
 } from './products'
 it('scopes category/draft/metadata/status requests to encoded selected-store paths and keeps version/retry keys', async () => {
   await merchantCategories('store/a', 'Bread & milk', 'category/1')
@@ -42,4 +43,17 @@ it('scopes category/draft/metadata/status requests to encoded selected-store pat
   await updateMerchantProductStatus('store/a', 'product/1', { expected_version: 4, status: 'ACTIVE' })
   expect(JSON.parse(requestData.mock.calls.at(-1)![1].body)).toEqual({ expected_version: 4, status: 'ACTIVE' })
   expect(requestData.mock.calls.at(-1)![1].method).toBe('PATCH')
+})
+
+it('encodes paginated category searches and category versions without widening store scope', async () => {
+  await merchantCategories('store/a', 'Tea & coffee', '', 3)
+  let url = new URL(requestData.mock.calls.at(-1)![0])
+  expect(Object.fromEntries(url.searchParams)).toMatchObject({ page: '3', pageSize: '50', keyword: 'Tea & coffee' })
+  const body = { expected_version: 4, name: 'Drinks', sort_order: 20, is_visible: false }
+  await updateMerchantCategory('store/a', 'category/1', body)
+  const [target, init] = requestData.mock.calls.at(-1)!
+  url = new URL(target)
+  expect(url.pathname).toContain('/store%2Fa/categories/category%2F1')
+  expect(init.method).toBe('PATCH')
+  expect(JSON.parse(init.body)).toEqual(body)
 })

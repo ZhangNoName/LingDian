@@ -11,6 +11,7 @@ import {
 } from '@/services/products'
 import { merchantStore } from '@/auth/merchant-store'
 import NewProductDialog from './components/NewProductDialog.vue'
+import CategoryManager from './categories/CategoryManager.vue'
 import { useCatalogLocale } from './catalog-management-locale'
 import ProductConfigDialog from './components/ProductConfigDialog.vue'
 import ProductMetricsGrid from './components/ProductMetricsGrid.vue'
@@ -22,7 +23,8 @@ const { locale, t, money } = useProductLocale(),
   route = useRoute(),
   router = useRouter()
 const { t: ct } = useCatalogLocale(),
-  newProductOpen = ref(false)
+  newProductOpen = ref(false),
+  categoriesOpen = ref(false)
 const state = ref(parseProductState(route.query)),
   filters = reactive({ keyword: '', type: '' as ProductFilterState['type'] })
 const products = ref<ProductListRecord[]>([]),
@@ -187,7 +189,7 @@ onBeforeUnmount(() => {
   <section class="grid min-w-0 gap-4" :lang="locale">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <p class="text-sm text-muted-foreground">{{ t('subtitle') }}</p>
-      <Button @click="newProductOpen = true">{{ ct('newProduct') }}</Button>
+      <div class="flex flex-wrap gap-2"><Button variant="outline" @click="categoriesOpen = true">{{ locale === 'en-US' ? 'Categories' : '分类管理' }}</Button><Button @click="newProductOpen = true">{{ ct('newProduct') }}</Button></div>
     </div>
     <ProductMetricsGrid :metrics="metrics" />
     <p class="text-xs text-muted-foreground">{{ t('metricsHint') }}</p>
@@ -352,6 +354,7 @@ onBeforeUnmount(() => {
         {{ t('recipeLink') }}
       </RouterLink>
     </footer>
+    <CategoryManager v-model:open="categoriesOpen" :store-id="merchantStore.selectedId.value" @changed="load" />
     <NewProductDialog v-model:open="newProductOpen" :store-id="merchantStore.selectedId.value" @saved="created" />
     <ProductConfigDialog
       :open="configOpen"

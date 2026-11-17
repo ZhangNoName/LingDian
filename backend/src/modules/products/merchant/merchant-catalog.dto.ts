@@ -41,3 +41,9 @@ export class MerchantProductStatusDto {
   @IsInt() @Min(0) @Max(2147483646) expected_version!: number;
   @IsIn(['DRAFT', 'ACTIVE', 'SOLD_OUT', 'ARCHIVED']) status!: ProductStatus;
 }
+
+export class UpdateMerchantCategoryDto extends MerchantCategoryDto {
+  @IsInt() @Min(0) @Max(2147483646) expected_version!: number;
+  @IsInt() @Min(0) @Max(1000000) sort_order!: number;
+  @IsBoolean() is_visible!: boolean;
+}

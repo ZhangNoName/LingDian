@@ -14,12 +14,20 @@ import {
   MerchantProductStatusDto,
   UpdateMerchantProductDto,
 } from './merchant-catalog.dto';
-const categoryRecord = (row: { id: string; storeId: string; name: string; sortOrder: number; isVisible: boolean }) => ({
+const categoryRecord = (row: {
+  id: string;
+  storeId: string;
+  name: string;
+  sortOrder: number;
+  isVisible: boolean;
+  version: number;
+}) => ({
   id: row.id,
   store_id: row.storeId,
   name: row.name,
   sort_order: row.sortOrder,
   is_visible: row.isVisible,
+  configuration_version: row.version,
 });
 @Injectable()
 export class MerchantCatalogService {
@@ -36,19 +44,33 @@ export class MerchantCatalogService {
       ...(query.keyword ? { name: { contains: query.keyword } } : {}),
     };
     return this.db.$transaction(
-      async (tx) => ({
-        items: (
-          await tx.category.findMany({
-            where,
-            orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
-            take: query.pageSize,
-            skip: (query.page - 1) * query.pageSize,
-          })
-        ).map(categoryRecord),
-        total: await tx.category.count({ where }),
-        page: query.page,
-        pageSize: query.pageSize,
-      }),
+      async (tx) => {
+        const rows = await tx.category.findMany({
+          where,
+          include: { _count: { select: { products: { where: { storeId } } } } },
+          orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
+          take: query.pageSize,
+          skip: (query.page - 1) * query.pageSize,
+        });
+        const active = rows.length
+          ? await tx.product.groupBy({
+              by: ['categoryId'],
+              where: { storeId, categoryId: { in: rows.map((row) => row.id) }, status: 'ACTIVE' },
+              _count: { _all: true },
+            })
+          : [];
+        const activeByCategory = new Map(active.map((row) => [row.categoryId, row._count._all]));
+        return {
+          items: rows.map((row) => ({
+            ...categoryRecord(row),
+            product_count: row._count.products,
+            active_product_count: activeByCategory.get(row.id) ?? 0,
+          })),
+          total: await tx.category.count({ where }),
+          page: query.page,
+          pageSize: query.pageSize,
+        };
+      },
       { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
     );
   }

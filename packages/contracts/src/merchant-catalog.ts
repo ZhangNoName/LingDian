@@ -1,6 +1,6 @@
 import type { CategoryContract, ProductStatus } from './catalog';
 export interface MerchantCategoryPage {
-  items: CategoryContract[];
+  items: MerchantCategoryRecord[];
   total: number;
   page: number;
   pageSize: number;
@@ -24,4 +24,16 @@ export interface UpdateMerchantProductDetails {
 export interface UpdateMerchantProductStatus {
   expected_version: number;
   status: ProductStatus;
+}
+
+export interface MerchantCategoryRecord extends CategoryContract {
+  configuration_version: number;
+  product_count: number;
+  active_product_count: number;
+}
+export interface UpdateMerchantCategory {
+  expected_version: number;
+  name: string;
+  sort_order: number;
+  is_visible: boolean;
 }

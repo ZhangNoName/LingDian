@@ -397,6 +397,7 @@ model Category {
   id        String    @id @default(cuid())
   storeId   String
   name      String
+  version   Int       @default(0)
   sortOrder Int       @default(0)
   isVisible Boolean   @default(true)
   createdAt DateTime  @default(now())
