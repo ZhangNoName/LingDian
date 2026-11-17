@@ -19,6 +19,7 @@
 | [33-inventory-lifecycle-2026-11-18.md](./33-inventory-lifecycle-2026-11-18.md) | 原料停用/恢复、依赖与并发保护、预警解除原因和历史保留 |
 | [37-material-profile-history-2026-11-18.md](./37-material-profile-history-2026-11-18.md) | 原料名称维护、更名/启停档案记录、历史迁移与验证 |
 | [38-inventory-daily-trend-2026-11-18.md](./38-inventory-daily-trend-2026-11-18.md) | 单原料按日账面/可用结余、时区、逐日流水返回、完整快照 CSV 和空值口径 |
+| [39-proxy-trust-dependency-2026-11-18.md](./39-proxy-trust-dependency-2026-11-18.md) | 代理地址依赖补丁、真实 HTTP 转发链与审计告警复核 |
 | [36-material-workspace-2026-11-18.md](./36-material-workspace-2026-11-18.md) | 原料详情、清单链接恢复、手机卡片与记录/报表返回 |
 | [35-alert-workspace-2026-11-18.md](./35-alert-workspace-2026-11-18.md) | 预警链接定位、最新详情、冲突跟进复核和手机卡片 |
 | [34-material-related-records-2026-11-18.md](./34-material-related-records-2026-11-18.md) | 原料关联配方/未收采购/盘点草稿追查、处理后返回与分页导出 |

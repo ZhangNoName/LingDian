@@ -152,7 +152,7 @@
 
 ## 6. 依赖风险例外
 
-`pnpm audit --prod --audit-level high` 在 2026-11-18 重新查询公告后报告 **1 critical + 52 high + 57 moderate + 12 low**（122 项），命令非零。此前“1 high + 4 moderate”只代表旧公告快照，已不适用。当前包含 backend → Express → proxy-addr 等运行时依赖，以及上传、图像、数据库驱动和 DCloud/uni-app 工具链；不能一概按开发服务器风险例外处理。本轮新增 Temporal/D3 依赖未出现在这些告警中。下一轮优先核对运行时修复版本、更新兼容补丁并回归认证/IP、上传及真实数据库路径，再处理工具链兼容性。
+`pnpm audit --prod --audit-level high` 在 2026-11-18 重新查询公告后报告 **0 critical + 52 high + 57 moderate + 12 low**（121 项；修复代理依赖前为 122 项，含 1 critical），命令非零。此前“1 high + 4 moderate”只代表旧公告快照，已不适用。本轮已将 backend → Express → proxy-addr 更新至 2.0.8，并用真实 HTTP 验证一层代理 IP 选择，相关 critical 告警消失，见 [代理依赖补丁](./39-proxy-trust-dependency-2026-11-18.md)。其余仍包含上传、图像、数据库驱动及 DCloud/uni-app 工具链；不能一概按开发服务器风险例外处理。本轮新增 Temporal/D3 依赖未出现在这些告警中。下一轮优先核对运行时修复版本、更新兼容补丁并回归认证/IP、上传及真实数据库路径，再处理工具链兼容性。
 
 以下现有缓解仅针对开发工具链，不关闭 API 运行时依赖告警：
 
