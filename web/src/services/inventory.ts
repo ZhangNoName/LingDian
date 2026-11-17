@@ -32,3 +32,11 @@ export function adjustInventory(storeId: string, itemId: string, body: AdjustInv
 function jsonPost(body: unknown): RequestInit {
   return { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
 }
+
+export function listInventoryRecipes(storeId: string, page: number, keyword = ''): Promise<import('@lingdian/contracts').InventoryRecipePage> {
+  const params = new URLSearchParams({ page: String(page), pageSize: '20', keyword })
+  return requestData(apiUrl(`${base(storeId)}/recipes?${params}`))
+}
+export function saveInventoryRecipe(storeId: string, skuId: string, body: import('@lingdian/contracts').SaveInventoryRecipeRequest): Promise<import('@lingdian/contracts').InventoryRecipeRecord> {
+  return requestData(apiUrl(`${base(storeId)}/recipes/${encodeURIComponent(skuId)}`), { ...jsonPost(body), method: 'PUT' })
+}

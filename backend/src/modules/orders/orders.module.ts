@@ -1,3 +1,6 @@
+import { PaymentsModule } from '../payments/payments.module';
+import { OrderStockExpiryService } from './order-stock-expiry.service';
+import { InventoryModule } from '../inventory/inventory.module';
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { OrdersController } from './orders.controller';
@@ -9,8 +12,8 @@ import { MerchantModule } from '../merchant/merchant.module';
 import { StoresModule } from '../stores/stores.module';
 
 @Module({
-  imports: [AuthModule, AddressesModule, IntegrationsModule, MerchantModule, StoresModule],
+  imports: [PaymentsModule, InventoryModule, AuthModule, AddressesModule, IntegrationsModule, MerchantModule, StoresModule],
   controllers: [OrdersController],
-  providers: [OrdersService, OrdersQueryService],
+  providers: [OrdersService, OrdersQueryService, OrderStockExpiryService],
 })
 export class OrdersModule {}

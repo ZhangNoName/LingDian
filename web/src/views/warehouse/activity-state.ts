@@ -1,7 +1,7 @@
 import type { InventoryMovementKind } from '@lingdian/contracts'
 
 export interface ActivityState { startAt: string; endAt: string; keyword: string; itemId: string; kind: InventoryMovementKind | ''; page: number }
-export const movementKinds: InventoryMovementKind[] = ['RECEIVE', 'ISSUE', 'LOSS', 'COUNT', 'THRESHOLD']
+export const movementKinds: InventoryMovementKind[] = ['RECEIVE', 'ISSUE', 'LOSS', 'COUNT', 'THRESHOLD', 'RESERVE', 'RELEASE']
 export function dateInput(value: Date): string {
   return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
 }

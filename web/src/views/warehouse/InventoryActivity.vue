@@ -21,7 +21,7 @@ const from = ref(''), to = ref(''), keyword = ref(''), kind = ref<InventoryMovem
 const loading = ref(true), errorKey = ref<MessageKey | ''>('')
 const report = ref<InventoryPeriodReport>(), history = ref<InventoryMovementPage>()
 const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
-const kindKey: Record<InventoryMovementKind, MessageKey> = { RECEIVE: 'receive', ISSUE: 'issue', LOSS: 'loss', COUNT: 'count', THRESHOLD: 'setThreshold' }
+const kindKey: Record<InventoryMovementKind, MessageKey> = { RECEIVE: 'receive', ISSUE: 'issue', LOSS: 'loss', COUNT: 'count', THRESHOLD: 'setThreshold', RESERVE: 'reserve', RELEASE: 'release' }
 const columns = ['opening', 'received', 'issued', 'lost', 'countGain', 'countLoss', 'closing'] as const
 const total = computed(() => props.mode === 'report' ? report.value?.rows.length ?? 0 : history.value?.total ?? 0)
 const pageCount = computed(() => Math.max(1, Math.ceil(total.value / 20)))
@@ -76,8 +76,8 @@ function exportRows() {
     for (const row of report.value.rows) rows.push([row.code, row.name, row.unit, ...columns.map((key) => row[key]), row.movementCount])
   } else {
     rows.push([t('currentPage'), applied.page, t('total'), total.value], [t('operation'), applied.kind ? t(kindKey[applied.kind]) : t('allOperations')])
-    rows.push([t('time'), t('code'), t('name'), t('unit'), t('operation'), t('amount'), t('before'), t('after'), t('threshold') + ' · ' + t('before'), t('threshold') + ' · ' + t('after'), t('actor'), t('reason')])
-    for (const row of history.value?.items ?? []) rows.push([row.createdAt, row.itemCode, row.itemName, row.unit, t(kindKey[row.kind]), row.amount, row.quantityBefore, row.quantityAfter, row.reorderPointBefore, row.reorderPointAfter, row.actorId, row.reason])
+    rows.push([t('time'), t('code'), t('name'), t('unit'), t('operation'), t('amount'), t('before'), t('after'), t('reserved') + ' · ' + t('before'), t('reserved') + ' · ' + t('after'), t('threshold') + ' · ' + t('before'), t('threshold') + ' · ' + t('after'), t('actor'), t('reason')])
+    for (const row of history.value?.items ?? []) rows.push([row.createdAt, row.itemCode, row.itemName, row.unit, t(kindKey[row.kind]), row.amount, row.quantityBefore, row.quantityAfter, row.reservedBefore ?? 0, row.reservedAfter ?? 0, row.reorderPointBefore, row.reorderPointAfter, row.actorId, row.reason])
   }
   downloadCsv(`inventory-${props.mode}-${applied.startAt.slice(0, 10)}-${applied.endAt.slice(0, 10)}${props.mode === 'history' ? '-p' + applied.page : ''}.csv`, rows)
 }
@@ -124,7 +124,7 @@ onBeforeUnmount(() => { sequence++ })
       </table>
       <table v-else>
         <thead><tr><th>{{ t('time') }}</th><th>{{ t('name') }}</th><th>{{ t('operation') }}</th><th class="number">{{ t('before') }} → {{ t('after') }}</th><th>{{ t('reason') }}</th><th>{{ t('actor') }}</th></tr></thead>
-        <tbody><tr v-for="row in history?.items" :key="row.id"><td class="whitespace-nowrap text-xs">{{ date(row.createdAt) }}</td><th scope="row" class="material">{{ row.itemName }}<span class="mt-1 block font-mono text-xs font-normal text-muted-foreground">{{ row.itemCode }}</span></th><td class="whitespace-nowrap">{{ t(kindKey[row.kind]) }}</td><td class="number">{{ row.kind === 'THRESHOLD' ? `${format(row.reorderPointBefore)} → ${format(row.reorderPointAfter)}` : `${format(row.quantityBefore)} → ${format(row.quantityAfter)}` }} {{ row.unit }}<span v-if="row.kind === 'THRESHOLD'" class="block text-xs text-muted-foreground">{{ t('threshold') }}</span></td><td class="min-w-48 max-w-80 break-words">{{ row.reason }}</td><td class="max-w-48 break-all font-mono text-xs text-muted-foreground">{{ row.actorId }}</td></tr></tbody>
+        <tbody><tr v-for="row in history?.items" :key="row.id"><td class="whitespace-nowrap text-xs">{{ date(row.createdAt) }}</td><th scope="row" class="material">{{ row.itemName }}<span class="mt-1 block font-mono text-xs font-normal text-muted-foreground">{{ row.itemCode }}</span></th><td class="whitespace-nowrap">{{ t(kindKey[row.kind]) }}</td><td class="number">{{ row.kind === 'THRESHOLD' ? `${format(row.reorderPointBefore)} → ${format(row.reorderPointAfter)}` : row.kind === 'RESERVE' || row.kind === 'RELEASE' ? `${format(row.reservedBefore ?? 0)} → ${format(row.reservedAfter ?? 0)}` : `${format(row.quantityBefore)} → ${format(row.quantityAfter)}` }} {{ row.unit }}<span v-if="['THRESHOLD', 'RESERVE', 'RELEASE'].includes(row.kind)" class="block text-xs text-muted-foreground">{{ t(row.kind === 'THRESHOLD' ? 'threshold' : 'reserved') }}</span></td><td class="min-w-48 max-w-80 break-words">{{ row.reason }}</td><td class="max-w-48 break-all font-mono text-xs text-muted-foreground">{{ row.actorId }}</td></tr></tbody>
       </table>
     </div>
     <div v-if="!loading && !errorKey" class="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm text-muted-foreground">

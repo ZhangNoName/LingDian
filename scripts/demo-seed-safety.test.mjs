@@ -35,6 +35,10 @@ test('demo reset clears restricted payment rows first and scopes every delete to
     'paymentWebhookEvent',
     'paymentIntent',
     'integrationOutbox',
+    'inventoryReservation',
+    'inventoryRecipe',
+    'inventoryMovement',
+    'inventoryItem',
     'orderStatusLog',
     'orderItemSelection',
     'orderItem',
@@ -62,7 +66,7 @@ test('demo reset clears restricted payment rows first and scopes every delete to
   assert.deepEqual(calls[2].args, {
     where: { order: { storeId: 'primary-store' } },
   });
-  assert.deepEqual(calls[7].args, {
+  assert.deepEqual(calls.find((call) => call.model === 'order').args, {
     where: { storeId: 'primary-store' },
   });
 });

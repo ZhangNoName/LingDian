@@ -3,6 +3,10 @@ import { test } from 'node:test';
 import { PaymentsService } from './payments.service';
 import { PaymentExpiryService } from './payment-expiry.service';
 
+function testPaymentsService(prisma: any, gateways: any, stores: any, expiry?: any, stock: any = { commit: async () => undefined }) {
+  return new PaymentsService(prisma, gateways, stores, expiry, stock);
+}
+
 const storeContext = {
   primaryStoreId: () => 'store-1',
   resolveRequestedStoreId: (storeId?: string) => {
@@ -39,7 +43,7 @@ test('createIntent selects the receiving account from the order store and valida
     gatewayInput = input;
     return { providerIntentId: 'wx-1', status: 'SUCCEEDED', accountExternalId: 'mch-1', amountMinor: 1880, currency: 'CNY', clientAction: { token: 'client-only' } };
   } }) };
-  const service = new PaymentsService(prisma as never, gateways as never, storeContext as never);
+  const service = testPaymentsService(prisma as never, gateways as never, storeContext as never);
   const result = await service.createIntent('order-1', 'user-1', { provider: 'WECHAT_PAY', channel: 'WECHAT', clientRequestId: 'request-1' });
   assert.equal(gatewayInput.amountMinor, 1880);
   assert.equal(result.amount_minor, 1880);
@@ -58,7 +62,7 @@ test('createIntent rejects a connector response that redirects funds to another 
   };
   (prisma as any).$transaction = async (operation: (tx: typeof prisma) => Promise<unknown>) => operation(prisma);
   const gateways = { create: () => ({ createIntent: async () => ({ providerIntentId: 'ali-1', status: 'PENDING', accountExternalId: 'attacker', amountMinor: 100, currency: 'CNY', clientAction: null }) }) };
-  const service = new PaymentsService(prisma as never, gateways as never, storeContext as never);
+  const service = testPaymentsService(prisma as never, gateways as never, storeContext as never);
   await assert.rejects(() => service.createIntent('order-1', 'user-1', { provider: 'ALIPAY', channel: 'ALIPAY', clientRequestId: 'request-1' }), /mismatched recipient/i);
   assert.equal(failedData?.activeOrderKey, undefined);
   assert.equal(failedData?.status, undefined);
@@ -95,7 +99,7 @@ test('an unknown connector create outcome keeps the attempt active until verifie
     },
   };
   (prisma as any).$transaction = async (operation: (tx: typeof prisma) => Promise<unknown>) => operation(prisma);
-  const service = new PaymentsService(prisma as never, {
+  const service = testPaymentsService(prisma as never, {
     create: () => ({
       createIntent: async () => { throw new Error('response lost after dispatch'); },
     }),
@@ -116,7 +120,7 @@ test('an unknown connector create outcome keeps the attempt active until verifie
 
 test('idempotency lookup never discloses an intent before order ownership and store scope are verified', async () => {
   let intentLookup = false;
-  const service = new PaymentsService({
+  const service = testPaymentsService({
     order: { findFirst: async () => null },
     paymentIntent: { findUnique: async () => { intentLookup = true; return null; } },
   } as never, {} as never, storeContext as never);
@@ -151,7 +155,7 @@ test('an authorized retry returns its existing payment intent without creating a
     paidAt: null,
   };
   let authorizedWhere: unknown;
-  const service = new PaymentsService({
+  const service = testPaymentsService({
     order: {
       findFirst: async ({ where }: any) => {
         authorizedWhere = where;
@@ -229,7 +233,7 @@ test('a unique-create race recovers the authorized duplicate without calling the
     },
   };
   (prisma as any).$transaction = async (operation: (tx: typeof prisma) => Promise<unknown>) => operation(prisma);
-  const service = new PaymentsService(prisma as never, {
+  const service = testPaymentsService(prisma as never, {
     create: () => ({
       createIntent: async () => {
         gatewayCalls += 1;
@@ -280,7 +284,7 @@ test('createIntent stops when cancellation wins before the reservation transacti
     },
   };
   (prisma as any).$transaction = async (operation: (tx: typeof prisma) => Promise<unknown>) => operation(prisma);
-  const service = new PaymentsService(prisma as never, {
+  const service = testPaymentsService(prisma as never, {
     create: () => ({ createIntent: async () => { gatewayCalls += 1; } }),
   } as never, storeContext as never);
 
@@ -352,7 +356,7 @@ test('different idempotency keys cannot concurrently create two active payment a
       release();
     }
   };
-  const service = new PaymentsService(prisma as never, {
+  const service = testPaymentsService(prisma as never, {
     create: () => ({
       createIntent: async ({ paymentNo }: { paymentNo: string }) => {
         gatewayCalls += 1;
@@ -445,7 +449,7 @@ test('an expired attempt with no provider id is replaced only after durable conn
     },
   };
   (prisma as any).$transaction = async (operation: (tx: typeof prisma) => Promise<unknown>) => operation(prisma);
-  const service = new PaymentsService(prisma as never, {
+  const service = testPaymentsService(prisma as never, {
     create: () => ({
       closeIntent: async (input: any) => {
         closeInput = input;
@@ -506,7 +510,7 @@ test('an expired attempt remains blocked when connector closure is unknown', asy
       updateMany: async ({ data }: any) => { Object.assign(oldIntent, data); return { count: 1 }; },
     },
   };
-  const service = new PaymentsService(prisma as never, {
+  const service = testPaymentsService(prisma as never, {
     create: () => ({
       closeIntent: async () => ({
         paymentNo: oldIntent.paymentNo, providerIntentId: oldIntent.providerIntentId,
@@ -574,6 +578,7 @@ test('a verified success webhook repairs a previously succeeded intent whose ord
     clientRequestId: 'request-1', providerIntentId: 'provider-1', clientAction: null,
     expiresAt: new Date('2026-08-30T10:15:00Z'), paidAt: null, order,
   };
+  let stockCommits = 0;
   let transactionWritten = false;
   let statusLogWritten = false;
   let eventProcessed = false;
@@ -618,14 +623,15 @@ test('a verified success webhook repairs a previously succeeded intent whose ord
     orderStatusLog: { create: async () => { statusLogWritten = true; return {}; } },
   };
   (prisma as any).$transaction = async (operation: (tx: typeof prisma) => Promise<unknown>) => operation(prisma);
-  const service = new PaymentsService(prisma as never, {
+  const service = testPaymentsService(prisma as never, {
     create: () => ({ verifyWebhook: () => payload }),
-  } as never, storeContext as never);
+  } as never, storeContext as never, undefined, { commit: async () => { stockCommits++; } });
 
   const result = await service.handleWebhook('WECHAT_PAY', account.id, Buffer.from(JSON.stringify(payload)), {});
 
   assert.deepEqual(result, { accepted: true, duplicate: false });
   assert.equal(order.status, 'PAID');
+  assert.equal(stockCommits, 1);
   assert.equal(intent.reconciliationStatus, 'MATCHED');
   assert.equal(transactionWritten, true);
   assert.equal(statusLogWritten, true);
@@ -684,7 +690,7 @@ test('a late success webhook overrides local expiry and records cancelled order 
     orderStatusLog: { create: async () => { statusLogWritten = true; return {}; } },
   };
   (prisma as any).$transaction = async (operation: (tx: typeof prisma) => Promise<unknown>) => operation(prisma);
-  const service = new PaymentsService(prisma as never, {
+  const service = testPaymentsService(prisma as never, {
     create: () => ({ verifyWebhook: () => payload }),
   } as never, storeContext as never);
 
@@ -730,7 +736,7 @@ test('a success fact remains matched when the order is already in a paid termina
     },
     orderStatusLog: { create: async () => { statusLogWritten = true; return {}; } },
   };
-  const service = new PaymentsService({} as never, {} as never, storeContext as never);
+  const service = testPaymentsService({} as never, {} as never, storeContext as never);
 
   await (service as any).confirmSuccessfulPayment(tx, {
     intentId: intent.id,
@@ -777,7 +783,7 @@ test('one provider transaction cannot credit a second payment intent', async () 
     },
     orderStatusLog: { create: async () => { statusLogWritten = true; } },
   };
-  const service = new PaymentsService({} as never, {} as never, storeContext as never);
+  const service = testPaymentsService({} as never, {} as never, storeContext as never);
 
   await assert.rejects(
     () => (service as any).confirmSuccessfulPayment(tx, {
@@ -831,7 +837,7 @@ test('an out-of-order processing webhook cannot reactivate a failed intent', asy
     },
   };
   (prisma as any).$transaction = async (operation: (tx: typeof prisma) => Promise<unknown>) => operation(prisma);
-  const service = new PaymentsService(prisma as never, {
+  const service = testPaymentsService(prisma as never, {
     create: () => ({ verifyWebhook: () => payload }),
   } as never, storeContext as never);
 

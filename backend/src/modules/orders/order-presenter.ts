@@ -48,6 +48,7 @@ export function mapOrderDetail(order: OrderDetailRecord): OrderDetailContract {
     item_count: order.items.reduce((sum, item) => sum + item.quantity, 0),
     is_deleted: order.isDeleted,
     deleted_at: order.deletedAt?.toISOString() ?? null,
+    stock_expires_at: order.stockExpiresAt?.toISOString() ?? null,
     paid_at: order.paidAt?.toISOString() ?? null,
     cancelled_at: order.cancelledAt?.toISOString() ?? null,
     refunding_at: order.refundingAt?.toISOString() ?? null,

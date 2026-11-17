@@ -97,6 +97,9 @@ function toRequestMessage(message?: string, networkFailure = false): string {
   ) {
     return "网络连接异常，请检查网络后重试。";
   }
+  if (normalized === "inventory.orderinsufficient") return "原料余量不足，请减少数量或选择其他商品。";
+  if (normalized === "inventory.stale") return "原料余量刚刚发生变化，请重新确认后下单。";
+  if (normalized === "inventory.skuunavailable") return "商品已调整，请刷新菜单后重新选择。";
   if (/[\u3400-\u9fff]/.test(source)) return source;
   if (normalized.includes("unauthorized")) return "当前内容暂时无法加载，请稍后重试。";
   return "请求失败，请稍后重试。";

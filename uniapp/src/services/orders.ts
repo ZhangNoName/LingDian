@@ -16,7 +16,7 @@ type ApiChannelFields = {
 type ApiOrderSummary = Omit<OrderSummaryContract, keyof ApiChannelFields> & ApiChannelFields;
 type ApiOrderPage = Omit<OrderPageContract, "items"> & { items: ApiOrderSummary[] };
 type ApiOrder = ApiOrderSummary &
-  Partial<Pick<OrderDetailContract, "items" | "status_logs">>;
+  Partial<Pick<OrderDetailContract, "items" | "status_logs" | "stock_expires_at">>;
 
 const statusMap: Record<string, Exclude<OrderStatus, "unknown">> = {
   CREATING: "pendingPay",
@@ -176,6 +176,7 @@ export async function fetchOrderDetail(orderId: string) {
       { label: "取餐码", value: resolvePickupCode(order.order_no, order.pickup_code) },
       { label: "订单编号", value: order.order_no, copyable: true },
       { label: "下单时间", value: order.created_at },
+      ...(order.status === "PENDING_PAYMENT" && order.stock_expires_at ? [{ label: "原料预留至", value: new Date(order.stock_expires_at).toLocaleString("zh-CN", { hour12: false }) }] : []),
       { label: "预计取餐时间", value: expectedTime ?? "未记录" },
       { label: "出餐时间", value: servedAt ?? "未记录" },
       { label: "支付方式", value: paymentMethod },

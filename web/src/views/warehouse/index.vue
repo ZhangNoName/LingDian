@@ -8,6 +8,7 @@ import { merchantStore } from '@/auth/merchant-store'
 import { listInventory } from '@/services/inventory'
 import InventoryEditor from './InventoryEditor.vue'
 import InventoryActivity from './InventoryActivity.vue'
+import InventoryRecipes from './InventoryRecipes.vue'
 import { en, zh, type MessageKey } from './messages'
 import { downloadCsv } from './report'
 
@@ -16,7 +17,7 @@ const t = (key: MessageKey) => (locale.value === 'en-US' ? en : zh)[key]
 const storeId = merchantStore.selectedId
 const storeName = computed(() => merchantStore.stores.value.find((store) => store.id === storeId.value)?.name ?? '')
 const route = useRoute(), router = useRouter()
-const view = computed(() => route.query.view === 'report' ? 'report' : route.query.view === 'history' ? 'history' : 'inventory')
+const view = computed(() => route.query.view === 'recipes' ? 'recipes' : route.query.view === 'report' ? 'report' : route.query.view === 'history' ? 'history' : 'inventory')
 const page = ref(1)
 const keyword = ref('')
 const appliedKeyword = ref('')
@@ -47,7 +48,7 @@ async function load() {
   } catch { if (current === sequence) errorKey.value = 'loadFailed' }
   finally { if (current === sequence) loading.value = false }
 }
-function switchView(value: 'inventory' | 'history' | 'report') { void router.push({ query: { ...route.query, view: value, page: undefined, itemId: undefined } }) }
+function switchView(value: 'inventory' | 'history' | 'report' | 'recipes') { void router.push({ query: { ...route.query, view: value, page: undefined, itemId: undefined } }) }
 function filter(value: InventoryStatus | '') { status.value = value; page.value = 1; void load() }
 function search() { appliedKeyword.value = keyword.value.trim(); page.value = 1; void load() }
 function clear() { keyword.value = ''; appliedKeyword.value = ''; status.value = ''; page.value = 1; void load() }
@@ -62,8 +63,8 @@ function exportPage() {
     [t('time'), new Date().toISOString()],
   ]
   rows.push([t('search'), appliedKeyword.value, t('status'), status.value ? t(statusKey[status.value]) : t('all')])
-  rows.push([t('code'), t('name'), t('unit'), t('quantity'), t('threshold'), t('shortage'), t('status'), t('updated')])
-  for (const item of inventory.value?.items ?? []) rows.push([item.code, item.name, item.unit, item.quantity, item.reorderPoint, item.shortage, t(statusKey[item.status]), item.updatedAt])
+  rows.push([t('code'), t('name'), t('unit'), t('quantity'), t('reserved'), t('available'), t('threshold'), t('shortage'), t('status'), t('updated')])
+  for (const item of inventory.value?.items ?? []) rows.push([item.code, item.name, item.unit, item.quantity, item.reservedQuantity ?? 0, item.availableQuantity ?? item.quantity, item.reorderPoint, item.shortage, t(statusKey[item.status]), item.updatedAt])
   downloadCsv(`inventory-${view.value}-${new Date().toISOString().slice(0, 10)}-p${page.value}.csv`, rows)
 }
 onMounted(() => { if (view.value === 'inventory') void load() })
@@ -100,10 +101,12 @@ onBeforeUnmount(() => { sequence++ })
           <Button :variant="view === 'inventory' ? 'secondary' : 'ghost'" :aria-pressed="view === 'inventory'" @click="switchView('inventory')">{{ t('inventory') }}</Button>
           <Button :variant="view === 'history' ? 'secondary' : 'ghost'" :aria-pressed="view === 'history'" @click="showHistory()">{{ t('history') }}</Button>
           <Button :variant="view === 'report' ? 'secondary' : 'ghost'" :aria-pressed="view === 'report'" @click="switchView('report')">{{ t('report') }}</Button>
+          <Button :variant="view === 'recipes' ? 'secondary' : 'ghost'" :aria-pressed="view === 'recipes'" @click="switchView('recipes')">{{ t('recipes') }}</Button>
         </div>
         <Button v-if="view === 'inventory'" variant="outline" size="sm" :disabled="loading || !!errorKey || !hasRows" @click="exportPage">{{ t('export') }}</Button>
       </div>
-      <InventoryActivity v-if="view !== 'inventory'" :key="view" :store-id="storeId" :store-name="storeName" :mode="view" />
+      <InventoryRecipes v-if="view === 'recipes'" :store-id="storeId" />
+      <InventoryActivity v-else-if="view !== 'inventory'" :key="view" :store-id="storeId" :store-name="storeName" :mode="view" />
       <template v-else>
         <form class="flex flex-wrap items-center gap-2 border-b p-4" @submit.prevent="search">
           <label class="sr-only" for="inventory-search">{{ t('search') }}</label>
@@ -123,12 +126,12 @@ onBeforeUnmount(() => { sequence++ })
         </div>
         <div v-else class="overflow-x-auto" tabindex="0" :aria-label="t('inventory')">
           <table>
-            <thead><tr><th>{{ t('name') }}</th><th>{{ t('status') }}</th><th class="number">{{ t('quantity') }}</th><th class="number">{{ t('threshold') }}</th><th class="number">{{ t('shortage') }}</th><th>{{ t('updated') }}</th><th class="text-right">{{ t('actions') }}</th></tr></thead>
+            <thead><tr><th>{{ t('name') }}</th><th>{{ t('status') }}</th><th class="number">{{ t('quantity') }}</th><th class="number">{{ t('reserved') }}</th><th class="number">{{ t('available') }}</th><th class="number">{{ t('threshold') }}</th><th class="number">{{ t('shortage') }}</th><th>{{ t('updated') }}</th><th class="text-right">{{ t('actions') }}</th></tr></thead>
             <tbody><tr v-for="item in inventory?.items" :key="item.id">
               <td><span class="font-medium">{{ item.name }}</span><span class="mt-1 block font-mono text-xs text-muted-foreground">{{ item.code }}</span></td>
               <td><span class="stock-status" :data-status="item.status">{{ t(statusKey[item.status]) }}</span></td>
               <td class="number font-semibold">{{ format(item.quantity) }} <span class="text-xs font-normal text-muted-foreground">{{ item.unit }}</span></td>
-              <td class="number">{{ format(item.reorderPoint) }}</td><td class="number">{{ format(item.shortage) }}</td><td class="text-xs text-muted-foreground">{{ date(item.updatedAt) }}</td>
+              <td class="number">{{ format(item.reservedQuantity ?? 0) }}</td><td class="number font-semibold">{{ format(item.availableQuantity ?? item.quantity) }}</td><td class="number">{{ format(item.reorderPoint) }}</td><td class="number">{{ format(item.shortage) }}</td><td class="text-xs text-muted-foreground">{{ date(item.updatedAt) }}</td>
               <td><div class="flex justify-end gap-1"><Button variant="outline" size="sm" :aria-label="`${t('adjust')} ${item.name}`" @click="edit(item)">{{ t('adjust') }}</Button><Button variant="ghost" size="sm" :aria-label="`${t('records')} ${item.name}`" @click="showHistory(item)">{{ t('records') }}</Button></div></td>
             </tr></tbody>
           </table>

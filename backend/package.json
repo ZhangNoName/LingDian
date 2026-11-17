@@ -20,7 +20,8 @@
     "db:bootstrap:production": "node ./scripts/bootstrap-production.mjs",
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
-    "start:debug": "nest start --debug --watch"
+    "start:debug": "nest start --debug --watch",
+    "test:inventory:mysql": "node --require ts-node/register ./scripts/verify-order-inventory-mysql.ts"
   },
   "dependencies": {
     "@lingdian/common": "workspace:*",

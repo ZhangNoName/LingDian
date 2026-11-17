@@ -1,6 +1,7 @@
 /** Quantities in API contracts are in the displayed unit, with at most three decimals. */
 export type InventoryStatus = 'HEALTHY' | 'LOW' | 'OUT';
-export type InventoryMovementKind = 'RECEIVE' | 'ISSUE' | 'LOSS' | 'COUNT' | 'THRESHOLD';
+export type InventoryAdjustmentKind = 'RECEIVE' | 'ISSUE' | 'LOSS' | 'COUNT' | 'THRESHOLD';
+export type InventoryMovementKind = InventoryAdjustmentKind | 'RESERVE' | 'RELEASE';
 export interface InventoryItemContract {
   id: string;
   storeId: string;
@@ -8,6 +9,8 @@ export interface InventoryItemContract {
   name: string;
   unit: string;
   quantity: number;
+  reservedQuantity?: number;
+  availableQuantity?: number;
   reorderPoint: number;
   shortage: number;
   status: InventoryStatus;
@@ -29,7 +32,7 @@ export interface CreateInventoryItemRequest {
 }
 export interface AdjustInventoryRequest {
   requestId: string;
-  kind: InventoryMovementKind;
+  kind: InventoryAdjustmentKind;
   amount: number;
   expectedVersion: number;
   reason: string;
@@ -44,6 +47,8 @@ export interface InventoryMovementContract {
   amount: number;
   quantityBefore: number;
   quantityAfter: number;
+  reservedBefore?: number;
+  reservedAfter?: number;
   reorderPointBefore: number;
   reorderPointAfter: number;
   actorId: string;
@@ -90,3 +95,8 @@ export interface InventoryPeriodReport {
   generatedAt: string;
   rows: InventoryReportRow[];
 }
+
+export interface InventoryRecipeEntry { itemId: string; name: string; code: string; unit: string; quantity: number }
+export interface InventoryRecipeRecord { skuId: string; productName: string; skuName: string; version: number; entries: InventoryRecipeEntry[] }
+export interface InventoryRecipePage { items: InventoryRecipeRecord[]; total: number; page: number; pageSize: number }
+export interface SaveInventoryRecipeRequest { expectedVersion: number; entries: { itemId: string; quantity: number }[] }

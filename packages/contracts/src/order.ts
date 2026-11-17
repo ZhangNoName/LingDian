@@ -93,6 +93,7 @@ export type OrderDetailContract = Omit<OrderSummaryContract, 'item_summary'> & {
   store_code: string;
   is_deleted: boolean;
   deleted_at: string | null;
+  stock_expires_at?: string | null;
   paid_at: string | null;
   cancelled_at: string | null;
   refunding_at: string | null;

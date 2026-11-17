@@ -1,6 +1,6 @@
 import { Transform, Type } from 'class-transformer';
 import { IsIn, IsInt, IsISO8601, IsNumber, IsOptional, IsString, Matches, Max, MaxLength, Min, MinLength } from 'class-validator';
-import type { InventoryMovementKind, InventoryStatus } from '@lingdian/contracts';
+import type { InventoryMovementKind, InventoryStatus, InventoryAdjustmentKind } from '@lingdian/contracts';
 
 const trim = ({ value }: { value: unknown }) => typeof value === 'string' ? value.trim() : value;
 
@@ -41,7 +41,7 @@ export class InventoryHistoryQueryDto extends InventoryActivityFilterDto {
   @Type(() => Number) @IsInt() @Min(1) @Max(100)
   pageSize = 20;
 
-  @IsOptional() @IsIn(['RECEIVE', 'ISSUE', 'LOSS', 'COUNT', 'THRESHOLD'])
+  @IsOptional() @IsIn(['RECEIVE', 'ISSUE', 'LOSS', 'COUNT', 'THRESHOLD', 'RESERVE', 'RELEASE'])
   kind?: InventoryMovementKind;
 }
 
@@ -72,7 +72,7 @@ export class AdjustInventoryDto {
   requestId!: string;
 
   @IsIn(['RECEIVE', 'ISSUE', 'LOSS', 'COUNT', 'THRESHOLD'])
-  kind!: InventoryMovementKind;
+  kind!: InventoryAdjustmentKind;
 
   @IsNumber({ maxDecimalPlaces: 3 }) @Min(0) @Max(999999)
   amount!: number;

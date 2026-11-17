@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
-import type { InventoryItemContract, InventoryMovementKind } from '@lingdian/contracts'
+import type { InventoryItemContract, InventoryAdjustmentKind } from '@lingdian/contracts'
 import { Button } from '@/baseComponents/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/baseComponents/dialog'
 import { useLocale } from '@/i18n/locale'
@@ -11,11 +11,11 @@ const props = defineProps<{ open: boolean; storeId: string; item?: InventoryItem
 const emit = defineEmits<{ 'update:open': [value: boolean]; saved: [] }>()
 const { locale } = useLocale()
 const t = (key: MessageKey) => (locale.value === 'en-US' ? en : zh)[key]
-const form = reactive({ code: '', name: '', unit: '', reorderPoint: 0, kind: 'RECEIVE' as InventoryMovementKind, amount: 0, reason: '' })
+const form = reactive({ code: '', name: '', unit: '', reorderPoint: 0, kind: 'RECEIVE' as InventoryAdjustmentKind, amount: 0, reason: '' })
 const saving = ref(false)
 const errorKey = ref<MessageKey | ''>('')
 let pending: { signature: string; requestId: string } | undefined
-const operationKeys: Record<InventoryMovementKind, MessageKey> = { RECEIVE: 'receive', ISSUE: 'issue', LOSS: 'loss', COUNT: 'count', THRESHOLD: 'setThreshold' }
+const operationKeys: Record<InventoryAdjustmentKind, MessageKey> = { RECEIVE: 'receive', ISSUE: 'issue', LOSS: 'loss', COUNT: 'count', THRESHOLD: 'setThreshold' }
 const predicted = computed(() => {
   const before = props.item?.quantity ?? 0
   return form.kind === 'RECEIVE' ? before + Number(form.amount) : form.kind === 'ISSUE' || form.kind === 'LOSS' ? before - Number(form.amount) : form.kind === 'COUNT' ? Number(form.amount) : before
@@ -68,8 +68,9 @@ async function submit() {
           <template v-else>
             <label>{{ t('operation') }}<select v-model="form.kind" :aria-label="t('operation')"><option v-for="(key, kind) in operationKeys" :key="kind" :value="kind">{{ t(key) }}</option></select></label>
             <label>{{ t(form.kind === 'COUNT' ? 'actual' : form.kind === 'THRESHOLD' ? 'threshold' : 'amount') }} ({{ item.unit }})
-              <input v-model="form.amount" type="number" :min="form.kind === 'RECEIVE' || form.kind === 'ISSUE' || form.kind === 'LOSS' ? 0.001 : 0" :max="form.kind === 'ISSUE' || form.kind === 'LOSS' ? item.quantity : 999999" step="0.001" required />
+              <input v-model="form.amount" type="number" :min="form.kind === 'RECEIVE' || form.kind === 'ISSUE' || form.kind === 'LOSS' ? 0.001 : 0" :max="form.kind === 'ISSUE' || form.kind === 'LOSS' ? (item.availableQuantity ?? item.quantity) : 999999" step="0.001" required />
             </label>
+            <p class="help">{{ t('available') }}: {{ (item.availableQuantity ?? item.quantity).toLocaleString(locale) }} {{ item.unit }} · {{ t('reserved') }}: {{ (item.reservedQuantity ?? 0).toLocaleString(locale) }} {{ item.unit }}</p>
             <p class="help">{{ t(form.kind === 'COUNT' ? 'countHint' : form.kind === 'THRESHOLD' ? 'thresholdHint' : 'precision') }}</p>
             <div class="rounded-md bg-muted p-3 text-sm tabular-nums" aria-live="polite">
               {{ t('before') }}: {{ item.quantity.toLocaleString(locale) }} → {{ t('after') }}: {{ predicted.toLocaleString(locale, { maximumFractionDigits: 3 }) }} {{ item.unit }}

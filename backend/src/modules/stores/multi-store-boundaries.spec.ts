@@ -81,7 +81,7 @@ test('checkout checks availability of the requested store rather than the defaul
   };
   const stores = resolver(tx);
   const prisma = { ...tx, $transaction: async (fn: (tx: unknown) => unknown) => fn(tx) };
-  const service = new OrdersService(prisma as never, {} as never, stores, new OrdersQueryService(prisma as never, stores));
+  const service = new OrdersService(prisma as never, {} as never, stores, new OrdersQueryService(prisma as never, stores), {} as never);
   await assert.rejects(service.createOrder({ storeId: 'store-b', orderType: 'pickup', paymentChannel: 'cash', customerName: 'Customer', mobile: '13800000000', items: [{ skuId: 'sku-b', quantity: 1 }] }), /Store is not available/);
   assert.equal(checkedStore, 'store-b');
 });
@@ -92,7 +92,7 @@ test('non-default store payment retry verifies customer ownership before returni
   const service = new PaymentsService({
     order: { findFirst: async (input: any) => { where = input.where; return { id: 'o', storeId: 'store-b' }; } },
     paymentIntent: { findUnique: async () => intent },
-  } as never, {} as never, resolver(), { isExpiredActiveIntent: () => false } as never);
+  } as never, {} as never, resolver(), { isExpiredActiveIntent: () => false } as never, {} as never);
   const result = await service.createIntent('o', 'customer', { provider: 'WECHAT_PAY', channel: 'WECHAT', clientRequestId: 'r' });
   assert.equal(result.payment_no, 'p');
   assert.deepEqual(where, { id: 'o', customerUserId: 'customer', isDeleted: false });
@@ -121,7 +121,7 @@ test('a verified account from one store cannot credit an order in another store'
     paymentWebhookEvent: { create: async () => ({}), update: async ({ data }: any) => { recordedError = data.processingError; } },
     paymentIntent: { findUnique: async () => ({ accountId: account.id, providerIntentId: 'external-1', amountMinor: 100n, currency: 'CNY', order: { storeId: 'store-a' } }) },
     $transaction: async () => { transactionStarted = true; },
-  } as never, { create: () => ({ verifyWebhook: () => payload }) } as never, resolver());
+  } as never, { create: () => ({ verifyWebhook: () => payload }) } as never, resolver(), undefined, {} as never);
   await assert.rejects(service.handleWebhook('WECHAT_PAY', account.id, Buffer.from('{}'), {}), /reference, recipient, or amount mismatch/);
   assert.equal(recordedError, 'PAYMENT_REFERENCE_MISMATCH');
   assert.equal(transactionStarted, false);

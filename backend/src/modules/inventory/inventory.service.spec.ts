@@ -10,7 +10,7 @@ const scope = new MerchantStoreScope({ resolveStoreIds: (ids: string[]) => ids }
 const request = (overrides: Partial<AdjustInventoryDto> = {}): AdjustInventoryDto => ({ requestId: 'request-0001', kind: 'ISSUE', amount: 0.125, expectedVersion: 0, reason: 'Kitchen use', ...overrides });
 
 function fixture() {
-  let item = { id: 'item-a', storeId: 'store-a', code: 'FLOUR', name: 'Flour', unit: 'kg', quantity: 1000, reorderPoint: 500, version: 0, createdAt: new Date(), updatedAt: new Date() };
+  let item = { id: 'item-a', storeId: 'store-a', code: 'FLOUR', name: 'Flour', unit: 'kg', quantity: 1000, reservedQuantity: 0, availableQuantity: 1000, reorderPoint: 500, version: 0, createdAt: new Date(), updatedAt: new Date() };
   const ledger: any[] = [];
   let calls = 0;
   let loseCas = false;
@@ -20,7 +20,7 @@ function fixture() {
       updateMany: async ({ where, data }: any) => {
         calls++;
         if (loseCas || where.storeId !== item.storeId || where.id !== item.id || where.version !== item.version) return { count: 0 };
-        item = { ...item, quantity: data.quantity, reorderPoint: data.reorderPoint, version: item.version + 1 };
+        item = { ...item, quantity: data.quantity, availableQuantity: data.availableQuantity, reorderPoint: data.reorderPoint, version: item.version + 1 };
         return { count: 1 };
       },
     },

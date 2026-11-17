@@ -238,12 +238,16 @@ model InventoryItem {
   name         String              @db.VarChar(120)
   unit         String              @db.VarChar(16)
   quantity     Int                 @default(0)
+  reservedQuantity Int             @default(0)
+  availableQuantity Int            @default(0)
   reorderPoint Int                 @default(0)
   version      Int                 @default(0)
   createdAt    DateTime            @default(now())
   updatedAt    DateTime            @updatedAt
   store        Store               @relation(fields: [storeId], references: [id], onDelete: Restrict)
   movements    InventoryMovement[]
+  recipes      InventoryRecipe[]
+  reservations InventoryReservation[]
 
   @@unique([storeId, code])
   @@unique([id, storeId])
@@ -260,6 +264,8 @@ model InventoryMovement {
   amount             Int
   quantityBefore     Int
   quantityAfter      Int
+  reservedBefore     Int           @default(0)
+  reservedAfter      Int           @default(0)
   reorderPointBefore Int
   reorderPointAfter  Int
   versionBefore      Int
@@ -269,9 +275,44 @@ model InventoryMovement {
   item               InventoryItem @relation(fields: [itemId, storeId], references: [id, storeId], onDelete: Restrict)
 
   @@unique([storeId, requestId])
+  @@index([itemId, storeId], map: "inventory_movements_itemId_storeId_fkey")
   @@index([storeId, itemId, createdAt])
   @@index([storeId, createdAt])
   @@map("inventory_movements")
+}
+
+model InventoryRecipe {
+  id        String        @id @default(cuid())
+  storeId   String
+  skuId     String
+  itemId    String
+  quantity  Int
+  sku       ProductSKU    @relation(fields: [skuId], references: [id], onDelete: Restrict)
+  item      InventoryItem @relation(fields: [itemId, storeId], references: [id, storeId], onDelete: Restrict)
+
+  @@unique([skuId, itemId])
+  @@index([itemId, storeId], map: "inventory_recipes_itemId_storeId_fkey")
+  @@index([storeId, skuId])
+  @@map("inventory_recipes")
+}
+
+model InventoryReservation {
+  id        String        @id @default(cuid())
+  storeId   String
+  orderId   String
+  itemId    String
+  quantity  Int
+  status    String        @default("RESERVED") @db.VarChar(16)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  order     Order         @relation(fields: [orderId, storeId], references: [id, storeId], onDelete: Restrict)
+  item      InventoryItem @relation(fields: [itemId, storeId], references: [id, storeId], onDelete: Restrict)
+
+  @@unique([orderId, itemId])
+  @@index([itemId, storeId], map: "inventory_reservations_itemId_storeId_fkey")
+  @@index([orderId, storeId], map: "inventory_reservations_orderId_storeId_fkey")
+  @@index([storeId, orderId, status])
+  @@map("inventory_reservations")
 }
 
 model StoreIntegration {
@@ -360,6 +401,8 @@ model ProductSKU {
   skuName             String
   price               Decimal                 @db.Decimal(10, 2)
   stockCount          Int                     @default(0)
+  recipeVersion       Int                     @default(0)
+  inventoryRecipes    InventoryRecipe[]
   isDefault           Boolean                 @default(false)
   isActive            Boolean                 @default(true)
   createdAt           DateTime                @default(now())
@@ -469,6 +512,11 @@ model Order {
   items              OrderItem[]
   statusLogs         OrderStatusLog[]
   paymentIntents     PaymentIntent[]
+  stockExpiresAt     DateTime?
+  inventoryReservations InventoryReservation[]
+
+  @@unique([id, storeId])
+  @@index([status, stockExpiresAt])
 
   @@unique([storeId, customerUserId, clientRequestId])
   @@unique([storeId, pickupBusinessDate, pickupCode])
@@ -571,7 +619,7 @@ model PaymentTransaction {
 
   @@unique([paymentIntentId, type, idempotencyKey])
   @@unique([paymentIntentId, providerTransactionId])
-  @@unique([provider, accountId, providerTransactionId])
+  @@unique([provider, accountId, providerTransactionId], map: "payment_transactions_provider_accountId_providerTransactionI_key")
   @@index([paymentIntentId, createdAt])
   @@index([accountId], map: "payment_transactions_accountId_fkey")
   @@map("payment_transactions")

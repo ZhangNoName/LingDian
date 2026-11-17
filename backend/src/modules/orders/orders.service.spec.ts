@@ -39,7 +39,7 @@ function createOrdersService(
   integrationOutbox?: any,
 ) {
   const queries = new OrdersQueryService(prisma, stores);
-  return new OrdersService(prisma, addresses, stores, queries, integrationOutbox);
+  return new OrdersService(prisma, addresses, stores, queries, { reserve: async () => null, commit: async () => undefined, release: async () => undefined } as never, integrationOutbox);
 }
 
 test('createOrder does not block checkout when sku stock is zero', async () => {

@@ -155,3 +155,11 @@ test("accepts an empty 204 response for delete operations", async () => {
 
   await expect(request<void>("/addresses/address-1", { method: "DELETE" })).resolves.toBeUndefined();
 });
+
+test("explains insufficient ingredients without exposing a backend localization key", async () => {
+  Object.assign(uni, { request: vi.fn((options: UniApp.RequestOptions) => {
+    options.success?.({ statusCode: 409, data: { code: 409, msg: "inventory.orderInsufficient" } } as unknown as UniApp.RequestSuccessCallbackResult);
+    return { abort() {} } as UniApp.RequestTask;
+  }) });
+  await expect(request("/order/create", { method: "POST" })).rejects.toThrow("原料余量不足，请减少数量或选择其他商品。");
+});

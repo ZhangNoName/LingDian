@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 
 test('order idempotency is store-scoped and keeps the old protection until the replacement index exists', async () => {
   const [schema, migration] = await Promise.all([
@@ -50,12 +50,12 @@ test('payment invariants are preflighted before durable unique indexes are added
   ]);
 
   assert.match(schema, /activeOrderKey\s+String\?\s+@unique/);
-  assert.match(schema, /@@unique\(\[provider, accountId, providerTransactionId\]\)/);
+  assert.match(schema, /@@unique\(\[provider, accountId, providerTransactionId\], map: "payment_transactions_provider_accountId_providerTransactionI_key"\)/);
   const activePreflight = migration.indexOf('CREATE TEMPORARY TABLE `_migration_active_payment_order_keys`');
   const transactionPreflight = migration.indexOf('CREATE TEMPORARY TABLE `_migration_provider_transaction_keys`');
   const firstDurableAlter = migration.indexOf('DROP INDEX `auth_sessions_userId_audience_device_key`');
   const globalTransactionIndex = migration.indexOf(
-    'CREATE UNIQUE INDEX `payment_transactions_provider_accountId_providerTransactionId_key`',
+    'CREATE UNIQUE INDEX `payment_transactions_provider_accountId_providerTransactionI_key`',
   );
   assert.ok(activePreflight >= 0 && transactionPreflight > activePreflight);
   assert.ok(firstDurableAlter > transactionPreflight,
@@ -63,4 +63,16 @@ test('payment invariants are preflighted before durable unique indexes are added
   assert.ok(globalTransactionIndex > firstDurableAlter);
   assert.match(migration,
     /UPDATE `payment_transactions` AS `transaction`[\s\S]*`transaction`\.`provider` = `intent`\.`provider`[\s\S]*`transaction`\.`accountId` = `intent`\.`accountId`/);
+});
+
+
+test('all migration index and constraint names fit the MySQL 64-character limit', async () => {
+  const root = new URL('../packages/db/prisma/migrations/', import.meta.url);
+  for (const entry of await readdir(root, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const sql = await readFile(new URL(`${entry.name}/migration.sql`, root), 'utf8');
+    for (const match of sql.matchAll(/(?:INDEX|CONSTRAINT)\s+`([^`]+)`/gi)) {
+      assert.ok(match[1].length <= 64, `${entry.name}: ${match[1]} exceeds 64 characters`);
+    }
+  }
 });

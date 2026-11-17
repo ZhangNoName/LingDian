@@ -18,6 +18,7 @@ import { AddressesService } from '../addresses/addresses.service';
 import type { UserAddress } from '@lingdian/contracts';
 import { IntegrationOutboxService } from '../integrations/integration-outbox.service';
 import { StoreContextResolver } from '../stores/store-context.resolver';
+import { OrderStockService } from '../inventory/order-stock.service';
 import { allocatePickupCode } from './pickup-code.service';
 import {
   amountToCents,
@@ -45,6 +46,7 @@ export class OrdersService {
     private readonly addresses: AddressesService,
     private readonly stores: StoreContextResolver,
     private readonly queries: OrdersQueryService,
+    private readonly stock: OrderStockService,
     private readonly integrationOutbox: IntegrationOutboxService = NOOP_INTEGRATION_OUTBOX as IntegrationOutboxService,
   ) {}
 
@@ -139,7 +141,7 @@ export class OrdersService {
             },
             include: {
               group: true,
-              referencedSku: true,
+              referencedSku: { include: { product: true } },
             },
           })
         : [];
@@ -155,6 +157,7 @@ export class OrdersService {
 
       let totalAmountInCents = 0;
       const orderItems = [];
+      const stockLines: { skuId: string; quantity: number }[] = [];
 
       for (const item of normalizedItems) {
         const sku = skuMap.get(item.skuId as string);
@@ -167,6 +170,7 @@ export class OrdersService {
           throw new BadRequestException('Product is not available');
         }
 
+        stockLines.push({ skuId: sku.id, quantity: item.quantity });
         const allowedGroups = new Map(
           [...sku.product.selectionBindings, ...sku.selectionBindings]
             .map((binding) => [binding.groupId, binding.group] as const),
@@ -186,6 +190,12 @@ export class OrdersService {
           }
 
           const quantity = selection.quantity ?? 1;
+          if (option.optionType === 'VARIANT' && option.referencedSkuId) {
+            if (!option.referencedSku?.isActive || option.referencedSku.product.storeId !== storeId || option.referencedSku.product.status !== 'ACTIVE') {
+              throw new BadRequestException('Selected component is not available for this store');
+            }
+            stockLines.push({ skuId: option.referencedSkuId, quantity: quantity * item.quantity });
+          }
           selectionCounts.set(option.groupId, (selectionCounts.get(option.groupId) ?? 0) + quantity);
 
           return {
@@ -275,10 +285,15 @@ export class OrdersService {
         include: ORDER_DETAIL_INCLUDE,
       });
 
+      const stockExpiresAt = await this.stock.reserve(tx, order, stockLines, customerUserId ?? 'order:customer');
+      if (stockExpiresAt) {
+        await tx.order.update({ where: { id: order.id }, data: { stockExpiresAt } });
+        order.stockExpiresAt = stockExpiresAt;
+      }
       await this.integrationOutbox.enqueueOrderCreated(tx, order);
 
       return mapOrderDetail(order);
-    }).catch(async (error: unknown) => {
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted }).catch(async (error: unknown) => {
       if (this.isUniqueConstraintError(error)) {
         const duplicateOrder = await this.findIdempotentOrder(
           this.prisma,
@@ -415,6 +430,8 @@ export class OrdersService {
           );
         }
       }
+      if (order.status === 'PENDING_PAYMENT' && targetStatus === 'PAID') await this.stock.commit(tx, order, body.operatorName ?? 'merchant');
+      if (isPendingPaymentTermination(order.status, targetStatus)) await this.stock.release(tx, order, body.operatorName ?? 'merchant');
       await tx.orderStatusLog.create({
         data: {
           orderId,
@@ -424,7 +441,7 @@ export class OrdersService {
           note: body.note,
         },
       });
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
 
     return this.getOrderDetail(orderId, scope);
   }

@@ -10,6 +10,7 @@ import {
   PaymentWebhookPayload,
 } from './payment.gateway';
 import { StoreContextResolver } from '../stores/store-context.resolver';
+import { OrderStockService } from '../inventory/order-stock.service';
 import { PaymentExpiryService } from './payment-expiry.service';
 
 const providerChannels: Record<PaymentProvider, PaymentChannel> = {
@@ -34,6 +35,7 @@ type IntentReservationInput = {
 };
 
 type SuccessfulPaymentInput = {
+  orderNo: string;
   intentId: string;
   orderId: string;
   storeId: string;
@@ -54,6 +56,7 @@ export class PaymentsService {
     private readonly gateways: PaymentGatewayFactory,
     private readonly stores: StoreContextResolver,
     private readonly expiry: PaymentExpiryService = new PaymentExpiryService(prisma, gateways),
+    private readonly stock: OrderStockService,
   ) {}
 
   async createIntent(orderId: string, customerUserId: string, body: CreatePaymentIntentDto) {
@@ -181,7 +184,7 @@ export class PaymentsService {
       }
     }
     const intent = await this.prisma.paymentIntent.findUnique({
-      where: { paymentNo: payload.payment_no }, include: { order: { select: { status: true, storeId: true } } },
+      where: { paymentNo: payload.payment_no }, include: { order: { select: { status: true, storeId: true, orderNo: true } } },
     });
     if (!intent || intent.accountId !== accountId || payload.account_external_id !== account.externalAccountId ||
         intent.order.storeId !== account.storeId ||
@@ -194,6 +197,7 @@ export class PaymentsService {
       if (payload.event_type === 'PAYMENT_SUCCEEDED') {
         await this.confirmSuccessfulPayment(tx, {
           intentId: intent.id,
+          orderNo: intent.order.orderNo,
           orderId: intent.orderId,
           storeId: account.storeId,
           provider,
@@ -227,7 +231,7 @@ export class PaymentsService {
         where: { provider_accountId_eventId: { provider, accountId, eventId: payload.event_id } },
         data: { processedAt: new Date() },
       });
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
     return { accepted: true, duplicate: false };
   }
 
@@ -310,6 +314,7 @@ export class PaymentsService {
       );
     }
     if (changed.count === 1) {
+      await this.stock.commit(tx, { id: input.orderId, storeId: input.storeId, orderNo: input.orderNo }, `payment:${input.provider}`);
       await tx.orderStatusLog.create({
         data: {
           orderId: intent.orderId,

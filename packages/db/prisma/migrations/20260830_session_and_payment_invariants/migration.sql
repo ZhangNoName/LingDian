@@ -101,7 +101,7 @@ ALTER TABLE `payment_transactions`
   MODIFY `provider` ENUM('WECHAT_PAY', 'ALIPAY', 'UNIONPAY', 'STRIPE', 'PAYPAL') NOT NULL,
   MODIFY `accountId` VARCHAR(191) NOT NULL;
 
-CREATE UNIQUE INDEX `payment_transactions_provider_accountId_providerTransactionId_key`
+CREATE UNIQUE INDEX `payment_transactions_provider_accountId_providerTransactionI_key`
   ON `payment_transactions` (`provider`, `accountId`, `providerTransactionId`);
 CREATE INDEX `payment_transactions_accountId_fkey`
   ON `payment_transactions` (`accountId`);
