@@ -123,3 +123,21 @@ export interface InventoryAlertPage {
   summary: { open: number; acknowledged: number; out: number };
 }
 export interface AcknowledgeInventoryAlertRequest { expectedVersion: number; note: string }
+
+export type InventoryUsageView = 'RECIPES' | 'PURCHASES' | 'STOCKTAKES';
+export type InventoryUsageRow =
+  | { kind: 'RECIPES'; skuId: string; productName: string; skuName: string; skuIsActive: boolean; productStatus: string; quantity: number }
+  | { kind: 'PURCHASES'; orderId: string; orderNo: string; supplierName: string; status: 'OPEN' | 'PARTIAL'; remainingQuantity: number; expectedAt: string | null }
+  | { kind: 'STOCKTAKES'; stocktakeId: string; title: string; createdAt: string; countedQuantity: number | null };
+export interface InventoryUsagePage {
+  storeId: string;
+  item: InventoryItemContract;
+  generatedAt: string;
+  view: InventoryUsageView;
+  page: number;
+  pageSize: number;
+  total: number;
+  counts: { recipes: number; purchases: number; stocktakes: number };
+  unavailableRecipes: number;
+  items: InventoryUsageRow[];
+}

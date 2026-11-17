@@ -7,7 +7,8 @@ import { MerchantStoreScope } from '../merchant/merchant-store-scope';
 import { PrismaService } from '../../prisma/prisma.service';
 import { RecipeQueryDto, SaveRecipeDto } from './dto/inventory-recipe.dto';
 
-const include = { product: { select: { name: true } }, inventoryRecipes: { include: { item: { select: { name: true, code: true, unit: true } } }, orderBy: { itemId: 'asc' as const } } } satisfies Prisma.ProductSKUInclude;
+const include = { product: { select: { name: true, storeId: true } }, inventoryRecipes: { include: { item: { select: { name: true, code: true, unit: true, storeId: true } } }, orderBy: { itemId: 'asc' as const } } } satisfies Prisma.ProductSKUInclude;
+const scopedInclude = (storeId: string) => ({ ...include, inventoryRecipes: { ...include.inventoryRecipes, where: { storeId, item: { storeId } } } });
 type RecipeSku = Prisma.ProductSKUGetPayload<{ include: typeof include }>;
 
 @Injectable()
@@ -18,9 +19,18 @@ export class InventoryRecipeService {
     this.scope.assertIncludes(user, storeId);
     const where: Prisma.ProductSKUWhereInput = { product: { storeId }, ...(query.keyword ? { OR: [{ skuName: { contains: query.keyword } }, { product: { name: { contains: query.keyword } } }] } : {}) };
     return this.prisma.$transaction(async (tx) => {
-      const items = await tx.productSKU.findMany({ where, include, orderBy: [{ productId: 'asc' }, { id: 'asc' }], skip: (query.page - 1) * query.pageSize, take: query.pageSize });
+      const items = await tx.productSKU.findMany({ where, include: scopedInclude(storeId), orderBy: [{ productId: 'asc' }, { id: 'asc' }], skip: (query.page - 1) * query.pageSize, take: query.pageSize });
       const total = await tx.productSKU.count({ where });
       return { items: items.map(present), total, page: query.page, pageSize: query.pageSize };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+  }
+
+  async detail(user: AuthenticatedUser, storeId: string, skuId: string): Promise<InventoryRecipeRecord> {
+    this.scope.assertIncludes(user, storeId);
+    return this.prisma.$transaction(async tx => {
+      const row = await tx.productSKU.findFirst({ where: { id: skuId, product: { storeId } }, include: scopedInclude(storeId) });
+      if (!row) throw new NotFoundException('inventory.skuUnavailable');
+      return present(row);
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
   }
 
@@ -39,12 +49,12 @@ export class InventoryRecipeService {
       await tx.inventoryRecipe.deleteMany({ where: { skuId, storeId } });
       if (body.entries.length) await tx.inventoryRecipe.createMany({ data: body.entries.map((entry) => ({ skuId, storeId, itemId: entry.itemId, quantity: Math.round(entry.quantity * 1000) })) });
       await tx.authAuditLog.create({ data: { userId: user.userId, event: 'INVENTORY_RECIPE_UPDATED', metadata: { storeId, skuId, expectedVersion: body.expectedVersion, entries: body.entries.map((entry) => ({ itemId: entry.itemId, quantity: entry.quantity })) } } });
-      return present(await tx.productSKU.findUniqueOrThrow({ where: { id: skuId }, include }));
+      return present(await tx.productSKU.findUniqueOrThrow({ where: { id: skuId }, include: scopedInclude(storeId) }));
     }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
   }
 }
 function present(sku: RecipeSku): InventoryRecipeRecord {
   return { skuId: sku.id, productName: sku.product.name, skuName: sku.skuName, version: sku.recipeVersion,
-    entries: sku.inventoryRecipes.map((entry) => ({ itemId: entry.itemId, name: entry.item.name, code: entry.item.code, unit: entry.item.unit, quantity: entry.quantity / 1000 })),
+    entries: sku.inventoryRecipes.filter(entry => entry.item.storeId === sku.product.storeId).map((entry) => ({ itemId: entry.itemId, name: entry.item.name, code: entry.item.code, unit: entry.item.unit, quantity: entry.quantity / 1000 })),
   };
 }

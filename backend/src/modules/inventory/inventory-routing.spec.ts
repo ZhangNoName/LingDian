@@ -1,3 +1,4 @@
+import { InventoryUsageService } from './inventory-usage.service';
 import 'reflect-metadata';
 import { test } from 'node:test';
 import assert = require('node:assert/strict');
@@ -20,8 +21,8 @@ test('material detail routes coexist with purchasing and suppliers, and lifecycl
   const module = await Test.createTestingModule({
     controllers: [InventoryController, PurchasingController],
     providers: [
-      { provide: InventoryService, useValue: {} }, { provide: InventoryReportService, useValue: {} },
-      { provide: InventoryRecipeService, useValue: {} }, { provide: InventoryAlertService, useValue: {} },
+      { provide: InventoryUsageService, useValue: { usage: () => ({ route: 'usage' }) } }, { provide: InventoryService, useValue: {} }, { provide: InventoryReportService, useValue: {} },
+      { provide: InventoryRecipeService, useValue: { detail: () => ({ route: 'recipe' }) } }, { provide: InventoryAlertService, useValue: {} },
       { provide: PurchasingAnalysisService, useValue: {} },
       { provide: PurchasingService, useValue: { list: () => ({ route: 'purchases' }) } },
       { provide: SupplierService, useValue: { list: () => ({ route: 'suppliers' }) } },
@@ -36,6 +37,9 @@ test('material detail routes coexist with purchasing and suppliers, and lifecycl
     assert.deepEqual(await (await fetch(base + '/purchases')).json(), { route: 'purchases' });
     assert.deepEqual(await (await fetch(base + '/suppliers')).json(), { route: 'suppliers' });
     assert.deepEqual(await (await fetch(base + '/items/material-a')).json(), { store: 'store-a', id: 'material-a' });
+    assert.deepEqual(await (await fetch(base + '/items/material-a/usage?view=PURCHASES&page=2')).json(), { route: 'usage' });
+    assert.equal((await fetch(base + '/items/material-a/usage?view=bad')).status, 400);
+    assert.deepEqual(await (await fetch(base + '/recipes/sku-a')).json(), { route: 'recipe' });
     const body = { isActive: false, expectedVersion: 2, reason: ' Retired ' };
     const put = (data: unknown) => fetch(base + '/items/material-a/lifecycle', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
     assert.equal((await put(body)).status, 200);

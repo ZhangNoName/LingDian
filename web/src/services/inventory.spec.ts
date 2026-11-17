@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 const { requestData } = vi.hoisted(() => ({ requestData: vi.fn() }))
 vi.mock('@/lib/api', () => ({ requestData }))
-import { changeInventoryLifecycle, inventoryItemDetail, listInventory, getInventoryReport, listInventoryMovements, listInventoryAlerts, acknowledgeInventoryAlert } from './inventory'
+import { getInventoryUsage, getInventoryRecipe, changeInventoryLifecycle, inventoryItemDetail, listInventory, getInventoryReport, listInventoryMovements, listInventoryAlerts, acknowledgeInventoryAlert } from './inventory'
 
 describe('inventory report and history requests', () => {
   beforeEach(() => requestData.mockReset())
@@ -46,4 +46,13 @@ it('scopes lifecycle filtering and explicit versioned status changes without sen
   expect(target).toContain('/store%2Fa/inventory/items/item%2F1/lifecycle')
   expect(init.method).toBe('PUT')
   expect(JSON.parse(init.body)).toEqual(body)
+})
+
+it('addresses related records and exact recipe details with encoded store/object ids and bounded page state', async () => {
+  await getInventoryUsage('store/a', 'item/1', 'STOCKTAKES', 3)
+  const url = new URL(requestData.mock.calls.at(-1)![0])
+  expect(url.pathname).toContain('/store%2Fa/inventory/items/item%2F1/usage')
+  expect(Object.fromEntries(url.searchParams)).toEqual({ view: 'STOCKTAKES', page: '3' })
+  await getInventoryRecipe('store/a', 'sku/1')
+  expect(requestData.mock.calls.at(-1)![0]).toContain('/store%2Fa/inventory/recipes/sku%2F1')
 })

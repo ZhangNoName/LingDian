@@ -168,7 +168,7 @@ onBeforeUnmount(() => { sequence++ })
       </template>
     </div>
     <p class="text-xs leading-5 text-muted-foreground">{{ t('scopeHint') }}<template v-if="view !== 'report'"><br />{{ t('reportHint') }}</template></p>
-    <MaterialLifecycle :item="lifecycleItem" :store-id="storeId" @close="lifecycleItem = undefined" @saved="saved" />
+    <MaterialLifecycle :item="lifecycleItem" :store-id="storeId" :store-name="storeName" @close="lifecycleItem = undefined" @saved="saved" />
     <InventoryEditor v-model:open="editorOpen" :store-id="storeId" :item="selectedItem" @saved="saved" />
   </section>
 </template>

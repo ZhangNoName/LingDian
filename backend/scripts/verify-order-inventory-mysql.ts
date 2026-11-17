@@ -1,3 +1,4 @@
+import { verifyInventoryUsage } from './verify-inventory-usage-mysql';
 import { verifyInventoryLifecycle } from './verify-inventory-lifecycle-mysql';
 import { verifyPurchaseDelivery } from './verify-purchase-delivery-mysql';
 import { verifyProductImages } from './verify-product-images-mysql';
@@ -158,6 +159,7 @@ async function main() {
     await verifyPurchasing(prisma);
     await verifyPurchaseDelivery(prisma);
     await verifyInventoryLifecycle(prisma);
+    await verifyInventoryUsage(prisma);
     await verifyPurchasingAnalysis(prisma);
     await verifySettings(prisma);
     await verifyMerchantCatalog(prisma);

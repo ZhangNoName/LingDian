@@ -55,3 +55,6 @@ export function acknowledgeInventoryAlert(storeId: string, id: string, body: imp
 
 export function inventoryItemDetail(storeId: string, itemId: string): Promise<InventoryItemContract> { return requestData(apiUrl(`${base(storeId)}/items/${encodeURIComponent(itemId)}`)) }
 export function changeInventoryLifecycle(storeId: string, itemId: string, body: import('@lingdian/contracts').ChangeInventoryLifecycleRequest): Promise<InventoryItemContract> { return requestData(apiUrl(`${base(storeId)}/items/${encodeURIComponent(itemId)}/lifecycle`), { ...jsonPost(body), method: 'PUT' }) }
+
+export function getInventoryRecipe(storeId: string, skuId: string): Promise<import('@lingdian/contracts').InventoryRecipeRecord> { return requestData(apiUrl(`${base(storeId)}/recipes/${encodeURIComponent(skuId)}`)) }
+export function getInventoryUsage(storeId: string, itemId: string, view: import('@lingdian/contracts').InventoryUsageView, page = 1): Promise<import('@lingdian/contracts').InventoryUsagePage> { return requestData(apiUrl(`${base(storeId)}/items/${encodeURIComponent(itemId)}/usage?${new URLSearchParams({ view, page: String(page) })}`)) }

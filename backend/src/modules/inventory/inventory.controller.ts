@@ -1,3 +1,5 @@
+import { InventoryUsageService } from './inventory-usage.service';
+import { InventoryUsageQueryDto } from './dto/inventory-usage.dto';
 import { InventoryAlertService } from './inventory-alert.service';
 import { AcknowledgeInventoryAlertDto, InventoryAlertQueryDto } from './dto/inventory-alert.dto';
 import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
@@ -18,7 +20,7 @@ import { InventoryService } from './inventory.service';
 @UseGuards(AccessTokenGuard, MerchantGuard)
 @Controller('merchant/stores/:storeId/inventory')
 export class InventoryController {
-  constructor(private readonly lifecycle: InventoryLifecycleService, private readonly inventory: InventoryService, private readonly reports: InventoryReportService, private readonly recipes: InventoryRecipeService, private readonly alerts: InventoryAlertService) {}
+  constructor(private readonly usage: InventoryUsageService, private readonly lifecycle: InventoryLifecycleService, private readonly inventory: InventoryService, private readonly reports: InventoryReportService, private readonly recipes: InventoryRecipeService, private readonly alerts: InventoryAlertService) {}
 
   @Get()
   list(@CurrentUser() user: AuthenticatedUser, @Param('storeId') storeId: string, @Query() query: InventoryQueryDto) {
@@ -68,5 +70,10 @@ export class InventoryController {
   detail(@CurrentUser() user: AuthenticatedUser, @Param('storeId') storeId: string, @Param('itemId') itemId: string) { return this.lifecycle.detail(user, storeId, itemId); }
   @Put('items/:itemId/lifecycle')
   changeLifecycle(@CurrentUser() user: AuthenticatedUser, @Param('storeId') storeId: string, @Param('itemId') itemId: string, @Body() body: ChangeInventoryLifecycleDto) { return this.lifecycle.change(user, storeId, itemId, body); }
+
+  @Get('items/:itemId/usage')
+  materialUsage(@CurrentUser() user: AuthenticatedUser, @Param('storeId') storeId: string, @Param('itemId') itemId: string, @Query() query: InventoryUsageQueryDto) { return this.usage.usage(user, storeId, itemId, query); }
+  @Get('recipes/:skuId')
+  recipeDetail(@CurrentUser() user: AuthenticatedUser, @Param('storeId') storeId: string, @Param('skuId') skuId: string) { return this.recipes.detail(user, storeId, skuId); }
 
 }

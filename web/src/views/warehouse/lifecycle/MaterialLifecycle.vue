@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import type { InventoryItemContract } from '@lingdian/contracts'
+import type { InventoryItemContract, InventoryUsageRow, InventoryUsageView } from '@lingdian/contracts'
 import { Button } from '@/baseComponents/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/baseComponents/dialog'
 import { changeInventoryLifecycle, inventoryItemDetail } from '@/services/inventory'
+import MaterialUsage from './MaterialUsage.vue'
+import RecipeEditor from '../RecipeEditor.vue'
+import PurchaseDetail from '../purchasing/PurchaseDetail.vue'
+import StocktakeDetail from '../stocktakes/StocktakeDetail.vue'
+import { useUsageLocale } from './usage-locale'
 import { lifecycleError, useLifecycleLocale, type LifecycleKey } from './locale'
-const props = defineProps<{ item?: InventoryItemContract; storeId: string }>(),
+const props = defineProps<{ item?: InventoryItemContract; storeId: string; storeName: string }>(),
   emit = defineEmits<{ close: []; saved: [] }>()
 const { locale, t } = useLifecycleLocale(),
   current = ref<InventoryItemContract>(),
@@ -16,6 +21,13 @@ const { locale, t } = useLifecycleLocale(),
   error = ref<LifecycleKey>()
 const busy = computed(() => saving.value || reading.value),
   done = computed(() => current.value && (current.value.isActive !== false) === desired.value)
+const { t: ut } = useUsageLocale()
+const showUsage = ref(false),
+  usageView = ref<InventoryUsageView>('RECIPES'),
+  usagePage = ref(1),
+  revision = ref(0),
+  inspecting = ref<InventoryUsageRow>()
+const relatedChanged = ref(false)
 let sequence = 0
 watch(
   () => props.item,
@@ -25,11 +37,16 @@ watch(
     desired.value = item?.isActive === false
     reason.value = ''
     error.value = undefined
+    showUsage.value = false
+    usageView.value = 'RECIPES'
+    usagePage.value = 1
+    inspecting.value = undefined
+    relatedChanged.value = false
   },
   { immediate: true },
 )
 function close() {
-  if (!busy.value) emit('close')
+  if (!busy.value && !inspecting.value) emit('close')
 }
 async function submit() {
   if (!current.value || busy.value || done.value) return
@@ -69,12 +86,33 @@ async function read() {
     if (token === sequence) reading.value = false
   }
 }
+function usageChange(view: InventoryUsageView, page: number) {
+  usageView.value = view
+  usagePage.value = page
+}
+function inspect(row: InventoryUsageRow) {
+  if (!busy.value) {
+    relatedChanged.value = false
+    inspecting.value = row
+  }
+}
+async function finishInspect() {
+  const token = sequence
+  inspecting.value = undefined
+  revision.value++
+  await read()
+  if (token !== sequence) return
+  if (relatedChanged.value) {
+    relatedChanged.value = false
+    emit('saved')
+  }
+}
 onBeforeUnmount(() => {
   sequence++
 })
 </script>
 <template>
-  <Dialog :open="!!item" @update:open="close"
+  <Dialog :open="!!item && !inspecting" @update:open="close"
     ><DialogContent
       class="max-h-[90dvh] max-w-lg overflow-y-auto"
       :close-label="t('close')"
@@ -85,7 +123,9 @@ onBeforeUnmount(() => {
         ><DialogTitle>{{ t(desired ? 'restoreTitle' : 'archiveTitle') }} · {{ current?.name }}</DialogTitle
         ><DialogDescription>{{ current?.code }} · {{ current?.unit }}</DialogDescription></DialogHeader
       >
-      <p class="text-sm leading-6 text-muted-foreground">{{ t(desired ? 'restoreHint' : 'archiveHint') }}</p>
+      <p v-if="!showUsage" class="text-sm leading-6 text-muted-foreground">
+        {{ t(desired ? 'restoreHint' : 'archiveHint') }}
+      </p>
       <dl v-if="current" class="grid grid-cols-2 gap-3 rounded-md border p-3 text-sm">
         <div>
           <dt class="text-xs text-muted-foreground">{{ t('quantity') }}</dt>
@@ -100,11 +140,41 @@ onBeforeUnmount(() => {
           </dd>
         </div>
       </dl>
-      <p v-if="!desired" class="text-xs leading-5 text-muted-foreground">{{ t('conditions') }}</p>
+      <p v-if="!desired && !showUsage" class="text-xs leading-5 text-muted-foreground">{{ t('conditions') }}</p>
       <p v-if="current?.lifecycleChangedAt" class="break-words text-xs leading-5 text-muted-foreground">
         {{ t('changed') }}: {{ new Date(current.lifecycleChangedAt).toLocaleString(locale) }} · {{ t('actor') }}:
         {{ current.lifecycleActorId }}<br />{{ current.lifecycleReason }}
       </p>
+      <details v-if="showUsage" class="text-xs leading-5 text-muted-foreground">
+        <summary class="cursor-pointer">{{ ut('operation') }}</summary>
+        <p class="mt-2">{{ t(desired ? 'restoreHint' : 'archiveHint') }}</p>
+        <p v-if="!desired" class="mt-2">{{ t('conditions') }}</p>
+      </details>
+      <div class="grid min-w-0 gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          class="justify-self-start"
+          :disabled="busy"
+          :aria-expanded="showUsage"
+          aria-controls="material-related-records"
+          @click="showUsage = !showUsage"
+          >{{ ut(showUsage ? 'hide' : 'show') }}</Button
+        ><MaterialUsage
+          v-if="showUsage && current"
+          id="material-related-records"
+          :item-id="current.id"
+          :store-id="storeId"
+          :store-name="storeName"
+          :view="usageView"
+          :page="usagePage"
+          :disabled="busy"
+          :revision="revision"
+          @change="usageChange"
+          @inspect="inspect"
+        />
+      </div>
       <p v-if="done" role="status" class="text-sm">{{ t('done') }}</p>
       <form v-else class="grid gap-4" @submit.prevent="submit">
         <label class="grid gap-2 text-sm"
@@ -132,4 +202,26 @@ onBeforeUnmount(() => {
       <Button v-if="done" variant="outline" class="justify-self-end" @click="close">{{ t('close') }}</Button>
     </DialogContent></Dialog
   >
+  <RecipeEditor
+    v-if="inspecting?.kind === 'RECIPES'"
+    :store-id="storeId"
+    :sku-id="inspecting.skuId"
+    @close="finishInspect"
+    @saved="relatedChanged = true"
+  />
+  <PurchaseDetail
+    v-else-if="inspecting?.kind === 'PURCHASES'"
+    :store-id="storeId"
+    :id="inspecting.orderId"
+    @close="finishInspect"
+    @saved="relatedChanged = true"
+  />
+  <StocktakeDetail
+    v-else-if="inspecting?.kind === 'STOCKTAKES'"
+    :store-id="storeId"
+    :store-name="storeName"
+    :id="inspecting.stocktakeId"
+    @close="finishInspect"
+    @saved="relatedChanged = true"
+  />
 </template>

@@ -1,4 +1,5 @@
 export const zh = {
+  recipeDiscard: '有未保存的配方修改，是否放弃？', recipeContinue: '继续编辑', recipeDiscardConfirm: '放弃修改',
   replenish: '查看补货',
   purchaseOrder: '查看采购单', title: '库存管理', subtitle: '原料库存、补货预警与变动记录', store: '门店', language: '语言',
   newItem: '新增原料', refresh: '刷新', export: '导出本页 CSV', exporting: '导出中…',
@@ -39,6 +40,7 @@ export const zh = {
 } as const
 export type MessageKey = keyof typeof zh
 export const en: Record<MessageKey, string> = {
+  recipeDiscard: 'Discard unsaved recipe changes?', recipeContinue: 'Keep editing', recipeDiscardConfirm: 'Discard changes',
   replenish: 'View replenishment',
   purchaseOrder: 'View purchase order', title: 'Inventory', subtitle: 'Materials, stock alerts and movement history', store: 'Store', language: 'Language',
   newItem: 'Add material', refresh: 'Refresh', export: 'Export this page · CSV', exporting: 'Exporting…',
