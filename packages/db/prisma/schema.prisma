@@ -226,6 +226,7 @@ model Store {
   paymentAccounts     PaymentAccount[]
   pickupCodeSequences PickupCodeSequence[]
   inventoryItems      InventoryItem[]
+  suppliers           Supplier[]
 
   @@map("stores")
 }
@@ -249,6 +250,7 @@ model InventoryItem {
   recipes      InventoryRecipe[]
   reservations InventoryReservation[]
   alerts       InventoryAlert[]
+  purchaseLines PurchaseOrderLine[]
 
   @@unique([storeId, code])
   @@unique([id, storeId])
@@ -261,6 +263,8 @@ model InventoryMovement {
   storeId            String
   itemId             String
   requestId          String        @db.VarChar(64)
+  purchaseReceiptId  String?
+  purchaseReceipt    PurchaseReceipt? @relation(fields: [purchaseReceiptId, storeId], references: [id, storeId], onDelete: Restrict, onUpdate: Restrict)
   kind               String        @db.VarChar(16)
   amount             Int
   quantityBefore     Int
@@ -276,6 +280,7 @@ model InventoryMovement {
   item               InventoryItem @relation(fields: [itemId, storeId], references: [id, storeId], onDelete: Restrict)
 
   @@unique([storeId, requestId])
+  @@index([purchaseReceiptId, storeId])
   @@index([itemId, storeId], map: "inventory_movements_itemId_storeId_fkey")
   @@index([storeId, itemId, createdAt])
   @@index([storeId, createdAt])
@@ -923,4 +928,111 @@ model SystemLog {
   @@index([event, createdAt])
   @@index([createdAt])
   @@map("system_logs")
+}
+
+
+model Supplier {
+  id String @id @default(cuid())
+  storeId String
+  code String @db.VarChar(64)
+  name String @db.VarChar(120)
+  contact String @default("") @db.VarChar(191)
+  note String @default("") @db.VarChar(240)
+  isActive Boolean @default(true)
+  version Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  store Store @relation(fields:[storeId], references:[id], onDelete:Restrict)
+  orders PurchaseOrder[]
+  @@unique([id,storeId])
+  @@unique([storeId,code])
+  @@index([storeId,isActive,name])
+  @@map("suppliers")
+}
+
+model PurchaseOrder {
+  id String @id @default(cuid())
+  storeId String
+  supplierId String
+  supplierName String @db.VarChar(120)
+  supplierCode String @db.VarChar(64)
+  orderNo String @db.VarChar(40)
+  requestId String @db.VarChar(64)
+  fingerprint String @db.Char(64)
+  status String @default("OPEN") @db.VarChar(16)
+  version Int @default(0)
+  totalCostCents BigInt
+  receivedCostCents BigInt @default(0)
+  expectedAt DateTime?
+  note String @default("") @db.VarChar(240)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  cancelledAt DateTime?
+  cancelledBy String?
+  cancelReason String? @db.VarChar(240)
+  supplier Supplier @relation(fields:[supplierId,storeId],references:[id,storeId],onDelete:Restrict,onUpdate:Restrict)
+  lines PurchaseOrderLine[]
+  receipts PurchaseReceipt[]
+  @@unique([id,storeId])
+  @@unique([storeId,requestId])
+  @@unique([storeId,orderNo])
+  @@index([supplierId,storeId])
+  @@index([storeId,status,createdAt])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderLine {
+  id String @id @default(cuid())
+  storeId String
+  orderId String
+  itemId String
+  itemName String @db.VarChar(120)
+  itemCode String @db.VarChar(64)
+  unit String @db.VarChar(16)
+  quantity Int
+  receivedQuantity Int @default(0)
+  unitPriceCents Int
+  order PurchaseOrder @relation(fields:[orderId,storeId],references:[id,storeId],onDelete:Restrict,onUpdate:Restrict)
+  item InventoryItem @relation(fields:[itemId,storeId],references:[id,storeId],onDelete:Restrict,onUpdate:Restrict)
+  receiptLines PurchaseReceiptLine[]
+  @@unique([id,storeId])
+  @@unique([orderId,itemId])
+  @@index([orderId,storeId])
+  @@index([itemId,storeId])
+  @@map("purchase_order_lines")
+}
+
+model PurchaseReceipt {
+  id String @id @default(cuid())
+  storeId String
+  orderId String
+  requestId String @db.VarChar(64)
+  fingerprint String @db.Char(64)
+  note String @db.VarChar(240)
+  actorId String
+  totalCostCents BigInt
+  createdAt DateTime @default(now())
+  order PurchaseOrder @relation(fields:[orderId,storeId],references:[id,storeId],onDelete:Restrict,onUpdate:Restrict)
+  lines PurchaseReceiptLine[]
+  movements InventoryMovement[]
+  @@unique([id,storeId])
+  @@unique([storeId,requestId])
+  @@index([orderId,storeId,createdAt])
+  @@map("purchase_receipts")
+}
+
+model PurchaseReceiptLine {
+  id String @id @default(cuid())
+  storeId String
+  receiptId String
+  orderLineId String
+  quantity Int
+  costCents BigInt
+  receipt PurchaseReceipt @relation(fields:[receiptId,storeId],references:[id,storeId],onDelete:Restrict,onUpdate:Restrict)
+  orderLine PurchaseOrderLine @relation(fields:[orderLineId,storeId],references:[id,storeId],onDelete:Restrict,onUpdate:Restrict)
+  @@unique([receiptId,orderLineId])
+  @@index([receiptId,storeId])
+  @@index([orderLineId,storeId])
+  @@map("purchase_receipt_lines")
 }

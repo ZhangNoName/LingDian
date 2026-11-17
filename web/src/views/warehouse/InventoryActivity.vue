@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import type { InventoryMovementKind, InventoryMovementPage, InventoryPeriodReport, InventoryReportRow } from '@lingdian/contracts'
 import { Button } from '@/baseComponents/button'
 import { useLocale } from '@/i18n/locale'
@@ -124,7 +124,7 @@ onBeforeUnmount(() => { sequence++ })
       </table>
       <table v-else>
         <thead><tr><th>{{ t('time') }}</th><th>{{ t('name') }}</th><th>{{ t('operation') }}</th><th class="number">{{ t('before') }} → {{ t('after') }}</th><th>{{ t('reason') }}</th><th>{{ t('actor') }}</th></tr></thead>
-        <tbody><tr v-for="row in history?.items" :key="row.id"><td class="whitespace-nowrap text-xs">{{ date(row.createdAt) }}</td><th scope="row" class="material">{{ row.itemName }}<span class="mt-1 block font-mono text-xs font-normal text-muted-foreground">{{ row.itemCode }}</span></th><td class="whitespace-nowrap">{{ t(kindKey[row.kind]) }}</td><td class="number">{{ row.kind === 'THRESHOLD' ? `${format(row.reorderPointBefore)} → ${format(row.reorderPointAfter)}` : row.kind === 'RESERVE' || row.kind === 'RELEASE' ? `${format(row.reservedBefore ?? 0)} → ${format(row.reservedAfter ?? 0)}` : `${format(row.quantityBefore)} → ${format(row.quantityAfter)}` }} {{ row.unit }}<span v-if="['THRESHOLD', 'RESERVE', 'RELEASE'].includes(row.kind)" class="block text-xs text-muted-foreground">{{ t(row.kind === 'THRESHOLD' ? 'threshold' : 'reserved') }}</span></td><td class="min-w-48 max-w-80 break-words">{{ row.reason }}</td><td class="max-w-48 break-all font-mono text-xs text-muted-foreground">{{ row.actorId }}</td></tr></tbody>
+        <tbody><tr v-for="row in history?.items" :key="row.id"><td class="whitespace-nowrap text-xs">{{ date(row.createdAt) }}</td><th scope="row" class="material">{{ row.itemName }}<span class="mt-1 block font-mono text-xs font-normal text-muted-foreground">{{ row.itemCode }}</span></th><td class="whitespace-nowrap">{{ t(kindKey[row.kind]) }}</td><td class="number">{{ row.kind === 'THRESHOLD' ? `${format(row.reorderPointBefore)} → ${format(row.reorderPointAfter)}` : row.kind === 'RESERVE' || row.kind === 'RELEASE' ? `${format(row.reservedBefore ?? 0)} → ${format(row.reservedAfter ?? 0)}` : `${format(row.quantityBefore)} → ${format(row.quantityAfter)}` }} {{ row.unit }}<span v-if="['THRESHOLD', 'RESERVE', 'RELEASE'].includes(row.kind)" class="block text-xs text-muted-foreground">{{ t(row.kind === 'THRESHOLD' ? 'threshold' : 'reserved') }}</span></td><td class="min-w-48 max-w-80 break-words">{{ row.reason }}<RouterLink v-if="row.purchaseOrderId" class="mt-1 block text-primary" :to="{path:'/warehouse',query:{view:'purchases',purchaseId:row.purchaseOrderId}}">{{ t('purchaseOrder') }}</RouterLink></td><td class="max-w-48 break-all font-mono text-xs text-muted-foreground">{{ row.actorId }}</td></tr></tbody>
       </table>
     </div>
     <div v-if="!loading && !errorKey" class="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm text-muted-foreground">

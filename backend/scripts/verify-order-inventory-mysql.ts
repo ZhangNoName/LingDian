@@ -1,5 +1,6 @@
 /** Opt-in integration verification. Never reads .env or uses the application's DATABASE_URL. */
 import 'reflect-metadata';
+import { verifyPurchasing } from './verify-purchasing-mysql';
 import { verifyCatalog } from './verify-catalog-mysql';
 import { verifyMerchantOperations } from './verify-merchant-operations-mysql';
 import assert = require('node:assert/strict');
@@ -146,6 +147,7 @@ async function main() {
     console.log('PASS MySQL: competing checkout, rollback, immutable recipe snapshot, duplicate confirmation, release, tenant isolation, reserved count protection, report SQL.');
     await verifyMerchantOperations(prisma);
     await verifyCatalog(prisma);
+    await verifyPurchasing(prisma);
     console.log('Synthetic fixtures retained in the disposable test database for inspection.');
   } finally { await db.$disconnect(); }
 }

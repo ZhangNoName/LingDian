@@ -102,6 +102,7 @@ async function changeStore(event: Event) {
   const id = (event.target as HTMLSelectElement).value
   if (route.name === 'orders' && route.query.orderId) await router.replace({ query: { ...route.query, orderId: undefined } })
   if (route.name === 'products' && route.query.productId) await router.replace({ query: { ...route.query, productId: undefined } })
+  if (route.name === 'warehouse' && route.query.purchaseId) await router.replace({ query: { ...route.query, purchaseId: undefined } })
   merchantStore.select(id)
   navigation.closeMobile()
 }

@@ -9,6 +9,7 @@
 | [11-system-structure.md](./11-system-structure.md) | 2026-08-30 系统上下文、模块化单体边界、数据流、部署与可观测性 |
 | [12-module-catalog.md](./12-module-catalog.md) | 三端、后端、共享包、CI/运维的逐模块真实状态与责任边界 |
 | [13-permission-and-gap-analysis.md](./13-permission-and-gap-analysis.md) | 当前权限矩阵、已关闭风险、剩余 P0–P2、目标 RBAC 与上线 Gate |
+| [23-purchasing-2026-11-17.md](./23-purchasing-2026-11-17.md) | 供应商、采购单、分批收货、取消剩余与原子入库 |
 | [22-product-catalog-2026-11-17.md](./22-product-catalog-2026-11-17.md) | 商品中英文配置、手机卡片、版本冲突保护与配方/共享组隔离 |
 | [21-order-workflow-2026-11-17.md](./21-order-workflow-2026-11-17.md) | 商家订单中英文、筛选链接、手机交互与汇总口径修复 |
 | [20-merchant-operations-2026-11-17.md](./20-merchant-operations-2026-11-17.md) | 真实经营概览、汇总快照与到期原料占用安全核验 |

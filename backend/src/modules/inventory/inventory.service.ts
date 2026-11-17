@@ -109,7 +109,7 @@ export class InventoryService {
     this.scope.assertIncludes(user, storeId);
     const where = movementWhere(storeId, query, activityPeriod(query));
     return this.prisma.$transaction(async (tx) => {
-      const items = await tx.inventoryMovement.findMany({ where, include: { item: true }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], skip: (query.page - 1) * query.pageSize, take: query.pageSize });
+      const items = await tx.inventoryMovement.findMany({ where, include: { item: true, purchaseReceipt: { select: { orderId: true } } }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], skip: (query.page - 1) * query.pageSize, take: query.pageSize });
       const total = await tx.inventoryMovement.count({ where });
       return { items: items.map(presentMovement), total, page: query.page, pageSize: query.pageSize };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
@@ -137,8 +137,8 @@ function presentItem(item: Item): InventoryItemContract {
   };
 }
 
-function presentMovement(movement: Movement): InventoryMovementContract {
-  return { id: movement.id, itemId: movement.itemId, itemName: movement.item.name, itemCode: movement.item.code, unit: movement.item.unit,
+function presentMovement(movement: Movement & { purchaseReceipt?: { orderId: string } | null }): InventoryMovementContract {
+  return { ...(movement.purchaseReceipt ? { purchaseOrderId: movement.purchaseReceipt.orderId } : {}), id: movement.id, itemId: movement.itemId, itemName: movement.item.name, itemCode: movement.item.code, unit: movement.item.unit,
     kind: movement.kind as InventoryMovementKind, amount: movement.amount / 1000,
     quantityBefore: movement.quantityBefore / 1000, quantityAfter: movement.quantityAfter / 1000,
     reservedBefore: movement.reservedBefore / 1000, reservedAfter: movement.reservedAfter / 1000,
