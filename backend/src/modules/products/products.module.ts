@@ -1,3 +1,8 @@
+import { MerchantImageController } from './merchant/merchant-image.controller';
+import { MerchantImageService } from './merchant/merchant-image.service';
+import { MerchantImageScopeGuard } from './merchant/merchant-image-scope.guard';
+import { ProductImageStorage } from './merchant/product-image-storage';
+import { ProductImageCleanupService } from './merchant/product-image-cleanup.service';
 import { MerchantCategoryService } from './merchant/merchant-category.service';
 import { MerchantCatalogController } from './merchant/merchant-catalog.controller';
 import { MerchantCatalogService } from './merchant/merchant-catalog.service';
@@ -11,8 +16,8 @@ import { ProductConfigurationService } from './product-configuration.service';
 
 @Module({
   imports: [AuthModule, StoresModule, MerchantModule],
-  controllers: [ProductsController, MerchantCatalogController],
-  providers: [MerchantCategoryService, MerchantCatalogService, ProductsService, ProductConfigurationService],
+  controllers: [ProductsController, MerchantCatalogController, MerchantImageController],
+  providers: [MerchantImageService, MerchantImageScopeGuard, ProductImageStorage, ProductImageCleanupService, MerchantCategoryService, MerchantCatalogService, ProductsService, ProductConfigurationService],
   exports: [ProductsService],
 })
 export class ProductsModule {}

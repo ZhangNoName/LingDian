@@ -46,6 +46,7 @@ export default defineConfig({
   ],
   server: {
     proxy: {
+      '/uploads/products': { target: 'http://localhost:9000', changeOrigin: true },
       '/api': {
         target: 'http://localhost:9000',
         changeOrigin: true,

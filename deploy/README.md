@@ -216,3 +216,5 @@ webhook。首次正式营业前至少完成一次隔离库恢复演练；同机�
 模板默认 `STORE_MODE=single`。切换为 `multi` 后仍须保留 `PRIMARY_STORE_ID` 对应门店，供默认公开入口与 readiness 使用。`AUTH_BOOTSTRAP_MERCHANT_STORE_IDS` 可列出多个已存在的门店；bootstrap 只创建本次配置的默认门店，额外门店不存在时整个事务失败。不要把模式切换理解为自动建店、自动授权所有门店或跨店库存调拨。
 
 门店范围经平台账号管理分配，变更会撤销旧会话。商家 Web 顶部选店后按 `X-Store-Id` 隔离商品、订单和收款账户；库存/集成路径也单独检查授权。上线前在隔离数据库核验两家门店的账号、商品、订单、支付与库存隔离；具体范围见 [迭代记录](../docs/16-multi-store-iteration-2026-11-17.md)。
+
+商品图片维护新增 `20261118_zz_product_images`。按正常发布顺序执行安全迁移、生成 Prisma Client 并更新 API/Web，同时安装校验新的 HTTPS Nginx 模板：三个前端域名的 `/uploads/products/` 必须转发 API，不能落到 SPA。商家图片位于现有 `$DATA_DIR/uploads/products/merchant`，保留既有挂载、SQL/uploads 备份与恢复；API 启动及每小时最多回收 100 条过期/失败尝试，已提交历史图片不自动删除。详见 [商品图片设计与验证](../docs/30-product-images-2026-11-18.md)。

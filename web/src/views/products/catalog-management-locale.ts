@@ -1,5 +1,10 @@
 import { useLocale } from '@/i18n/locale'
 const zh = {
+  unsavedClose: '有未保存的修改，关闭将放弃当前本地内容。',
+  keepEditing: '继续编辑',
+  discardClose: '放弃并关闭',
+  image: '商品图片',
+  imageDescription: '上传或移除图片，保存后立即更新当前商品。',
   unsaved: '有未保存的修改，请先保存或放弃后再切换或发布。',
   discard: '放弃未保存修改',
   newProduct: '新建商品',
@@ -52,7 +57,7 @@ const zh = {
   statusHint: '状态修改影响后续菜单和下单，不改写已有订单。',
   publishHint: '请核对名称、售价、规格和必选项。没有销售配方的规格不会自动按原料库存限量；发布本身不代表原料充足。',
   unpublishHint: '下架、售罄或归档后，商品会从顾客菜单移除，已有订单继续保留。',
-  imagesHint: '图片暂由平台管理维护。',
+  imagesHint: '商品建档后，可在“商品图片”中上传或移除图片。',
   recipe: '管理销售配方',
   manage: '管理商品',
   versionRequired: '缺少商品版本，请更新服务并重新读取。',
@@ -63,6 +68,11 @@ const zh = {
 } as const
 export type CatalogKey = keyof typeof zh
 const en: Record<CatalogKey, string> = {
+  unsavedClose: 'Your local changes are not saved. Closing will discard them.',
+  keepEditing: 'Keep editing',
+  discardClose: 'Discard and close',
+  image: 'Product image',
+  imageDescription: 'Upload or remove an image. Saved changes update this product.',
   unsaved: 'Save or discard your changes before switching sections or publishing.',
   discard: 'Discard unsaved changes',
   newProduct: 'New product',
@@ -118,7 +128,7 @@ const en: Record<CatalogKey, string> = {
     'Check the name, prices, variants and required choices. Variants without recipes are not limited by material stock automatically. Publishing does not confirm stock availability.',
   unpublishHint:
     'Draft, sold-out and archived products are removed from the customer menu. Existing orders remain available.',
-  imagesHint: 'Product images are maintained through platform administration for now.',
+  imagesHint: 'After saving a draft, upload or remove its image in Product image.',
   recipe: 'Manage recipes',
   manage: 'Manage product',
   versionRequired: 'Product version is missing. Update the service and reload.',

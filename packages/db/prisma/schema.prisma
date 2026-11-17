@@ -226,6 +226,7 @@ model Store {
   paymentAccounts     PaymentAccount[]
   pickupCodeSequences PickupCodeSequence[]
   stocktakes          InventoryStocktake[]
+  productImageRequests ProductImageRequest[]
   inventoryItems      InventoryItem[]
   suppliers           Supplier[]
 
@@ -431,7 +432,9 @@ model Product {
   skus              ProductSKU[]
   selectionBindings ProductSelectionGroup[]
   orderItems        OrderItem[]
+  imageRequests     ProductImageRequest[]
 
+  @@unique([id, storeId])
   @@unique([storeId,creationRequestId])
   @@index([storeId, status])
   @@index([categoryId])
@@ -1094,4 +1097,26 @@ model InventoryStocktakeLine {
   @@index([stocktakeId, storeId])
   @@index([itemId, storeId])
   @@map("inventory_stocktake_lines")
+}
+
+model ProductImageRequest {
+  id String @id @default(cuid())
+  storeId String
+  productId String
+  requestId String @db.VarChar(64)
+  fingerprint String @db.Char(64)
+  operation String @db.VarChar(8)
+  state String @default("PENDING") @db.VarChar(16)
+  expectedVersion Int
+  assetKey String? @unique @db.VarChar(36)
+  imageUrl String?
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  store Store @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  product Product @relation(fields: [productId, storeId], references: [id, storeId], onDelete: Restrict, onUpdate: Restrict)
+  @@unique([storeId, requestId])
+  @@index([state, createdAt])
+  @@index([productId, storeId])
+  @@map("product_image_requests")
 }

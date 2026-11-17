@@ -120,3 +120,12 @@ test('production release verifies an immutable bundle and installs validated Ngi
   assert.match(installer, /restore_nginx/);
   assert.match(installer, /systemctl reload nginx/);
 });
+
+test('all frontend HTTPS hosts forward public product uploads to the API instead of the SPA', async () => {
+  const template = await readFile(new URL('../deploy/nginx/templates/lingdian-https.conf.template', import.meta.url), 'utf8');
+  const routes = [...template.matchAll(/location \^~ \/uploads\/products\/\s*\{([^}]+)\}/g)];
+  assert.equal(routes.length, 3);
+  for (const route of routes) assert.match(route[1], /proxy_pass http:\/\/127\.0\.0\.1:__API_PORT__;/);
+  const merchant = await readFile(new URL('../web/vite.config.ts', import.meta.url), 'utf8');
+  assert.match(merchant, /['"]\/uploads\/products['"]:/);
+});

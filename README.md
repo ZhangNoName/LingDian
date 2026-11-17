@@ -201,3 +201,5 @@ AppSecret 只能配置在 API 部署环境，不能写入 `uniapp/`、前端环�
 库存增加可保存实盘与复核差异的独立盘点单，确认后整单过账至流水、报表和预警。部署前通过安全迁移入口应用 `20261118_warehouse_stocktakes` 并重新生成 Prisma Client，详见 [盘点单迭代](./docs/28-stocktakes-2026-11-18.md)。
 
 商家分类改名、排序和菜单展示维护见 [分类管理](./docs/29-category-management-2026-11-18.md)。部署前应用 `20261118_z_category_version` 并重新生成 Prisma Client；隐藏分类只影响菜单展示，停止销售仍需下架商品。
+
+商家商品图片现可上传、替换和移除，沿用商品版本/审计并回收过期未完成文件，详见 [商品图片](./docs/30-product-images-2026-11-18.md)。部署前应用 `20261118_zz_product_images` 并更新 Nginx 媒体代理；uploads 继续使用现有持久化挂载与备份。

@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import ProductVariantsEditor from './ProductVariantsEditor.vue'
 import ProductSelectionGroupsEditor from './ProductSelectionGroupsEditor.vue'
 import ProductDetailsForm from './ProductDetailsForm.vue'
+import ProductImageEditor from './ProductImageEditor.vue'
 import ProductStatusPanel from './ProductStatusPanel.vue'
 import {
   createProductConfigDraft,
@@ -31,13 +32,17 @@ const props = defineProps<{
   { t } = useProductLocale(),
   { t: ct } = useCatalogLocale()
 const draft = ref<ProductConfigForm>(),
-  tab = ref<'details' | 'variants' | 'groups'>('variants'),
+  editingProductId = ref(''),
+  tab = ref<'details' | 'variants' | 'groups' | 'image'>('variants'),
   localError = ref<ProductMessageKey>(),
   statusBusy = ref(false),
   detailsBusy = ref(false),
   detailsDirty = ref(false),
+  imageBusy = ref(false),
+  imageDirty = ref(false),
+  closePending = ref(false),
   editRevision = ref(0),
-  busy = computed(() => props.saving || statusBusy.value || detailsBusy.value),
+  busy = computed(() => props.saving || statusBusy.value || detailsBusy.value || imageBusy.value),
   defaultIndex = computed(() => draft.value?.variants.findIndex((variant) => variant.is_default) ?? -1)
 const configDirty = computed(
   () =>
@@ -49,21 +54,36 @@ const configDirty = computed(
 function discard() {
   if (props.product) draft.value = createProductConfigDraft(props.product)
   detailsDirty.value = false
+  imageDirty.value = false
   editRevision.value++
 }
 watch(
   () => [props.open, props.product] as const,
-  ([open, product], previous) => {
+  ([open, product]) => {
+    if (!open) {
+      editingProductId.value = ''
+      closePending.value = false
+      return
+    }
     if (open && product) {
       draft.value = createProductConfigDraft(product)
-      if (!previous?.[0] || previous[1]?.id !== product.id) tab.value = 'variants'
+      if (editingProductId.value !== product.id) tab.value = 'variants'
+      editingProductId.value = product.id
       localError.value = undefined
+      closePending.value = false
     }
   },
   { immediate: true },
 )
 function close(open: boolean) {
-  if (!busy.value) emit('update:open', open)
+  if (busy.value) return
+  if (!open && (configDirty.value || detailsDirty.value || imageDirty.value)) closePending.value = true
+  else emit('update:open', open)
+}
+function discardAndClose() {
+  discard()
+  closePending.value = false
+  emit('update:open', false)
 }
 function removeVariant(index: number) {
   if (!draft.value) return
@@ -101,7 +121,7 @@ function submit() {
           {{ ct('manage') }}
           <span class="mt-1 block break-words text-sm">{{ product?.name }}</span>
         </DialogTitle>
-        <DialogDescription>{{ t('configurationHint') }}</DialogDescription>
+        <DialogDescription>{{ tab === 'image' ? ct('imageDescription') : t('configurationHint') }}</DialogDescription>
       </DialogHeader>
       <p v-if="loading" role="status" class="p-6 text-center text-sm text-muted-foreground">{{ t('loading') }}</p>
       <div v-else-if="!product || !draft" role="alert">
@@ -112,11 +132,11 @@ function submit() {
         <ProductStatusPanel
           :product="product"
           :store-id="storeId"
-          :disabled="props.saving || detailsBusy || configDirty || detailsDirty"
+          :disabled="props.saving || detailsBusy || imageBusy || configDirty || detailsDirty || imageDirty"
           @busy="statusBusy = $event"
           @saved="$emit('updated', $event)"
         />
-        <p v-if="configDirty || detailsDirty" role="status" class="text-sm text-amber-800">
+        <p v-if="configDirty || detailsDirty || imageDirty" role="status" class="text-sm text-amber-800">
           {{ ct('unsaved') }}
           <Button type="button" size="sm" variant="outline" :disabled="busy" @click="discard">
             {{ ct('discard') }}
@@ -125,7 +145,7 @@ function submit() {
         <div class="flex flex-wrap gap-2 border-b pb-3">
           <Button
             type="button"
-            :disabled="busy || configDirty"
+            :disabled="busy || configDirty || imageDirty"
             :variant="tab === 'details' ? 'secondary' : 'ghost'"
             :aria-pressed="tab === 'details'"
             @click="tab = 'details'"
@@ -134,7 +154,7 @@ function submit() {
           </Button>
           <Button
             type="button"
-            :disabled="busy || detailsDirty"
+            :disabled="busy || detailsDirty || imageDirty"
             :variant="tab === 'variants' ? 'secondary' : 'ghost'"
             :aria-pressed="tab === 'variants'"
             @click="tab = 'variants'"
@@ -143,19 +163,38 @@ function submit() {
           </Button>
           <Button
             type="button"
-            :disabled="busy || detailsDirty"
+            :disabled="busy || detailsDirty || imageDirty"
             :variant="tab === 'groups' ? 'secondary' : 'ghost'"
             :aria-pressed="tab === 'groups'"
             @click="tab = 'groups'"
           >
             {{ t('groups') }}
           </Button>
+          <Button
+            type="button"
+            :disabled="busy || configDirty || detailsDirty"
+            :variant="tab === 'image' ? 'secondary' : 'ghost'"
+            :aria-pressed="tab === 'image'"
+            @click="tab = 'image'"
+            >{{ ct('image') }}</Button
+          >
         </div>
+        <ProductImageEditor
+          v-if="tab === 'image'"
+          :key="'image-' + editRevision"
+          :store-id="storeId"
+          :product="product"
+          :disabled="props.saving || statusBusy || detailsBusy"
+          @busy="imageBusy = $event"
+          @dirty="imageDirty = $event"
+          @saved="$emit('updated', $event)"
+          @reload="$emit('retry')"
+        />
         <ProductDetailsForm
           :key="editRevision"
           @dirty="detailsDirty = $event"
           @cancel="close(false)"
-          v-if="tab === 'details'"
+          v-else-if="tab === 'details'"
           :store-id="storeId"
           :product="product"
           :disabled="props.saving || statusBusy"
@@ -201,6 +240,13 @@ function submit() {
             </Button>
           </div>
         </form>
+      </div>
+      <div v-if="closePending" role="alert" class="grid gap-3 rounded-md border p-3">
+        <p class="text-sm">{{ ct('unsavedClose') }}</p>
+        <div class="flex flex-wrap justify-end gap-2">
+          <Button variant="outline" @click="closePending = false">{{ ct('keepEditing') }}</Button
+          ><Button variant="outline" @click="discardAndClose">{{ ct('discardClose') }}</Button>
+        </div>
       </div>
     </DialogContent>
   </Dialog>
