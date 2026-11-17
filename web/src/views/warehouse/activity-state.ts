@@ -38,3 +38,14 @@ export function parseActivityState(query: Record<string, unknown>, now = new Dat
 export function activityQuery(state: ActivityState): Record<string, string> {
   return { startAt: state.startAt, endAt: state.endAt, ...(state.keyword ? { keyword: state.keyword } : {}), ...(state.itemId ? { itemId: state.itemId } : {}), ...(state.kind ? { kind: state.kind } : {}), ...(state.page > 1 ? { page: String(state.page) } : {}) }
 }
+
+/** Keep a shared exact interval when only non-date filters are changed. */
+export function editedActivityPeriod(state: Pick<ActivityState, 'startAt' | 'endAt'>, from: string, to: string) {
+  if (from === dateInput(new Date(state.startAt)) && to === dateInput(new Date(Date.parse(state.endAt) - 1))) return { startAt: state.startAt, endAt: state.endAt }
+  return periodFromDates(from, to)
+}
+
+/** Compare decoded query values; equivalent URL encodings must still load data. */
+export function sameActivityQuery(actual: Record<string, unknown>, expected: Record<string, string>): boolean {
+  return Object.keys(actual).length === Object.keys(expected).length && Object.entries(expected).every(([key, value]) => actual[key] === value)
+}

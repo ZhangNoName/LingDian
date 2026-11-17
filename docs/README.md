@@ -14,6 +14,7 @@
 | [28-stocktakes-2026-11-18.md](./28-stocktakes-2026-11-18.md) | 盘点单、实盘草稿、版本复核与整单库存过账 |
 | [29-category-management-2026-11-18.md](./29-category-management-2026-11-18.md) | 商家分类改名/排序/展示、版本审计与菜单门店关联过滤 |
 | [30-product-images-2026-11-18.md](./30-product-images-2026-11-18.md) | 商家图片上传/替换/移除、版本审计、幂等与过期文件清理 |
+| [31-inventory-analysis-2026-11-18.md](./31-inventory-analysis-2026-11-18.md) | 原料损耗率/盘盈盘亏分析、同快照完整导出与精确区间追查 |
 | [25-account-settings-2026-11-17.md](./25-account-settings-2026-11-17.md) | 全局语言、账号/设置中英文、昵称预填与集成审计 |
 | [24-purchasing-analysis-2026-11-17.md](./24-purchasing-analysis-2026-11-17.md) | 收货期间/供应商/原料报表、完整快照导出与未收采购补货建议 |
 | [23-purchasing-2026-11-17.md](./23-purchasing-2026-11-17.md) | 供应商、采购单、分批收货、取消剩余与原子入库 |

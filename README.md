@@ -203,3 +203,5 @@ AppSecret 只能配置在 API 部署环境，不能写入 `uniapp/`、前端环�
 商家分类改名、排序和菜单展示维护见 [分类管理](./docs/29-category-management-2026-11-18.md)。部署前应用 `20261118_z_category_version` 并重新生成 Prisma Client；隐藏分类只影响菜单展示，停止销售仍需下架商品。
 
 商家商品图片现可上传、替换和移除，沿用商品版本/审计并回收过期未完成文件，详见 [商品图片](./docs/30-product-images-2026-11-18.md)。部署前应用 `20261118_zz_product_images` 并更新 Nginx 媒体代理；uploads 继续使用现有持久化挂载与备份。
+
+库存收支报表现可切换损耗与盘点分析，按原料核对登记损耗率、盘盈盘亏并追查同区间流水，支持完整 CSV 和中英文手机布局。见 [库存分析](./docs/31-inventory-analysis-2026-11-18.md)，本轮只改商家 Web，无新增迁移。

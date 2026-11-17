@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activityQuery, dateInput, parseActivityState, periodFromDates } from './activity-state'
+import { activityQuery, dateInput, parseActivityState, periodFromDates, editedActivityPeriod, sameActivityQuery } from './activity-state'
 
 describe('inventory activity view state', () => {
   it('turns inclusive local dates into explicit instants with an exclusive end', () => {
@@ -22,4 +22,19 @@ describe('inventory activity view state', () => {
     expect(state.kind).toBe(''); expect(state.page).toBe(1); expect(state.keyword).toHaveLength(120)
     expect(Date.parse(state.startAt)).toBeLessThan(Date.parse(state.endAt))
   })
+})
+
+it('preserves shared sub-day instants for non-date edits and uses new local boundaries only when dates change',()=>{
+ const period={startAt:'2026-11-01T01:30:12.123Z',endAt:'2026-11-05T04:45:13.456Z'}
+ const from=dateInput(new Date(period.startAt)),to=dateInput(new Date(Date.parse(period.endAt)-1))
+ expect(editedActivityPeriod(period,from,to)).toEqual(period)
+ expect(editedActivityPeriod(period,'2026-11-02','2026-11-06')).toEqual(periodFromDates('2026-11-02','2026-11-06'))
+})
+
+it('compares decoded query values independently of URL serialization and rejects noncanonical arrays', () => {
+ const expected = { view: 'report', startAt: '2026-11-01T01:30:12.123Z', keyword: '面粉 + coffee' }
+ expect(sameActivityQuery(Object.fromEntries(new URLSearchParams(expected)), expected)).toBe(true)
+ expect(sameActivityQuery({ keyword: expected.keyword, startAt: expected.startAt, view: 'report' }, expected)).toBe(true)
+ expect(sameActivityQuery({ ...expected, startAt: [expected.startAt] }, expected)).toBe(false)
+ expect(sameActivityQuery({ ...expected, extra: '' }, expected)).toBe(false)
 })

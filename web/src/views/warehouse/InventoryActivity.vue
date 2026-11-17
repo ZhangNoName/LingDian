@@ -5,13 +5,21 @@ import type { InventoryMovementKind, InventoryMovementPage, InventoryPeriodRepor
 import { Button } from '@/baseComponents/button'
 import { useLocale } from '@/i18n/locale'
 import { getInventoryReport, listInventoryMovements } from '@/services/inventory'
-import { activityQuery, dateInput, defaultActivityState, movementKinds, parseActivityState, periodFromDates, type ActivityState } from './activity-state'
+import { activityQuery, dateInput, defaultActivityState, movementKinds, parseActivityState, editedActivityPeriod, sameActivityQuery, type ActivityState } from './activity-state'
 import { en, zh, type MessageKey } from './messages'
 import { downloadCsv } from './report'
+import InventoryAnalysis from './analysis/InventoryAnalysis.vue'
+import { analysisQuery, parseAnalysisState } from './analysis/state'
+import { useAnalysisLocale } from './analysis/locale'
 
 const props = defineProps<{ storeId: string; storeName: string; mode: 'history' | 'report' }>()
 const route = useRoute(), router = useRouter()
 const { locale } = useLocale()
+const { t: at } = useAnalysisLocale()
+const analysisMode = computed(() => props.mode === 'report' && route.query.reportView === 'analysis')
+function viewQuery(applied: ActivityState) { return { view: props.mode, ...activityQuery(applied), ...(analysisMode.value ? analysisQuery(parseAnalysisState(route.query)) : {}) } }
+function switchReport(analysis: boolean) { void router.push({ query: { view: 'report', ...activityQuery({ ...state.value, page: 1 }), ...(analysis ? { reportView: 'analysis' } : {}) } }) }
+function reset() { const query = { view: props.mode, ...activityQuery(defaultActivityState()), ...(analysisMode.value ? { reportView: 'analysis' } : {}) }; if (sameActivityQuery(route.query, query)) void load(true); else void router.push({ query }) }
 const t = (key: MessageKey) => (locale.value === 'en-US' ? en : zh)[key]
 const state = computed(() => {
   const value = parseActivityState(route.query)
@@ -32,13 +40,13 @@ const dirty = computed(() => from.value !== dateInput(new Date(state.value.start
 let sequence = 0, reportKey = ''
 
 async function navigate(next: ActivityState, replace = false) {
-  const target = { query: { view: props.mode, ...activityQuery(next) } }
-  if (router.resolve(target).fullPath === route.fullPath) await load(true)
+  const target = { query: viewQuery(next) }
+  if (sameActivityQuery(route.query, target.query)) await load(true)
   else if (replace) await router.replace(target)
   else await router.push(target)
 }
 async function apply() {
-  try { await navigate({ ...state.value, ...periodFromDates(from.value, to.value), keyword: keyword.value.trim(), kind: props.mode === 'history' ? kind.value : '', page: 1 }) }
+  try { await navigate({ ...state.value, ...editedActivityPeriod(state.value, from.value, to.value), keyword: keyword.value.trim(), kind: props.mode === 'history' ? kind.value : '', page: 1 }) }
   catch (error) { errorKey.value = error instanceof Error && error.message === 'inventory.invalidPeriod' ? 'inventory.invalidPeriod' : 'loadFailed' }
 }
 async function load(force = false) {
@@ -88,8 +96,8 @@ watch(() => [route.fullPath, props.mode], async () => {
   const applied = state.value
   from.value = dateInput(new Date(applied.startAt)); to.value = dateInput(new Date(Date.parse(applied.endAt) - 1))
   keyword.value = applied.keyword; kind.value = applied.kind
-  const canonical = { query: { view: props.mode, ...activityQuery(applied) } }
-  if (router.resolve(canonical).fullPath !== route.fullPath) { await router.replace(canonical); return }
+  const canonical = { query: viewQuery(applied) }
+  if (!sameActivityQuery(route.query, canonical.query)) { await router.replace(canonical); return }
   await load()
 }, { immediate: true })
 onBeforeUnmount(() => { sequence++ })
@@ -97,17 +105,18 @@ onBeforeUnmount(() => { sequence++ })
 
 <template>
   <section class="min-w-0" :aria-label="t(mode === 'report' ? 'report' : 'history')">
+    <div v-if="mode === 'report'" class="flex flex-wrap gap-2 border-b p-4"><Button type="button" :variant="analysisMode ? 'ghost' : 'secondary'" :aria-pressed="!analysisMode" :disabled="loading || dirty" @click="switchReport(false)">{{ at('balances') }}</Button><Button type="button" :variant="analysisMode ? 'secondary' : 'ghost'" :aria-pressed="analysisMode" :disabled="loading || dirty" @click="switchReport(true)">{{ at('title') }}</Button></div>
     <form class="flex flex-wrap items-end gap-3 border-b p-4" @submit.prevent="apply">
       <label>{{ t('from') }}<input v-model="from" type="date" required /></label>
       <label>{{ t('to') }}<input v-model="to" type="date" required :min="from" /></label>
       <label v-if="mode === 'history'">{{ t('operation') }}<select v-model="kind" :aria-label="t('operation')"><option value="">{{ t('allOperations') }}</option><option v-for="value in movementKinds" :key="value" :value="value">{{ t(kindKey[value]) }}</option></select></label>
       <label class="grow sm:grow-0">{{ t('search') }}<input v-model="keyword" type="search" maxlength="120" /></label>
       <Button type="submit" variant="outline" :disabled="loading">{{ t('apply') }}</Button>
-      <Button type="button" variant="ghost" :disabled="loading" @click="navigate(defaultActivityState())">{{ t('reset') }}</Button>
+      <Button type="button" variant="ghost" :disabled="loading" @click="reset">{{ t('reset') }}</Button>
     </form>
     <div class="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
       <p class="text-xs text-muted-foreground">{{ t('timeZone') }}: {{ timeZone }} · {{ t('period') }}: {{ date(state.startAt) }} → {{ date(state.endAt) }}<span v-if="report && mode === 'report'"> · {{ t('generated') }}: {{ date(report.generatedAt) }}</span></p>
-      <Button variant="outline" size="sm" :disabled="loading || !!errorKey || !total || dirty" @click="exportRows">{{ t(mode === 'report' ? 'exportReport' : 'export') }}</Button>
+      <Button v-if="!analysisMode" variant="outline" size="sm" :disabled="loading || !!errorKey || !total || dirty" @click="exportRows">{{ t(mode === 'report' ? 'exportReport' : 'export') }}</Button>
     </div>
     <p v-if="dirty" role="status" class="border-b px-4 py-2 text-xs text-amber-800">{{ t('unapplied') }}</p>
     <div v-if="state.itemId" class="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2 text-sm">
@@ -117,6 +126,7 @@ onBeforeUnmount(() => { sequence++ })
     <p v-if="loading" class="empty" role="status">{{ t('loading') }}</p>
     <div v-else-if="errorKey" class="empty" role="alert"><p>{{ t(errorKey) }}</p><Button class="mt-3" variant="outline" @click="load(true)">{{ t('refresh') }}</Button></div>
     <p v-else-if="!total" class="empty">{{ t(mode === 'report' ? 'reportEmpty' : 'noHistory') }}</p>
+    <InventoryAnalysis v-else-if="analysisMode && report" :report="report" :state="state" :store-name="storeName" :dirty="dirty" />
     <div v-else class="overflow-x-auto" tabindex="0" :aria-label="t(mode === 'report' ? 'report' : 'history')">
       <table v-if="mode === 'report'">
         <thead><tr><th>{{ t('name') }}</th><th>{{ t('unit') }}</th><th v-for="key in columns" :key="key" class="number" :class="{ closing: key === 'closing' }">{{ t(key) }}</th><th class="number">{{ t('movementCount') }}</th><th>{{ t('actions') }}</th></tr></thead>
@@ -127,7 +137,7 @@ onBeforeUnmount(() => { sequence++ })
         <tbody><tr v-for="row in history?.items" :key="row.id"><td class="whitespace-nowrap text-xs">{{ date(row.createdAt) }}</td><th scope="row" class="material">{{ row.itemName }}<span class="mt-1 block font-mono text-xs font-normal text-muted-foreground">{{ row.itemCode }}</span></th><td class="whitespace-nowrap">{{ t(kindKey[row.kind]) }}</td><td class="number">{{ row.kind === 'THRESHOLD' ? `${format(row.reorderPointBefore)} → ${format(row.reorderPointAfter)}` : row.kind === 'RESERVE' || row.kind === 'RELEASE' ? `${format(row.reservedBefore ?? 0)} → ${format(row.reservedAfter ?? 0)}` : `${format(row.quantityBefore)} → ${format(row.quantityAfter)}` }} {{ row.unit }}<span v-if="['THRESHOLD', 'RESERVE', 'RELEASE'].includes(row.kind)" class="block text-xs text-muted-foreground">{{ t(row.kind === 'THRESHOLD' ? 'threshold' : 'reserved') }}</span></td><td class="min-w-48 max-w-80 break-words">{{ row.reason }}<RouterLink v-if="row.purchaseOrderId" class="mt-1 block text-primary" :to="{path:'/warehouse',query:{view:'purchases',purchaseId:row.purchaseOrderId}}">{{ t('purchaseOrder') }}</RouterLink><RouterLink v-if="row.stocktakeId" class="mt-1 block text-primary" :to="{path:'/warehouse',query:{view:'stocktakes',stocktakeId:row.stocktakeId}}">{{ locale === 'en-US' ? 'Stocktake' : '盘点单' }}</RouterLink></td><td class="max-w-48 break-all font-mono text-xs text-muted-foreground">{{ row.actorId }}</td></tr></tbody>
       </table>
     </div>
-    <div v-if="!loading && !errorKey" class="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm text-muted-foreground">
+    <div v-if="!analysisMode && !loading && !errorKey" class="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm text-muted-foreground">
       <p>{{ format(total) }} {{ t('total') }} · {{ t('page') }} {{ state.page }} / {{ pageCount }}</p>
       <div class="flex gap-2"><Button size="sm" variant="outline" :disabled="loading || dirty || state.page <= 1" @click="navigate({ ...state, page: state.page - 1 })">{{ t('previous') }}</Button><Button size="sm" variant="outline" :disabled="loading || dirty || state.page >= pageCount" @click="navigate({ ...state, page: state.page + 1 })">{{ t('next') }}</Button></div>
     </div>
