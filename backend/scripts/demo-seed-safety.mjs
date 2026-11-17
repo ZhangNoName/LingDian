@@ -29,6 +29,7 @@ export async function clearPrimaryStoreDemoData(tx, primaryStoreId) {
   await tx.inventoryReservation.deleteMany({ where: { storeId: primaryStoreId } });
   await tx.inventoryRecipe.deleteMany({ where: { storeId: primaryStoreId } });
   await tx.inventoryMovement.deleteMany({ where: { storeId: primaryStoreId } });
+  await tx.inventoryAlert.deleteMany({ where: { storeId: primaryStoreId } });
   await tx.inventoryItem.deleteMany({ where: { storeId: primaryStoreId } });
 
   await tx.orderStatusLog.deleteMany({ where: orderStoreWhere });

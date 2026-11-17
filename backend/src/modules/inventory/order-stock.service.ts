@@ -1,6 +1,7 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import { Prisma } from '@lingdian/db';
+import { syncInventoryAlert } from './inventory-alert-state';
 
 type OrderRef = { id: string; storeId: string; orderNo: string };
 const MAX_QUANTITY = 999999000;
@@ -30,6 +31,7 @@ export class OrderStockService {
       await updateMaterial(tx, item, next);
       await tx.inventoryReservation.create({ data: { storeId: order.storeId, orderId: order.id, itemId, quantity: amount } });
       await movement(tx, order, item, next, 'RESERVE', amount, actorId);
+      await syncInventoryAlert(tx, { ...item, ...next }, actorId);
     }
     return new Date(Date.now() + STOCK_HOLD_MINUTES * 60_000);
   }
@@ -50,6 +52,7 @@ export class OrderStockService {
       if (changed.count !== 1) throw new ConflictException('inventory.stale');
       await updateMaterial(tx, item, next);
       await movement(tx, order, item, next, mode === 'COMMIT' ? 'ISSUE' : 'RELEASE', hold.quantity, actorId);
+      await syncInventoryAlert(tx, { ...item, ...next }, actorId);
     }
   }
 }

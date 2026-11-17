@@ -9,6 +9,7 @@
 | [11-system-structure.md](./11-system-structure.md) | 2026-08-30 系统上下文、模块化单体边界、数据流、部署与可观测性 |
 | [12-module-catalog.md](./12-module-catalog.md) | 三端、后端、共享包、CI/运维的逐模块真实状态与责任边界 |
 | [13-permission-and-gap-analysis.md](./13-permission-and-gap-analysis.md) | 当前权限矩阵、已关闭风险、剩余 P0–P2、目标 RBAC 与上线 Gate |
+| [19-inventory-alerts-2026-11-17.md](./19-inventory-alerts-2026-11-17.md) | 站内预警、确认跟进、自动解除、历史记录与升级验证 |
 | [18-order-inventory-2026-11-17.md](./18-order-inventory-2026-11-17.md) | 销售配方、订单原料预占/扣减/释放、真实 MySQL 与迁移修正 |
 | [17-inventory-reports-2026-11-17.md](./17-inventory-reports-2026-11-17.md) | 损耗登记、历史筛选、库存收支报表与完整快照导出 |
 | [16-multi-store-iteration-2026-11-17.md](./16-multi-store-iteration-2026-11-17.md) | 多店运行时、统一选店、租户边界与验证记录 |

@@ -100,3 +100,16 @@ export interface InventoryRecipeEntry { itemId: string; name: string; code: stri
 export interface InventoryRecipeRecord { skuId: string; productName: string; skuName: string; version: number; entries: InventoryRecipeEntry[] }
 export interface InventoryRecipePage { items: InventoryRecipeRecord[]; total: number; page: number; pageSize: number }
 export interface SaveInventoryRecipeRequest { expectedVersion: number; entries: { itemId: string; quantity: number }[] }
+
+export type InventoryAlertStatus = 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED';
+export interface InventoryAlertRecord {
+  id: string; storeId: string; itemId: string; name: string; code: string; unit: string;
+  status: InventoryAlertStatus; severity: 'LOW' | 'OUT'; version: number;
+  availableAtTrigger: number; thresholdAtTrigger: number; availableLatest: number; thresholdLatest: number;
+  detectedAt: string; updatedAt: string; acknowledgedAt: string | null; acknowledgedBy: string | null; note: string | null; resolvedAt: string | null;
+}
+export interface InventoryAlertPage {
+  items: InventoryAlertRecord[]; total: number; page: number; pageSize: number;
+  summary: { open: number; acknowledged: number; out: number };
+}
+export interface AcknowledgeInventoryAlertRequest { expectedVersion: number; note: string }

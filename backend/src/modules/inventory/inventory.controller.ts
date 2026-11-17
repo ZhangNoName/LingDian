@@ -1,3 +1,5 @@
+import { InventoryAlertService } from './inventory-alert.service';
+import { AcknowledgeInventoryAlertDto, InventoryAlertQueryDto } from './dto/inventory-alert.dto';
 import { Body, Controller, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AccessTokenGuard } from '../../common/auth/access-token.guard';
@@ -15,7 +17,7 @@ import { InventoryService } from './inventory.service';
 @UseGuards(AccessTokenGuard, MerchantGuard)
 @Controller('merchant/stores/:storeId/inventory')
 export class InventoryController {
-  constructor(private readonly inventory: InventoryService, private readonly reports: InventoryReportService, private readonly recipes: InventoryRecipeService) {}
+  constructor(private readonly inventory: InventoryService, private readonly reports: InventoryReportService, private readonly recipes: InventoryRecipeService, private readonly alerts: InventoryAlertService) {}
 
   @Get()
   list(@CurrentUser() user: AuthenticatedUser, @Param('storeId') storeId: string, @Query() query: InventoryQueryDto) {
@@ -30,6 +32,16 @@ export class InventoryController {
   @Get('report')
   report(@CurrentUser() user: AuthenticatedUser, @Param('storeId') storeId: string, @Query() query: InventoryReportQueryDto) {
     return this.reports.report(user, storeId, query);
+  }
+
+  @Get('alerts')
+  listAlerts(@CurrentUser() user: AuthenticatedUser, @Param('storeId') storeId: string, @Query() query: InventoryAlertQueryDto) {
+    return this.alerts.list(user, storeId, query);
+  }
+
+  @Post('alerts/:alertId/acknowledge')
+  acknowledgeAlert(@CurrentUser() user: AuthenticatedUser, @Param('storeId') storeId: string, @Param('alertId') alertId: string, @Body() body: AcknowledgeInventoryAlertDto) {
+    return this.alerts.acknowledge(user, storeId, alertId, body);
   }
 
   @Get('recipes')

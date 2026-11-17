@@ -38,6 +38,7 @@ test('demo reset clears restricted payment rows first and scopes every delete to
     'inventoryReservation',
     'inventoryRecipe',
     'inventoryMovement',
+    'inventoryAlert',
     'inventoryItem',
     'orderStatusLog',
     'orderItemSelection',

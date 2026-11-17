@@ -1,3 +1,4 @@
+import { InventoryAlertService } from './inventory-alert.service';
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { MerchantModule } from '../merchant/merchant.module';
@@ -10,7 +11,7 @@ import { InventoryService } from './inventory.service';
 @Module({
   imports: [AuthModule, MerchantModule],
   controllers: [InventoryController],
-  providers: [InventoryService, InventoryReportService, InventoryRecipeService, OrderStockService],
+  providers: [InventoryAlertService, InventoryService, InventoryReportService, InventoryRecipeService, OrderStockService],
   exports: [OrderStockService],
 })
 export class InventoryModule {}

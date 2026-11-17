@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 const { requestData } = vi.hoisted(() => ({ requestData: vi.fn() }))
 vi.mock('@/lib/api', () => ({ requestData }))
-import { getInventoryReport, listInventoryMovements } from './inventory'
+import { getInventoryReport, listInventoryMovements, listInventoryAlerts, acknowledgeInventoryAlert } from './inventory'
 
 describe('inventory report and history requests', () => {
   beforeEach(() => requestData.mockReset())
@@ -17,4 +17,18 @@ describe('inventory report and history requests', () => {
     expect(url.pathname).toContain('/store-b/inventory/report')
     expect(url.searchParams.has('page')).toBe(false)
   })
+})
+
+
+it('keeps alert filters and acknowledgement within the selected store', async () => {
+  await listInventoryAlerts('store/a', { page: 3, status: 'RESOLVED', severity: 'OUT', keyword: ' Flour & milk ' })
+  let url = new URL(requestData.mock.calls.at(-1)![0])
+  expect(url.pathname).toContain('/store%2Fa/inventory/alerts')
+  expect(Object.fromEntries(url.searchParams)).toMatchObject({ page: '3', status: 'RESOLVED', severity: 'OUT', keyword: 'Flour & milk' })
+  await acknowledgeInventoryAlert('store/a', 'alert/1', { expectedVersion: 2, note: 'Tomorrow' })
+  const [target, init] = requestData.mock.calls.at(-1)!
+  url = new URL(target)
+  expect(url.pathname).toContain('/store%2Fa/inventory/alerts/alert%2F1/acknowledge')
+  expect(init.method).toBe('POST')
+  expect(JSON.parse(init.body)).toEqual({ expectedVersion: 2, note: 'Tomorrow' })
 })

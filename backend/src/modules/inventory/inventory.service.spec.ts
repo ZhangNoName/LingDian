@@ -15,6 +15,8 @@ function fixture() {
   let calls = 0;
   let loseCas = false;
   const tx = {
+    inventoryAlert: { findUnique: async () => null, create: async ({ data }: any) => data },
+    authAuditLog: { create: async () => ({}) },
     inventoryItem: {
       findUnique: async ({ where }: any) => { calls++; return where.id_storeId.id === item.id && where.id_storeId.storeId === item.storeId ? { ...item } : null; },
       updateMany: async ({ where, data }: any) => {

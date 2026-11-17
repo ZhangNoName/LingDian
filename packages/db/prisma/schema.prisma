@@ -248,6 +248,7 @@ model InventoryItem {
   movements    InventoryMovement[]
   recipes      InventoryRecipe[]
   reservations InventoryReservation[]
+  alerts       InventoryAlert[]
 
   @@unique([storeId, code])
   @@unique([id, storeId])
@@ -279,6 +280,33 @@ model InventoryMovement {
   @@index([storeId, itemId, createdAt])
   @@index([storeId, createdAt])
   @@map("inventory_movements")
+}
+
+// One active episode per material. Acknowledgement never implies replenishment.
+model InventoryAlert {
+  id                 String        @id @default(cuid())
+  storeId            String
+  itemId             String
+  activeItemKey      String?       @unique
+  status             String        @default("OPEN") @db.VarChar(16)
+  severity           String        @db.VarChar(8)
+  availableAtTrigger Int
+  thresholdAtTrigger Int
+  availableLatest    Int
+  thresholdLatest    Int
+  version            Int           @default(0)
+  detectedAt         DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  acknowledgedAt     DateTime?
+  acknowledgedBy     String?
+  note               String?       @db.VarChar(240)
+  resolvedAt         DateTime?
+  item               InventoryItem @relation(fields: [itemId, storeId], references: [id, storeId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([id, storeId])
+  @@index([itemId, storeId], map: "inventory_alerts_itemId_storeId_fkey")
+  @@index([storeId, status, detectedAt])
+  @@map("inventory_alerts")
 }
 
 model InventoryRecipe {

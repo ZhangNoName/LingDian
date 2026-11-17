@@ -4,6 +4,7 @@ import type { InventoryItemContract, InventoryMovementContract, InventoryMovemen
 import type { AuthenticatedUser } from '../../common/auth/authenticated-user.type';
 import { MerchantStoreScope } from '../merchant/merchant-store-scope';
 import { PrismaService } from '../../prisma/prisma.service';
+import { syncInventoryAlert } from './inventory-alert-state';
 import { activityPeriod, movementWhere } from './inventory-query';
 import { AdjustInventoryDto, CreateInventoryItemDto, InventoryHistoryQueryDto, InventoryQueryDto } from './dto/inventory.dto';
 
@@ -42,9 +43,13 @@ export class InventoryService {
   async create(user: AuthenticatedUser, storeId: string, body: CreateInventoryItemDto): Promise<InventoryItemContract> {
     this.scope.assertIncludes(user, storeId);
     try {
-      const item = await this.prisma.inventoryItem.create({ data: {
-        storeId, code: body.code.toUpperCase(), name: body.name, unit: body.unit, reorderPoint: scaled(body.reorderPoint),
-      } });
+      const item = await this.prisma.$transaction(async tx => {
+        const created = await tx.inventoryItem.create({ data: {
+          storeId, code: body.code.toUpperCase(), name: body.name, unit: body.unit, reorderPoint: scaled(body.reorderPoint),
+        } });
+        await syncInventoryAlert(tx, created, user.userId);
+        return created;
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
       return presentItem(item);
     } catch (error) {
       if (isPrismaCode(error, 'P2002')) throw new ConflictException('inventory.codeExists');
@@ -86,6 +91,7 @@ export class InventoryService {
           reorderPointBefore: item.reorderPoint, reorderPointAfter: reorderPoint,
           versionBefore: item.version, actorId: user.userId, reason: body.reason,
         }, include: { item: true } });
+        await syncInventoryAlert(tx, { ...item, availableQuantity: next - item.reservedQuantity, reorderPoint }, user.userId);
         return presentMovement(movement);
       }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
     } catch (error) {

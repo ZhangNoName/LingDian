@@ -23,6 +23,8 @@ function fixture() {
   let index = 0, tail = Promise.resolve<unknown>(undefined), failLedger = false;
   const item = (id = 'flour') => db.prepare('SELECT * FROM items WHERE id=?').get(id) as any;
   const tx: any = {
+    inventoryAlert: { findUnique: async () => null, create: async ({ data }: any) => data },
+    authAuditLog: { create: async () => ({}) },
     productSKU: { updateMany: async ({ where }: any) => ({ count: db.prepare('UPDATE skus SET recipeVersion=recipeVersion WHERE id=? AND storeId=? AND isActive=1').run(where.id, where.product.storeId).changes }) },
     inventoryRecipe: { findMany: async ({ where }: any) => db.prepare(`SELECT * FROM recipes WHERE storeId=? AND skuId IN (${where.skuId.in.map(() => '?').join(',')})`).all(where.storeId, ...where.skuId.in) },
     inventoryItem: {

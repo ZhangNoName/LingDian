@@ -76,3 +76,13 @@ test('all migration index and constraint names fit the MySQL 64-character limit'
     }
   }
 });
+
+test('stock alert migration follows ingredient balances and backfills only current shortages', async () => {
+  const root = new URL('../packages/db/prisma/migrations/', import.meta.url);
+  const names = (await readdir(root)).sort();
+  assert.ok(names.indexOf('20261117_stock_alerts') > names.indexOf('20261117_order_inventory_reservations'));
+  const sql = await readFile(new URL('20261117_stock_alerts/migration.sql', root), 'utf8');
+  assert.match(sql, /WHERE `availableQuantity` <= `reorderPoint`/);
+  assert.match(sql, /UNIQUE INDEX `inventory_alerts_activeItemKey_key`/);
+  assert.match(sql, /FOREIGN KEY \(`itemId`, `storeId`\)/);
+});

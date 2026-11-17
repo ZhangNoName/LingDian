@@ -4,6 +4,8 @@ import assert = require('node:assert/strict');
 import { ConfigService } from '@nestjs/config';
 import { PrismaMariaDb } from '@prisma/adapter-mariadb';
 import { createMariaDbConnectionConfig, Prisma, PrismaClient } from '@lingdian/db';
+import { InventoryAlertService } from '../src/modules/inventory/inventory-alert.service';
+import { syncInventoryAlert } from '../src/modules/inventory/inventory-alert-state';
 import { OrderStockService } from '../src/modules/inventory/order-stock.service';
 import { InventoryRecipeService } from '../src/modules/inventory/inventory-recipe.service';
 import { InventoryReportService } from '../src/modules/inventory/inventory-report.service';
@@ -101,6 +103,44 @@ async function main() {
     const report = await reports.report(user, storeId, { startAt: new Date(now - 3600000).toISOString(), endAt: new Date(now + 3600000).toISOString() });
     assert.equal(report.rows.length, 1);
     assert.deepEqual([report.rows[0].received, report.rows[0].issued, report.rows[0].closing], [2, 1, 1]);
+    const alerts = new InventoryAlertService(prisma, scope);
+    const alertMaterial = await inventory.create(user, storeId, { code: 'ALERT-CASE', name: 'Alert lifecycle', unit: 'kg', reorderPoint: 1 });
+    const openingAlert = await db.inventoryAlert.findUniqueOrThrow({ where: { activeItemKey: alertMaterial.id } });
+    assert.equal(openingAlert.severity, 'OUT');
+    const adjustAlertMaterial = async (kind: 'RECEIVE' | 'ISSUE' | 'COUNT', amount: number, requestId: string) => {
+      const current = await db.inventoryItem.findUniqueOrThrow({ where: { id: alertMaterial.id } });
+      return inventory.adjust(user, storeId, current.id, { kind, amount, requestId, expectedVersion: current.version, reason: 'Synthetic alert verification' });
+    };
+    await adjustAlertMaterial('RECEIVE', 2, 'test-alert-receive');
+    assert.equal((await db.inventoryAlert.findUniqueOrThrow({ where: { id: openingAlert.id } })).status, 'RESOLVED');
+    await adjustAlertMaterial('ISSUE', 1.25, 'test-alert-issue');
+    const lowAlert = await db.inventoryAlert.findUniqueOrThrow({ where: { activeItemKey: alertMaterial.id } });
+    assert.notEqual(lowAlert.id, openingAlert.id); assert.equal(lowAlert.severity, 'LOW');
+    await Promise.all([1, 2].map(() => alerts.acknowledge(user, storeId, lowAlert.id, { expectedVersion: lowAlert.version, note: 'Supplier contacted' })));
+    assert.equal(await db.authAuditLog.count({ where: { event: 'INVENTORY_ALERT_ACKNOWLEDGED' } }), 1);
+    await adjustAlertMaterial('COUNT', 0, 'test-alert-zero-count');
+    const escalated = await db.inventoryAlert.findUniqueOrThrow({ where: { activeItemKey: alertMaterial.id } });
+    assert.equal(escalated.id, lowAlert.id); assert.equal(escalated.status, 'OPEN'); assert.equal(escalated.severity, 'OUT'); assert.equal(escalated.note, 'Supplier contacted');
+    await assert.rejects(alerts.acknowledge(user, storeId, lowAlert.id, { expectedVersion: lowAlert.version, note: 'Old screen must not hide escalation' }), /inventory.alertStale/);
+    const page = await alerts.list(user, storeId, { page: 1, pageSize: 20, status: 'OPEN', keyword: 'ALERT-CASE', severity: 'OUT' });
+    assert.equal(page.total, 1); assert.equal(page.items[0].availableAtTrigger, 0.75); assert.equal(page.items[0].availableLatest, 0);
+    await adjustAlertMaterial('RECEIVE', 2, 'test-alert-refill');
+    const beforeRollback = await db.inventoryAlert.findMany({ where: { itemId: alertMaterial.id }, orderBy: { id: 'asc' } });
+    const materialBeforeRollback = await db.inventoryItem.findUniqueOrThrow({ where: { id: alertMaterial.id } });
+    await assert.rejects(transaction(async tx => {
+      const current = await tx.inventoryItem.update({ where: { id: alertMaterial.id }, data: { quantity: 0, availableQuantity: 0, version: { increment: 1 } } });
+      await syncInventoryAlert(tx, current, user.userId);
+      // Fail after creating the new shortage episode; both alert and stock must roll back.
+      await tx.inventoryAlert.create({ data: { ...openingAlert } });
+    }));
+    assert.deepEqual(await db.inventoryAlert.findMany({ where: { itemId: alertMaterial.id }, orderBy: { id: 'asc' } }), beforeRollback);
+    assert.deepEqual(await db.inventoryItem.findUniqueOrThrow({ where: { id: alertMaterial.id } }), materialBeforeRollback);
+    const foreignMaterial = await inventory.create({ ...user, merchantStoreIds: ['test-store-b'] }, 'test-store-b', { code: 'FOREIGN-ALERT', name: 'Foreign alert', unit: 'kg', reorderPoint: 0 });
+    const foreignAlert = await db.inventoryAlert.findUniqueOrThrow({ where: { activeItemKey: foreignMaterial.id } });
+    await assert.rejects(alerts.acknowledge(user, storeId, foreignAlert.id, { expectedVersion: foreignAlert.version, note: 'Cross-store attempt' }), /inventory.alertNotFound/);
+    await assert.rejects(alerts.list(user, 'test-store-b', { page: 1, pageSize: 20, status: 'ALL' }));
+    assert.equal((await alerts.list(user, storeId, { page: 1, pageSize: 20, status: 'ACTIVE' })).summary.open, 0);
+    console.log('PASS MySQL alerts: creation, recovery, new episode, concurrent acknowledgement once, escalation, stale screen, scoped filtering and atomic stock/alert rollback.');
     console.log('PASS MySQL: competing checkout, rollback, immutable recipe snapshot, duplicate confirmation, release, tenant isolation, reserved count protection, report SQL.');
     console.log('Synthetic fixtures retained in the disposable test database for inspection.');
   } finally { await db.$disconnect(); }

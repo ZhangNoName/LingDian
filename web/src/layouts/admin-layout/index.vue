@@ -22,6 +22,7 @@
             <option v-for="store in merchantStore.stores.value" :key="store.id" :value="store.id">{{ store.name }}</option>
           </select>
         </label>
+        <InventoryAlertNotice v-if="storeReady" :key="merchantStore.selectedId.value" :store-id="merchantStore.selectedId.value" />
         <div class="ml-auto flex gap-4 font-medium text-primary">
           <RouterLink :to="{ name: 'profile-nickname' }" class="hover:underline">{{ locale === 'en-US' ? 'Profile' : '设置昵称' }}</RouterLink>
           <RouterLink :to="{ name: 'change-password' }" class="hover:underline">{{ locale === 'en-US' ? 'Password' : '修改密码' }}</RouterLink>
@@ -61,6 +62,7 @@
 </template>
 
 <script setup lang="ts">
+import InventoryAlertNotice from '@/components/layout/InventoryAlertNotice.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { X } from '@lingdian/icons/web'

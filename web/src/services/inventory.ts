@@ -40,3 +40,14 @@ export function listInventoryRecipes(storeId: string, page: number, keyword = ''
 export function saveInventoryRecipe(storeId: string, skuId: string, body: import('@lingdian/contracts').SaveInventoryRecipeRequest): Promise<import('@lingdian/contracts').InventoryRecipeRecord> {
   return requestData(apiUrl(`${base(storeId)}/recipes/${encodeURIComponent(skuId)}`), { ...jsonPost(body), method: 'PUT' })
 }
+
+export interface AlertQuery { page: number; status?: import('@lingdian/contracts').InventoryAlertStatus | 'ACTIVE' | 'ALL'; keyword?: string; severity?: 'LOW' | 'OUT' }
+export function listInventoryAlerts(storeId: string, query: AlertQuery): Promise<import('@lingdian/contracts').InventoryAlertPage> {
+  const params = new URLSearchParams({ page: String(query.page), pageSize: '20', status: query.status ?? 'ACTIVE' })
+  if (query.keyword?.trim()) params.set('keyword', query.keyword.trim())
+  if (query.severity) params.set('severity', query.severity)
+  return requestData(apiUrl(`${base(storeId)}/alerts?${params}`))
+}
+export function acknowledgeInventoryAlert(storeId: string, id: string, body: import('@lingdian/contracts').AcknowledgeInventoryAlertRequest): Promise<import('@lingdian/contracts').InventoryAlertRecord> {
+  return requestData(apiUrl(`${base(storeId)}/alerts/${encodeURIComponent(id)}/acknowledge`), jsonPost(body))
+}
