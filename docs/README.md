@@ -10,6 +10,7 @@
 | [12-module-catalog.md](./12-module-catalog.md) | 三端、后端、共享包、CI/运维的逐模块真实状态与责任边界 |
 | [13-permission-and-gap-analysis.md](./13-permission-and-gap-analysis.md) | 当前权限矩阵、已关闭风险、剩余 P0–P2、目标 RBAC 与上线 Gate |
 | [26-merchant-catalog-2026-11-17.md](./26-merchant-catalog-2026-11-17.md) | 商家分类/商品草稿建档、资料维护和菜单发布/下架 |
+| [27-replenishment-follow-through-2026-11-17.md](./27-replenishment-follow-through-2026-11-17.md) | 预警/库存定位补货、未收采购追查与已收齐原料口径修正 |
 | [25-account-settings-2026-11-17.md](./25-account-settings-2026-11-17.md) | 全局语言、账号/设置中英文、昵称预填与集成审计 |
 | [24-purchasing-analysis-2026-11-17.md](./24-purchasing-analysis-2026-11-17.md) | 收货期间/供应商/原料报表、完整快照导出与未收采购补货建议 |
 | [23-purchasing-2026-11-17.md](./23-purchasing-2026-11-17.md) | 供应商、采购单、分批收货、取消剩余与原子入库 |

@@ -46,9 +46,12 @@ export function purchaseList(
   page = 1,
   keyword = '',
   status = 'ACTIVE',
+  pendingItemId = '',
 ): Promise<PurchasingPage<PurchaseRecord>> {
   return requestData(
-    apiUrl(`${base(store)}/purchases?${new URLSearchParams({ page: String(page), pageSize: '20', keyword, status })}`),
+    apiUrl(
+      `${base(store)}/purchases?${new URLSearchParams({ page: String(page), pageSize: '20', keyword, status, ...(pendingItemId ? { pendingItemId } : {}) })}`,
+    ),
   )
 }
 export function purchaseDetail(store: string, id: string): Promise<PurchaseRecord> {

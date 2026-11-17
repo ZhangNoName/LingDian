@@ -7,16 +7,21 @@ import { replenishmentSnapshot } from '@/services/purchasing'
 import { downloadCsv } from '../report'
 import AnalysisTable from './AnalysisTable.vue'
 import { errorKey, usePurchasingLocale, type Key } from './locale'
+import { replenishmentState } from './replenishment-state'
 const props = defineProps<{ storeId: string; storeName: string }>(),
-  emit = defineEmits<{ create: [ReplenishmentRow] }>(),
+  emit = defineEmits<{ create: [ReplenishmentRow]; pending: [string] }>(),
   route = useRoute(),
   router = useRouter(),
   { t, number, date } = usePurchasingLocale()
-const applied = computed(() =>
-    typeof route.query.replenishmentKeyword === 'string' ? route.query.replenishmentKeyword.trim().slice(0, 120) : '',
-  ),
+const state = computed(() => replenishmentState(route.query)),
+  applied = computed(() => state.value.keyword),
+  subset = computed({
+    get: () => state.value.subset,
+    set: (value: string) => {
+      void router.push({ query: { ...route.query, replenishmentSubset: value } })
+    },
+  }),
   keyword = ref(''),
-  subset = ref('NEEDED'),
   snapshot = ref<ReplenishmentSnapshot>(),
   loading = ref(true),
   error = ref<Key>(),
@@ -43,6 +48,8 @@ const display = computed(() =>
     action: row.id,
     actionLabel: t('createFromPlan'),
     disabled: row.recommendedQuantity <= 0,
+    secondaryAction: row.pendingOrderCount > 0 ? row.id : undefined,
+    secondaryLabel: t('viewPending'),
   })),
 )
 let sequence = 0
@@ -52,7 +59,10 @@ async function load() {
   error.value = undefined
   page.value = 1
   try {
-    const result = await replenishmentSnapshot(props.storeId, { keyword: applied.value })
+    const result = await replenishmentSnapshot(props.storeId, {
+      keyword: applied.value,
+      itemId: state.value.itemId || undefined,
+    })
     if (current === sequence) snapshot.value = result
   } catch (e) {
     if (current === sequence) error.value = errorKey(e) === 'saveFailed' ? 'failed' : errorKey(e)
@@ -61,7 +71,7 @@ async function load() {
   }
 }
 watch(
-  () => [props.storeId, applied.value],
+  () => [props.storeId, applied.value, state.value.itemId],
   () => {
     keyword.value = applied.value
     void load()
@@ -84,6 +94,7 @@ function exportSnapshot() {
   const data: (string | number)[][] = [
     [props.storeName, props.storeId],
     [t('generatedAt'), snapshot.value.generatedAt],
+    [t('selectedMaterial'), state.value.itemId || t('allMaterials')],
     [
       t('search'),
       applied.value,
@@ -160,6 +171,18 @@ onBeforeUnmount(() => {
       <p class="mt-2">{{ t('restockHint') }}</p>
     </details>
     <p v-if="dirty" role="status" class="text-sm text-amber-800">{{ t('dirty') }}</p>
+    <div v-if="state.itemId" class="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm">
+      <p>
+        {{ t('selectedMaterial') }}:
+        {{ !loading && !error ? (snapshot?.rows[0]?.name ?? t('unavailableMaterial')) : '…' }}
+      </p>
+      <Button
+        size="sm"
+        variant="ghost"
+        @click="router.push({ query: { ...route.query, replenishmentItemId: undefined } })"
+        >{{ t('clearFocus') }}</Button
+      >
+    </div>
     <p v-if="loading" role="status" class="help py-6 text-center">{{ t('loading') }}</p>
     <div v-else-if="error" role="alert">
       <p class="error">{{ t(error) }}</p>
@@ -184,6 +207,7 @@ onBeforeUnmount(() => {
         :quantity-heading="t('suggested')"
         :value-heading="t('pending')"
         @action="create"
+        @secondary="$emit('pending', $event)"
       />
       <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
         <span>{{ rows.length }} {{ t('records') }} · {{ t('page') }} {{ page }} / {{ pages }}</span>

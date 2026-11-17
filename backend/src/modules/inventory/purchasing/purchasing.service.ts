@@ -5,7 +5,14 @@ import type { AuthenticatedUser } from '../../../common/auth/authenticated-user.
 import { MerchantStoreScope } from '../../merchant/merchant-store-scope';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { syncInventoryAlert } from '../inventory-alert-state';
-import { CancelPurchaseDto, CreatePurchaseDto, PurchasingQueryDto, ReceivePurchaseDto } from './purchasing.dto';
+import {
+  CancelPurchaseDto,
+  CreatePurchaseDto,
+  PurchasingQueryDto,
+  PurchaseOrderQueryDto,
+  ReceivePurchaseDto,
+} from './purchasing.dto';
+import { pendingPurchaseLines } from './pending-purchase-lines';
 import {
   assertReplay,
   cents,
@@ -26,10 +33,11 @@ export class PurchasingService {
     private readonly db: PrismaService,
     private readonly scope: MerchantStoreScope,
   ) {}
-  async list(user: AuthenticatedUser, storeId: string, query: PurchasingQueryDto) {
+  async list(user: AuthenticatedUser, storeId: string, query: PurchaseOrderQueryDto) {
     this.scope.assertIncludes(user, storeId);
     const where: Prisma.PurchaseOrderWhereInput = {
       storeId,
+      ...(query.pendingItemId ? { lines: { some: pendingPurchaseLines(this.db, storeId, query.pendingItemId) } } : {}),
       ...(query.status && query.status !== 'ALL'
         ? { status: query.status === 'ACTIVE' ? { in: ['OPEN', 'PARTIAL'] } : query.status }
         : {}),

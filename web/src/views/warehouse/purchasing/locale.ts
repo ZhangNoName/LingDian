@@ -1,5 +1,12 @@
 import { useLocale } from '@/i18n/locale'
 export const zh = {
+  viewPending: '查看未收采购',
+  selectedMaterial: '指定原料',
+  unavailableMaterial: '当前门店无匹配原料',
+  pendingFilter: '该原料的未收采购单',
+  pendingScope: '查看未收口径',
+  pendingFilterHint: '仅显示该原料仍未收齐的有效采购单。数量为该原料未收量，金额为整张采购单金额；未收采购不是现货。',
+  backToPlan: '返回补货建议',
   receivedQuantity: '收货数量',
   receivedAt: '收货时间',
   reportScope: '统计口径与时间范围',
@@ -131,6 +138,14 @@ export const zh = {
 } as const
 export type Key = keyof typeof zh
 const en: Record<Key, string> = {
+  viewPending: 'View pending orders',
+  selectedMaterial: 'Selected material',
+  unavailableMaterial: 'No matching material in this store',
+  pendingFilter: 'Outstanding orders for this material',
+  pendingScope: 'How outstanding orders are counted',
+  pendingFilterHint:
+    'Only active orders with an outstanding quantity of this material. Quantities are for this material; costs cover the whole order. Outstanding purchases are not stock on hand.',
+  backToPlan: 'Back to replenishment',
   receivedQuantity: 'Received quantity',
   receivedAt: 'Received at',
   reportScope: 'Scope and receipt period',

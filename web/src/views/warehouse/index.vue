@@ -7,6 +7,7 @@ import { useLocale } from '@/i18n/locale'
 import { merchantStore } from '@/auth/merchant-store'
 import { listInventory } from '@/services/inventory'
 import Purchasing from './purchasing/index.vue'
+import { replenishmentFocus } from './purchasing/replenishment-state'
 import InventoryHolds from './InventoryHolds.vue'
 import InventoryAlerts from './InventoryAlerts.vue'
 import InventoryEditor from './InventoryEditor.vue'
@@ -52,6 +53,7 @@ async function load() {
   finally { if (current === sequence) loading.value = false }
 }
 function switchView(value: 'inventory' | 'history' | 'report' | 'recipes' | 'alerts' | 'holds' | 'purchases') { void router.push({ query: { ...route.query, view: value, page: undefined, itemId: undefined, purchaseId: undefined } }) }
+function replenish(itemId: string) { void router.push({ query: { ...route.query, ...replenishmentFocus(itemId) } }) }
 function stockFromAlert(code: string) { keyword.value = code; appliedKeyword.value = code; status.value = ''; page.value = 1; switchView('inventory') }
 function filter(value: InventoryStatus | '') { status.value = value; page.value = 1; void load() }
 function search() { appliedKeyword.value = keyword.value.trim(); page.value = 1; void load() }
@@ -113,7 +115,7 @@ onBeforeUnmount(() => { sequence++ })
       </div>
       <Purchasing v-if="view === 'purchases'" :store-id="storeId" :store-name="storeName" />
       <InventoryHolds v-else-if="view === 'holds'" />
-      <InventoryAlerts v-else-if="view === 'alerts'" :store-id="storeId" :store-name="storeName" @stock="stockFromAlert" />
+      <InventoryAlerts v-else-if="view === 'alerts'" :store-id="storeId" :store-name="storeName" @stock="stockFromAlert" @replenish="replenish" />
       <InventoryRecipes v-else-if="view === 'recipes'" :store-id="storeId" />
       <InventoryActivity v-else-if="view !== 'inventory'" :key="view" :store-id="storeId" :store-name="storeName" :mode="view" />
       <template v-else>
@@ -141,7 +143,7 @@ onBeforeUnmount(() => { sequence++ })
               <td><span class="stock-status" :data-status="item.status">{{ t(statusKey[item.status]) }}</span></td>
               <td class="number font-semibold">{{ format(item.quantity) }} <span class="text-xs font-normal text-muted-foreground">{{ item.unit }}</span></td>
               <td class="number">{{ format(item.reservedQuantity ?? 0) }}</td><td class="number font-semibold">{{ format(item.availableQuantity ?? item.quantity) }}</td><td class="number">{{ format(item.reorderPoint) }}</td><td class="number">{{ format(item.shortage) }}</td><td class="text-xs text-muted-foreground">{{ date(item.updatedAt) }}</td>
-              <td><div class="flex justify-end gap-1"><Button variant="outline" size="sm" :aria-label="`${t('adjust')} ${item.name}`" @click="edit(item)">{{ t('adjust') }}</Button><Button variant="ghost" size="sm" :aria-label="`${t('records')} ${item.name}`" @click="showHistory(item)">{{ t('records') }}</Button></div></td>
+              <td><div class="flex justify-end gap-1"><Button variant="outline" size="sm" :aria-label="`${t('adjust')} ${item.name}`" @click="edit(item)">{{ t('adjust') }}</Button><Button variant="ghost" size="sm" :aria-label="`${t('records')} ${item.name}`" @click="showHistory(item)">{{ t('records') }}</Button><Button v-if="item.shortage > 0" variant="ghost" size="sm" :aria-label="`${t('replenish')} ${item.name}`" @click="replenish(item.id)">{{ t('replenish') }}</Button></div></td>
             </tr></tbody>
           </table>
 

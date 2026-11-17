@@ -153,7 +153,64 @@ export async function verifyPurchasingAnalysis(db: PrismaService) {
   await purchases.cancel(user, storeId, covered.id, { expectedVersion: 0, note: 'No longer needed' });
   plan = await analysis.replenishment(user, storeId, { itemId: 'analysis-flour' });
   assert.equal(plan.rows[0].recommendedQuantity, 7.49);
+  // A completed material line on a PARTIAL multi-material order must not count as pending.
+  const mixed = await purchases.create(user, storeId, {
+    requestId: 'analysis-mixed-lines',
+    supplierId: 'analysis-supplier',
+    note: 'Mixed delivery',
+    lines: [
+      { itemId: 'analysis-milk', quantity: 2, unitPrice: 1 },
+      { itemId: 'analysis-healthy', quantity: 3, unitPrice: 2 },
+    ],
+  });
+  const list = (pendingItemId: string, keyword = '', status = 'ALL') =>
+    purchases.list(user, storeId, {
+      pendingItemId,
+      keyword,
+      status,
+      page: 1,
+      pageSize: 20,
+    });
+  assert.equal((await list('analysis-milk')).total, 1);
+  assert.equal((await list('analysis-healthy')).items[0].id, mixed.id);
+  assert.equal((await list('analysis-healthy', 'no match')).total, 0);
+  assert.equal((await list('analysis-healthy', 'Renamed')).total, 1);
+  assert.equal((await list('analysis-healthy', '', 'RECEIVED')).total, 0);
+  await purchases.receive(user, storeId, mixed.id, {
+    requestId: 'analysis-mixed-milk',
+    expectedVersion: 0,
+    note: 'Only milk delivered',
+    lines: [{ lineId: mixed.lines.find((line) => line.itemId === 'analysis-milk')!.id, quantity: 2 }],
+  });
+  assert.equal((await purchases.detail(user, storeId, mixed.id)).status, 'PARTIAL');
+  plan = await analysis.replenishment(user, storeId, { itemId: 'analysis-milk' });
+  assert.equal(plan.rows[0].pendingQuantity, 0);
+  assert.equal(plan.rows[0].pendingOrderCount, 0);
+  assert.equal((await list('analysis-milk')).total, 0);
+  assert.equal((await list('analysis-healthy')).total, 1);
+  assert.equal((await list('analysis-foreign-item')).total, 0);
+  await assert.rejects(purchases.list(user, foreign, { pendingItemId: 'analysis-healthy', page: 1, pageSize: 20 }));
+  await purchases.receive(user, storeId, mixed.id, {
+    requestId: 'analysis-mixed-partial',
+    expectedVersion: 1,
+    note: 'One piece delivered',
+    lines: [{ lineId: mixed.lines.find((line) => line.itemId === 'analysis-healthy')!.id, quantity: 1 }],
+  });
+  plan = await analysis.replenishment(user, storeId, { itemId: 'analysis-healthy' });
+  assert.equal(plan.rows[0].pendingQuantity, 2);
+  assert.equal(plan.rows[0].pendingOrderCount, 1);
+  assert.equal(
+    (await list('analysis-healthy')).items[0].lines.find((line) => line.itemId === 'analysis-healthy')!
+      .receivedQuantity,
+    1,
+  );
+  await purchases.cancel(user, storeId, mixed.id, { expectedVersion: 2, note: 'Cancel remaining pieces' });
+  assert.equal((await list('analysis-healthy')).total, 0);
+  assert.equal(
+    (await analysis.replenishment(user, storeId, { itemId: 'analysis-healthy' })).rows[0].pendingOrderCount,
+    0,
+  );
   console.log(
-    'PASS MySQL purchasing analysis: exact half-open receipt boundaries, cancelled-order receipts, historical supplier snapshots, stored-cent aggregation, supplier/material intersection and tenant filtering, outstanding-purchase deductions, reserved availability and cancellation/receipt effects on replenishment.',
+    'PASS MySQL purchasing analysis: receipt boundaries and historical snapshots, stored cents, tenant filtering, pending-material drill-down and keyword/status intersections, fully received lines excluded from partial orders, outstanding quantities/counts and cancellation/receipt effects.',
   );
 }

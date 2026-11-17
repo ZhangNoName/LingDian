@@ -7,6 +7,7 @@ import { MerchantStoreScope } from '../../merchant/merchant-store-scope';
 import { activityPeriod, MAX_REPORT_ITEMS } from '../inventory-query';
 import { PurchaseReportQueryDto, ReplenishmentQueryDto } from './purchasing-analysis.dto';
 import { safeInteger, summarizeReceipts } from './purchasing-analysis';
+import { pendingPurchaseLines } from './pending-purchase-lines';
 @Injectable()
 export class PurchasingAnalysisService {
   constructor(
@@ -124,9 +125,8 @@ export class PurchasingAnalysisService {
           ? await tx.purchaseOrderLine.groupBy({
               by: ['itemId'],
               where: {
-                storeId,
+                ...pendingPurchaseLines(tx, storeId),
                 itemId: { in: items.map((item) => item.id) },
-                order: { storeId, status: { in: ['OPEN', 'PARTIAL'] } },
               },
               _sum: { quantity: true, receivedQuantity: true },
               _count: { _all: true },

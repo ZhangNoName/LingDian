@@ -8,7 +8,7 @@ import { acknowledgeInventoryAlert, listInventoryAlerts, type AlertQuery } from 
 import { downloadCsv } from './report'
 import { alertEn, alertZh, type AlertMessageKey } from './alert-messages'
 const props = defineProps<{ storeId: string; storeName: string }>()
-const emit = defineEmits<{ stock: [code: string] }>()
+const emit = defineEmits<{ stock: [code: string]; replenish: [itemId: string] }>()
 const { locale } = useLocale()
 const t = (key: AlertMessageKey) => (locale.value === 'en-US' ? alertEn : alertZh)[key]
 const result = ref<InventoryAlertPage>(), page = ref(1), status = ref<AlertQuery['status']>('ACTIVE'), severity = ref<'' | 'LOW' | 'OUT'>(''), keyword = ref(''), appliedKeyword = ref('')
@@ -28,6 +28,7 @@ async function load() {
 function apply() { page.value = 1; appliedKeyword.value = keyword.value.trim(); saved.value = false; void load() }
 function view(row: InventoryAlertRecord) { selected.value = row; note.value = ''; formError.value = undefined; saved.value = false }
 function showStock() { if (selected.value && !saving.value) { const code = selected.value.code; selected.value = undefined; emit('stock', code) } }
+function showReplenishment() { if (selected.value && !saving.value) { const itemId = selected.value.itemId; selected.value = undefined; emit('replenish', itemId) } }
 function close(open: boolean) { if (!open && !saving.value) selected.value = undefined }
 async function acknowledge() {
   if (!selected.value || saving.value) return
@@ -63,7 +64,7 @@ onBeforeUnmount(() => { sequence++ })
     <div v-if="!loading && !error" class="flex justify-between gap-3 border-t p-4 text-sm text-muted-foreground"><span>{{ result?.total ?? 0 }} {{ t('total') }} · {{ t('page') }} {{ page }}</span><div class="flex gap-2"><Button size="sm" variant="outline" :disabled="dirty || page <= 1" @click="page--; load()">{{ t('previous') }}</Button><Button size="sm" variant="outline" :disabled="dirty || page * 20 >= (result?.total ?? 0)" @click="page++; load()">{{ t('next') }}</Button></div></div>
     <Dialog :open="!!selected" @update:open="close"><DialogContent class="max-h-[90dvh] max-w-xl overflow-y-auto" :close-label="t('close')"><DialogHeader><DialogTitle>{{ selected?.name }} · {{ t('title') }}</DialogTitle><DialogDescription>{{ t(selected?.status === 'OPEN' ? 'acknowledgeHint' : 'snapshot') }}</DialogDescription></DialogHeader>
       <dl v-if="selected" class="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-4 gap-y-2 text-sm"><dt>{{ t('status') }}</dt><dd>{{ t(stateKey[selected.status]) }}</dd><dt>{{ t('lastSeverity') }}</dt><dd>{{ t(selected.severity === 'OUT' ? 'out' : 'low') }}</dd><dt>{{ t('triggerBalance') }}</dt><dd>{{ number(selected.availableAtTrigger) }} / {{ number(selected.thresholdAtTrigger) }} {{ selected.unit }}</dd><dt>{{ t('latestBalance') }}</dt><dd>{{ number(selected.availableLatest) }} / {{ number(selected.thresholdLatest) }} {{ selected.unit }}</dd><dt>{{ t('detected') }}</dt><dd>{{ date(selected.detectedAt) }}</dd><dt>{{ t('updated') }}</dt><dd>{{ date(selected.updatedAt) }}</dd><template v-if="selected.acknowledgedAt"><dt>{{ t('acknowledgedAt') }}</dt><dd>{{ date(selected.acknowledgedAt) }}</dd><dt>{{ t('acknowledgedBy') }}</dt><dd class="break-all">{{ selected.acknowledgedBy }}</dd><dt>{{ t('lastNote') }}</dt><dd class="whitespace-pre-wrap break-words">{{ selected.note }}</dd></template><template v-if="selected.resolvedAt"><dt>{{ t('resolvedAt') }}</dt><dd>{{ date(selected.resolvedAt) }}</dd></template></dl>
-      <div class="flex flex-wrap items-center justify-between gap-3"><p class="min-w-0 flex-1 text-xs text-muted-foreground">{{ t('escalation') }}</p><Button type="button" variant="outline" :disabled="saving" @click="showStock">{{ t('viewStock') }}</Button></div>
+      <div class="flex flex-wrap items-center justify-between gap-3"><p class="min-w-0 flex-1 text-xs text-muted-foreground">{{ t('escalation') }}</p><Button type="button" variant="outline" :disabled="saving" @click="showStock">{{ t('viewStock') }}</Button><Button v-if="selected?.status !== 'RESOLVED'" type="button" variant="outline" :disabled="saving" @click="showReplenishment">{{ t('viewReplenishment') }}</Button></div>
       <form v-if="selected?.status === 'OPEN'" class="grid gap-4 border-t pt-4" @submit.prevent="acknowledge"><label>{{ t('note') }}<textarea v-model="note" required minlength="1" maxlength="240" rows="3" :placeholder="t('noteHint')" :disabled="saving" /></label><p v-if="formError" role="alert" class="text-sm text-destructive">{{ t(formError) }}</p><div class="flex justify-end gap-2"><Button type="button" variant="outline" :disabled="saving" @click="close(false)">{{ t('cancel') }}</Button><Button :disabled="saving || !note.trim()">{{ t(saving ? 'saving' : 'acknowledge') }}</Button></div></form>
       <Button v-else variant="outline" class="justify-self-end" @click="close(false)">{{ t('close') }}</Button>
     </DialogContent></Dialog>

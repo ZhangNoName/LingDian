@@ -10,6 +10,7 @@ import {
   CancelPurchaseDto,
   CreatePurchaseDto,
   PurchasingQueryDto,
+  PurchaseOrderQueryDto,
   ReceivePurchaseDto,
   SupplierDto,
   UpdateSupplierDto,
@@ -51,7 +52,7 @@ export class PurchasingController {
   @Get('purchases') list(
     @CurrentUser() user: AuthenticatedUser,
     @Param('storeId') storeId: string,
-    @Query() query: PurchasingQueryDto,
+    @Query() query: PurchaseOrderQueryDto,
   ) {
     return this.purchasing.list(user, storeId, query);
   }

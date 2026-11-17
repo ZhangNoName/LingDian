@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
 import { lineCost, cents, distinct } from './purchasing-policy';
-import { CreatePurchaseDto, ReceivePurchaseDto, UpdateSupplierDto } from './purchasing.dto';
+import { CreatePurchaseDto, ReceivePurchaseDto, UpdateSupplierDto, PurchaseOrderQueryDto } from './purchasing.dto';
 import { PurchasingService } from './purchasing.service';
 import { SupplierService } from './supplier.service';
 test('purchase receipt costs round integer thousandths to cents without unsafe multiplication', () => {
@@ -45,6 +45,12 @@ test('purchasing DTOs bound exact quantities, prices, dates, versions and fanout
     ).length,
   );
   assert.ok(validateSync(plainToInstance(UpdateSupplierDto, { code: 'S', name: 'Supplier', isActive: true })).length);
+  assert.equal(
+    validateSync(plainToInstance(PurchaseOrderQueryDto, { pendingItemId: 'material-a', page: '2' })).length,
+    0,
+  );
+  for (const pendingItemId of ['', '  ', ['item'], 'i'.repeat(192)])
+    assert.ok(validateSync(plainToInstance(PurchaseOrderQueryDto, { pendingItemId })).length);
 });
 test('every purchasing operation checks store scope before touching business data', async () => {
   const scope = {

@@ -68,4 +68,13 @@ it('requests complete scoped analysis snapshots with exact receipt instants and 
   url = new URL(requestData.mock.calls.at(-1)![0])
   expect(url.pathname).toContain('/store%2Fa/inventory/purchases/replenishment')
   expect(url.searchParams.get('itemId')).toBe('i/1')
+  await purchaseList('store/a', 3, 'Supplier & flour', 'ACTIVE', 'i/1')
+  url = new URL(requestData.mock.calls.at(-1)![0])
+  expect(Object.fromEntries(url.searchParams)).toEqual({
+    page: '3',
+    pageSize: '20',
+    keyword: 'Supplier & flour',
+    status: 'ACTIVE',
+    pendingItemId: 'i/1',
+  })
 })

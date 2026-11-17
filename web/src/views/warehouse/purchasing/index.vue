@@ -11,8 +11,9 @@ import SupplierEditor from './SupplierEditor.vue'
 import CreatePurchase from './CreatePurchase.vue'
 import PurchaseDetail from './PurchaseDetail.vue'
 import { usePurchasingLocale } from './locale'
+import { materialId } from './replenishment-state'
 const props = defineProps<{ storeId: string; storeName: string }>(),
-  { t, date, money } = usePurchasingLocale(),
+  { t, date, money, number } = usePurchasingLocale(),
   route = useRoute(),
   router = useRouter()
 const filtersOpen = ref(false)
@@ -37,7 +38,15 @@ const page = ref(1),
   selectedSupplier = ref<SupplierRecord>(),
   saved = ref(false)
 const id = computed(() => (typeof route.query.purchaseId === 'string' ? route.query.purchaseId : '')),
+  pendingItemId = computed(() => materialId(route.query.pendingItemId)),
+  pendingMaterial = computed(() =>
+    orders.value.flatMap((order) => order.lines).find((line) => line.itemId === pendingItemId.value),
+  ),
   pageCount = computed(() => Math.max(1, Math.ceil(total.value / 20)))
+function outstanding(order: PurchaseRecord) {
+  const line = order.lines.find((line) => line.itemId === pendingItemId.value)
+  return line ? `${number(line.quantity - line.receivedQuantity)} ${line.unit}` : '—'
+}
 let sequence = 0
 async function load() {
   const current = ++sequence
@@ -46,7 +55,7 @@ async function load() {
   try {
     const result =
       view.value === 'orders'
-        ? await purchaseList(props.storeId, page.value, applied.value, status.value)
+        ? await purchaseList(props.storeId, page.value, applied.value, status.value, pendingItemId.value)
         : await supplierList(props.storeId, page.value, applied.value)
     if (current === sequence) {
       const last = Math.max(1, Math.ceil(result.total / 20))
@@ -80,16 +89,39 @@ watch(
 )
 function switchView(next: 'orders' | 'suppliers' | 'report' | 'replenishment') {
   void router.push({
-    query: { ...route.query, purchaseView: next === 'orders' ? undefined : next, purchaseId: undefined },
+    query: {
+      ...route.query,
+      purchaseView: next === 'orders' ? undefined : next,
+      purchaseId: undefined,
+      pendingItemId: undefined,
+    },
   })
   keyword.value = ''
   applied.value = ''
   page.value = 1
   saved.value = false
 }
-watch(view, () => {
-  if (view.value === 'orders' || view.value === 'suppliers') void load()
+watch(pendingItemId, () => {
+  keyword.value = ''
+  applied.value = ''
+  page.value = 1
+  status.value = 'ACTIVE'
 })
+watch(
+  () => [view.value, pendingItemId.value],
+  () => {
+    sequence++
+    if (view.value === 'orders' || view.value === 'suppliers') void load()
+  },
+)
+function showPending(itemId: string) {
+  void router.push({ query: { ...route.query, purchaseView: undefined, purchaseId: undefined, pendingItemId: itemId } })
+}
+function backToPlan() {
+  void router.push({
+    query: { ...route.query, purchaseView: 'replenishment', purchaseId: undefined, pendingItemId: undefined },
+  })
+}
 function go(value: number) {
   page.value = value
   void load()
@@ -135,6 +167,7 @@ function exportPage() {
       t(status.value === 'ACTIVE' ? 'active' : status.value === 'ALL' ? 'all' : (status.value as 'OPEN')),
     ],
   ]
+  if (pendingItemId.value) rows.push([t('pendingFilter'), pendingMaterial.value?.itemName ?? '', pendingItemId.value])
   rows.push([
     t('orderNo'),
     t('supplier'),
@@ -142,6 +175,7 @@ function exportPage() {
     t('orderedCost') + ' (CNY)',
     t('receivedCost') + ' (CNY)',
     t('createdAt'),
+    ...(pendingItemId.value ? [t('pending'), t('expectedAt')] : []),
   ])
   for (const row of orders.value)
     rows.push([
@@ -151,6 +185,7 @@ function exportPage() {
       row.totalCostCents / 100,
       row.receivedCostCents / 100,
       row.createdAt,
+      ...(pendingItemId.value ? [outstanding(row), row.expectedAt ?? ''] : []),
     ])
   downloadCsv(`purchases-${new Date().toISOString().slice(0, 10)}-p${page.value}.csv`, rows)
 }
@@ -220,8 +255,30 @@ onBeforeUnmount(() => {
       :store-id="storeId"
       :store-name="storeName"
       @create="fromPlan"
+      @pending="showPending"
     />
     <template v-else>
+      <div v-if="view === 'orders' && pendingItemId" class="grid gap-2 rounded-md border p-3 text-sm">
+        <p class="font-medium">
+          {{ t('pendingFilter')
+          }}<span v-if="!loading && !failed && pendingMaterial">
+            · {{ pendingMaterial.itemName }} ({{ pendingMaterial.itemCode }})</span
+          >
+        </p>
+        <details class="help">
+          <summary class="cursor-pointer">{{ t('pendingScope') }}</summary>
+          <p class="mt-2">{{ t('pendingFilterHint') }}</p>
+        </details>
+        <div class="flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" @click="backToPlan">{{ t('backToPlan') }}</Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            @click="router.push({ query: { ...route.query, pendingItemId: undefined } })"
+            >{{ t('clearFocus') }}</Button
+          >
+        </div>
+      </div>
       <Button
         class="justify-self-start sm:hidden"
         variant="outline"
@@ -241,7 +298,7 @@ onBeforeUnmount(() => {
           {{ t('search') }}
           <input v-model="keyword" type="search" maxlength="120" />
         </label>
-        <label v-if="view === 'orders'">
+        <label v-if="view === 'orders' && !pendingItemId">
           <span class="sr-only">{{ t('status') }}</span>
           <select v-model="status" :aria-label="t('status')" :disabled="loading" @change="go(1)">
             <option value="ACTIVE">{{ t('active') }}</option>
@@ -271,6 +328,7 @@ onBeforeUnmount(() => {
                 <th>{{ t('orderedCost') }}</th>
                 <th>{{ t('receivedCost') }}</th>
                 <th>{{ t('createdAt') }}</th>
+                <th v-if="pendingItemId">{{ t('pending') }} / {{ t('expectedAt') }}</th>
                 <th></th>
               </tr>
             </thead>
@@ -282,6 +340,10 @@ onBeforeUnmount(() => {
                 <td class="tabular-nums">{{ money(order.totalCostCents) }}</td>
                 <td class="tabular-nums">{{ money(order.receivedCostCents) }}</td>
                 <td>{{ date(order.createdAt) }}</td>
+                <td v-if="pendingItemId">
+                  <p>{{ outstanding(order) }}</p>
+                  <p class="help mt-1">{{ date(order.expectedAt) }}</p>
+                </td>
                 <td>
                   <Button
                     variant="outline"
@@ -303,6 +365,9 @@ onBeforeUnmount(() => {
               <span class="shrink-0">{{ t(order.status) }}</span>
             </div>
             <p class="break-words">{{ order.supplierName }}</p>
+            <p v-if="pendingItemId" class="break-words">
+              {{ t('pending') }}: {{ outstanding(order) }} · {{ t('expectedAt') }}: {{ date(order.expectedAt) }}
+            </p>
             <p class="help">
               {{ t('orderedCost') }} {{ money(order.totalCostCents) }} · {{ t('receivedCost') }}
               {{ money(order.receivedCostCents) }}

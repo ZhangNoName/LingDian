@@ -24,6 +24,9 @@ export class PurchasingQueryDto {
   @IsOptional() @Transform(trim) @IsString() @MaxLength(120) keyword?: string;
   @IsOptional() @IsIn(['ACTIVE', 'OPEN', 'PARTIAL', 'RECEIVED', 'CANCELLED', 'ALL']) status?: string;
 }
+export class PurchaseOrderQueryDto extends PurchasingQueryDto {
+  @IsOptional() @Transform(trim) @IsString() @MinLength(1) @MaxLength(191) pendingItemId?: string;
+}
 export class SupplierDto {
   @Transform(trim) @IsString() @Matches(/^[A-Za-z0-9_-]{1,64}$/) code!: string;
   @Transform(trim) @IsString() @MinLength(1) @MaxLength(120) name!: string;

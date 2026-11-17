@@ -10,9 +10,11 @@ export interface AnalysisRow {
   action: string
   actionLabel: string
   disabled?: boolean
+  secondaryAction?: string
+  secondaryLabel?: string
 }
 defineProps<{ rows: AnalysisRow[]; titleHeading: string; quantityHeading: string; valueHeading: string }>()
-defineEmits<{ action: [string] }>()
+defineEmits<{ action: [string]; secondary: [string] }>()
 const { t } = usePurchasingLocale()
 </script>
 <template>
@@ -35,15 +37,25 @@ const { t } = usePurchasingLocale()
           <td class="tabular-nums">{{ row.quantity }}</td>
           <td class="tabular-nums">{{ row.value }}</td>
           <td>
-            <Button
-              size="sm"
-              variant="outline"
-              :disabled="row.disabled"
-              :aria-label="`${row.actionLabel} ${row.title}`"
-              @click="$emit('action', row.action)"
-            >
-              {{ row.actionLabel }}
-            </Button>
+            <div class="flex flex-wrap justify-end gap-2">
+              <Button
+                v-if="row.secondaryAction"
+                size="sm"
+                variant="ghost"
+                :aria-label="`${row.secondaryLabel} ${row.title}`"
+                @click="$emit('secondary', row.secondaryAction)"
+                >{{ row.secondaryLabel }}</Button
+              >
+              <Button
+                size="sm"
+                variant="outline"
+                :disabled="row.disabled"
+                :aria-label="`${row.actionLabel} ${row.title}`"
+                @click="$emit('action', row.action)"
+              >
+                {{ row.actionLabel }}
+              </Button>
+            </div>
           </td>
         </tr>
       </tbody>
@@ -63,16 +75,26 @@ const { t } = usePurchasingLocale()
           <dd class="tabular-nums">{{ row.value }}</dd>
         </div>
       </dl>
-      <Button
-        class="justify-self-end"
-        size="sm"
-        variant="outline"
-        :disabled="row.disabled"
-        :aria-label="`${row.actionLabel} ${row.title}`"
-        @click="$emit('action', row.action)"
-      >
-        {{ row.actionLabel }}
-      </Button>
+      <div class="flex flex-wrap justify-end gap-2">
+        <Button
+          v-if="row.secondaryAction"
+          size="sm"
+          variant="ghost"
+          :aria-label="`${row.secondaryLabel} ${row.title}`"
+          @click="$emit('secondary', row.secondaryAction)"
+          >{{ row.secondaryLabel }}</Button
+        >
+        <Button
+          class="justify-self-end"
+          size="sm"
+          variant="outline"
+          :disabled="row.disabled"
+          :aria-label="`${row.actionLabel} ${row.title}`"
+          @click="$emit('action', row.action)"
+        >
+          {{ row.actionLabel }}
+        </Button>
+      </div>
     </li>
   </ul>
   <p v-if="!rows.length" class="help py-6 text-center">{{ t('empty') }}</p>

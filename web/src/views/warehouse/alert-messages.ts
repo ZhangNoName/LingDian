@@ -1,4 +1,5 @@
 export const alertZh = {
+  viewReplenishment: '查看补货',
   viewStock: '查看库存',
   title: '预警中心', hint: '按可用库存提醒；可用库存高于当前阈值时自动解除，确认跟进不会解除。',
   active: '处理中', open: '待跟进', acknowledged: '已跟进', resolved: '已解除', all: '全部状态',
@@ -17,6 +18,7 @@ export const alertZh = {
 } as const
 export type AlertMessageKey = keyof typeof alertZh
 export const alertEn: Record<AlertMessageKey, string> = {
+  viewReplenishment: 'View replenishment',
   viewStock: 'View stock',
   title: 'Stock alerts', hint: 'Based on available stock. Acknowledgement does not resolve an alert. Available stock must exceed the current threshold.',
   active: 'Active', open: 'Needs follow-up', acknowledged: 'Acknowledged', resolved: 'Resolved', all: 'All statuses',
