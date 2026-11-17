@@ -8,6 +8,7 @@ import type {
   PurchaseRecord,
   PurchaseReceiptRecord,
   PurchasingPage,
+  PurchaseDeliveryQuery,
 } from '@lingdian/contracts'
 const base = (store: string) => `/merchant/stores/${encodeURIComponent(store)}/inventory`
 function write<T>(url: string, body: unknown, method = 'POST'): Promise<T> {
@@ -47,10 +48,11 @@ export function purchaseList(
   keyword = '',
   status = 'ACTIVE',
   pendingItemId = '',
+  delivery: PurchaseDeliveryQuery = {},
 ): Promise<PurchasingPage<PurchaseRecord>> {
   return requestData(
     apiUrl(
-      `${base(store)}/purchases?${new URLSearchParams({ page: String(page), pageSize: '20', keyword, status, ...(pendingItemId ? { pendingItemId } : {}) })}`,
+      `${base(store)}/purchases?${new URLSearchParams({ page: String(page), pageSize: '20', keyword, status, ...(pendingItemId ? { pendingItemId } : {}), ...(delivery.delivery && delivery.delivery !== 'ALL' ? { delivery: delivery.delivery } : {}), ...(delivery.expectedBefore ? { expectedBefore: delivery.expectedBefore } : {}) })}`,
     ),
   )
 }

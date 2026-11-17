@@ -86,3 +86,10 @@ export interface PurchasingPage<T> {
   page: number;
   pageSize: number;
 }
+
+export type PurchaseDeliveryFilter = 'ALL' | 'BEFORE' | 'UNDATED';
+export interface PurchaseDeliveryQuery {
+  delivery?: PurchaseDeliveryFilter;
+  /** Exclusive, explicitly zoned instant. Required only for BEFORE. */
+  expectedBefore?: string;
+}

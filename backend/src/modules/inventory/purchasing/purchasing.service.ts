@@ -12,6 +12,7 @@ import {
   PurchaseOrderQueryDto,
   ReceivePurchaseDto,
 } from './purchasing.dto';
+import { purchaseDeliveryWhere } from './purchase-delivery';
 import { pendingPurchaseLines } from './pending-purchase-lines';
 import {
   assertReplay,
@@ -37,6 +38,7 @@ export class PurchasingService {
     this.scope.assertIncludes(user, storeId);
     const where: Prisma.PurchaseOrderWhereInput = {
       storeId,
+      ...purchaseDeliveryWhere(query),
       ...(query.pendingItemId ? { lines: { some: pendingPurchaseLines(this.db, storeId, query.pendingItemId) } } : {}),
       ...(query.status && query.status !== 'ALL'
         ? { status: query.status === 'ACTIVE' ? { in: ['OPEN', 'PARTIAL'] } : query.status }

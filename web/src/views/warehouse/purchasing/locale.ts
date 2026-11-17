@@ -1,5 +1,17 @@
 import { useLocale } from '@/i18n/locale'
 export const zh = {
+  deliveryFilter: '到货跟进',
+  allDelivery: '全部到货安排',
+  beforeDelivery: '早于指定日期未收',
+  undatedDelivery: '未填到货日期未收',
+  exclusiveBefore: '预计到货早于',
+  cutoffHint: '严格早于此时刻',
+  deliveryRules: '查看跟进口径',
+  cutoffExplanation: '新选日期按当前时区零点查询，不含边界时刻。链接中的精确时刻以此处为准；更改日期后重新按零点查询。',
+  dateTimezone: '日期时区',
+  appliedFilters: '当前筛选',
+  deliveryHint: '到货跟进仅包含待收货和部分收货单；预计日期是记录，不代表已到货，未收采购不计入现货。',
+  invalidDelivery: '请选择有效的到货筛选日期。',
   viewPending: '查看未收采购',
   selectedMaterial: '指定原料',
   unavailableMaterial: '当前门店无匹配原料',
@@ -22,6 +34,7 @@ export const zh = {
   restockHint:
     '建议量 = 阈值缺口 − 未收采购量，最低为零。未收采购不是现货，不增加订单可用量。零阈值需人工评估；建议不包含需求预测或安全库存模型。',
   generatedAt: '快照时间',
+  exportedAt: '导出时间',
   invalidPeriod: '请选择完整、有效且不超过 366 天的日期范围。',
   reportTooLarge: '报表超过大小或金额上限，请缩小日期或筛选范围。',
   totalCost: '收货总金额',
@@ -138,6 +151,20 @@ export const zh = {
 } as const
 export type Key = keyof typeof zh
 const en: Record<Key, string> = {
+  deliveryFilter: 'Delivery follow-up',
+  allDelivery: 'All delivery schedules',
+  beforeDelivery: 'Outstanding before date',
+  undatedDelivery: 'Outstanding without date',
+  exclusiveBefore: 'Expected before',
+  cutoffHint: 'Strictly earlier than this instant',
+  deliveryRules: 'Follow-up definitions',
+  cutoffExplanation:
+    'New dates use midnight in the current timezone, excluding that instant. A linked exact instant is retained as shown here; changing the date resets it to midnight.',
+  dateTimezone: 'Date timezone',
+  appliedFilters: 'Applied filters',
+  deliveryHint:
+    'Follow-up includes open and partially received orders only. Expected dates are records, not proof of arrival. Outstanding purchases are not stock on hand.',
+  invalidDelivery: 'Choose a valid delivery filter date.',
   viewPending: 'View pending orders',
   selectedMaterial: 'Selected material',
   unavailableMaterial: 'No matching material in this store',
@@ -162,6 +189,7 @@ const en: Record<Key, string> = {
   restockHint:
     'Suggested quantity = threshold shortage minus outstanding purchases, floored at zero. Outstanding purchases are not available stock. Assess zero thresholds manually. No demand forecast or safety-stock model is applied.',
   generatedAt: 'Snapshot time',
+  exportedAt: 'Exported at',
   invalidPeriod: 'Choose a complete, valid date range of up to 366 days.',
   reportTooLarge: 'Report exceeds size or cost limits. Narrow the dates or filters.',
   totalCost: 'Received cost',

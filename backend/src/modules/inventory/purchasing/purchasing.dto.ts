@@ -17,6 +17,7 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
+import type { PurchaseDeliveryFilter } from '@lingdian/contracts';
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 export class PurchasingQueryDto {
   @Type(() => Number) @IsInt() @Min(1) @Max(1000000) page = 1;
@@ -25,6 +26,8 @@ export class PurchasingQueryDto {
   @IsOptional() @IsIn(['ACTIVE', 'OPEN', 'PARTIAL', 'RECEIVED', 'CANCELLED', 'ALL']) status?: string;
 }
 export class PurchaseOrderQueryDto extends PurchasingQueryDto {
+  @IsOptional() @IsIn(['ALL', 'BEFORE', 'UNDATED']) delivery?: PurchaseDeliveryFilter;
+  @IsOptional() @IsISO8601({ strict: true, strictSeparator: true }) @Matches(/(?:Z|[+-]\d{2}:\d{2})$/) expectedBefore?: string;
   @IsOptional() @Transform(trim) @IsString() @MinLength(1) @MaxLength(191) pendingItemId?: string;
 }
 export class SupplierDto {

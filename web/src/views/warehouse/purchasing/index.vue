@@ -1,21 +1,25 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import type { PurchaseRecord, SupplierRecord, ReplenishmentRow } from '@lingdian/contracts'
+import type { PurchaseDeliveryFilter, PurchaseRecord, SupplierRecord, ReplenishmentRow } from '@lingdian/contracts'
 import { Button } from '@/baseComponents/button'
 import { purchaseList, supplierList } from '@/services/purchasing'
 import { downloadCsv } from '../report'
+import { dateInput } from '../activity-state'
 import ReceiptReport from './ReceiptReport.vue'
 import Replenishment from './Replenishment.vue'
 import SupplierEditor from './SupplierEditor.vue'
 import CreatePurchase from './CreatePurchase.vue'
 import PurchaseDetail from './PurchaseDetail.vue'
-import { usePurchasingLocale } from './locale'
+import { usePurchasingLocale, type Key } from './locale'
 import { materialId } from './replenishment-state'
+import { editedCutoff, isCanonicalList, listTarget, parseListState, type PurchasingListState } from './list-state'
 const props = defineProps<{ storeId: string; storeName: string }>(),
   { t, date, money, number } = usePurchasingLocale(),
   route = useRoute(),
   router = useRouter()
+const now = new Date(),
+  timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
 const filtersOpen = ref(false)
 const view = computed(() =>
   ['suppliers', 'report', 'replenishment'].includes(String(route.query.purchaseView))
@@ -24,10 +28,10 @@ const view = computed(() =>
 )
 const revision = ref(0),
   seedItem = ref<ReplenishmentRow>()
-const page = ref(1),
-  keyword = ref(''),
-  applied = ref(''),
-  status = ref('ACTIVE'),
+const keyword = ref(''),
+  status = ref<PurchasingListState['status']>('ACTIVE'),
+  delivery = ref<PurchaseDeliveryFilter>('ALL'),
+  before = ref(''),
   total = ref(0),
   orders = ref<PurchaseRecord[]>([]),
   suppliers = ref<SupplierRecord[]>([]),
@@ -36,38 +40,63 @@ const page = ref(1),
   newOrder = ref(false),
   supplierOpen = ref(false),
   selectedSupplier = ref<SupplierRecord>(),
-  saved = ref(false)
+  saved = ref(false),
+  filterError = ref(false)
 const id = computed(() => (typeof route.query.purchaseId === 'string' ? route.query.purchaseId : '')),
   pendingItemId = computed(() => materialId(route.query.pendingItemId)),
+  listState = computed(() => parseListState(route.query, view.value === 'suppliers', !!pendingItemId.value, now)),
+  page = computed(() => listState.value.page),
+  applied = computed(() => listState.value.keyword),
   pendingMaterial = computed(() =>
     orders.value.flatMap((order) => order.lines).find((line) => line.itemId === pendingItemId.value),
   ),
-  pageCount = computed(() => Math.max(1, Math.ceil(total.value / 20)))
+  pageCount = computed(() => Math.max(1, Math.ceil(total.value / 20))),
+  dirty = computed(
+    () =>
+      keyword.value.trim() !== applied.value ||
+      (view.value === 'orders' &&
+        (status.value !== listState.value.status ||
+          delivery.value !== listState.value.delivery ||
+          (delivery.value === 'BEFORE' && before.value !== dateInput(new Date(listState.value.expectedBefore))))),
+  )
+const statusLabel = (value: PurchasingListState['status']) =>
+  t(value === 'ACTIVE' ? 'active' : value === 'ALL' ? 'all' : value)
+const deliveryKey = (value: PurchaseDeliveryFilter): Key =>
+  value === 'BEFORE' ? 'beforeDelivery' : value === 'UNDATED' ? 'undatedDelivery' : 'allDelivery'
 function outstanding(order: PurchaseRecord) {
   const line = order.lines.find((line) => line.itemId === pendingItemId.value)
-  return line ? `${number(line.quantity - line.receivedQuantity)} ${line.unit}` : '—'
+  return line
+    ? `${number((Math.round(line.quantity * 1000) - Math.round(line.receivedQuantity * 1000)) / 1000)} ${line.unit}`
+    : '—'
 }
-let sequence = 0
+let sequence = 0,
+  disposed = false
+function navigate(next: PurchasingListState, replace = false) {
+  const target = { query: listTarget(route.query, next, view.value === 'suppliers') }
+  return replace ? router.replace(target) : router.push(target)
+}
 async function load() {
-  const current = ++sequence
+  const current = ++sequence,
+    state = listState.value,
+    isOrders = view.value === 'orders'
   loading.value = true
   failed.value = false
   try {
-    const result =
-      view.value === 'orders'
-        ? await purchaseList(props.storeId, page.value, applied.value, status.value, pendingItemId.value)
-        : await supplierList(props.storeId, page.value, applied.value)
-    if (current === sequence) {
-      const last = Math.max(1, Math.ceil(result.total / 20))
-      if (page.value > last) {
-        page.value = last
-        void load()
-        return
-      }
-      if (view.value === 'orders') orders.value = result.items as PurchaseRecord[]
-      else suppliers.value = result.items as SupplierRecord[]
-      total.value = result.total
+    const result = isOrders
+      ? await purchaseList(props.storeId, state.page, state.keyword, state.status, pendingItemId.value, {
+          delivery: state.delivery,
+          ...(state.delivery === 'BEFORE' ? { expectedBefore: state.expectedBefore } : {}),
+        })
+      : await supplierList(props.storeId, state.page, state.keyword)
+    if (current !== sequence) return
+    const last = Math.max(1, Math.ceil(result.total / 20))
+    if (state.page > last) {
+      await navigate({ ...state, page: last }, true)
+      return
     }
+    if (isOrders) orders.value = result.items as PurchaseRecord[]
+    else suppliers.value = result.items as SupplierRecord[]
+    total.value = result.total
   } catch {
     if (current === sequence) failed.value = true
   } finally {
@@ -75,18 +104,38 @@ async function load() {
   }
 }
 watch(
-  () => props.storeId,
-  () => {
-    sequence++
-    page.value = 1
-    orders.value = []
-    suppliers.value = []
-    newOrder.value = false
-    supplierOpen.value = false
-    if (props.storeId && (view.value === 'orders' || view.value === 'suppliers')) void load()
+  [() => props.storeId, () => view.value, () => JSON.stringify(listState.value), () => pendingItemId.value],
+  async () => {
+    const current = ++sequence
+    filterError.value = false
+    saved.value = false
+    const state = listState.value
+    keyword.value = state.keyword
+    status.value = state.status
+    delivery.value = state.delivery
+    before.value = dateInput(new Date(state.expectedBefore))
+    if (view.value !== 'orders' && view.value !== 'suppliers') {
+      loading.value = false
+      return
+    }
+    if (!isCanonicalList(route.query, state, view.value === 'suppliers'))
+      await router.replace({ query: listTarget(route.query, state, view.value === 'suppliers') })
+    if (current === sequence && !disposed && props.storeId) await load()
   },
   { immediate: true },
 )
+watch(
+  () => props.storeId,
+  () => {
+    newOrder.value = false
+    supplierOpen.value = false
+    orders.value = []
+    suppliers.value = []
+  },
+)
+watch(delivery, (value) => {
+  if (value !== 'ALL') status.value = 'ACTIVE'
+})
 function switchView(next: 'orders' | 'suppliers' | 'report' | 'replenishment') {
   void router.push({
     query: {
@@ -96,26 +145,17 @@ function switchView(next: 'orders' | 'suppliers' | 'report' | 'replenishment') {
       pendingItemId: undefined,
     },
   })
-  keyword.value = ''
-  applied.value = ''
-  page.value = 1
   saved.value = false
 }
-watch(pendingItemId, () => {
-  keyword.value = ''
-  applied.value = ''
-  page.value = 1
-  status.value = 'ACTIVE'
-})
-watch(
-  () => [view.value, pendingItemId.value],
-  () => {
-    sequence++
-    if (view.value === 'orders' || view.value === 'suppliers') void load()
-  },
-)
 function showPending(itemId: string) {
-  void router.push({ query: { ...route.query, purchaseView: undefined, purchaseId: undefined, pendingItemId: itemId } })
+  void router.push({
+    query: {
+      ...listTarget(route.query, parseListState({})),
+      purchaseView: undefined,
+      purchaseId: undefined,
+      pendingItemId: itemId,
+    },
+  })
 }
 function backToPlan() {
   void router.push({
@@ -123,13 +163,35 @@ function backToPlan() {
   })
 }
 function go(value: number) {
-  page.value = value
-  void load()
+  void navigate({ ...listState.value, page: value })
 }
-function search() {
-  applied.value = keyword.value.trim()
-  page.value = 1
-  void load()
+async function search() {
+  filterError.value = false
+  try {
+    const next = {
+      ...listState.value,
+      keyword: keyword.value.trim(),
+      status: status.value,
+      delivery: delivery.value,
+      page: 1,
+      expectedBefore:
+        delivery.value === 'BEFORE' ? editedCutoff(listState.value, before.value) : listState.value.expectedBefore,
+    }
+    if (JSON.stringify(next) === JSON.stringify(listState.value)) await load()
+    else await navigate(next)
+  } catch {
+    filterError.value = true
+  }
+}
+function resetFilters() {
+  const state = parseListState({}, view.value === 'suppliers', !!pendingItemId.value, new Date())
+  keyword.value = ''
+  status.value = 'ACTIVE'
+  delivery.value = 'ALL'
+  before.value = dateInput(new Date(state.expectedBefore))
+  filterError.value = false
+  if (isCanonicalList(route.query, state, view.value === 'suppliers')) void load()
+  else void navigate(state)
 }
 function edit(record?: SupplierRecord) {
   selectedSupplier.value = record
@@ -157,16 +219,17 @@ function created(id: string) {
   open(id)
 }
 function exportPage() {
+  if (loading.value || failed.value || dirty.value || !orders.value.length) return
+  const state = listState.value
   const rows: (string | number)[][] = [
     [props.storeName, props.storeId],
-    [t('page'), page.value, t('records'), total.value],
-    [
-      t('search'),
-      applied.value,
-      t('status'),
-      t(status.value === 'ACTIVE' ? 'active' : status.value === 'ALL' ? 'all' : (status.value as 'OPEN')),
-    ],
+    [t('page'), state.page, t('records'), total.value],
+    [t('exportedAt'), new Date().toISOString()],
+    [t('search'), state.keyword, t('status'), statusLabel(state.status)],
+    [t('deliveryFilter'), t(deliveryKey(state.delivery))],
+    [t('dateTimezone'), timeZone],
   ]
+  if (state.delivery === 'BEFORE') rows.push([t('exclusiveBefore'), state.expectedBefore])
   if (pendingItemId.value) rows.push([t('pendingFilter'), pendingMaterial.value?.itemName ?? '', pendingItemId.value])
   rows.push([
     t('orderNo'),
@@ -175,7 +238,8 @@ function exportPage() {
     t('orderedCost') + ' (CNY)',
     t('receivedCost') + ' (CNY)',
     t('createdAt'),
-    ...(pendingItemId.value ? [t('pending'), t('expectedAt')] : []),
+    t('expectedAt'),
+    ...(pendingItemId.value ? [t('pending')] : []),
   ])
   for (const row of orders.value)
     rows.push([
@@ -185,11 +249,13 @@ function exportPage() {
       row.totalCostCents / 100,
       row.receivedCostCents / 100,
       row.createdAt,
-      ...(pendingItemId.value ? [outstanding(row), row.expectedAt ?? ''] : []),
+      row.expectedAt ?? '',
+      ...(pendingItemId.value ? [outstanding(row)] : []),
     ])
-  downloadCsv(`purchases-${new Date().toISOString().slice(0, 10)}-p${page.value}.csv`, rows)
+  downloadCsv(`purchases-${new Date().toISOString().slice(0, 10)}-p${state.page}.csv`, rows)
 }
 onBeforeUnmount(() => {
+  disposed = true
   sequence++
 })
 </script>
@@ -199,6 +265,7 @@ onBeforeUnmount(() => {
       <div class="flex min-w-0 max-w-full flex-nowrap gap-1 overflow-x-auto [&>button]:shrink-0">
         <Button
           :variant="view === 'orders' ? 'secondary' : 'ghost'"
+          :disabled="loading || dirty"
           :aria-pressed="view === 'orders'"
           @click="switchView('orders')"
         >
@@ -206,6 +273,7 @@ onBeforeUnmount(() => {
         </Button>
         <Button
           :variant="view === 'suppliers' ? 'secondary' : 'ghost'"
+          :disabled="loading || dirty"
           :aria-pressed="view === 'suppliers'"
           @click="switchView('suppliers')"
         >
@@ -213,6 +281,7 @@ onBeforeUnmount(() => {
         </Button>
         <Button
           :variant="view === 'report' ? 'secondary' : 'ghost'"
+          :disabled="loading || dirty"
           :aria-pressed="view === 'report'"
           @click="switchView('report')"
         >
@@ -220,6 +289,7 @@ onBeforeUnmount(() => {
         </Button>
         <Button
           :variant="view === 'replenishment' ? 'secondary' : 'ghost'"
+          :disabled="loading || dirty"
           :aria-pressed="view === 'replenishment'"
           @click="switchView('replenishment')"
         >
@@ -230,9 +300,8 @@ onBeforeUnmount(() => {
         <Button variant="outline" :disabled="loading" @click="load">{{ t('refresh') }}</Button>
         <Button
           v-if="view === 'orders'"
-          class="hidden sm:inline-flex"
           variant="outline"
-          :disabled="loading || failed || !orders.length || keyword.trim() !== applied"
+          :disabled="loading || failed || !orders.length || dirty"
           @click="exportPage"
         >
           {{ t('export') }}
@@ -270,10 +339,13 @@ onBeforeUnmount(() => {
           <p class="mt-2">{{ t('pendingFilterHint') }}</p>
         </details>
         <div class="flex flex-wrap gap-2">
-          <Button size="sm" variant="outline" @click="backToPlan">{{ t('backToPlan') }}</Button>
+          <Button size="sm" variant="outline" :disabled="dirty || loading" @click="backToPlan">{{
+            t('backToPlan')
+          }}</Button>
           <Button
             size="sm"
             variant="ghost"
+            :disabled="dirty || loading"
             @click="router.push({ query: { ...route.query, pendingItemId: undefined } })"
             >{{ t('clearFocus') }}</Button
           >
@@ -299,8 +371,8 @@ onBeforeUnmount(() => {
           <input v-model="keyword" type="search" maxlength="120" />
         </label>
         <label v-if="view === 'orders' && !pendingItemId">
-          <span class="sr-only">{{ t('status') }}</span>
-          <select v-model="status" :aria-label="t('status')" :disabled="loading" @change="go(1)">
+          <span>{{ t('status') }}</span>
+          <select v-model="status" :aria-label="t('status')" :disabled="loading || delivery !== 'ALL'">
             <option value="ACTIVE">{{ t('active') }}</option>
             <option value="ALL">{{ t('all') }}</option>
             <option v-for="value in ['OPEN', 'PARTIAL', 'RECEIVED', 'CANCELLED'] as const" :key="value" :value="value">
@@ -308,8 +380,36 @@ onBeforeUnmount(() => {
             </option>
           </select>
         </label>
-        <Button type="submit" variant="outline" :disabled="loading">{{ t('find') }}</Button>
+        <label v-if="view === 'orders'"
+          >{{ t('deliveryFilter')
+          }}<select v-model="delivery" :aria-label="t('deliveryFilter')" :disabled="loading">
+            <option value="ALL">{{ t('allDelivery') }}</option>
+            <option value="BEFORE">{{ t('beforeDelivery') }}</option>
+            <option value="UNDATED">{{ t('undatedDelivery') }}</option>
+          </select></label
+        >
+        <label v-if="view === 'orders' && delivery === 'BEFORE'"
+          >{{ t('exclusiveBefore') }}<input v-model="before" type="date" required
+        /></label>
+        <Button type="submit" variant="outline" :disabled="loading">{{ t('find') }}</Button
+        ><Button type="button" variant="ghost" :disabled="loading" @click="resetFilters">{{ t('reset') }}</Button>
       </form>
+      <p v-if="filterError" role="alert" class="error">{{ t('invalidDelivery') }}</p>
+      <p v-if="dirty" role="status" class="help">{{ t('dirty') }}</p>
+      <p v-if="view === 'orders'" class="help break-words">
+        {{ t('appliedFilters') }}: {{ statusLabel(listState.status) }} · {{ t(deliveryKey(listState.delivery))
+        }}<template v-if="listState.delivery === 'BEFORE'">
+          · {{ date(listState.expectedBefore) }} ({{ timeZone }}) · {{ t('cutoffHint') }}</template
+        ><template v-if="applied"> · {{ applied }}</template>
+      </p>
+      <details v-if="view === 'orders' && listState.delivery !== 'ALL'" class="help">
+        <summary class="cursor-pointer">{{ t('deliveryRules') }}</summary>
+        <template v-if="listState.delivery === 'BEFORE'"
+          ><p class="mt-2 break-all">{{ listState.expectedBefore }} · {{ timeZone }}</p>
+          <p class="mt-2">{{ t('cutoffExplanation') }}</p></template
+        >
+        <p class="mt-2">{{ t('deliveryHint') }}</p>
+      </details>
       <p v-if="saved" role="status" class="text-sm text-emerald-700">{{ t('saved') }}</p>
       <p v-if="loading" role="status" class="help py-6 text-center">{{ t('loading') }}</p>
       <div v-else-if="failed" role="alert">
@@ -328,7 +428,8 @@ onBeforeUnmount(() => {
                 <th>{{ t('orderedCost') }}</th>
                 <th>{{ t('receivedCost') }}</th>
                 <th>{{ t('createdAt') }}</th>
-                <th v-if="pendingItemId">{{ t('pending') }} / {{ t('expectedAt') }}</th>
+                <th>{{ t('expectedAt') }}</th>
+                <th v-if="pendingItemId">{{ t('pending') }}</th>
                 <th></th>
               </tr>
             </thead>
@@ -340,14 +441,13 @@ onBeforeUnmount(() => {
                 <td class="tabular-nums">{{ money(order.totalCostCents) }}</td>
                 <td class="tabular-nums">{{ money(order.receivedCostCents) }}</td>
                 <td>{{ date(order.createdAt) }}</td>
-                <td v-if="pendingItemId">
-                  <p>{{ outstanding(order) }}</p>
-                  <p class="help mt-1">{{ date(order.expectedAt) }}</p>
-                </td>
+                <td>{{ date(order.expectedAt) }}</td>
+                <td v-if="pendingItemId">{{ outstanding(order) }}</td>
                 <td>
                   <Button
                     variant="outline"
                     size="sm"
+                    :disabled="dirty || loading"
                     :aria-label="`${t('details')} ${order.orderNo}`"
                     @click="open(order.id)"
                   >
@@ -365,9 +465,8 @@ onBeforeUnmount(() => {
               <span class="shrink-0">{{ t(order.status) }}</span>
             </div>
             <p class="break-words">{{ order.supplierName }}</p>
-            <p v-if="pendingItemId" class="break-words">
-              {{ t('pending') }}: {{ outstanding(order) }} · {{ t('expectedAt') }}: {{ date(order.expectedAt) }}
-            </p>
+            <p v-if="pendingItemId" class="break-words">{{ t('pending') }}: {{ outstanding(order) }}</p>
+            <p class="help">{{ t('expectedAt') }}: {{ date(order.expectedAt) }}</p>
             <p class="help">
               {{ t('orderedCost') }} {{ money(order.totalCostCents) }} · {{ t('receivedCost') }}
               {{ money(order.receivedCostCents) }}
@@ -377,6 +476,7 @@ onBeforeUnmount(() => {
               <Button
                 size="sm"
                 variant="outline"
+                :disabled="dirty || loading"
                 :aria-label="`${t('details')} ${order.orderNo}`"
                 @click="open(order.id)"
               >
@@ -408,15 +508,10 @@ onBeforeUnmount(() => {
       <div v-if="!loading && !failed" class="flex flex-wrap items-center justify-between gap-3 border-t pt-3 text-sm">
         <span>{{ total }} {{ t('records') }} · {{ t('page') }} {{ page }} / {{ pageCount }}</span>
         <div class="flex gap-2">
-          <Button size="sm" variant="outline" :disabled="page <= 1 || keyword.trim() !== applied" @click="go(page - 1)">
+          <Button size="sm" variant="outline" :disabled="loading || page <= 1 || dirty" @click="go(page - 1)">
             {{ t('previous') }}
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            :disabled="page >= pageCount || keyword.trim() !== applied"
-            @click="go(page + 1)"
-          >
+          <Button size="sm" variant="outline" :disabled="loading || page >= pageCount || dirty" @click="go(page + 1)">
             {{ t('next') }}
           </Button>
         </div>

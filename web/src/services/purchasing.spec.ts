@@ -78,3 +78,22 @@ it('requests complete scoped analysis snapshots with exact receipt instants and 
     pendingItemId: 'i/1',
   })
 })
+
+it('sends delivery cutoff or missing-date follow-up to the server without losing status or material scope', async () => {
+  await purchaseList('store/a', 2, 'flour', 'ACTIVE', 'i/1', {
+    delivery: 'BEFORE',
+    expectedBefore: '2026-11-18T02:30:12.123Z',
+  })
+  let url = new URL(requestData.mock.calls.at(-1)![0])
+  expect(Object.fromEntries(url.searchParams)).toMatchObject({
+    page: '2',
+    pendingItemId: 'i/1',
+    status: 'ACTIVE',
+    delivery: 'BEFORE',
+    expectedBefore: '2026-11-18T02:30:12.123Z',
+  })
+  await purchaseList('store/a', 1, '', 'ACTIVE', '', { delivery: 'UNDATED' })
+  url = new URL(requestData.mock.calls.at(-1)![0])
+  expect(url.searchParams.get('delivery')).toBe('UNDATED')
+  expect(url.searchParams.has('expectedBefore')).toBe(false)
+})

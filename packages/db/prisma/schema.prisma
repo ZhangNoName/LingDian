@@ -991,6 +991,7 @@ model PurchaseOrder {
   @@unique([storeId,orderNo])
   @@index([supplierId,storeId])
   @@index([storeId,status,createdAt])
+  @@index([storeId,status,expectedAt])
   @@map("purchase_orders")
 }
 
