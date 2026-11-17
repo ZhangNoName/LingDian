@@ -136,7 +136,19 @@ async function main() {
     await assert.rejects(alerts.acknowledge(user, storeId, lowAlert.id, { expectedVersion: lowAlert.version, note: 'Old screen must not hide escalation' }), /inventory.alertStale/);
     const page = await alerts.list(user, storeId, { page: 1, pageSize: 20, status: 'OPEN', keyword: 'ALERT-CASE', severity: 'OUT' });
     assert.equal(page.total, 1); assert.equal(page.items[0].availableAtTrigger, 0.75); assert.equal(page.items[0].availableLatest, 0);
+    const beforeDetail = await db.inventoryAlert.findUniqueOrThrow({ where: { id: lowAlert.id } });
+    const stockBeforeDetail = await db.inventoryItem.findUniqueOrThrow({ where: { id: alertMaterial.id } });
+    const auditsBeforeDetail = await db.authAuditLog.count();
+    const exact = await alerts.detail(user, storeId, lowAlert.id);
+    assert.equal(exact.version, escalated.version); assert.equal(exact.severity, 'OUT'); assert.equal(exact.status, 'OPEN');
+    assert.equal(exact.note, 'Supplier contacted'); assert.equal(exact.availableLatest, 0);
+    assert.deepEqual(await db.inventoryAlert.findUniqueOrThrow({ where: { id: lowAlert.id } }), beforeDetail);
+    assert.deepEqual(await db.inventoryItem.findUniqueOrThrow({ where: { id: alertMaterial.id } }), stockBeforeDetail);
+    assert.equal(await db.authAuditLog.count(), auditsBeforeDetail);
     await adjustAlertMaterial('RECEIVE', 2, 'test-alert-refill');
+    const recoveredDetail = await alerts.detail(user, storeId, lowAlert.id);
+    assert.equal(recoveredDetail.status, 'RESOLVED'); assert.equal(recoveredDetail.resolutionReason, 'RECOVERED');
+    assert.equal(recoveredDetail.availableAtTrigger, .75); assert.equal(recoveredDetail.availableLatest, 2); assert.ok(recoveredDetail.resolvedAt);
     const beforeRollback = await db.inventoryAlert.findMany({ where: { itemId: alertMaterial.id }, orderBy: { id: 'asc' } });
     const materialBeforeRollback = await db.inventoryItem.findUniqueOrThrow({ where: { id: alertMaterial.id } });
     await assert.rejects(transaction(async tx => {
@@ -150,9 +162,13 @@ async function main() {
     const foreignMaterial = await inventory.create({ ...user, merchantStoreIds: ['test-store-b'] }, 'test-store-b', { code: 'FOREIGN-ALERT', name: 'Foreign alert', unit: 'kg', reorderPoint: 0 });
     const foreignAlert = await db.inventoryAlert.findUniqueOrThrow({ where: { activeItemKey: foreignMaterial.id } });
     await assert.rejects(alerts.acknowledge(user, storeId, foreignAlert.id, { expectedVersion: foreignAlert.version, note: 'Cross-store attempt' }), /inventory.alertNotFound/);
+    await assert.rejects(alerts.detail(user, storeId, foreignAlert.id), /inventory.alertNotFound/);
+    await assert.rejects(alerts.detail(user, 'test-store-b', foreignAlert.id));
+    await assert.rejects(alerts.detail({ ...user, merchantStoreIds: [storeId, 'test-store-b'] }, storeId, foreignAlert.id), /inventory.alertNotFound/);
+    assert.equal((await alerts.detail({ ...user, merchantStoreIds: ['test-store-b'] }, 'test-store-b', foreignAlert.id)).name, 'Foreign alert');
     await assert.rejects(alerts.list(user, 'test-store-b', { page: 1, pageSize: 20, status: 'ALL' }));
     assert.equal((await alerts.list(user, storeId, { page: 1, pageSize: 20, status: 'ACTIVE' })).summary.open, 0);
-    console.log('PASS MySQL alerts: creation, recovery, new episode, concurrent acknowledgement once, escalation, stale screen, scoped filtering and atomic stock/alert rollback.');
+    console.log('PASS MySQL alerts: creation, recovery, new episode, concurrent acknowledgement once, escalation, stale screen, exact readonly detail with resolved history, scoped filtering and atomic stock/alert rollback.');
     console.log('PASS MySQL: competing checkout, rollback, immutable recipe snapshot, duplicate confirmation, release, tenant isolation, reserved count protection, report SQL.');
     await verifyMerchantOperations(prisma);
     await verifyCatalog(prisma);

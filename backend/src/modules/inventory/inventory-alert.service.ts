@@ -10,6 +10,15 @@ type Alert = Prisma.InventoryAlertGetPayload<{ include: typeof include }>;
 @Injectable()
 export class InventoryAlertService {
   constructor(private readonly prisma: PrismaService, private readonly scope: MerchantStoreScope) {}
+  async detail(user: AuthenticatedUser, storeId: string, id: string): Promise<InventoryAlertRecord> {
+    this.scope.assertIncludes(user, storeId);
+    // The alert and material lifecycle may change together. Read relation metadata from the same snapshot.
+    return this.prisma.$transaction(async tx => {
+      const row = await tx.inventoryAlert.findUnique({ where: { id_storeId: { id, storeId } }, include });
+      if (!row) throw new NotFoundException('inventory.alertNotFound');
+      return present(row);
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+  }
   async list(user: AuthenticatedUser, storeId: string, query: InventoryAlertQueryDto): Promise<InventoryAlertPage> {
     this.scope.assertIncludes(user, storeId);
     const where: Prisma.InventoryAlertWhereInput = {

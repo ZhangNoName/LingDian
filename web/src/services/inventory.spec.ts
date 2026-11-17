@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 const { requestData } = vi.hoisted(() => ({ requestData: vi.fn() }))
 vi.mock('@/lib/api', () => ({ requestData }))
-import { getInventoryUsage, getInventoryRecipe, changeInventoryLifecycle, inventoryItemDetail, listInventory, getInventoryReport, listInventoryMovements, listInventoryAlerts, acknowledgeInventoryAlert } from './inventory'
+import { getInventoryAlert, getInventoryUsage, getInventoryRecipe, changeInventoryLifecycle, inventoryItemDetail, listInventory, getInventoryReport, listInventoryMovements, listInventoryAlerts, acknowledgeInventoryAlert } from './inventory'
 
 describe('inventory report and history requests', () => {
   beforeEach(() => requestData.mockReset())
@@ -55,4 +55,11 @@ it('addresses related records and exact recipe details with encoded store/object
   expect(Object.fromEntries(url.searchParams)).toEqual({ view: 'STOCKTAKES', page: '3' })
   await getInventoryRecipe('store/a', 'sku/1')
   expect(requestData.mock.calls.at(-1)![0]).toContain('/store%2Fa/inventory/recipes/sku%2F1')
+})
+
+it('loads an exact alert by encoded store and id independently of list filters', async () => {
+  await getInventoryAlert('store/a', 'alert/1 & 2')
+  const url = new URL(requestData.mock.calls.at(-1)![0])
+  expect(url.pathname).toContain('/store%2Fa/inventory/alerts/alert%2F1%20%26%202')
+  expect(url.search).toBe('')
 })

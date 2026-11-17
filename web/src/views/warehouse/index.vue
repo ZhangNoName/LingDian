@@ -59,7 +59,7 @@ async function load() {
   } catch { if (current === sequence) errorKey.value = 'loadFailed' }
   finally { if (current === sequence) loading.value = false }
 }
-function switchView(value: 'inventory' | 'history' | 'report' | 'recipes' | 'alerts' | 'holds' | 'purchases' | 'stocktakes') { void router.push({ query: { ...route.query, view: value, page: undefined, itemId: undefined, purchaseId: undefined, stocktakeId: undefined } }) }
+function switchView(value: 'inventory' | 'history' | 'report' | 'recipes' | 'alerts' | 'holds' | 'purchases' | 'stocktakes') { void router.push({ query: { ...route.query, view: value, page: undefined, itemId: undefined, purchaseId: undefined, stocktakeId: undefined, alertId: undefined } }) }
 function replenish(itemId: string) { void router.push({ query: { ...route.query, ...replenishmentFocus(itemId) } }) }
 function stockFromAlert(code: string, scope: 'ACTIVE' | 'ARCHIVED') { keyword.value = code; appliedKeyword.value = code; status.value = ''; page.value = 1; void router.push({query:{...route.query,view:'inventory',inventoryLifecycle:scope === 'ARCHIVED' ? scope : undefined}}) }
 function filter(value: InventoryStatus | '') { status.value = value; page.value = 1; if (lifecycle.value !== 'ACTIVE') { nextScopeStatus = value; void router.push({query:{...route.query,inventoryLifecycle:undefined}}) } else void load() }

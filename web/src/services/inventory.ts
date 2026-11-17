@@ -52,6 +52,9 @@ export function listInventoryAlerts(storeId: string, query: AlertQuery): Promise
 export function acknowledgeInventoryAlert(storeId: string, id: string, body: import('@lingdian/contracts').AcknowledgeInventoryAlertRequest): Promise<import('@lingdian/contracts').InventoryAlertRecord> {
   return requestData(apiUrl(`${base(storeId)}/alerts/${encodeURIComponent(id)}/acknowledge`), jsonPost(body))
 }
+export function getInventoryAlert(storeId: string, id: string): Promise<import('@lingdian/contracts').InventoryAlertRecord> {
+  return requestData(apiUrl(`${base(storeId)}/alerts/${encodeURIComponent(id)}`))
+}
 
 export function inventoryItemDetail(storeId: string, itemId: string): Promise<InventoryItemContract> { return requestData(apiUrl(`${base(storeId)}/items/${encodeURIComponent(itemId)}`)) }
 export function changeInventoryLifecycle(storeId: string, itemId: string, body: import('@lingdian/contracts').ChangeInventoryLifecycleRequest): Promise<InventoryItemContract> { return requestData(apiUrl(`${base(storeId)}/items/${encodeURIComponent(itemId)}/lifecycle`), { ...jsonPost(body), method: 'PUT' }) }

@@ -22,7 +22,7 @@ test('material detail routes coexist with purchasing and suppliers, and lifecycl
     controllers: [InventoryController, PurchasingController],
     providers: [
       { provide: InventoryUsageService, useValue: { usage: () => ({ route: 'usage' }) } }, { provide: InventoryService, useValue: {} }, { provide: InventoryReportService, useValue: {} },
-      { provide: InventoryRecipeService, useValue: { detail: () => ({ route: 'recipe' }) } }, { provide: InventoryAlertService, useValue: {} },
+      { provide: InventoryRecipeService, useValue: { detail: () => ({ route: 'recipe' }) } }, { provide: InventoryAlertService, useValue: { detail: (_user: unknown, store: string, id: string) => ({ store, id, route: 'alert' }), list: () => ({ route: 'alerts' }) } },
       { provide: PurchasingAnalysisService, useValue: {} },
       { provide: PurchasingService, useValue: { list: () => ({ route: 'purchases' }) } },
       { provide: SupplierService, useValue: { list: () => ({ route: 'suppliers' }) } },
@@ -40,6 +40,8 @@ test('material detail routes coexist with purchasing and suppliers, and lifecycl
     assert.deepEqual(await (await fetch(base + '/items/material-a/usage?view=PURCHASES&page=2')).json(), { route: 'usage' });
     assert.equal((await fetch(base + '/items/material-a/usage?view=bad')).status, 400);
     assert.deepEqual(await (await fetch(base + '/recipes/sku-a')).json(), { route: 'recipe' });
+    assert.deepEqual(await (await fetch(base + '/alerts')).json(), { route: 'alerts' });
+    assert.deepEqual(await (await fetch(base + '/alerts/alert-a')).json(), { store: 'store-a', id: 'alert-a', route: 'alert' });
     const body = { isActive: false, expectedVersion: 2, reason: ' Retired ' };
     const put = (data: unknown) => fetch(base + '/items/material-a/lifecycle', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
     assert.equal((await put(body)).status, 200);

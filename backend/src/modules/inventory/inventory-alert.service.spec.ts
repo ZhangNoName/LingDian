@@ -16,7 +16,7 @@ function fixture() {
   const included = (row: any) => ({ ...row, item: { name: 'Flour', code: 'RM-001', unit: 'kg' } });
   const tx: any = {
     inventoryAlert: {
-      findUnique: async ({ where }: any) => { const row = match(where); return row ? { ...row } : null; },
+      findUnique: async ({ where, include }: any) => { const row = match(where); return row ? include ? included(row) : { ...row } : null; },
       findUniqueOrThrow: async ({ where, include }: any) => { const row = match(where); if (!row) throw Error('not found'); return include ? included(row) : { ...row }; },
       create: async ({ data }: any) => { const row = { id: 'alert-'+rows.length, status: 'OPEN', version: 0, detectedAt: new Date(), updatedAt: new Date(), acknowledgedAt: null, acknowledgedBy: null, note: null, resolvedAt: null, ...data }; rows.push(row); return { ...row }; },
       update: async ({ where, data, include }: any) => { locks.push('alert'); const row = match(where); Object.assign(row, { ...data, version: row.version + (data.version?.increment ?? 0), updatedAt: new Date() }); return include ? included(row) : { ...row }; },
@@ -75,4 +75,19 @@ test('alert DTO rejects blank or oversized notes, invalid versions, statuses and
   assert.equal(validateSync(plainToInstance(AcknowledgeInventoryAlertDto, { expectedVersion: 0, note: ' Planned ' })).length, 0);
   assert.equal(plainToInstance(AcknowledgeInventoryAlertDto, { note: ' Planned ' }).note, 'Planned');
   for (const query of [{ status: 'CLOSED' }, { severity: 'HEALTHY' }, { page: '0' }, { pageSize: '101' }]) assert.ok(validateSync(plainToInstance(InventoryAlertQueryDto, query)).length);
+});
+
+test('exact alert detail is a scoped readonly record including resolved history', async () => {
+  const f = fixture(); await f.sync();
+  const before = structuredClone(f.rows), auditCount = f.audits.length;
+  const detail = await f.service.detail(user, 'store-a', f.rows[0].id);
+  assert.equal(detail.name, 'Flour'); assert.equal(detail.availableAtTrigger, .5); assert.equal(detail.version, 0);
+  assert.deepEqual(f.rows, before); assert.deepEqual(f.locks, []); assert.equal(f.audits.length, auditCount);
+  await assert.rejects(f.service.detail(user, 'store-b', f.rows[0].id), /not authorized/);
+  await assert.rejects(f.service.detail({ ...user, merchantStoreIds: ['store-a', 'store-b'] }, 'store-b', f.rows[0].id), /inventory.alertNotFound/);
+  await f.sync({ availableQuantity: 2000 });
+  const resolved = await f.service.detail(user, 'store-a', f.rows[0].id);
+  assert.equal(resolved.status, 'RESOLVED'); assert.equal(resolved.availableLatest, 2); assert.ok(resolved.resolvedAt);
+  const guarded = new InventoryAlertService(new Proxy({}, { get() { throw Error('database accessed'); } }) as never, { assertIncludes() { throw Error('scope first'); } } as never);
+  await assert.rejects(guarded.detail(user, 'foreign', 'alert'), /scope first/);
 });

@@ -42,6 +42,11 @@ export class InventoryController {
     return this.alerts.list(user, storeId, query);
   }
 
+  @Get('alerts/:alertId')
+  alertDetail(@CurrentUser() user: AuthenticatedUser, @Param('storeId') storeId: string, @Param('alertId') alertId: string) {
+    return this.alerts.detail(user, storeId, alertId);
+  }
+
   @Post('alerts/:alertId/acknowledge')
   acknowledgeAlert(@CurrentUser() user: AuthenticatedUser, @Param('storeId') storeId: string, @Param('alertId') alertId: string, @Body() body: AcknowledgeInventoryAlertDto) {
     return this.alerts.acknowledge(user, storeId, alertId, body);
