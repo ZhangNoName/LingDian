@@ -11,7 +11,7 @@ const props = defineProps<{ storeId: string; id: string }>(),
   emit = defineEmits<{
     close: []
     saved: []
-    stock: [code: string, lifecycle: 'ACTIVE' | 'ARCHIVED']
+    stock: [itemId: string, lifecycle: 'ACTIVE' | 'ARCHIVED']
     replenish: [itemId: string]
   }>()
 const { locale } = useLocale(),
@@ -109,7 +109,7 @@ async function acknowledge() {
 }
 function stock() {
   if (row.value && !busy.value && !failed.value)
-    emit('stock', row.value.code, row.value.itemIsActive === false ? 'ARCHIVED' : 'ACTIVE')
+    emit('stock', row.value.itemId, row.value.itemIsActive === false ? 'ARCHIVED' : 'ACTIVE')
 }
 function replenish() {
   if (row.value && !busy.value && !failed.value && row.value.status !== 'RESOLVED')

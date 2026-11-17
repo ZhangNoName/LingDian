@@ -5,9 +5,7 @@ import { Button } from '@/baseComponents/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/baseComponents/dialog'
 import { changeInventoryLifecycle, inventoryItemDetail } from '@/services/inventory'
 import MaterialUsage from './MaterialUsage.vue'
-import RecipeEditor from '../RecipeEditor.vue'
-import PurchaseDetail from '../purchasing/PurchaseDetail.vue'
-import StocktakeDetail from '../stocktakes/StocktakeDetail.vue'
+import RelatedRecordDialog from './RelatedRecordDialog.vue'
 import { useUsageLocale } from './usage-locale'
 import { lifecycleError, useLifecycleLocale, type LifecycleKey } from './locale'
 const props = defineProps<{ item?: InventoryItemContract; storeId: string; storeName: string }>(),
@@ -202,25 +200,10 @@ onBeforeUnmount(() => {
       <Button v-if="done" variant="outline" class="justify-self-end" @click="close">{{ t('close') }}</Button>
     </DialogContent></Dialog
   >
-  <RecipeEditor
-    v-if="inspecting?.kind === 'RECIPES'"
-    :store-id="storeId"
-    :sku-id="inspecting.skuId"
-    @close="finishInspect"
-    @saved="relatedChanged = true"
-  />
-  <PurchaseDetail
-    v-else-if="inspecting?.kind === 'PURCHASES'"
-    :store-id="storeId"
-    :id="inspecting.orderId"
-    @close="finishInspect"
-    @saved="relatedChanged = true"
-  />
-  <StocktakeDetail
-    v-else-if="inspecting?.kind === 'STOCKTAKES'"
+  <RelatedRecordDialog
+    :record="inspecting"
     :store-id="storeId"
     :store-name="storeName"
-    :id="inspecting.stocktakeId"
     @close="finishInspect"
     @saved="relatedChanged = true"
   />

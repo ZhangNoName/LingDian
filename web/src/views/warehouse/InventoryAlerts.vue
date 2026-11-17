@@ -12,7 +12,7 @@ import AlertDetail from './alerts/AlertDetail.vue'
 import { alertId, alertTarget, canonicalAlerts, parseAlertState, type AlertState } from './alerts/state'
 const props = defineProps<{ storeId: string; storeName: string }>()
 const emit = defineEmits<{
-  stock: [code: string, lifecycle: 'ACTIVE' | 'ARCHIVED']
+  stock: [itemId: string, lifecycle: 'ACTIVE' | 'ARCHIVED']
   replenish: [itemId: string]
 }>()
 const { locale } = useLocale(),
@@ -143,8 +143,8 @@ async function close() {
   await navigate(state.value, '')
   if (!disposed) await load()
 }
-function stock(code: string, lifecycle: 'ACTIVE' | 'ARCHIVED') {
-  emit('stock', code, lifecycle)
+function stock(itemId: string, lifecycle: 'ACTIVE' | 'ARCHIVED') {
+  emit('stock', itemId, lifecycle)
 }
 function replenish(itemId: string) {
   emit('replenish', itemId)

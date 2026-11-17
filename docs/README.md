@@ -17,6 +17,7 @@
 | [31-inventory-analysis-2026-11-18.md](./31-inventory-analysis-2026-11-18.md) | 原料损耗率/盘盈盘亏分析、同快照完整导出与精确区间追查 |
 | [32-purchase-delivery-2026-11-18.md](./32-purchase-delivery-2026-11-18.md) | 预计到货/空日期未收跟进、服务端筛选和采购/供应商列表链接恢复 |
 | [33-inventory-lifecycle-2026-11-18.md](./33-inventory-lifecycle-2026-11-18.md) | 原料停用/恢复、依赖与并发保护、预警解除原因和历史保留 |
+| [36-material-workspace-2026-11-18.md](./36-material-workspace-2026-11-18.md) | 原料详情、清单链接恢复、手机卡片与记录/报表返回 |
 | [35-alert-workspace-2026-11-18.md](./35-alert-workspace-2026-11-18.md) | 预警链接定位、最新详情、冲突跟进复核和手机卡片 |
 | [34-material-related-records-2026-11-18.md](./34-material-related-records-2026-11-18.md) | 原料关联配方/未收采购/盘点草稿追查、处理后返回与分页导出 |
 | [25-account-settings-2026-11-17.md](./25-account-settings-2026-11-17.md) | 全局语言、账号/设置中英文、昵称预填与集成审计 |

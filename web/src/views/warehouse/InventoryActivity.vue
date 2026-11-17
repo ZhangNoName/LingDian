@@ -8,7 +8,8 @@ import { getInventoryReport, listInventoryMovements } from '@/services/inventory
 import { activityQuery, dateInput, defaultActivityState, movementKinds, parseActivityState, editedActivityPeriod, sameActivityQuery, type ActivityState } from './activity-state'
 import { en, zh, type MessageKey } from './messages'
 import { downloadCsv } from './report'
-import { inventoryLifecycleQuery } from './lifecycle/state'
+import { materialRecordId, returnMaterialTarget, inventoryNavigationContext } from './materials/state'
+import { useMaterialLocale } from './materials/locale'
 import InventoryAnalysis from './analysis/InventoryAnalysis.vue'
 import { analysisQuery, parseAnalysisState } from './analysis/state'
 import { useAnalysisLocale } from './analysis/locale'
@@ -16,11 +17,12 @@ import { useAnalysisLocale } from './analysis/locale'
 const props = defineProps<{ storeId: string; storeName: string; mode: 'history' | 'report' }>()
 const route = useRoute(), router = useRouter()
 const { locale } = useLocale()
+const { t: mt } = useMaterialLocale()
 const { t: at } = useAnalysisLocale()
 const analysisMode = computed(() => props.mode === 'report' && route.query.reportView === 'analysis')
-function viewQuery(applied: ActivityState) { return { view: props.mode, ...inventoryLifecycleQuery(route.query), ...activityQuery(applied), ...(analysisMode.value ? analysisQuery(parseAnalysisState(route.query)) : {}) } }
-function switchReport(analysis: boolean) { void router.push({ query: { view: 'report', ...inventoryLifecycleQuery(route.query), ...activityQuery({ ...state.value, page: 1 }), ...(analysis ? { reportView: 'analysis' } : {}) } }) }
-function reset() { const query = { view: props.mode, ...inventoryLifecycleQuery(route.query), ...activityQuery(defaultActivityState()), ...(analysisMode.value ? { reportView: 'analysis' } : {}) }; if (sameActivityQuery(route.query, query)) void load(true); else void router.push({ query }) }
+function viewQuery(applied: ActivityState) { return { view: props.mode, ...inventoryNavigationContext(route.query), ...activityQuery(applied), ...(analysisMode.value ? analysisQuery(parseAnalysisState(route.query)) : {}) } }
+function switchReport(analysis: boolean) { void router.push({ query: { view: 'report', ...inventoryNavigationContext(route.query), ...activityQuery({ ...state.value, page: 1 }), ...(analysis ? { reportView: 'analysis' } : {}) } }) }
+function reset() { const query = { view: props.mode, ...inventoryNavigationContext(route.query), ...activityQuery(defaultActivityState()), ...(analysisMode.value ? { reportView: 'analysis' } : {}) }; if (sameActivityQuery(route.query, query)) void load(true); else void router.push({ query }) }
 const t = (key: MessageKey) => (locale.value === 'en-US' ? en : zh)[key]
 const state = computed(() => {
   const value = parseActivityState(route.query)
@@ -91,7 +93,7 @@ function exportRows() {
   downloadCsv(`inventory-${props.mode}-${applied.startAt.slice(0, 10)}-${applied.endAt.slice(0, 10)}${props.mode === 'history' ? '-p' + applied.page : ''}.csv`, rows)
 }
 function drillDown(row: InventoryReportRow) {
-  void router.push({ query: { view: 'history', ...inventoryLifecycleQuery(route.query), ...activityQuery({ ...state.value, itemId: row.itemId, kind: '', page: 1 }) } })
+  void router.push({ query: { view: 'history', ...inventoryNavigationContext(route.query), ...activityQuery({ ...state.value, itemId: row.itemId, kind: '', page: 1 }) } })
 }
 watch(() => [route.fullPath, props.mode], async () => {
   const applied = state.value
@@ -106,6 +108,7 @@ onBeforeUnmount(() => { sequence++ })
 
 <template>
   <section class="min-w-0" :aria-label="t(mode === 'report' ? 'report' : 'history')">
+    <div v-if="materialRecordId(route.query.materialId)" class="border-b px-4 py-3"><Button type="button" variant="outline" size="sm" @click="router.push({ query:returnMaterialTarget(route.query) })">{{ mt('back') }}</Button></div>
     <div v-if="mode === 'report'" class="flex flex-wrap gap-2 border-b p-4"><Button type="button" :variant="analysisMode ? 'ghost' : 'secondary'" :aria-pressed="!analysisMode" :disabled="loading || dirty" @click="switchReport(false)">{{ at('balances') }}</Button><Button type="button" :variant="analysisMode ? 'secondary' : 'ghost'" :aria-pressed="analysisMode" :disabled="loading || dirty" @click="switchReport(true)">{{ at('title') }}</Button></div>
     <form class="flex flex-wrap items-end gap-3 border-b p-4" @submit.prevent="apply">
       <label>{{ t('from') }}<input v-model="from" type="date" required /></label>

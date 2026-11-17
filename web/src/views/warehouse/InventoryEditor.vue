@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import type { InventoryItemContract, InventoryAdjustmentKind } from '@lingdian/contracts'
 import { Button } from '@/baseComponents/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/baseComponents/dialog'
@@ -14,14 +14,17 @@ const t = (key: MessageKey) => (locale.value === 'en-US' ? en : zh)[key]
 const form = reactive({ code: '', name: '', unit: '', reorderPoint: 0, kind: 'RECEIVE' as InventoryAdjustmentKind, amount: 0, reason: '' })
 const saving = ref(false)
 const errorKey = ref<MessageKey | ''>('')
+let sequence = 0
 let pending: { signature: string; requestId: string } | undefined
 const operationKeys: Record<InventoryAdjustmentKind, MessageKey> = { RECEIVE: 'receive', ISSUE: 'issue', LOSS: 'loss', COUNT: 'count', THRESHOLD: 'setThreshold' }
 const predicted = computed(() => {
   const before = props.item?.quantity ?? 0
   return form.kind === 'RECEIVE' ? before + Number(form.amount) : form.kind === 'ISSUE' || form.kind === 'LOSS' ? before - Number(form.amount) : form.kind === 'COUNT' ? Number(form.amount) : before
 })
-watch(() => props.open, (open) => {
+watch([() => props.open, () => props.storeId, () => props.item?.id], ([open]) => {
+  sequence++
   if (!open) return
+  saving.value = false
   Object.assign(form, { code: '', name: '', unit: '', reorderPoint: 0, kind: 'RECEIVE', amount: 0, reason: '' })
   errorKey.value = ''
   pending = undefined
@@ -29,6 +32,7 @@ watch(() => props.open, (open) => {
 function setOpen(value: boolean) { if (!saving.value) emit('update:open', value) }
 async function submit() {
   if (saving.value) return
+  const token = sequence
   saving.value = true
   errorKey.value = ''
   try {
@@ -40,18 +44,21 @@ async function submit() {
     } else {
       await createInventoryItem(props.storeId, { code: form.code.trim(), name: form.name.trim(), unit: form.unit.trim(), reorderPoint: Number(form.reorderPoint) })
     }
-    emit('update:open', false)
+    if (token !== sequence) return
     emit('saved')
+    emit('update:open', false)
   } catch (error) {
+    if (token !== sequence) return
     const message = error instanceof Error ? error.message : ''
     errorKey.value = Object.hasOwn(zh, message) ? message as MessageKey : 'unexpected'
-  } finally { saving.value = false }
+  } finally { if (token === sequence) saving.value = false }
 }
+onBeforeUnmount(() => { sequence++ })
 </script>
 
 <template>
   <Dialog :open="open" @update:open="setOpen">
-    <DialogContent class="max-h-[90dvh] max-w-lg overflow-y-auto" :close-label="t('cancel')" @interact-outside="saving && $event.preventDefault()" @escape-key-down="saving && $event.preventDefault()">
+    <DialogContent class="max-h-[90dvh] max-w-lg overflow-y-auto" :close-label="t('cancel')" :close-disabled="saving" @interact-outside="saving && $event.preventDefault()" @escape-key-down="saving && $event.preventDefault()">
       <DialogHeader>
         <DialogTitle>{{ item ? `${t('adjust')} · ${item.name}` : t('createTitle') }}</DialogTitle>
         <DialogDescription>{{ item ? `${item.code} · ${item.unit}` : t('createHint') }}</DialogDescription>
