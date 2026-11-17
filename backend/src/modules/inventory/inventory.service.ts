@@ -4,6 +4,7 @@ import type { InventoryItemContract, InventoryMovementContract, InventoryMovemen
 import type { AuthenticatedUser } from '../../common/auth/authenticated-user.type';
 import { MerchantStoreScope } from '../merchant/merchant-store-scope';
 import { PrismaService } from '../../prisma/prisma.service';
+import { activityPeriod, movementWhere } from './inventory-query';
 import { AdjustInventoryDto, CreateInventoryItemDto, InventoryHistoryQueryDto, InventoryQueryDto } from './dto/inventory.dto';
 
 type Item = Prisma.InventoryItemGetPayload<Prisma.InventoryItemDefaultArgs>;
@@ -55,7 +56,7 @@ export class InventoryService {
     // Check access before even looking up a replayed idempotency key.
     this.scope.assertIncludes(user, storeId);
     const amount = scaled(body.amount);
-    if ((body.kind === 'RECEIVE' || body.kind === 'ISSUE') && amount === 0) {
+    if ((body.kind === 'RECEIVE' || body.kind === 'ISSUE' || body.kind === 'LOSS') && amount === 0) {
       throw new BadRequestException('inventory.positiveAmount');
     }
     const existing = await this.prisma.inventoryMovement.findUnique({ where: { storeId_requestId: { storeId, requestId: body.requestId } }, include: { item: true } });
@@ -67,7 +68,7 @@ export class InventoryService {
         if (!item) throw new NotFoundException('inventory.notFound');
         if (item.version !== body.expectedVersion) throw new ConflictException('inventory.stale');
         const next = body.kind === 'RECEIVE' ? item.quantity + amount
-          : body.kind === 'ISSUE' ? item.quantity - amount
+          : body.kind === 'ISSUE' || body.kind === 'LOSS' ? item.quantity - amount
           : body.kind === 'COUNT' ? amount : item.quantity;
         if (next < 0) throw new ConflictException('inventory.insufficient');
         if (next > MAX_QUANTITY) throw new BadRequestException('inventory.tooLarge');
@@ -99,7 +100,7 @@ export class InventoryService {
 
   async history(user: AuthenticatedUser, storeId: string, query: InventoryHistoryQueryDto): Promise<InventoryMovementPage> {
     this.scope.assertIncludes(user, storeId);
-    const where = { storeId, ...(query.itemId ? { itemId: query.itemId } : {}) };
+    const where = movementWhere(storeId, query, activityPeriod(query));
     return this.prisma.$transaction(async (tx) => {
       const items = await tx.inventoryMovement.findMany({ where, include: { item: true }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], skip: (query.page - 1) * query.pageSize, take: query.pageSize });
       const total = await tx.inventoryMovement.count({ where });

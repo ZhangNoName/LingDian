@@ -4,7 +4,8 @@ import { AccessTokenGuard } from '../../common/auth/access-token.guard';
 import { MerchantGuard } from '../../common/auth/merchant.guard';
 import { CurrentUser } from '../../common/auth/current-user.decorator';
 import type { AuthenticatedUser } from '../../common/auth/authenticated-user.type';
-import { AdjustInventoryDto, CreateInventoryItemDto, InventoryHistoryQueryDto, InventoryQueryDto } from './dto/inventory.dto';
+import { AdjustInventoryDto, CreateInventoryItemDto, InventoryHistoryQueryDto, InventoryQueryDto, InventoryReportQueryDto } from './dto/inventory.dto';
+import { InventoryReportService } from './inventory-report.service';
 import { InventoryService } from './inventory.service';
 
 @ApiTags('Inventory')
@@ -12,7 +13,7 @@ import { InventoryService } from './inventory.service';
 @UseGuards(AccessTokenGuard, MerchantGuard)
 @Controller('merchant/stores/:storeId/inventory')
 export class InventoryController {
-  constructor(private readonly inventory: InventoryService) {}
+  constructor(private readonly inventory: InventoryService, private readonly reports: InventoryReportService) {}
 
   @Get()
   list(@CurrentUser() user: AuthenticatedUser, @Param('storeId') storeId: string, @Query() query: InventoryQueryDto) {
@@ -22,6 +23,11 @@ export class InventoryController {
   @Get('movements')
   history(@CurrentUser() user: AuthenticatedUser, @Param('storeId') storeId: string, @Query() query: InventoryHistoryQueryDto) {
     return this.inventory.history(user, storeId, query);
+  }
+
+  @Get('report')
+  report(@CurrentUser() user: AuthenticatedUser, @Param('storeId') storeId: string, @Query() query: InventoryReportQueryDto) {
+    return this.reports.report(user, storeId, query);
   }
 
   @Post()

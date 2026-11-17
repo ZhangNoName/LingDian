@@ -30,3 +30,13 @@ test('material codes and fixed units are validated and names are trimmed', async
     assert.ok((await validate(plainToInstance(CreateInventoryItemDto, { ...item, code }), options)).length > 0);
   }
 });
+
+test('activity DTOs require explicit timezone instants and preserve validated loss filters', async () => {
+  const { InventoryHistoryQueryDto, InventoryReportQueryDto } = await import('./inventory.dto');
+  const period = { startAt: '2026-11-01T00:00:00+08:00', endAt: '2026-11-08T00:00:00+08:00' };
+  assert.equal((await validate(plainToInstance(InventoryHistoryQueryDto, { ...period, kind: 'LOSS' }), options)).length, 0);
+  assert.equal((await validate(plainToInstance(InventoryReportQueryDto, period), options)).length, 0);
+  for (const input of [{}, { ...period, startAt: '2026-11-01' }, { ...period, startAt: '2026-11-01T00:00:00' }, { ...period, kind: 'LOSS' }]) {
+    assert.ok((await validate(plainToInstance(InventoryReportQueryDto, input), options)).length > 0);
+  }
+});

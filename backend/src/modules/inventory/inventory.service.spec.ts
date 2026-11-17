@@ -142,3 +142,15 @@ test('receipts cannot overflow the supported stock quantity', async () => {
   await assert.rejects(f.service.adjust(user, 'store-a', 'item-a', request({ kind: 'RECEIVE', amount: 999999 })), /inventory.tooLarge/);
   assert.equal(f.ledger.length, 0);
 });
+
+test('loss entries deduct stock once, retain the reason and reject zero or excessive loss', async () => {
+  const f = fixture();
+  const body = request({ kind: 'LOSS', amount: 0.375, reason: 'Damaged in storage' });
+  const first = await f.service.adjust(user, 'store-a', 'item-a', body);
+  assert.equal(first.kind, 'LOSS'); assert.equal(first.quantityAfter, 0.625);
+  assert.equal(first.reason, 'Damaged in storage');
+  await f.service.adjust(user, 'store-a', 'item-a', body);
+  assert.equal(f.ledger.length, 1);
+  await assert.rejects(f.service.adjust(user, 'store-a', 'item-a', request({ requestId: 'loss-zero', kind: 'LOSS', amount: 0, expectedVersion: 1 })), /inventory.positiveAmount/);
+  await assert.rejects(f.service.adjust(user, 'store-a', 'item-a', request({ requestId: 'loss-over', kind: 'LOSS', amount: 1, expectedVersion: 1 })), /inventory.insufficient/);
+});

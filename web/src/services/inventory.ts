@@ -1,4 +1,4 @@
-import type { AdjustInventoryRequest, CreateInventoryItemRequest, InventoryItemContract, InventoryMovementContract, InventoryMovementPage, InventoryPage, InventoryStatus } from '@lingdian/contracts'
+import type { AdjustInventoryRequest, CreateInventoryItemRequest, InventoryItemContract, InventoryMovementContract, InventoryMovementPage, InventoryPage, InventoryStatus, InventoryActivityFilter, InventoryPeriodReport, InventoryReportFilter } from '@lingdian/contracts'
 import { apiUrl } from '@/config/api'
 import { requestData } from '@/lib/api'
 
@@ -10,10 +10,18 @@ export function listInventory(storeId: string, query: InventoryQuery): Promise<I
   if (query.status) params.set('status', query.status)
   return requestData(apiUrl(`${base(storeId)}?${params}`))
 }
-export function listInventoryMovements(storeId: string, page: number, itemId?: string): Promise<InventoryMovementPage> {
+export function listInventoryMovements(storeId: string, page: number, filter: InventoryActivityFilter = {}): Promise<InventoryMovementPage> {
   const params = new URLSearchParams({ page: String(page), pageSize: '20' })
-  if (itemId) params.set('itemId', itemId)
+  appendFilter(params, filter)
   return requestData(apiUrl(`${base(storeId)}/movements?${params}`))
+}
+export function getInventoryReport(storeId: string, filter: InventoryReportFilter): Promise<InventoryPeriodReport> {
+  const params = new URLSearchParams()
+  appendFilter(params, filter)
+  return requestData(apiUrl(`${base(storeId)}/report?${params}`))
+}
+function appendFilter(params: URLSearchParams, filter: InventoryActivityFilter) {
+  for (const key of ['startAt', 'endAt', 'itemId', 'keyword', 'kind'] as const) if (filter[key]) params.set(key, filter[key])
 }
 export function createInventoryItem(storeId: string, body: CreateInventoryItemRequest): Promise<InventoryItemContract> {
   return requestData(apiUrl(base(storeId)), jsonPost(body))

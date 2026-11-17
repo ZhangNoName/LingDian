@@ -9,6 +9,7 @@
 | [11-system-structure.md](./11-system-structure.md) | 2026-08-30 系统上下文、模块化单体边界、数据流、部署与可观测性 |
 | [12-module-catalog.md](./12-module-catalog.md) | 三端、后端、共享包、CI/运维的逐模块真实状态与责任边界 |
 | [13-permission-and-gap-analysis.md](./13-permission-and-gap-analysis.md) | 当前权限矩阵、已关闭风险、剩余 P0–P2、目标 RBAC 与上线 Gate |
+| [17-inventory-reports-2026-11-17.md](./17-inventory-reports-2026-11-17.md) | 损耗登记、历史筛选、库存收支报表与完整快照导出 |
 | [16-multi-store-iteration-2026-11-17.md](./16-multi-store-iteration-2026-11-17.md) | 多店运行时、统一选店、租户边界与验证记录 |
 | [15-inventory-iteration-2026-11-17.md](./15-inventory-iteration-2026-11-17.md) | 原料库存台账、预警、流水、报表与后续迭代计划 |
 | [14-codebase-review-2026-08-30.md](./14-codebase-review-2026-08-30.md) | 本轮全仓审查范围、bug 修复、长文件/循环依赖治理、验证结果和剩余风险 |

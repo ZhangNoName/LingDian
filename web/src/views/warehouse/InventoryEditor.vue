@@ -15,10 +15,10 @@ const form = reactive({ code: '', name: '', unit: '', reorderPoint: 0, kind: 'RE
 const saving = ref(false)
 const errorKey = ref<MessageKey | ''>('')
 let pending: { signature: string; requestId: string } | undefined
-const operationKeys: Record<InventoryMovementKind, MessageKey> = { RECEIVE: 'receive', ISSUE: 'issue', COUNT: 'count', THRESHOLD: 'setThreshold' }
+const operationKeys: Record<InventoryMovementKind, MessageKey> = { RECEIVE: 'receive', ISSUE: 'issue', LOSS: 'loss', COUNT: 'count', THRESHOLD: 'setThreshold' }
 const predicted = computed(() => {
   const before = props.item?.quantity ?? 0
-  return form.kind === 'RECEIVE' ? before + Number(form.amount) : form.kind === 'ISSUE' ? before - Number(form.amount) : form.kind === 'COUNT' ? Number(form.amount) : before
+  return form.kind === 'RECEIVE' ? before + Number(form.amount) : form.kind === 'ISSUE' || form.kind === 'LOSS' ? before - Number(form.amount) : form.kind === 'COUNT' ? Number(form.amount) : before
 })
 watch(() => props.open, (open) => {
   if (!open) return
@@ -66,9 +66,9 @@ async function submit() {
             <p class="help">{{ t('thresholdHint') }}</p>
           </template>
           <template v-else>
-            <label>{{ t('operation') }}<select v-model="form.kind"><option v-for="(key, kind) in operationKeys" :key="kind" :value="kind">{{ t(key) }}</option></select></label>
+            <label>{{ t('operation') }}<select v-model="form.kind" :aria-label="t('operation')"><option v-for="(key, kind) in operationKeys" :key="kind" :value="kind">{{ t(key) }}</option></select></label>
             <label>{{ t(form.kind === 'COUNT' ? 'actual' : form.kind === 'THRESHOLD' ? 'threshold' : 'amount') }} ({{ item.unit }})
-              <input v-model="form.amount" type="number" :min="form.kind === 'RECEIVE' || form.kind === 'ISSUE' ? 0.001 : 0" :max="form.kind === 'ISSUE' ? item.quantity : 999999" step="0.001" required />
+              <input v-model="form.amount" type="number" :min="form.kind === 'RECEIVE' || form.kind === 'ISSUE' || form.kind === 'LOSS' ? 0.001 : 0" :max="form.kind === 'ISSUE' || form.kind === 'LOSS' ? item.quantity : 999999" step="0.001" required />
             </label>
             <p class="help">{{ t(form.kind === 'COUNT' ? 'countHint' : form.kind === 'THRESHOLD' ? 'thresholdHint' : 'precision') }}</p>
             <div class="rounded-md bg-muted p-3 text-sm tabular-nums" aria-live="polite">
