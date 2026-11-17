@@ -112,6 +112,7 @@ export class PurchasingAnalysisService {
         const items = await tx.inventoryItem.findMany({
           where: {
             storeId,
+            isActive: true,
             ...(query.itemId ? { id: query.itemId } : {}),
             ...(query.keyword
               ? { OR: [{ name: { contains: query.keyword } }, { code: { contains: query.keyword } }] }

@@ -6,10 +6,11 @@ import { AccessTokenGuard } from '../../common/auth/access-token.guard';
 import { MerchantGuard } from '../../common/auth/merchant.guard';
 import { CurrentUser } from '../../common/auth/current-user.decorator';
 import type { AuthenticatedUser } from '../../common/auth/authenticated-user.type';
-import { AdjustInventoryDto, CreateInventoryItemDto, InventoryHistoryQueryDto, InventoryQueryDto, InventoryReportQueryDto } from './dto/inventory.dto';
+import { ChangeInventoryLifecycleDto, AdjustInventoryDto, CreateInventoryItemDto, InventoryHistoryQueryDto, InventoryQueryDto, InventoryReportQueryDto } from './dto/inventory.dto';
 import { InventoryRecipeService } from './inventory-recipe.service';
 import { RecipeQueryDto, SaveRecipeDto } from './dto/inventory-recipe.dto';
 import { InventoryReportService } from './inventory-report.service';
+import { InventoryLifecycleService } from './inventory-lifecycle.service';
 import { InventoryService } from './inventory.service';
 
 @ApiTags('Inventory')
@@ -17,7 +18,7 @@ import { InventoryService } from './inventory.service';
 @UseGuards(AccessTokenGuard, MerchantGuard)
 @Controller('merchant/stores/:storeId/inventory')
 export class InventoryController {
-  constructor(private readonly inventory: InventoryService, private readonly reports: InventoryReportService, private readonly recipes: InventoryRecipeService, private readonly alerts: InventoryAlertService) {}
+  constructor(private readonly lifecycle: InventoryLifecycleService, private readonly inventory: InventoryService, private readonly reports: InventoryReportService, private readonly recipes: InventoryRecipeService, private readonly alerts: InventoryAlertService) {}
 
   @Get()
   list(@CurrentUser() user: AuthenticatedUser, @Param('storeId') storeId: string, @Query() query: InventoryQueryDto) {
@@ -63,4 +64,9 @@ export class InventoryController {
   adjust(@CurrentUser() user: AuthenticatedUser, @Param('storeId') storeId: string, @Param('itemId') itemId: string, @Body() body: AdjustInventoryDto) {
     return this.inventory.adjust(user, storeId, itemId, body);
   }
+  @Get('items/:itemId')
+  detail(@CurrentUser() user: AuthenticatedUser, @Param('storeId') storeId: string, @Param('itemId') itemId: string) { return this.lifecycle.detail(user, storeId, itemId); }
+  @Put('items/:itemId/lifecycle')
+  changeLifecycle(@CurrentUser() user: AuthenticatedUser, @Param('storeId') storeId: string, @Param('itemId') itemId: string, @Body() body: ChangeInventoryLifecycleDto) { return this.lifecycle.change(user, storeId, itemId, body); }
+
 }

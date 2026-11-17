@@ -2,12 +2,13 @@ import type { AdjustInventoryRequest, CreateInventoryItemRequest, InventoryItemC
 import { apiUrl } from '@/config/api'
 import { requestData } from '@/lib/api'
 
-export interface InventoryQuery { page: number; pageSize: number; keyword?: string; status?: InventoryStatus }
+export interface InventoryQuery { page: number; pageSize: number; keyword?: string; status?: InventoryStatus; lifecycle?: import('@lingdian/contracts').InventoryLifecycle }
 function base(storeId: string) { return `/merchant/stores/${encodeURIComponent(storeId)}/inventory` }
 export function listInventory(storeId: string, query: InventoryQuery): Promise<InventoryPage> {
   const params = new URLSearchParams({ page: String(query.page), pageSize: String(query.pageSize) })
   if (query.keyword?.trim()) params.set('keyword', query.keyword.trim())
   if (query.status) params.set('status', query.status)
+  if (query.lifecycle) params.set('lifecycle', query.lifecycle)
   return requestData(apiUrl(`${base(storeId)}?${params}`))
 }
 export function listInventoryMovements(storeId: string, page: number, filter: InventoryActivityFilter = {}): Promise<InventoryMovementPage> {
@@ -51,3 +52,6 @@ export function listInventoryAlerts(storeId: string, query: AlertQuery): Promise
 export function acknowledgeInventoryAlert(storeId: string, id: string, body: import('@lingdian/contracts').AcknowledgeInventoryAlertRequest): Promise<import('@lingdian/contracts').InventoryAlertRecord> {
   return requestData(apiUrl(`${base(storeId)}/alerts/${encodeURIComponent(id)}/acknowledge`), jsonPost(body))
 }
+
+export function inventoryItemDetail(storeId: string, itemId: string): Promise<InventoryItemContract> { return requestData(apiUrl(`${base(storeId)}/items/${encodeURIComponent(itemId)}`)) }
+export function changeInventoryLifecycle(storeId: string, itemId: string, body: import('@lingdian/contracts').ChangeInventoryLifecycleRequest): Promise<InventoryItemContract> { return requestData(apiUrl(`${base(storeId)}/items/${encodeURIComponent(itemId)}/lifecycle`), { ...jsonPost(body), method: 'PUT' }) }

@@ -2,7 +2,13 @@
 export type InventoryStatus = 'HEALTHY' | 'LOW' | 'OUT';
 export type InventoryAdjustmentKind = 'RECEIVE' | 'ISSUE' | 'LOSS' | 'COUNT' | 'THRESHOLD';
 export type InventoryMovementKind = InventoryAdjustmentKind | 'RESERVE' | 'RELEASE';
+export type InventoryLifecycle = 'ACTIVE' | 'ARCHIVED' | 'ALL';
+export interface ChangeInventoryLifecycleRequest { isActive: boolean; expectedVersion: number; reason: string }
 export interface InventoryItemContract {
+  isActive?: boolean;
+  lifecycleActorId?: string | null;
+  lifecycleReason?: string | null;
+  lifecycleChangedAt?: string | null;
   id: string;
   storeId: string;
   code: string;
@@ -22,7 +28,7 @@ export interface InventoryPage {
   total: number;
   page: number;
   pageSize: number;
-  summary: { total: number; low: number; out: number };
+  summary: { total: number; low: number; out: number; archived?: number };
 }
 export interface CreateInventoryItemRequest {
   code: string;
@@ -105,6 +111,8 @@ export interface SaveInventoryRecipeRequest { expectedVersion: number; entries: 
 
 export type InventoryAlertStatus = 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED';
 export interface InventoryAlertRecord {
+  itemIsActive?: boolean;
+  resolutionReason?: 'RECOVERED' | 'ARCHIVED' | null;
   id: string; storeId: string; itemId: string; name: string; code: string; unit: string;
   status: InventoryAlertStatus; severity: 'LOW' | 'OUT'; version: number;
   availableAtTrigger: number; thresholdAtTrigger: number; availableLatest: number; thresholdLatest: number;

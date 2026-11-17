@@ -8,6 +8,7 @@ import { getInventoryReport, listInventoryMovements } from '@/services/inventory
 import { activityQuery, dateInput, defaultActivityState, movementKinds, parseActivityState, editedActivityPeriod, sameActivityQuery, type ActivityState } from './activity-state'
 import { en, zh, type MessageKey } from './messages'
 import { downloadCsv } from './report'
+import { inventoryLifecycleQuery } from './lifecycle/state'
 import InventoryAnalysis from './analysis/InventoryAnalysis.vue'
 import { analysisQuery, parseAnalysisState } from './analysis/state'
 import { useAnalysisLocale } from './analysis/locale'
@@ -17,9 +18,9 @@ const route = useRoute(), router = useRouter()
 const { locale } = useLocale()
 const { t: at } = useAnalysisLocale()
 const analysisMode = computed(() => props.mode === 'report' && route.query.reportView === 'analysis')
-function viewQuery(applied: ActivityState) { return { view: props.mode, ...activityQuery(applied), ...(analysisMode.value ? analysisQuery(parseAnalysisState(route.query)) : {}) } }
-function switchReport(analysis: boolean) { void router.push({ query: { view: 'report', ...activityQuery({ ...state.value, page: 1 }), ...(analysis ? { reportView: 'analysis' } : {}) } }) }
-function reset() { const query = { view: props.mode, ...activityQuery(defaultActivityState()), ...(analysisMode.value ? { reportView: 'analysis' } : {}) }; if (sameActivityQuery(route.query, query)) void load(true); else void router.push({ query }) }
+function viewQuery(applied: ActivityState) { return { view: props.mode, ...inventoryLifecycleQuery(route.query), ...activityQuery(applied), ...(analysisMode.value ? analysisQuery(parseAnalysisState(route.query)) : {}) } }
+function switchReport(analysis: boolean) { void router.push({ query: { view: 'report', ...inventoryLifecycleQuery(route.query), ...activityQuery({ ...state.value, page: 1 }), ...(analysis ? { reportView: 'analysis' } : {}) } }) }
+function reset() { const query = { view: props.mode, ...inventoryLifecycleQuery(route.query), ...activityQuery(defaultActivityState()), ...(analysisMode.value ? { reportView: 'analysis' } : {}) }; if (sameActivityQuery(route.query, query)) void load(true); else void router.push({ query }) }
 const t = (key: MessageKey) => (locale.value === 'en-US' ? en : zh)[key]
 const state = computed(() => {
   const value = parseActivityState(route.query)
@@ -90,7 +91,7 @@ function exportRows() {
   downloadCsv(`inventory-${props.mode}-${applied.startAt.slice(0, 10)}-${applied.endAt.slice(0, 10)}${props.mode === 'history' ? '-p' + applied.page : ''}.csv`, rows)
 }
 function drillDown(row: InventoryReportRow) {
-  void router.push({ query: { view: 'history', ...activityQuery({ ...state.value, itemId: row.itemId, kind: '', page: 1 }) } })
+  void router.push({ query: { view: 'history', ...inventoryLifecycleQuery(route.query), ...activityQuery({ ...state.value, itemId: row.itemId, kind: '', page: 1 }) } })
 }
 watch(() => [route.fullPath, props.mode], async () => {
   const applied = state.value

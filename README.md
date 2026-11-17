@@ -207,3 +207,5 @@ AppSecret 只能配置在 API 部署环境，不能写入 `uniapp/`、前端环�
 库存收支报表现可切换损耗与盘点分析，按原料核对登记损耗率、盘盈盘亏并追查同区间流水，支持完整 CSV 和中英文手机布局。见 [库存分析](./docs/31-inventory-analysis-2026-11-18.md)，本轮只改商家 Web，无新增迁移。
 
 采购单增加到货跟进、预计日期展示和采购/供应商列表链接恢复，详见 [采购到货跟进](./docs/32-purchase-delivery-2026-11-18.md)。发布前应用索引迁移 `20261118_zzz_purchase_delivery`，再更新 API/Web。
+
+原料支持有原因/版本保护的停用与恢复，停用退出日常清单和缺货统计、保留历史，且与配方、采购、盘点和预占互相校验。见 [原料生命周期](./docs/33-inventory-lifecycle-2026-11-18.md)；发布前应用 `20261118_zzzz_inventory_lifecycle` 并更新 API/Web。

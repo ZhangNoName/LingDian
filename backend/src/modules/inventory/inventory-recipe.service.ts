@@ -1,3 +1,4 @@
+import { lockActiveMaterials } from './active-materials';
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@lingdian/db';
 import type { InventoryRecipePage, InventoryRecipeRecord } from '@lingdian/contracts';
@@ -32,7 +33,8 @@ export class InventoryRecipeService {
       if (!existing) throw new NotFoundException('inventory.skuUnavailable');
       const changed = await tx.productSKU.updateMany({ where: { id: skuId, product: { storeId }, recipeVersion: body.expectedVersion }, data: { recipeVersion: { increment: 1 } } });
       if (changed.count !== 1) throw new ConflictException('inventory.stale');
-      const count = await tx.inventoryItem.count({ where: { id: { in: itemIds }, storeId } });
+      await lockActiveMaterials(tx, storeId, itemIds, 'inventory.notFound', 'inventory.inactive');
+      const count = await tx.inventoryItem.count({ where: { id: { in: itemIds }, storeId, isActive: true } });
       if (count !== itemIds.length) throw new BadRequestException('inventory.notFound');
       await tx.inventoryRecipe.deleteMany({ where: { skuId, storeId } });
       if (body.entries.length) await tx.inventoryRecipe.createMany({ data: body.entries.map((entry) => ({ skuId, storeId, itemId: entry.itemId, quantity: Math.round(entry.quantity * 1000) })) });

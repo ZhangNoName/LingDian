@@ -28,7 +28,7 @@ function fixture() {
       count: async ({ where }: any) => { assert.equal(where.storeId, 'store-a'); assert.equal(where.createdAt, undefined); return where.stockExpiresAt ? 2 : 3; },
     },
     inventoryAlert: { count: async ({ where }: any) => { assert.equal(where.storeId, 'store-a'); return where.status === 'OPEN' ? 1 : 2; } },
-    inventoryItem: { count: async ({ where }: any) => { assert.equal(where.storeId, 'store-a'); return where.availableQuantity === 0 ? 4 : 5; } },
+    inventoryItem: { count: async ({ where }: any) => { assert.equal(where.storeId, 'store-a'); assert.equal(where.isActive, true); return where.availableQuantity === 0 ? 4 : 5; } },
     $queryRaw: async (query: Prisma.Sql) => db.prepare(query.sql).all(...query.values.map(value => value instanceof Date ? value.toISOString() : value as string)),
   };
   const service = new MerchantDashboardService({ inventoryItem: { fields: { reorderPoint: 'reorderPoint' } }, $transaction: async (work: any, options: any) => { assert.equal(options.isolationLevel, 'RepeatableRead'); return work(tx); } } as never, new MerchantStoreScope({ resolveStoreIds: (ids: string[]) => ids } as never));

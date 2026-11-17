@@ -1,7 +1,7 @@
 export const alertZh = {
   viewReplenishment: '查看补货',
   viewStock: '查看库存',
-  title: '预警中心', hint: '按可用库存提醒；可用库存高于当前阈值时自动解除，确认跟进不会解除。',
+  title: '预警中心', hint: '按可用库存提醒；可用库存高于当前阈值或原料停用时解除，确认跟进不会解除。',
   active: '处理中', open: '待跟进', acknowledged: '已跟进', resolved: '已解除', all: '全部状态',
   out: '缺货', low: '低库存', openCount: '待跟进', acknowledgedCount: '跟进中', outCount: '仍缺货',
   search: '搜索原料名称或编码', apply: '查询', refresh: '刷新', export: '导出当前页 · CSV',
@@ -20,7 +20,7 @@ export type AlertMessageKey = keyof typeof alertZh
 export const alertEn: Record<AlertMessageKey, string> = {
   viewReplenishment: 'View replenishment',
   viewStock: 'View stock',
-  title: 'Stock alerts', hint: 'Based on available stock. Acknowledgement does not resolve an alert. Available stock must exceed the current threshold.',
+  title: 'Stock alerts', hint: 'Based on available stock. Acknowledgement does not resolve an alert. Resolved when available stock exceeds the current threshold or the material is archived.',
   active: 'Active', open: 'Needs follow-up', acknowledged: 'Acknowledged', resolved: 'Resolved', all: 'All statuses',
   out: 'Out of stock', low: 'Low stock', openCount: 'Needs follow-up', acknowledgedCount: 'In progress', outCount: 'Still out of stock',
   search: 'Search material name or code', apply: 'Apply', refresh: 'Refresh', export: 'Export this page · CSV',

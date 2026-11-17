@@ -4,11 +4,11 @@ import type { InventoryItemContract, InventoryMovementContract, InventoryMovemen
 import type { AuthenticatedUser } from '../../common/auth/authenticated-user.type';
 import { MerchantStoreScope } from '../merchant/merchant-store-scope';
 import { PrismaService } from '../../prisma/prisma.service';
+import { presentItem } from './inventory-presenter';
 import { syncInventoryAlert } from './inventory-alert-state';
 import { activityPeriod, movementWhere } from './inventory-query';
 import { AdjustInventoryDto, CreateInventoryItemDto, InventoryHistoryQueryDto, InventoryQueryDto } from './dto/inventory.dto';
 
-type Item = Prisma.InventoryItemGetPayload<Prisma.InventoryItemDefaultArgs>;
 type Movement = Prisma.InventoryMovementGetPayload<{ include: { item: true } }>;
 const MAX_QUANTITY = 999999000;
 const scaled = (value: number) => Math.round(value * 1000);
@@ -26,17 +26,17 @@ export class InventoryService {
         ? { availableQuantity: { gt: 0, lte: fields.reorderPoint } }
         : query.status === 'HEALTHY' ? { availableQuantity: { gt: fields.reorderPoint } } : {};
     const where: Prisma.InventoryItemWhereInput = {
-      storeId, ...statusWhere,
+      storeId, ...(query.lifecycle === 'ALL' ? {} : { isActive: query.lifecycle !== 'ARCHIVED' }), ...statusWhere,
       ...(query.keyword ? { OR: [{ name: { contains: query.keyword } }, { code: { contains: query.keyword } }] } : {}),
     };
     // One snapshot for the table and counters; counters intentionally cover the entire store.
     return this.prisma.$transaction(async (tx) => {
       const items = await tx.inventoryItem.findMany({ where, orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }], skip: (query.page - 1) * query.pageSize, take: query.pageSize });
       const total = await tx.inventoryItem.count({ where });
-      const all = await tx.inventoryItem.count({ where: { storeId } });
-      const low = await tx.inventoryItem.count({ where: { storeId, availableQuantity: { gt: 0, lte: fields.reorderPoint } } });
-      const out = await tx.inventoryItem.count({ where: { storeId, availableQuantity: 0 } });
-      return { items: items.map(presentItem), total, page: query.page, pageSize: query.pageSize, summary: { total: all, low, out } };
+      const all = await tx.inventoryItem.count({ where: { storeId, isActive: true } });
+      const low = await tx.inventoryItem.count({ where: { storeId, isActive: true, availableQuantity: { gt: 0, lte: fields.reorderPoint } } });
+      const out = await tx.inventoryItem.count({ where: { storeId, isActive: true, availableQuantity: 0 } });
+      return { items: items.map(presentItem), total, page: query.page, pageSize: query.pageSize, summary: { total: all, low, out, archived: await tx.inventoryItem.count({ where: { storeId, isActive: false } }) } };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
   }
 
@@ -71,6 +71,7 @@ export class InventoryService {
       return await this.prisma.$transaction(async (tx) => {
         const item = await tx.inventoryItem.findUnique({ where: { id_storeId: { id: itemId, storeId } } });
         if (!item) throw new NotFoundException('inventory.notFound');
+        if (item.isActive === false) throw new ConflictException('inventory.inactive');
         if (item.version !== body.expectedVersion) throw new ConflictException('inventory.stale');
         const next = body.kind === 'RECEIVE' ? item.quantity + amount
           : body.kind === 'ISSUE' || body.kind === 'LOSS' ? item.quantity - amount
@@ -81,7 +82,7 @@ export class InventoryService {
         const reorderPoint = body.kind === 'THRESHOLD' ? amount : item.reorderPoint;
         // Compare-and-swap serializes all item writers, including threshold edits.
         const updated = await tx.inventoryItem.updateMany({
-          where: { id: itemId, storeId, version: body.expectedVersion },
+          where: { id: itemId, storeId, isActive: true, version: body.expectedVersion },
           data: { quantity: next, availableQuantity: next - item.reservedQuantity, reorderPoint, version: { increment: 1 } },
         });
         if (updated.count !== 1) throw new ConflictException('inventory.stale');
@@ -128,14 +129,6 @@ function replay(movement: Movement, itemId: string, actorId: string, body: Adjus
   return presentMovement(movement);
 }
 
-function presentItem(item: Item): InventoryItemContract {
-  return { id: item.id, storeId: item.storeId, code: item.code, name: item.name, unit: item.unit, version: item.version, quantity: item.quantity / 1000, reorderPoint: item.reorderPoint / 1000,
-    reservedQuantity: item.reservedQuantity / 1000, availableQuantity: item.availableQuantity / 1000,
-    shortage: Math.max(0, item.reorderPoint - item.availableQuantity) / 1000,
-    status: item.availableQuantity === 0 ? 'OUT' : item.availableQuantity <= item.reorderPoint ? 'LOW' : 'HEALTHY',
-    updatedAt: item.updatedAt.toISOString(),
-  };
-}
 
 function presentMovement(movement: Movement & { purchaseReceipt?: { orderId: string } | null }): InventoryMovementContract {
   return { ...(movement.stocktakeId ? { stocktakeId: movement.stocktakeId } : {}), ...(movement.purchaseReceipt ? { purchaseOrderId: movement.purchaseReceipt.orderId } : {}), id: movement.id, itemId: movement.itemId, itemName: movement.item.name, itemCode: movement.item.code, unit: movement.item.unit,

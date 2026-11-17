@@ -34,6 +34,7 @@ export const zh = {
   report: '收支报表', loss: '损耗', opening: '期初库存', received: '入库量', issued: '出库量', lost: '损耗量', countGain: '盘盈', countLoss: '盘亏', closing: '期末库存', movementCount: '记录数',
   from: '开始日期', to: '结束日期', apply: '查询', reset: '重置', allOperations: '全部操作', exportReport: '导出完整报表', generated: '生成时间', period: '统计范围（起始含、结束不含）', timeZone: '日期时区', reportEmpty: '该范围没有原料', reportEquation: '期初 + 入库 − 出库 − 损耗 + 盘盈 − 盘亏 = 期末；不同原料和单位分别核算。', reportSnapshot: '表格与完整 CSV 使用同一快照；范围内后续变动请重新查询。',
   'inventory.invalidPeriod': '请选择有效日期范围，开始须早于结束，跨度不超过 366 天。', 'inventory.reportTooLarge': '报表最多支持 10,000 种原料，或汇总数量超出精度范围。请缩小原料范围。',
+  'inventory.inactive': '该原料已停用，请先恢复启用。',
   unexpected: '操作未完成，请检查网络后重试。',
 } as const
 export type MessageKey = keyof typeof zh
@@ -73,5 +74,6 @@ export const en: Record<MessageKey, string> = {
   report: 'Stock movement report', loss: 'Loss', opening: 'Opening', received: 'Received', issued: 'Issued', lost: 'Lost', countGain: 'Count gain', countLoss: 'Count loss', closing: 'Closing', movementCount: 'Movements',
   from: 'Start date', to: 'End date', apply: 'Apply', reset: 'Reset', allOperations: 'All operations', exportReport: 'Export full report', generated: 'Generated at', period: 'Period (start inclusive, end exclusive)', timeZone: 'Date timezone', reportEmpty: 'No materials in this period', reportEquation: 'Opening + received − issued − lost + count gain − count loss = closing. Each material and unit is calculated separately.', reportSnapshot: 'The table and full CSV share one snapshot. Apply again to include later changes.',
   'inventory.invalidPeriod': 'Choose a valid date range, starting before the end and spanning no more than 366 days.', 'inventory.reportTooLarge': 'Reports support up to 10,000 materials and safe-precision totals. Narrow the material filter.',
+  'inventory.inactive': 'This material is archived. Restore it first.',
   unexpected: 'Could not complete this operation. Check your connection and retry.',
 }

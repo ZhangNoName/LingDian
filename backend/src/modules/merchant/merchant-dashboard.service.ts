@@ -39,8 +39,8 @@ export class MerchantDashboardService {
       const operations = {
         openAlerts: await tx.inventoryAlert.count({ where: { storeId, status: 'OPEN' } }),
         acknowledgedAlerts: await tx.inventoryAlert.count({ where: { storeId, status: 'ACKNOWLEDGED' } }),
-        outOfStockMaterials: await tx.inventoryItem.count({ where: { storeId, availableQuantity: 0 } }),
-        lowStockMaterials: await tx.inventoryItem.count({ where: { storeId, availableQuantity: { gt: 0, lte: fields.reorderPoint } } }),
+        outOfStockMaterials: await tx.inventoryItem.count({ where: { storeId, isActive: true, availableQuantity: 0 } }),
+        lowStockMaterials: await tx.inventoryItem.count({ where: { storeId, isActive: true, availableQuantity: { gt: 0, lte: fields.reorderPoint } } }),
         pendingFulfillmentOrders: await tx.order.count({ where: { storeId, isDeleted: false, status: { in: ['PAID', 'PREPARING', 'READY'] } } }),
         expiredStockHoldOrders: await tx.order.count({ where: { storeId, isDeleted: false, status: 'PENDING_PAYMENT', stockExpiresAt: { lte: asOf }, inventoryReservations: { some: { storeId, status: 'RESERVED' } } } }),
       };

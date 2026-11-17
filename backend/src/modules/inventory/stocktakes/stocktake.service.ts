@@ -1,3 +1,4 @@
+import { lockActiveMaterials } from '../active-materials';
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import { Prisma } from '@lingdian/db';
@@ -62,8 +63,9 @@ export class StocktakeService {
     try {
       id = await this.db.$transaction(
         async (tx) => {
+          await lockActiveMaterials(tx, storeId, itemIds, 'stocktake.itemUnavailable');
           const items = await tx.inventoryItem.findMany({
-            where: { storeId, id: { in: itemIds } },
+            where: { storeId, id: { in: itemIds }, isActive: true },
             orderBy: { id: 'asc' },
           });
           if (items.length !== itemIds.length) throw new BadRequestException('stocktake.itemUnavailable');
@@ -91,7 +93,7 @@ export class StocktakeService {
           await this.audit(tx, user, storeId, row.id, 'STOCKTAKE_CREATED');
           return row.id;
         },
-        { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+        { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
       );
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && ['P2002', 'P2034'].includes(error.code)) {
@@ -163,11 +165,11 @@ export class StocktakeService {
           const item = await tx.inventoryItem.findUniqueOrThrow({
             where: { id_storeId: { id: line.itemId, storeId } },
           });
-          if (item.version !== line.itemVersion) throw new ConflictException('stocktake.stockChanged');
+          if (!item.isActive || item.version !== line.itemVersion) throw new ConflictException('stocktake.stockChanged');
           const quantity = line.countedQuantity!;
           if (quantity < item.reservedQuantity) throw new ConflictException('stocktake.reserved');
           const changed = await tx.inventoryItem.updateMany({
-            where: { id: item.id, storeId, version: line.itemVersion },
+            where: { id: item.id, storeId, isActive: true, version: line.itemVersion },
             data: { quantity, availableQuantity: quantity - item.reservedQuantity, version: { increment: 1 } },
           });
           if (changed.count !== 1) throw new ConflictException('stocktake.stockChanged');

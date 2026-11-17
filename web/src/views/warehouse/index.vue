@@ -15,14 +15,19 @@ import InventoryEditor from './InventoryEditor.vue'
 import InventoryActivity from './InventoryActivity.vue'
 import InventoryRecipes from './InventoryRecipes.vue'
 import { en, zh, type MessageKey } from './messages'
+import MaterialLifecycle from './lifecycle/MaterialLifecycle.vue'
+import { useLifecycleLocale } from './lifecycle/locale'
 import { downloadCsv } from './report'
 
 const { locale } = useLocale()
+const { t: lt } = useLifecycleLocale()
+const lifecycleItem = ref<InventoryItemContract>()
 const t = (key: MessageKey) => (locale.value === 'en-US' ? en : zh)[key]
 const storeId = merchantStore.selectedId
 const storeName = computed(() => merchantStore.stores.value.find((store) => store.id === storeId.value)?.name ?? '')
 const route = useRoute(), router = useRouter()
 const view = computed(() => route.query.view === 'stocktakes' ? 'stocktakes' : route.query.view === 'purchases' ? 'purchases' : route.query.view === 'holds' ? 'holds' : route.query.view === 'alerts' ? 'alerts' : route.query.view === 'recipes' ? 'recipes' : route.query.view === 'report' ? 'report' : route.query.view === 'history' ? 'history' : 'inventory')
+const lifecycle = computed(() => route.query.inventoryLifecycle === 'ARCHIVED' ? 'ARCHIVED' : route.query.inventoryLifecycle === 'ALL' ? 'ALL' : 'ACTIVE')
 const page = ref(1)
 const keyword = ref('')
 const appliedKeyword = ref('')
@@ -34,6 +39,7 @@ const notice = ref(false)
 const editorOpen = ref(false)
 const selectedItem = ref<InventoryItemContract>()
 let sequence = 0
+let nextScopeStatus: InventoryStatus | '' | undefined
 const total = computed(() => inventory.value?.total ?? 0)
 const pageCount = computed(() => Math.max(1, Math.ceil(total.value / 20)))
 const hasRows = computed(() => !!inventory.value?.items.length)
@@ -48,30 +54,33 @@ async function load() {
   try {
     if (!storeId.value) { errorKey.value = 'noStore'; return }
     const id = storeId.value
-    const result = await listInventory(id, { page: page.value, pageSize: 20, keyword: appliedKeyword.value, status: status.value || undefined })
-    if (current === sequence) inventory.value = result
+    const result = await listInventory(id, { page: page.value, pageSize: 20, keyword: appliedKeyword.value, status: status.value || undefined, lifecycle: lifecycle.value })
+    if (current === sequence) { const last = Math.max(1, Math.ceil(result.total / 20)); if (page.value > last) { page.value = last; void load(); return }; inventory.value = result }
   } catch { if (current === sequence) errorKey.value = 'loadFailed' }
   finally { if (current === sequence) loading.value = false }
 }
 function switchView(value: 'inventory' | 'history' | 'report' | 'recipes' | 'alerts' | 'holds' | 'purchases' | 'stocktakes') { void router.push({ query: { ...route.query, view: value, page: undefined, itemId: undefined, purchaseId: undefined, stocktakeId: undefined } }) }
 function replenish(itemId: string) { void router.push({ query: { ...route.query, ...replenishmentFocus(itemId) } }) }
-function stockFromAlert(code: string) { keyword.value = code; appliedKeyword.value = code; status.value = ''; page.value = 1; switchView('inventory') }
-function filter(value: InventoryStatus | '') { status.value = value; page.value = 1; void load() }
+function stockFromAlert(code: string, scope: 'ACTIVE' | 'ARCHIVED') { keyword.value = code; appliedKeyword.value = code; status.value = ''; page.value = 1; void router.push({query:{...route.query,view:'inventory',inventoryLifecycle:scope === 'ARCHIVED' ? scope : undefined}}) }
+function filter(value: InventoryStatus | '') { status.value = value; page.value = 1; if (lifecycle.value !== 'ACTIVE') { nextScopeStatus = value; void router.push({query:{...route.query,inventoryLifecycle:undefined}}) } else void load() }
+function changeScope(value: string) { void router.push({query:{...route.query,inventoryLifecycle:value === 'ACTIVE' ? undefined : value}}) }
+watch(lifecycle, () => { page.value = 1; status.value = nextScopeStatus ?? ''; nextScopeStatus = undefined; if(view.value === 'inventory') void load() })
 function search() { appliedKeyword.value = keyword.value.trim(); page.value = 1; void load() }
 function clear() { keyword.value = ''; appliedKeyword.value = ''; status.value = ''; page.value = 1; void load() }
 function go(value: number) { page.value = value; void load() }
 function edit(item?: InventoryItemContract) { selectedItem.value = item; editorOpen.value = true; notice.value = false }
 function showHistory(item?: InventoryItemContract) { void router.push({ query: { ...route.query, view: 'history', itemId: item?.id, page: undefined } }) }
-function saved() { notice.value = true; void load() }
+function saved() { notice.value = true; window.dispatchEvent(new CustomEvent('inventory-alerts-changed', { detail: { storeId: storeId.value } })); void load() }
 function exportPage() {
   const rows: (string | number)[][] = [
     [t('store'), storeName.value, storeId.value],
     [t('currentPage'), page.value, t('total'), total.value],
     [t('time'), new Date().toISOString()],
   ]
+  rows.push([lt('scope'), lt(lifecycle.value)])
   rows.push([t('search'), appliedKeyword.value, t('status'), status.value ? t(statusKey[status.value]) : t('all')])
-  rows.push([t('code'), t('name'), t('unit'), t('quantity'), t('reserved'), t('available'), t('threshold'), t('shortage'), t('status'), t('updated')])
-  for (const item of inventory.value?.items ?? []) rows.push([item.code, item.name, item.unit, item.quantity, item.reservedQuantity ?? 0, item.availableQuantity ?? item.quantity, item.reorderPoint, item.shortage, t(statusKey[item.status]), item.updatedAt])
+  rows.push([t('code'), t('name'), t('unit'), lt('scope'), t('quantity'), t('reserved'), t('available'), t('threshold'), t('shortage'), t('status'), t('updated')])
+  for (const item of inventory.value?.items ?? []) rows.push([item.code, item.name, item.unit, lt(item.isActive === false ? 'ARCHIVED' : 'ACTIVE'), item.quantity, item.reservedQuantity ?? 0, item.availableQuantity ?? item.quantity, item.reorderPoint, item.isActive === false ? '' : item.shortage, t(statusKey[item.status]), item.updatedAt])
   downloadCsv(`inventory-${view.value}-${new Date().toISOString().slice(0, 10)}-p${page.value}.csv`, rows)
 }
 onMounted(() => { if (view.value === 'inventory') void load() })
@@ -94,12 +103,12 @@ onBeforeUnmount(() => { sequence++ })
     </div>
     <p v-if="notice" role="status" class="text-sm text-emerald-700">{{ t('saved') }}</p>
     <template v-if="view === 'inventory' && inventory && !errorKey">
-      <div class="grid grid-cols-3 gap-3" :aria-label="t('summaryHint')">
+      <div class="grid grid-cols-3 gap-3" :aria-label="lt('activeSummary')">
         <button v-for="metric in [{ key: 'all' as const, value: inventory.summary.total, filter: '' as const }, { key: 'low' as const, value: inventory.summary.low, filter: 'LOW' as const }, { key: 'out' as const, value: inventory.summary.out, filter: 'OUT' as const }]" :key="metric.key" class="metric" :class="{ chosen: status === metric.filter }" :aria-pressed="status === metric.filter" :disabled="loading" @click="filter(metric.filter)">
-          <span class="block min-h-8 text-xs text-muted-foreground sm:min-h-0 sm:text-sm">{{ t(metric.key) }}</span><strong class="mt-2 block text-2xl font-semibold tabular-nums">{{ format(metric.value) }}</strong>
+          <span class="block min-h-8 text-xs text-muted-foreground sm:min-h-0 sm:text-sm">{{ metric.key === 'all' ? lt('ACTIVE') : t(metric.key) }}</span><strong class="mt-2 block text-2xl font-semibold tabular-nums">{{ format(metric.value) }}</strong>
         </button>
       </div>
-      <p class="text-xs text-muted-foreground">{{ t('summaryHint') }}</p>
+      <p class="text-xs text-muted-foreground">{{ lt('activeSummary') }}</p>
     </template>
     <div class="panel">
       <div class="flex flex-wrap items-center justify-between gap-3 border-b p-4">
@@ -125,6 +134,7 @@ onBeforeUnmount(() => { sequence++ })
         <form class="flex flex-wrap items-center gap-2 border-b p-4" @submit.prevent="search">
           <label class="sr-only" for="inventory-search">{{ t('search') }}</label>
           <input id="inventory-search" v-model="keyword" type="search" maxlength="120" class="control w-full sm:w-64" :placeholder="t('search')" />
+          <label class="sr-only" for="inventory-lifecycle">{{lt('scope')}}</label><select id="inventory-lifecycle" class="control" :value="lifecycle" :disabled="loading" @change="changeScope(($event.target as HTMLSelectElement).value)"><option value="ACTIVE">{{lt('ACTIVE')}}</option><option value="ARCHIVED">{{lt('ARCHIVED')}} ({{inventory?.summary.archived ?? 0}})</option><option value="ALL">{{lt('ALL')}}</option></select>
           <Button type="submit" variant="outline" :disabled="loading">{{ t('searchButton') }}</Button>
           <label class="sr-only" for="inventory-status">{{ t('status') }}</label>
           <select id="inventory-status" :value="status" class="control" :disabled="loading" @change="filter(($event.target as HTMLSelectElement).value as InventoryStatus | '')">
@@ -134,19 +144,20 @@ onBeforeUnmount(() => { sequence++ })
         <div v-if="loading" class="empty" role="status">{{ t('loading') }}</div>
         <div v-else-if="errorKey" class="empty" role="alert"><p>{{ t(errorKey) }}</p><Button variant="outline" class="mt-3" @click="load">{{ t('refresh') }}</Button></div>
         <div v-else-if="!hasRows" class="empty">
-          <p class="font-medium text-foreground">{{ t(inventory?.summary.total === 0 ? 'empty' : 'noResults') }}</p>
-          <p class="mt-2">{{ t(inventory?.summary.total === 0 ? 'emptyHint' : 'search') }}</p>
-          <Button v-if="view === 'inventory'" variant="outline" class="mt-4" @click="inventory?.summary.total === 0 ? edit() : clear()">{{ t(inventory?.summary.total === 0 ? 'newItem' : 'clear') }}</Button>
+          <p class="font-medium text-foreground">{{ lifecycle === 'ARCHIVED' ? lt('noArchived') : lifecycle === 'ACTIVE' && inventory?.summary.total === 0 ? lt('noActive') : t('noResults') }}</p>
+          <p class="mt-2">{{ lifecycle === 'ARCHIVED' || (lifecycle === 'ACTIVE' && (inventory?.summary.archived ?? 0) > 0) ? lt('archivedHint') : t(inventory?.summary.total === 0 ? 'emptyHint' : 'search') }}</p>
+          <Button v-if="view === 'inventory' && lifecycle !== 'ARCHIVED'" variant="outline" class="mt-4" @click="inventory?.summary.total === 0 ? edit() : clear()">{{ t(inventory?.summary.total === 0 ? 'newItem' : 'clear') }}</Button>
+        <Button v-if="(inventory?.summary.archived ?? 0) > 0 && lifecycle === 'ACTIVE'" variant="ghost" class="mt-4" @click="changeScope('ARCHIVED')">{{lt('viewArchived')}}</Button>
         </div>
         <div v-else class="overflow-x-auto" tabindex="0" :aria-label="t('inventory')">
           <table>
             <thead><tr><th>{{ t('name') }}</th><th>{{ t('status') }}</th><th class="number">{{ t('quantity') }}</th><th class="number">{{ t('reserved') }}</th><th class="number">{{ t('available') }}</th><th class="number">{{ t('threshold') }}</th><th class="number">{{ t('shortage') }}</th><th>{{ t('updated') }}</th><th class="text-right">{{ t('actions') }}</th></tr></thead>
             <tbody><tr v-for="item in inventory?.items" :key="item.id">
               <td><span class="font-medium">{{ item.name }}</span><span class="mt-1 block font-mono text-xs text-muted-foreground">{{ item.code }}</span></td>
-              <td><span class="stock-status" :data-status="item.status">{{ t(statusKey[item.status]) }}</span></td>
+              <td><span class="stock-status" :data-status="item.isActive === false ? 'ARCHIVED' : item.status">{{ item.isActive === false ? lt('ARCHIVED') : t(statusKey[item.status]) }}</span></td>
               <td class="number font-semibold">{{ format(item.quantity) }} <span class="text-xs font-normal text-muted-foreground">{{ item.unit }}</span></td>
-              <td class="number">{{ format(item.reservedQuantity ?? 0) }}</td><td class="number font-semibold">{{ format(item.availableQuantity ?? item.quantity) }}</td><td class="number">{{ format(item.reorderPoint) }}</td><td class="number">{{ format(item.shortage) }}</td><td class="text-xs text-muted-foreground">{{ date(item.updatedAt) }}</td>
-              <td><div class="flex justify-end gap-1"><Button variant="outline" size="sm" :aria-label="`${t('adjust')} ${item.name}`" @click="edit(item)">{{ t('adjust') }}</Button><Button variant="ghost" size="sm" :aria-label="`${t('records')} ${item.name}`" @click="showHistory(item)">{{ t('records') }}</Button><Button v-if="item.shortage > 0" variant="ghost" size="sm" :aria-label="`${t('replenish')} ${item.name}`" @click="replenish(item.id)">{{ t('replenish') }}</Button></div></td>
+              <td class="number">{{ format(item.reservedQuantity ?? 0) }}</td><td class="number font-semibold">{{ format(item.availableQuantity ?? item.quantity) }}</td><td class="number">{{ format(item.reorderPoint) }}</td><td class="number">{{ item.isActive === false ? '—' : format(item.shortage) }}</td><td class="text-xs text-muted-foreground">{{ date(item.updatedAt) }}</td>
+              <td><div class="flex justify-end gap-1"><Button v-if="item.isActive !== false" variant="outline" size="sm" :aria-label="`${t('adjust')} ${item.name}`" @click="edit(item)">{{ t('adjust') }}</Button><Button variant="ghost" size="sm" :aria-label="`${t('records')} ${item.name}`" @click="showHistory(item)">{{ t('records') }}</Button><Button v-if="item.isActive !== false && item.shortage > 0" variant="ghost" size="sm" :aria-label="`${t('replenish')} ${item.name}`" @click="replenish(item.id)">{{ t('replenish') }}</Button><Button variant="ghost" size="sm" :aria-label="`${lt(item.isActive === false ? 'restore' : 'archive')} ${item.name}`" @click="lifecycleItem = item">{{lt(item.isActive === false ? 'restore' : 'archive')}}</Button></div></td>
             </tr></tbody>
           </table>
 
@@ -157,6 +168,7 @@ onBeforeUnmount(() => { sequence++ })
       </template>
     </div>
     <p class="text-xs leading-5 text-muted-foreground">{{ t('scopeHint') }}<template v-if="view !== 'report'"><br />{{ t('reportHint') }}</template></p>
+    <MaterialLifecycle :item="lifecycleItem" :store-id="storeId" @close="lifecycleItem = undefined" @saved="saved" />
     <InventoryEditor v-model:open="editorOpen" :store-id="storeId" :item="selectedItem" @saved="saved" />
   </section>
 </template>
@@ -176,6 +188,7 @@ tr:last-child td { border-bottom: 0; }
 tbody tr:hover { background: var(--ld-bg-muted); }
 .number { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .stock-status { display: inline-block; white-space: nowrap; font-size: .75rem; border-radius: .25rem; padding: .25rem .5rem; background: #ecfdf5; color: #065f46; }
+.stock-status[data-status='ARCHIVED'] { background: var(--ld-bg-muted); color: var(--ld-text-muted); }
 .stock-status[data-status='LOW'] { background: #fffbeb; color: #92400e; }
 .stock-status[data-status='OUT'] { background: #fef2f2; color: #991b1b; }
 </style>

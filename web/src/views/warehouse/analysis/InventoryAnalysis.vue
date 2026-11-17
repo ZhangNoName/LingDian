@@ -3,6 +3,7 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { InventoryMovementKind, InventoryPeriodReport } from '@lingdian/contracts'
 import { Button } from '@/baseComponents/button'
+import { inventoryLifecycleQuery } from '../lifecycle/state'
 import { activityQuery, type ActivityState } from '../activity-state'
 import { downloadCsv } from '../report'
 import { analyzeRows, filterAnalysis, type AnalysisOrder, type AnalysisSubset } from './model'
@@ -46,7 +47,7 @@ const metrics = computed(() => [
   { label: 'countMaterials' as const, value: all.value.filter((row) => row.countGain > 0 || row.countLoss > 0).length },
 ])
 function navigate(next = state.value, page = props.state.page, replace = false) {
-  const target = { query: { view: 'report', ...activityQuery({ ...props.state, page }), ...analysisQuery(next) } }
+  const target = { query: { view: 'report', ...inventoryLifecycleQuery(route.query), ...activityQuery({ ...props.state, page }), ...analysisQuery(next) } }
   return replace ? router.replace(target) : router.push(target)
 }
 watch(
@@ -70,7 +71,7 @@ async function focus(itemId: string) {
 function history(kind: InventoryMovementKind) {
   if (selected.value)
     void router.push({
-      query: { view: 'history', ...activityQuery({ ...props.state, itemId: selected.value.itemId, kind, page: 1 }) },
+      query: { view: 'history', ...inventoryLifecycleQuery(route.query), ...activityQuery({ ...props.state, itemId: selected.value.itemId, kind, page: 1 }) },
     })
 }
 function exportSnapshot() {

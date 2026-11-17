@@ -1,3 +1,4 @@
+import { lockActiveMaterials } from '../active-materials';
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import { Prisma } from '@lingdian/db';
@@ -142,8 +143,9 @@ export class PurchasingService {
           const supplier = await tx.supplier.findUniqueOrThrow({
             where: { id_storeId: { id: body.supplierId, storeId } },
           });
+          await lockActiveMaterials(tx, storeId, body.lines.map(line => line.itemId), 'purchasing.materialUnavailable');
           const items = await tx.inventoryItem.findMany({
-            where: { id: { in: body.lines.map((line) => line.itemId) }, storeId },
+            where: { id: { in: body.lines.map((line) => line.itemId) }, storeId, isActive: true },
           });
           if (items.length !== body.lines.length) throw new BadRequestException('purchasing.materialUnavailable');
           const lines = body.lines.map((line) => {
@@ -258,7 +260,7 @@ export class PurchasingService {
           for (const line of lines) {
             const itemId = line.original.itemId;
             const itemLock = await tx.inventoryItem.updateMany({
-              where: { id: itemId, storeId },
+              where: { id: itemId, storeId, isActive: true },
               data: { version: { increment: 0 } },
             });
             if (itemLock.count !== 1) throw new BadRequestException('purchasing.materialUnavailable');

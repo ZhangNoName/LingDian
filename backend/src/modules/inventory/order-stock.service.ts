@@ -26,7 +26,7 @@ export class OrderStockService {
     for (const [itemId, amount] of [...required].sort(([a], [b]) => a.localeCompare(b))) {
       if (!Number.isSafeInteger(amount) || amount <= 0 || amount > MAX_QUANTITY) throw new ConflictException('inventory.orderInsufficient');
       const item = await lockMaterial(tx, order.storeId, itemId);
-      if (item.availableQuantity < amount) throw new ConflictException('inventory.orderInsufficient');
+      if (item.isActive === false || item.availableQuantity < amount) throw new ConflictException('inventory.orderInsufficient');
       const next = { quantity: item.quantity, reservedQuantity: item.reservedQuantity + amount, availableQuantity: item.availableQuantity - amount };
       await updateMaterial(tx, item, next);
       await tx.inventoryReservation.create({ data: { storeId: order.storeId, orderId: order.id, itemId, quantity: amount } });

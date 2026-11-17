@@ -1,10 +1,11 @@
 import { Transform, Type } from 'class-transformer';
-import { IsIn, IsInt, IsISO8601, IsNumber, IsOptional, IsString, Matches, Max, MaxLength, Min, MinLength } from 'class-validator';
-import type { InventoryMovementKind, InventoryStatus, InventoryAdjustmentKind } from '@lingdian/contracts';
+import { IsBoolean, IsIn, IsInt, IsISO8601, IsNumber, IsOptional, IsString, Matches, Max, MaxLength, Min, MinLength } from 'class-validator';
+import type { InventoryMovementKind, InventoryStatus, InventoryAdjustmentKind, InventoryLifecycle } from '@lingdian/contracts';
 
 const trim = ({ value }: { value: unknown }) => typeof value === 'string' ? value.trim() : value;
 
 export class InventoryQueryDto {
+  @IsOptional() @IsIn(['ACTIVE', 'ARCHIVED', 'ALL']) lifecycle?: InventoryLifecycle;
   @Type(() => Number) @IsInt() @Min(1) @Max(1000000)
   page = 1;
 
@@ -82,4 +83,10 @@ export class AdjustInventoryDto {
 
   @Transform(trim) @IsString() @MinLength(1) @MaxLength(240)
   reason!: string;
+}
+
+export class ChangeInventoryLifecycleDto {
+  @IsBoolean() isActive!: boolean;
+  @IsInt() @Min(0) @Max(2147483646) expectedVersion!: number;
+  @Transform(trim) @IsString() @MinLength(1) @MaxLength(240) reason!: string;
 }

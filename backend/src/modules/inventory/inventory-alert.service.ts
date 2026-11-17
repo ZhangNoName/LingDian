@@ -5,7 +5,7 @@ import type { AuthenticatedUser } from '../../common/auth/authenticated-user.typ
 import { MerchantStoreScope } from '../merchant/merchant-store-scope';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AcknowledgeInventoryAlertDto, InventoryAlertQueryDto } from './dto/inventory-alert.dto';
-const include = { item: { select: { name: true, code: true, unit: true } } } satisfies Prisma.InventoryAlertInclude;
+const include = { item: { select: { name: true, code: true, unit: true, isActive: true } } } satisfies Prisma.InventoryAlertInclude;
 type Alert = Prisma.InventoryAlertGetPayload<{ include: typeof include }>;
 @Injectable()
 export class InventoryAlertService {
@@ -43,7 +43,7 @@ export class InventoryAlertService {
   }
 }
 function present(row: Alert): InventoryAlertRecord {
-  return { id: row.id, storeId: row.storeId, itemId: row.itemId, name: row.item.name, code: row.item.code, unit: row.item.unit,
+  return { itemIsActive: row.item.isActive, resolutionReason: row.resolutionReason as 'RECOVERED' | 'ARCHIVED' | null, id: row.id, storeId: row.storeId, itemId: row.itemId, name: row.item.name, code: row.item.code, unit: row.item.unit,
     status: row.status as InventoryAlertStatus, severity: row.severity as 'LOW' | 'OUT', availableAtTrigger: row.availableAtTrigger / 1000, thresholdAtTrigger: row.thresholdAtTrigger / 1000,
     availableLatest: row.availableLatest / 1000, thresholdLatest: row.thresholdLatest / 1000, version: row.version,
     detectedAt: row.detectedAt.toISOString(), updatedAt: row.updatedAt.toISOString(), acknowledgedAt: row.acknowledgedAt?.toISOString() ?? null, acknowledgedBy: row.acknowledgedBy, note: row.note, resolvedAt: row.resolvedAt?.toISOString() ?? null };

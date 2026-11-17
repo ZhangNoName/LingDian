@@ -235,6 +235,11 @@ model Store {
 
 // Quantities use thousandths of the item's fixed unit to avoid floating point drift.
 model InventoryItem {
+  isActive Boolean @default(true)
+  lifecycleVersion Int?
+  lifecycleActorId String?
+  lifecycleReason String? @db.VarChar(240)
+  lifecycleChangedAt DateTime?
   id           String              @id @default(cuid())
   storeId      String
   code         String              @db.VarChar(64)
@@ -258,6 +263,7 @@ model InventoryItem {
   @@unique([storeId, code])
   @@unique([id, storeId])
   @@index([storeId, updatedAt])
+  @@index([storeId, isActive, updatedAt])
   @@map("inventory_items")
 }
 
@@ -295,6 +301,7 @@ model InventoryMovement {
 
 // One active episode per material. Acknowledgement never implies replenishment.
 model InventoryAlert {
+  resolutionReason String? @db.VarChar(16)
   id                 String        @id @default(cuid())
   storeId            String
   itemId             String
