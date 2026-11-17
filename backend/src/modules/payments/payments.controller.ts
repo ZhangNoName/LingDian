@@ -62,7 +62,7 @@ export class PaymentsController {
   @ApiOperation({ summary: 'List receiving accounts in the merchant store scope' })
   @UseGuards(AccessTokenGuard, MerchantGuard)
   @Get('merchant/payment-accounts')
-  listMerchantAccounts(@CurrentUser() user: AuthenticatedUser) {
-    return this.payments.listAccounts(this.merchantStores.storeIds(user));
+  listMerchantAccounts(@CurrentUser() user: AuthenticatedUser, @Headers('x-store-id') storeId?: string) {
+    return this.payments.listAccounts(this.merchantStores.forRequest(user, storeId));
   }
 }

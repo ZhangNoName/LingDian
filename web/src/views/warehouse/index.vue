@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { InventoryItemContract, InventoryMovementKind, InventoryMovementPage, InventoryPage, InventoryStatus } from '@lingdian/contracts'
 import { Button } from '@/baseComponents/button'
 import { useLocale } from '@/i18n/locale'
-import { listMerchantStores, type MerchantStoreSummary } from '@/services/integrations'
+import { merchantStore } from '@/auth/merchant-store'
 import { listInventory, listInventoryMovements } from '@/services/inventory'
 import InventoryEditor from './InventoryEditor.vue'
 import { en, zh, type MessageKey } from './messages'
@@ -11,9 +11,8 @@ import { downloadCsv } from './report'
 
 const { locale } = useLocale()
 const t = (key: MessageKey) => (locale.value === 'en-US' ? en : zh)[key]
-const stores = ref<MerchantStoreSummary[]>([])
-const storeId = ref('')
-const storeName = computed(() => stores.value.find((store) => store.id === storeId.value)?.name ?? '')
+const storeId = merchantStore.selectedId
+const storeName = computed(() => merchantStore.stores.value.find((store) => store.id === storeId.value)?.name ?? '')
 const view = ref<'inventory' | 'history'>('inventory')
 const page = ref(1)
 const keyword = ref('')
@@ -41,12 +40,6 @@ async function load() {
   loading.value = true
   errorKey.value = ''
   try {
-    if (!stores.value.length) {
-      const result = await listMerchantStores()
-      if (current !== sequence) return
-      stores.value = result
-      storeId.value = result[0]?.id ?? ''
-    }
     if (!storeId.value) { errorKey.value = 'noStore'; return }
     const id = storeId.value
     if (view.value === 'inventory') {
@@ -58,16 +51,6 @@ async function load() {
     }
   } catch { if (current === sequence) errorKey.value = 'loadFailed' }
   finally { if (current === sequence) loading.value = false }
-}
-function resetStore() {
-  inventory.value = undefined
-  movements.value = undefined
-  historyItem.value = undefined
-  selectedItem.value = undefined
-  editorOpen.value = false
-  notice.value = false
-  page.value = 1
-  void load()
 }
 function switchView(value: 'inventory' | 'history') { view.value = value; page.value = 1; void load() }
 function filter(value: InventoryStatus | '') { status.value = value; page.value = 1; void load() }
@@ -108,7 +91,6 @@ onBeforeUnmount(() => { sequence++ })
       <div class="flex flex-wrap items-center gap-2">
         <label class="sr-only" for="inventory-language">{{ t('language') }}</label>
         <select id="inventory-language" v-model="locale" class="control"><option value="zh-CN">简体中文</option><option value="en-US">English</option></select>
-        <label v-if="stores.length > 1" class="flex items-center gap-2 text-sm">{{ t('store') }}<select v-model="storeId" class="control" :disabled="loading" @change="resetStore"><option v-for="store in stores" :key="store.id" :value="store.id">{{ store.name }}</option></select></label>
         <Button variant="outline" :disabled="loading" @click="load">{{ t('refresh') }}</Button>
         <Button :disabled="!storeId || loading || !!errorKey" @click="edit()">{{ t('newItem') }}</Button>
       </div>

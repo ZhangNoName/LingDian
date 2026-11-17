@@ -35,8 +35,8 @@ export class ProductsService {
     private readonly configuration: ProductConfigurationService,
   ) {}
 
-  async getCategories() {
-    const store = await this.stores.resolveCurrentStore();
+  async getCategories(storeId?: string) {
+    const store = await this.stores.resolveCurrentStore(undefined, storeId);
     const categories = await this.prisma.category.findMany({
       where: {
         storeId: store.id,
@@ -54,7 +54,7 @@ export class ProductsService {
   }
 
   async createCategory(payload: CreateCategoryDto) {
-    const store = await this.stores.resolveCurrentStore();
+    const store = await this.stores.resolveCurrentStore(undefined, payload.storeId);
     const category = await this.prisma.category.create({
       data: {
         storeId: store.id,
@@ -74,7 +74,7 @@ export class ProductsService {
   }
 
   async updateCategory(categoryId: string, payload: UpdateCategoryDto) {
-    const [storeId] = this.stores.resolveStoreIds();
+    const storeId = this.stores.mode === 'multi' ? undefined : this.stores.primaryStoreId();
     const existing = await this.prisma.category.findFirst({
       where: { id: categoryId, storeId },
       select: { id: true },
@@ -101,7 +101,7 @@ export class ProductsService {
   }
 
   async getProducts(query: QueryProductsDto = new QueryProductsDto(), storeIds?: string[]): Promise<ProductPageContract> {
-    const effectiveStoreIds = this.stores.resolveStoreIds(storeIds);
+    const effectiveStoreIds = this.stores.resolveStoreIds(storeIds ?? (query.storeId ? [query.storeId] : undefined));
     const page = query.page ?? 1;
     const pageSize = query.pageSize ?? 20;
     const keyword = query.keyword?.trim();
@@ -207,7 +207,7 @@ export class ProductsService {
   }
 
   async createProduct(payload: CreateProductDto) {
-    const store = await this.stores.resolveCurrentStore();
+    const store = await this.stores.resolveCurrentStore(undefined, payload.storeId);
     await this.ensureCategoryBelongsToStore(payload.category_id, store.id);
 
     const product = await this.prisma.product.create({
@@ -240,7 +240,7 @@ export class ProductsService {
   }
 
   async updateProduct(productId: string, payload: UpdateProductDto, storeIds?: string[]) {
-    const effectiveStoreIds = this.stores.resolveStoreIds(storeIds);
+    const effectiveStoreIds = await this.productStoreScope(productId, storeIds);
     const existingProduct = await this.prisma.product.findFirst({
       where: {
         id: productId,
@@ -299,7 +299,7 @@ export class ProductsService {
   }
 
   async updateProductStatus(productId: string, status: ProductStatus, storeIds?: string[]) {
-    const effectiveStoreIds = this.stores.resolveStoreIds(storeIds);
+    const effectiveStoreIds = await this.productStoreScope(productId, storeIds);
     await this.assertProductInStores(productId, effectiveStoreIds);
     await this.prisma.product.update({
       where: {
@@ -314,8 +314,8 @@ export class ProductsService {
     return this.getProductDetail(productId, effectiveStoreIds);
   }
 
-  async getCurrentMenu() {
-    const store = await this.stores.resolveCurrentStore();
+  async getCurrentMenu(storeId?: string) {
+    const store = await this.stores.resolveCurrentStore(undefined, storeId);
     const categories = await this.prisma.category.findMany({
       where: {
         storeId: store.id,
@@ -358,7 +358,7 @@ export class ProductsService {
   }
 
   async getProductDetail(productId: string, storeIds?: string[]) {
-    const effectiveStoreIds = this.stores.resolveStoreIds(storeIds);
+    const effectiveStoreIds = await this.productStoreScope(productId, storeIds);
     const product = await this.prisma.product.findFirst({
       where: {
         id: productId,
@@ -375,7 +375,7 @@ export class ProductsService {
   }
 
   async syncProductConfiguration(productId: string, payload: SyncProductConfigDto, storeIds?: string[]) {
-    const effectiveStoreIds = this.stores.resolveStoreIds(storeIds);
+    const effectiveStoreIds = await this.productStoreScope(productId, storeIds);
     const product = await this.prisma.product.findFirst({
       where: {
         id: productId,
@@ -394,7 +394,7 @@ export class ProductsService {
   }
 
   async updateSkuStock(skuId: string, stockCount: number, storeIds?: string[]) {
-    await this.assertSkuInStores(skuId, this.stores.resolveStoreIds(storeIds));
+    await this.assertSkuInStores(skuId, await this.skuStoreScope(skuId, storeIds));
     const sku = await this.prisma.productSKU.update({
       where: { id: skuId },
       data: { stockCount },
@@ -405,7 +405,7 @@ export class ProductsService {
   }
 
   async updateSkuPrice(skuId: string, price: number, storeIds?: string[]) {
-    await this.assertSkuInStores(skuId, this.stores.resolveStoreIds(storeIds));
+    await this.assertSkuInStores(skuId, await this.skuStoreScope(skuId, storeIds));
     const sku = await this.prisma.productSKU.update({
       where: { id: skuId },
       data: { price },
@@ -417,6 +417,20 @@ export class ProductsService {
 
   private invalidateProductStats() {
     this.statsCache.clear();
+  }
+
+  private async productStoreScope(productId: string, storeIds?: string[]): Promise<string[]> {
+    if (storeIds !== undefined || this.stores.mode !== 'multi') return this.stores.resolveStoreIds(storeIds);
+    const product = await this.prisma.product.findUnique({ where: { id: productId }, select: { storeId: true } });
+    if (!product) throw new NotFoundException('商品不存在');
+    return [product.storeId];
+  }
+
+  private async skuStoreScope(skuId: string, storeIds?: string[]): Promise<string[]> {
+    if (storeIds !== undefined || this.stores.mode !== 'multi') return this.stores.resolveStoreIds(storeIds);
+    const sku = await this.prisma.productSKU.findUnique({ where: { id: skuId }, select: { product: { select: { storeId: true } } } });
+    if (!sku) throw new NotFoundException('SKU 不存在');
+    return [sku.product.storeId];
   }
 
   private async ensureCategoryBelongsToStore(categoryId: string, storeId: string) {

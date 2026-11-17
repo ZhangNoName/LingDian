@@ -57,15 +57,15 @@ export class PaymentsService {
   ) {}
 
   async createIntent(orderId: string, customerUserId: string, body: CreatePaymentIntentDto) {
-    const storeId = this.stores.primaryStoreId();
     if (providerChannels[body.provider] !== body.channel) {
       throw new BadRequestException('Payment provider does not support the requested channel');
     }
     const order = await this.prisma.order.findFirst({
-      where: { id: orderId, customerUserId, storeId, isDeleted: false },
+      where: { id: orderId, customerUserId, ...(this.stores.mode === 'multi' ? {} : { storeId: this.stores.primaryStoreId() }), isDeleted: false },
       select: { id: true, orderNo: true, storeId: true, status: true, paymentChannel: true, payableAmount: true },
     });
     if (!order) throw new NotFoundException('Order not found');
+    const storeId = this.stores.resolveRequestedStoreId(order.storeId);
     let existing = await this.prisma.paymentIntent.findUnique({
       where: { orderId_clientRequestId: { orderId, clientRequestId: body.clientRequestId } },
     });
@@ -139,9 +139,9 @@ export class PaymentsService {
   }
 
   async getCustomerIntent(paymentNo: string, customerUserId: string) {
-    const storeId = this.stores.primaryStoreId();
+    const storeScope = this.stores.mode === 'multi' ? {} : { storeId: this.stores.primaryStoreId() };
     const intent = await this.prisma.paymentIntent.findFirst({
-      where: { paymentNo, order: { customerUserId, storeId } },
+      where: { paymentNo, order: { customerUserId, ...storeScope } },
     });
     if (!intent) throw new NotFoundException('Payment not found');
     return this.mapIntent(intent);
@@ -152,7 +152,7 @@ export class PaymentsService {
       throw new BadRequestException('Unsupported payment provider');
     }
     const account = await this.prisma.paymentAccount.findFirst({
-      where: { id: accountId, provider, storeId: this.stores.primaryStoreId() },
+      where: { id: accountId, provider, ...(this.stores.mode === 'multi' ? {} : { storeId: this.stores.primaryStoreId() }) },
     });
     if (!account) throw new NotFoundException('Payment account not found');
     const payload = this.gateways.create(account).verifyWebhook(rawBody, headers);
@@ -335,9 +335,9 @@ export class PaymentsService {
   }
 
   async listAccounts(storeIds?: string[]): Promise<PaymentAccountView[]> {
-    const effectiveStoreIds = this.stores.resolveStoreIds(storeIds);
+    const effectiveStoreIds = this.stores.mode === 'multi' && storeIds === undefined ? undefined : this.stores.resolveStoreIds(storeIds);
     return this.prisma.paymentAccount.findMany({
-      where: { storeId: { in: effectiveStoreIds } },
+      where: effectiveStoreIds ? { storeId: { in: effectiveStoreIds } } : {},
       select: { id: true, storeId: true, provider: true, channel: true, externalAccountId: true, connectorConfigKey: true, status: true, updatedAt: true },
       orderBy: [{ storeId: 'asc' }, { provider: 'asc' }],
     });

@@ -86,7 +86,7 @@ export class OrdersService {
       if (duplicateOrder) return mapOrderDetail(duplicateOrder);
 
       const customer = await this.resolveCustomer(tx, body, customerUserId, delivery?.address);
-      const store = await this.stores.resolveCurrentStore(tx);
+      const store = await this.stores.resolveCurrentStore(tx, storeId);
       const serviceEnabled = body.orderType === 'dine_in'
         ? store.dineInEnabled
         : body.orderType === 'takeout'

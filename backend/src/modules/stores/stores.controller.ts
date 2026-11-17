@@ -1,4 +1,5 @@
-import { Controller, Get } from '@nestjs/common';
+import { StoreContextQueryDto } from './dto/store-context.dto';
+import { Controller, Get, Query } from '@nestjs/common';
 import { StoreContextResolver } from './store-context.resolver';
 
 @Controller('stores')
@@ -6,8 +7,8 @@ export class StoresController {
   constructor(private readonly stores: StoreContextResolver) {}
 
   @Get('current')
-  async getCurrentStore() {
-    const store = await this.stores.resolveCurrentStore();
+  async getCurrentStore(@Query() query: StoreContextQueryDto = {}) {
+    const store = await this.stores.resolveCurrentStore(undefined, query.storeId);
     return {
       id: store.id,
       name: store.name,

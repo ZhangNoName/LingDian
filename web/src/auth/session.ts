@@ -1,5 +1,6 @@
 import { RES_CODE, isResponseEnvelope, type ResponseEnvelope } from '@lingdian/common'
 import type { AuthTokens, AuthenticatedUser } from '@lingdian/contracts'
+import { merchantStore } from './merchant-store'
 import { apiUrl } from '../config/api'
 
 let accessToken: string | undefined
@@ -18,6 +19,7 @@ export const merchantSession = {
     accessToken = tokens.access_token
     accessTokenExpiresAt = Date.now() + tokens.expires_in * 1000
     currentUser = tokens.user
+    merchantStore.updateSession(tokens.user.userId, tokens.user.merchantStoreIds ?? [])
   },
 
   getAccessToken(): string | undefined {
@@ -33,6 +35,7 @@ export const merchantSession = {
     accessToken = undefined
     accessTokenExpiresAt = 0
     currentUser = undefined
+    merchantStore.clear()
   },
 
   setUnauthorizedHandler(handler: () => void | Promise<void>): void {

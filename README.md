@@ -65,7 +65,7 @@ pnpm run prisma:generate
 pnpm run build:packages
 ```
 
-### 2. 配置本地开发数据库与唯一门店
+### 2. 配置本地开发数据库与门店
 
 本地开发 API 启动前准备 `backend/.env`、数据库结构和 `PRIMARY_STORE_ID` 对应的门店行：
 
@@ -156,11 +156,17 @@ STORE_BOOTSTRAP_CODE=
 STORE_BOOTSTRAP_NAME=
 ```
 
-单店构建要求 `STORE_MODE=single`，且
+默认单店模式使用 `STORE_MODE=single`，且
 `AUTH_BOOTSTRAP_MERCHANT_STORE_IDS` 必须与 `PRIMARY_STORE_ID` 完全相同。bootstrap
 会在串行化事务中幂等创建尚不存在的门店与账号；初始密码必须为 12–128 位并包含
 大小写字母、数字和符号，两个账号不能共用密码。新建或由 bootstrap 更新凭据的账号会
 被标记为首次登录必须改密。正式部署成功后，一次性账号凭据默认从生产配置中清除。
+
+## 多店与租户隔离
+
+需要共享 API 管理多家门店时配置 `STORE_MODE=multi`，保留一个已存在的 `PRIMARY_STORE_ID` 作为公开默认门店及 readiness 检查对象。通过平台账号管理为商家分配已存在的门店；多店商家在 Web 顶部明确选店后操作，接口按会话授权范围校验 `X-Store-Id`，不能靠请求参数扩大权限。新增门店当前仍需受控 bootstrap 或运维流程，尚无自助租户注册。
+
+公开门店和菜单接口支持 `?storeId=...`；现有顾客前端仍默认进入主门店，未提供多店选店入口。详细边界见 [多店运行时迭代记录](./docs/16-multi-store-iteration-2026-11-17.md)。
 
 ## 微信小程序用户能力
 

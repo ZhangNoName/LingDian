@@ -128,9 +128,9 @@ export class OrdersQueryService {
   }
 
   scopeWhere(scope: OrderScope): Prisma.OrderWhereInput {
-    const storeIds = this.stores.resolveStoreIds(scope.storeIds);
+    const storeIds = this.stores.mode === 'multi' && scope.storeIds === undefined ? undefined : this.stores.resolveStoreIds(scope.storeIds);
     return {
-      storeId: { in: storeIds },
+      ...(storeIds ? { storeId: { in: storeIds } } : {}),
       ...(scope.customerUserId ? { customerUserId: scope.customerUserId } : {}),
     };
   }

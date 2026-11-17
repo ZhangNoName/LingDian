@@ -1,6 +1,6 @@
 # LingDian 系统结构与架构边界
 
-> 审查基线：2026-08-30；库存模块增量更新：2026-11-17。本文只描述仓库中已经存在的运行结构；模块成熟度见 [模块目录](./12-module-catalog.md)，上线约束见 [权限与缺口分析](./13-permission-and-gap-analysis.md)，本轮问题与修复证据见 [代码库全面审查](./14-codebase-review-2026-08-30.md)。
+> 审查基线：2026-08-30；库存和多店运行时增量更新：2026-11-17。本文只描述仓库中已经存在的运行结构；模块成熟度见 [模块目录](./12-module-catalog.md)，上线约束见 [权限与缺口分析](./13-permission-and-gap-analysis.md)，本轮问题与修复证据见 [代码库全面审查](./14-codebase-review-2026-08-30.md)。
 
 ## 1. 架构结论
 
@@ -8,12 +8,13 @@ LingDian 是 **pnpm monorepo 下的模块化单体**：顾客端、商家端和�
 
 当前阶段继续保持模块化单体是合理选择。认证、订单、支付等需要同库事务的领域不应为了形式拆成网络服务；只有出现独立扩缩容、合规隔离、不同发布节奏或明确团队所有权时，才评估拆进程。
 
-产品运行模式是单店：
+产品运行时支持两种模式：
 
-- 生产固定 `STORE_MODE=single` 和 `PRIMARY_STORE_ID`；
-- 顾客不选店，公开菜单、下单、支付账户和商家数据范围都由服务端解析到主门店；
-- `Store` 及各业务表仍保留 `storeId`，用于数据完整性、审计和未来迁移，不代表当前支持多店经营；
-- `CLOSED` / `RESTING` 是业务状态，不应让 liveness 失败；下单时再校验营业与服务方式。
+- 默认 `STORE_MODE=single`，所有业务仍限制在 `PRIMARY_STORE_ID`；
+- `STORE_MODE=multi` 使用相同数据模型，以门店作为当前租户数据边界；商家授权由活动 MERCHANT/STORE assignment 决定，客户端选店不能扩大范围；
+- 两种模式都保留 `PRIMARY_STORE_ID`，作为公开默认入口和启动/readiness 检查；公开菜单可显式指定 storeId，现有顾客前端仍默认主门店；
+- Web 顶部统一选择授权门店，商品/订单/收款账户请求使用 `X-Store-Id`，库存/集成路径使用显式门店 ID；多门店账号未选择门店时拒绝业务查询；
+- `CLOSED` / `RESTING` 是业务状态，不应让 liveness 失败；下单按请求门店校验营业与服务方式。
 
 ## 2. 系统上下文
 
@@ -52,7 +53,7 @@ flowchart LR
 | 路径 | 主要职责 | 可依赖 | 不应承担 |
 | --- | --- | --- | --- |
 | `uniapp/` | 顾客菜单、规格、购物车、结算、订单、认证、地址 | contracts、icons、observability、common/theme | 商户密钥、服务端定价、权限判定 |
-| `web/` | 商家单店工作台、商品配置、订单、原料库存台账、集成开关 | contracts、icons、observability、common/theme | 平台治理、仅靠隐藏按钮授权 |
+| `web/` | 商家门店工作台、商品配置、订单、原料库存台账、集成开关 | contracts、icons、observability、common/theme | 平台治理、仅靠隐藏按钮授权 |
 | `admin/` | 平台账号、系统日志、个人设置 | contracts、icons、observability、common/theme | 商家经营流程、直接访问数据库 |
 | `backend/` | HTTP 边界、鉴权、业务规则、事务、状态机、Connector 调度 | db、contracts、common | 页面状态、厂商私有协议实现 |
 | `packages/contracts/` | 跨端 API 与事件契约 | TypeScript 标准能力 | Prisma 模型、页面 ViewModel |
@@ -111,7 +112,7 @@ flowchart LR
 关键所有权：
 
 - `auth` 拥有身份、会话、验证码、OAuth、法律同意与认证审计；
-- `stores` / `merchant` 拥有主门店解析和商家 scope；
+- `stores` / `merchant` 拥有单/多店解析和商家 scope；
 - `products` / `menu` 拥有分类、SPU、SKU、选择组和公开菜单；
 - `inventory` 拥有门店原料台账、预警阈值和不可改写的库存流水；独立于 SKU 库存与订单，不自动扣料；
 - `orders` 拥有服务端报价快照、订单状态与订单 outbox 写入；
@@ -131,7 +132,7 @@ flowchart LR
 
 ### 5.2 菜单、规格与下单
 
-1. 顾客读取 `/api/menu/current`，服务端确定主门店；匿名 GET 不写演示数据；
+1. 顾客读取 `/api/menu/current`，服务端解析显式或默认门店；匿名 GET 不写演示数据；
 2. 顾客端按默认活动 SKU 展示商品，并支持选择组的单选/多选、必选/可选和 min/max；
 3. 购物车当前只在客户端内存中保存；
 4. 下单时 API 重读门店、SKU、选择组、选项和地址，以整数分重新计价；
@@ -140,7 +141,7 @@ flowchart LR
 
 ### 5.3 支付
 
-1. 顾客只能为自己、主门店内、未删除且待支付的订单创建幂等意图；
+1. 顾客只能为自己、运行模式允许且未删除的待支付订单创建幂等意图；
 2. 数据库 `activeOrderKey` 保证一个订单最多一个活动支付尝试；订单终止、支付预占、成功确认和过期释放都遵守 order → intent 锁顺序；
 3. Connector 同步响应只表示创建受理，不能直接成为支付成功事实；
 4. Connector 验证厂商事件后，以 HMAC 回调 API；
@@ -161,8 +162,8 @@ flowchart LR
 
 | 边界 | 服务端必须重新校验 | 当前状态 |
 | --- | --- | --- |
-| 顾客端 → API | audience、用户归属、主门店、SKU/选项、价格、地址、订单状态 | 主链已校验；真实支付、库存与优惠未闭环 |
-| 商家端 → API | `MERCHANT`、主门店 scope、对象归属、领域状态 | 门店 scope 已实现；动作级权限缺失 |
+| 顾客端 → API | audience、用户归属、门店、SKU/选项、价格、地址、订单状态 | 主链已校验；真实支付、库存与优惠未闭环 |
+| 商家端 → API | `MERCHANT`、已授权门店 scope、对象归属、领域状态 | 门店 scope 已实现；动作级权限缺失 |
 | 平台端 → API | 管理层级、目标账号层级、敏感动作 | 固定角色和层级有效；商品/订单仍是宽 `ADMIN` |
 | API → DB | 事务、唯一约束、条件更新、状态日志 | 核心交易具备事务/条件更新；统一业务审计仍缺 |
 | API → Connector | HTTPS URL、HMAC、超时、幂等、重试 | 出站主链已实现；死信运营与双向事件缺失 |
@@ -222,8 +223,14 @@ flowchart TB
 
 ## 2026-11-17 库存增量
 
-新增 `InventoryModule` 和 `/merchant/stores/:storeId/inventory`：所有入口先验证 merchant audience/角色，再由 `MerchantStoreScope` 校验服务端授权门店。原料和流水均保留 `storeId`；流水通过 `(itemId, storeId)` 复合外键引用原料，阻止跨门店关联。生产仍使用现有单店 resolver，未在本轮启用多店运行时。
+新增 `InventoryModule` 和 `/merchant/stores/:storeId/inventory`：所有入口先验证 merchant audience/角色，再由 `MerchantStoreScope` 校验服务端授权门店。原料和流水均保留 `storeId`；流水通过 `(itemId, storeId)` 复合外键引用原料，阻止跨门店关联。原料台账初版沿用单店 resolver；后续多店运行时见下节。
 
 数量按单位的千分之一保存为整数，API 返回至多三位小数；新增原料初始为零。入库、出库、盘点和阈值变更使用版本条件更新，并在同一事务插入 actor/reason/before/after 流水。`storeId + requestId` 唯一键约束幂等，重放也先做 scope 检查。列表、计数和流水分页采用一致快照；预警按零库存优先、正库存小于等于阈值为低库存计算。
 
 实现与验收边界见 [库存迭代记录](./15-inventory-iteration-2026-11-17.md)。
+
+## 2026-11-17 多店运行时增量
+
+`StoresModule` 根据配置创建一个 resolver 实例，保留单店行为并支持多店。商家 API 在对象查询之前核对所选门店与签名会话的授权集合；多店商家不再默认混查所有已授权门店。顾客订单查询按 owner 覆盖自身所有门店订单，支付查询先确认 owner，再以订单门店找到收款账户；验签 webhook 仍核对 account、order.storeId、金额和外部引用。多店 outbox 轮询与遗留认领恢复覆盖所有门店。
+
+Web 门店选择按账号和标签页保存，退出清除、授权变更剔除失效选择。业务页面以门店 ID 为 key 重建，表单草稿和异步响应不跨店复用；401 重试固定原请求门店。具体范围见 [多店迭代记录](./16-multi-store-iteration-2026-11-17.md)。

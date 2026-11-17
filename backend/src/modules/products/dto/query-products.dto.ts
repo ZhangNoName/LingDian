@@ -4,6 +4,11 @@ import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { ProductType } from '@lingdian/db';
 
 export class QueryProductsDto {
+  @ApiPropertyOptional({ description: 'Store context for platform operations' })
+  @IsOptional()
+  @IsString()
+  storeId?: string;
+
   @ApiPropertyOptional({ description: 'Page number', default: 1 })
   @IsOptional()
   @Type(() => Number)

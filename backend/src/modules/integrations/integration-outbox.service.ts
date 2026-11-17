@@ -110,7 +110,7 @@ export class IntegrationOutboxService implements OnApplicationBootstrap, OnModul
     try {
       const pending = await this.prisma.integrationOutbox.findMany({
         where: {
-          storeId: this.stores.primaryStoreId(),
+          ...(this.stores.mode === 'multi' ? {} : { storeId: this.stores.primaryStoreId() }),
           status: 'PENDING',
           nextAttemptAt: { lte: new Date() },
         },
@@ -156,7 +156,7 @@ export class IntegrationOutboxService implements OnApplicationBootstrap, OnModul
   private recoverAbandonedClaims(): Promise<{ count: number }> {
     return this.prisma.integrationOutbox.updateMany({
       where: {
-        storeId: this.stores.primaryStoreId(),
+        ...(this.stores.mode === 'multi' ? {} : { storeId: this.stores.primaryStoreId() }),
         status: 'PROCESSING',
         lockedAt: { lt: new Date(Date.now() - 5 * 60_000) },
       },

@@ -93,6 +93,13 @@ test('production bootstrap never overwrites an existing store identity', async (
   assert.equal(persistence.writes, 0);
 });
 
+test('multi-store bootstrap assigns only explicitly listed existing stores', async () => {
+  const persistence = createPersistence({ stores: [{ id: 'store-branch', code: 'BRANCH', name: '分店' }] });
+  const { bootstrapProduction } = await loadBootstrap();
+  await bootstrapProduction({ prisma: persistence, env: { ...environment, STORE_MODE: 'multi', AUTH_BOOTSTRAP_MERCHANT_STORE_IDS: 'store-zsf-main,store-branch' } });
+  assert.deepEqual(persistence.roles.filter((role) => role.role === 'MERCHANT').map((role) => role.scopeId).sort(), ['store-branch', 'store-zsf-main']);
+});
+
 function createPersistence(options: { stores?: Array<Record<string, any>> } = {}) {
   const stores = new Map((options.stores ?? []).map((store) => [store.id, { ...store }]));
   const users = new Map<string, Record<string, any>>();

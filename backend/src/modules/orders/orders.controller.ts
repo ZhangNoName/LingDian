@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   Param,
   Patch,
   Post,
@@ -68,22 +69,22 @@ export class OrdersController {
   @ApiOperation({ summary: 'Get merchant order summary' })
   @UseGuards(AccessTokenGuard, MerchantGuard)
   @Get('merchant/orders/summary')
-  getMerchantOrderSummary(@CurrentUser() user: AuthenticatedUser, @Query() query: QueryOrdersDto) {
-    return this.ordersService.getOrderSummary(query, { storeIds: this.merchantStores.storeIds(user) });
+  getMerchantOrderSummary(@CurrentUser() user: AuthenticatedUser, @Query() query: QueryOrdersDto, @Headers('x-store-id') storeId?: string) {
+    return this.ordersService.getOrderSummary(query, { storeIds: this.merchantStores.forRequest(user, storeId) });
   }
 
   @ApiOperation({ summary: 'Get merchant order list' })
   @UseGuards(AccessTokenGuard, MerchantGuard)
   @Get('merchant/orders')
-  getMerchantOrders(@CurrentUser() user: AuthenticatedUser, @Query() query: QueryOrdersDto) {
-    return this.ordersService.getOrders(query, { storeIds: this.merchantStores.storeIds(user) });
+  getMerchantOrders(@CurrentUser() user: AuthenticatedUser, @Query() query: QueryOrdersDto, @Headers('x-store-id') storeId?: string) {
+    return this.ordersService.getOrders(query, { storeIds: this.merchantStores.forRequest(user, storeId) });
   }
 
   @ApiOperation({ summary: 'Get merchant order detail' })
   @UseGuards(AccessTokenGuard, MerchantGuard)
   @Get('merchant/orders/:id')
-  getMerchantOrderDetail(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
-    return this.ordersService.getOrderDetail(id, { storeIds: this.merchantStores.storeIds(user) });
+  getMerchantOrderDetail(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @Headers('x-store-id') storeId?: string) {
+    return this.ordersService.getOrderDetail(id, { storeIds: this.merchantStores.forRequest(user, storeId) });
   }
 
   @ApiOperation({ summary: 'Update merchant order status' })
@@ -93,11 +94,12 @@ export class OrdersController {
     @Param('id') id: string,
     @Body() body: UpdateOrderStatusDto,
     @CurrentUser() user: AuthenticatedUser,
+    @Headers('x-store-id') storeId?: string,
   ) {
     return this.ordersService.updateOrderStatus(
       id,
       { ...body, operatorName: user.userId },
-      { storeIds: this.merchantStores.storeIds(user) },
+      { storeIds: this.merchantStores.forRequest(user, storeId) },
     );
   }
 
@@ -107,8 +109,9 @@ export class OrdersController {
   deleteMerchantOrder(
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,
+    @Headers('x-store-id') storeId?: string,
   ) {
-    return this.ordersService.deleteOrder(id, user.userId, { storeIds: this.merchantStores.storeIds(user) });
+    return this.ordersService.deleteOrder(id, user.userId, { storeIds: this.merchantStores.forRequest(user, storeId) });
   }
 
   @ApiOperation({ summary: 'Create order using the legacy path' })

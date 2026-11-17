@@ -41,6 +41,9 @@ export class AdminUsersService {
   }
 
   async listStoreOptions(): Promise<Array<{ id: string; name: string }>> {
+    if (this.stores.mode === 'multi') {
+      return this.prisma.store.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } });
+    }
     const store = await this.stores.resolveCurrentStore();
     return [{ id: store.id, name: store.name }];
   }

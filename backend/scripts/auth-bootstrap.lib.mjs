@@ -43,11 +43,11 @@ export async function bootstrapAccountsInTransaction({ tx, config }) {
 
 export function validateBootstrapAccountsConfig(env) {
   const primaryStoreId = env.PRIMARY_STORE_ID?.trim();
-  if (env.STORE_MODE !== 'single' || !primaryStoreId) {
-    throw new Error('Bootstrap requires STORE_MODE=single and PRIMARY_STORE_ID.');
+  if (!['single', 'multi'].includes(env.STORE_MODE) || !primaryStoreId) {
+    throw new Error('Bootstrap requires STORE_MODE=single or multi and PRIMARY_STORE_ID.');
   }
   const merchantStoreIds = readStoreIds(env.AUTH_BOOTSTRAP_MERCHANT_STORE_IDS);
-  if (merchantStoreIds.length !== 1 || merchantStoreIds[0] !== primaryStoreId) {
+  if (env.STORE_MODE === 'single' && (merchantStoreIds.length !== 1 || merchantStoreIds[0] !== primaryStoreId)) {
     throw new Error('AUTH_BOOTSTRAP_MERCHANT_STORE_IDS must contain only PRIMARY_STORE_ID in single-store mode.');
   }
   const config = {

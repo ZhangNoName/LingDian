@@ -188,8 +188,8 @@ function validateStoreEnv(
 ): void {
   if (config.NODE_ENV === 'production' && !config.STORE_MODE) {
     errors.push('STORE_MODE is required in production');
-  } else if (config.STORE_MODE !== undefined && config.STORE_MODE !== 'single') {
-    errors.push('STORE_MODE must be single; multi-store runtime is not enabled in this build');
+  } else if (config.STORE_MODE !== undefined && !['single', 'multi'].includes(config.STORE_MODE)) {
+    errors.push('STORE_MODE must be single or multi');
   }
 
   const primaryStoreId = config.PRIMARY_STORE_ID;
@@ -214,7 +214,7 @@ function validateStoreEnv(
     .split(',')
     .map((storeId) => storeId.trim())
     .filter(Boolean))];
-  if (normalized.length !== 1 || normalized[0] !== primaryStoreId.trim()) {
+  if (config.STORE_MODE !== 'multi' && (normalized.length !== 1 || normalized[0] !== primaryStoreId.trim())) {
     errors.push('AUTH_BOOTSTRAP_MERCHANT_STORE_IDS must contain only PRIMARY_STORE_ID in single-store mode');
   }
 }

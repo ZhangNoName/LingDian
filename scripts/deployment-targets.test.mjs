@@ -74,7 +74,7 @@ test('API deployment gates use primary-store readiness', async () => {
   assert.match(compose, /\/api\/health\/ready/);
   assert.match(deployScript, /wait_for_application/);
   assert.match(preflight, /PRIMARY_STORE_ID/);
-  assert.match(preflight, /NODE_ENV=production, STORE_MODE=single, and API_PREFIX=api are required/);
+  assert.match(preflight, /NODE_ENV=production, STORE_MODE=single or multi, and API_PREFIX=api are required/);
   assert.match(dockerfile, /\/api\/health\/ready/);
 });
 

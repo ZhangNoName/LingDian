@@ -36,8 +36,8 @@ export function readProductionStoreConfig(env) {
     throw new Error('Production bootstrap refuses ALLOW_DEMO_SEED=true.');
   }
   const id = readRequiredValue(env, 'PRIMARY_STORE_ID', 191);
-  if (env.STORE_MODE !== 'single' || id.includes(',')) {
-    throw new Error('Production bootstrap requires STORE_MODE=single and exactly one PRIMARY_STORE_ID.');
+  if (!['single', 'multi'].includes(env.STORE_MODE) || id.includes(',')) {
+    throw new Error('Production bootstrap requires STORE_MODE=single or multi and exactly one PRIMARY_STORE_ID.');
   }
 
   const code = readRequiredValue(env, 'STORE_BOOTSTRAP_CODE', 64);
