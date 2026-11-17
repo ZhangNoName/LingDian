@@ -5,18 +5,20 @@ import {
   DialogContent,
   DialogOverlay,
   DialogPortal,
+  type DialogContentEmits,
   type DialogContentProps,
-  useForwardProps,
+  useForwardPropsEmits,
 } from 'reka-ui'
 import { X } from '@lingdian/icons/web'
 import { cn } from '@/lib/utils'
 import { Button } from '@/baseComponents/button'
 
 const props = defineProps<DialogContentProps & { class?: string; closeLabel?: string }>()
-const forwarded = useForwardProps(computed(() => {
+const emit = defineEmits<DialogContentEmits>()
+const forwarded = useForwardPropsEmits(computed(() => {
   const { closeLabel: _closeLabel, ...rest } = props
   return rest
-}))
+}), emit)
 </script>
 
 <template>
