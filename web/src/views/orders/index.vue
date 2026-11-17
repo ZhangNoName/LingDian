@@ -171,7 +171,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import {
   ElButton,
   ElDatePicker,
@@ -393,7 +394,10 @@ function handlePageSizeChange() {
   void fetchOrders()
 }
 
-onMounted(fetchOrders)
+const route = useRoute()
+function openLinkedOrder() { const id = route.query.orderId; if (typeof id === 'string' && id.length <= 191 && id.trim()) void openOrderDetail(id) }
+watch(() => route.query.orderId, openLinkedOrder)
+onMounted(() => { void fetchOrders(); openLinkedOrder() })
 </script>
 
 <style scoped>

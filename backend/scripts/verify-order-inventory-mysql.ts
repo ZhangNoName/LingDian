@@ -1,5 +1,6 @@
 /** Opt-in integration verification. Never reads .env or uses the application's DATABASE_URL. */
 import 'reflect-metadata';
+import { verifyMerchantOperations } from './verify-merchant-operations-mysql';
 import assert = require('node:assert/strict');
 import { ConfigService } from '@nestjs/config';
 import { PrismaMariaDb } from '@prisma/adapter-mariadb';
@@ -142,6 +143,7 @@ async function main() {
     assert.equal((await alerts.list(user, storeId, { page: 1, pageSize: 20, status: 'ACTIVE' })).summary.open, 0);
     console.log('PASS MySQL alerts: creation, recovery, new episode, concurrent acknowledgement once, escalation, stale screen, scoped filtering and atomic stock/alert rollback.');
     console.log('PASS MySQL: competing checkout, rollback, immutable recipe snapshot, duplicate confirmation, release, tenant isolation, reserved count protection, report SQL.');
+    await verifyMerchantOperations(prisma);
     console.log('Synthetic fixtures retained in the disposable test database for inspection.');
   } finally { await db.$disconnect(); }
 }

@@ -6,3 +6,4 @@ export * from './auth';
 export * from './system-log';
 export * from './integration';
 export * from './inventory';
+export * from './dashboard';

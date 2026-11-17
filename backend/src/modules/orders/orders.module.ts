@@ -1,3 +1,5 @@
+import { StockHoldService } from './stock-hold.service';
+import { StockHoldController } from './stock-hold.controller';
 import { PaymentsModule } from '../payments/payments.module';
 import { OrderStockExpiryService } from './order-stock-expiry.service';
 import { InventoryModule } from '../inventory/inventory.module';
@@ -13,7 +15,7 @@ import { StoresModule } from '../stores/stores.module';
 
 @Module({
   imports: [PaymentsModule, InventoryModule, AuthModule, AddressesModule, IntegrationsModule, MerchantModule, StoresModule],
-  controllers: [OrdersController],
-  providers: [OrdersService, OrdersQueryService, OrderStockExpiryService],
+  controllers: [OrdersController, StockHoldController],
+  providers: [StockHoldService, OrdersService, OrdersQueryService, OrderStockExpiryService],
 })
 export class OrdersModule {}

@@ -6,6 +6,7 @@ import { Button } from '@/baseComponents/button'
 import { useLocale } from '@/i18n/locale'
 import { merchantStore } from '@/auth/merchant-store'
 import { listInventory } from '@/services/inventory'
+import InventoryHolds from './InventoryHolds.vue'
 import InventoryAlerts from './InventoryAlerts.vue'
 import InventoryEditor from './InventoryEditor.vue'
 import InventoryActivity from './InventoryActivity.vue'
@@ -18,7 +19,7 @@ const t = (key: MessageKey) => (locale.value === 'en-US' ? en : zh)[key]
 const storeId = merchantStore.selectedId
 const storeName = computed(() => merchantStore.stores.value.find((store) => store.id === storeId.value)?.name ?? '')
 const route = useRoute(), router = useRouter()
-const view = computed(() => route.query.view === 'alerts' ? 'alerts' : route.query.view === 'recipes' ? 'recipes' : route.query.view === 'report' ? 'report' : route.query.view === 'history' ? 'history' : 'inventory')
+const view = computed(() => route.query.view === 'holds' ? 'holds' : route.query.view === 'alerts' ? 'alerts' : route.query.view === 'recipes' ? 'recipes' : route.query.view === 'report' ? 'report' : route.query.view === 'history' ? 'history' : 'inventory')
 const page = ref(1)
 const keyword = ref('')
 const appliedKeyword = ref('')
@@ -49,7 +50,7 @@ async function load() {
   } catch { if (current === sequence) errorKey.value = 'loadFailed' }
   finally { if (current === sequence) loading.value = false }
 }
-function switchView(value: 'inventory' | 'history' | 'report' | 'recipes' | 'alerts') { void router.push({ query: { ...route.query, view: value, page: undefined, itemId: undefined } }) }
+function switchView(value: 'inventory' | 'history' | 'report' | 'recipes' | 'alerts' | 'holds') { void router.push({ query: { ...route.query, view: value, page: undefined, itemId: undefined } }) }
 function stockFromAlert(code: string) { keyword.value = code; appliedKeyword.value = code; status.value = ''; page.value = 1; switchView('inventory') }
 function filter(value: InventoryStatus | '') { status.value = value; page.value = 1; void load() }
 function search() { appliedKeyword.value = keyword.value.trim(); page.value = 1; void load() }
@@ -104,11 +105,13 @@ onBeforeUnmount(() => { sequence++ })
           <Button :variant="view === 'history' ? 'secondary' : 'ghost'" :aria-pressed="view === 'history'" @click="showHistory()">{{ t('history') }}</Button>
           <Button :variant="view === 'report' ? 'secondary' : 'ghost'" :aria-pressed="view === 'report'" @click="switchView('report')">{{ t('report') }}</Button>
           <Button :variant="view === 'alerts' ? 'secondary' : 'ghost'" :aria-pressed="view === 'alerts'" @click="switchView('alerts')">{{ locale === 'en-US' ? 'Stock alerts' : '预警中心' }}</Button>
+          <Button :variant="view === 'holds' ? 'secondary' : 'ghost'" :aria-pressed="view === 'holds'" @click="switchView('holds')">{{ locale === 'en-US' ? 'Ingredient holds' : '原料占用' }}</Button>
           <Button :variant="view === 'recipes' ? 'secondary' : 'ghost'" :aria-pressed="view === 'recipes'" @click="switchView('recipes')">{{ t('recipes') }}</Button>
         </div>
         <Button v-if="view === 'inventory'" variant="outline" size="sm" :disabled="loading || !!errorKey || !hasRows" @click="exportPage">{{ t('export') }}</Button>
       </div>
-      <InventoryAlerts v-if="view === 'alerts'" :store-id="storeId" :store-name="storeName" @stock="stockFromAlert" />
+      <InventoryHolds v-if="view === 'holds'" />
+      <InventoryAlerts v-else-if="view === 'alerts'" :store-id="storeId" :store-name="storeName" @stock="stockFromAlert" />
       <InventoryRecipes v-else-if="view === 'recipes'" :store-id="storeId" />
       <InventoryActivity v-else-if="view !== 'inventory'" :key="view" :store-id="storeId" :store-name="storeName" :mode="view" />
       <template v-else>

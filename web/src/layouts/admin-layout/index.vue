@@ -87,7 +87,7 @@ const accountPage = computed(() => ['change-password', 'profile-nickname'].inclu
 const storeReady = computed(() => !loadingStores.value && !storeLoadError.value && !!merchantStore.selectedId.value)
 
 const { locale } = useLocale()
-const pageTitle = computed(() => route.name === 'warehouse' && locale.value === 'en-US' ? 'Inventory' : String(route.meta.title ?? '零点管理后台'))
+const pageTitle = computed(() => locale.value === 'en-US' && route.name === 'dashboard' ? 'Business overview' : route.name === 'warehouse' && locale.value === 'en-US' ? 'Inventory' : String(route.meta.title ?? '零点管理后台'))
 const storeCount = computed(() => merchantStore.stores.value.length)
 const userLabel = computed(() => merchantUser ? `${locale.value === 'en-US' ? 'Merchant' : '商家'} ${merchantUser.userId.slice(-6)}` : locale.value === 'en-US' ? 'Merchant' : '商家账号')
 
