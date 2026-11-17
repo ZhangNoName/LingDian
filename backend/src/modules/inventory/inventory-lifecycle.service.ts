@@ -34,6 +34,7 @@ export class InventoryLifecycleService {
       }
       const result = await tx.inventoryItem.update({ where: { id_storeId: { id, storeId } }, data: { isActive: body.isActive, version: { increment: 1 }, lifecycleVersion: item.version + 1, lifecycleActorId: user.userId, lifecycleReason: body.reason, lifecycleChangedAt: new Date() } });
       await syncInventoryAlert(tx, result, user.userId);
+      await tx.inventoryMaterialChange.create({ data: { storeId, itemId: id, kind: body.isActive ? 'RESTORE' : 'ARCHIVE', isActiveBefore: item.isActive, isActiveAfter: body.isActive, reason: body.reason, actorId: user.userId, versionBefore: item.version } });
       await tx.authAuditLog.create({ data: { event: body.isActive ? 'INVENTORY_MATERIAL_RESTORED' : 'INVENTORY_MATERIAL_ARCHIVED', userId: user.userId, sessionId: user.sessionId, metadata: { storeId, itemId: id, expectedVersion: item.version, isActive: body.isActive, reason: body.reason } } });
       return presentItem(result);
     }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });

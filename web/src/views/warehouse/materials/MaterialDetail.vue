@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import type { InventoryItemContract, InventoryUsageRow, InventoryUsageView } from '@lingdian/contracts'
+import type {
+  InventoryItemContract,
+  InventoryUsageRow,
+  InventoryUsageView,
+  InventoryMaterialChangeKind,
+} from '@lingdian/contracts'
 import { Button } from '@/baseComponents/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/baseComponents/dialog'
 import { useLocale } from '@/i18n/locale'
@@ -13,6 +18,9 @@ import { useLifecycleLocale } from '../lifecycle/locale'
 import { useUsageLocale } from '../lifecycle/usage-locale'
 import { en, zh, type MessageKey } from '../messages'
 import { useMaterialLocale } from './locale'
+import { useMaterialProfileLocale } from './profile-locale'
+import EditMaterialName from './EditMaterialName.vue'
+import MaterialChanges from './MaterialChanges.vue'
 const props = defineProps<{ id: string; storeId: string; storeName: string }>(),
   emit = defineEmits<{
     close: []
@@ -24,19 +32,23 @@ const props = defineProps<{ id: string; storeId: string; storeName: string }>(),
 const { locale } = useLocale(),
   { t: mt } = useMaterialLocale(),
   { t: lt } = useLifecycleLocale(),
-  { t: ut } = useUsageLocale()
+  { t: ut } = useUsageLocale(),
+  { t: pt } = useMaterialProfileLocale()
 const t = (key: MessageKey) => (locale.value === 'en-US' ? en : zh)[key]
 const row = ref<InventoryItemContract>(),
   loading = ref(true),
   failed = ref(false),
   reloaded = ref(false)
-const mode = ref<'DETAIL' | 'ADJUST' | 'LIFECYCLE' | 'RELATED'>('DETAIL'),
+const mode = ref<'DETAIL' | 'ADJUST' | 'LIFECYCLE' | 'RELATED' | 'NAME'>('DETAIL'),
   related = ref<InventoryUsageRow>(),
   changed = ref(false)
 const showUsage = ref(false),
   usageView = ref<InventoryUsageView>('RECIPES'),
   usagePage = ref(1),
   revision = ref(0)
+const showChanges = ref(false),
+  changeKind = ref<InventoryMaterialChangeKind | 'ALL'>('ALL'),
+  changePage = ref(1)
 const isActive = computed(() => row.value?.isActive !== false)
 const statusKey = { HEALTHY: 'healthy', LOW: 'low', OUT: 'out' } as const
 const number = (value: number) => value.toLocaleString(locale.value, { maximumFractionDigits: 3 })
@@ -70,8 +82,14 @@ watch(
   },
   { immediate: true },
 )
-function action(next: 'ADJUST' | 'LIFECYCLE') {
-  if (!row.value || loading.value || failed.value || (next === 'ADJUST' && !isActive.value)) return
+function action(next: 'ADJUST' | 'LIFECYCLE' | 'NAME') {
+  if (
+    !row.value ||
+    loading.value ||
+    failed.value ||
+    ((next === 'ADJUST' || next === 'NAME') && !isActive.value)
+  )
+    return
   changed.value = false
   mode.value = next
 }
@@ -83,6 +101,10 @@ function inspect(record: InventoryUsageRow) {
 function usageChange(view: InventoryUsageView, page: number) {
   usageView.value = view
   usagePage.value = page
+}
+function changePageState(kind: InventoryMaterialChangeKind | 'ALL', page: number) {
+  changeKind.value = kind
+  changePage.value = page
 }
 function close() {
   if (mode.value === 'DETAIL') emit('close')
@@ -157,6 +179,27 @@ onBeforeUnmount(() => {
           ><Button variant="outline" @click="$emit('history', row.id)">{{ mt('history') }}</Button
           ><Button variant="outline" @click="$emit('report', row.id)">{{ mt('report') }}</Button>
         </div>
+        <div class="grid min-w-0 gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            class="justify-self-start"
+            :aria-expanded="showChanges"
+            aria-controls="material-change-records"
+            @click="showChanges = !showChanges"
+            >{{ pt(showChanges ? 'hideHistory' : 'history') }}</Button
+          ><MaterialChanges
+            v-if="showChanges"
+            id="material-change-records"
+            :store-id="storeId"
+            :store-name="storeName"
+            :item-id="row.id"
+            :kind="changeKind"
+            :page="changePage"
+            :revision="revision"
+            @change="changePageState"
+          />
+        </div>
         <details v-if="row.lifecycleChangedAt" class="text-xs leading-5 text-muted-foreground">
           <summary class="cursor-pointer">{{ mt('lifecycle') }}</summary>
           <p class="mt-2 break-words">
@@ -187,6 +230,7 @@ onBeforeUnmount(() => {
           />
         </div>
         <div class="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
+          <Button v-if="isActive" variant="ghost" @click="action('NAME')">{{ pt('edit') }}</Button>
           <Button variant="ghost" @click="action('LIFECYCLE')">{{
             lt(isActive ? 'archive' : 'restore')
           }}</Button
@@ -201,6 +245,13 @@ onBeforeUnmount(() => {
     :store-id="storeId"
     :item="row"
     @update:open="!$event && finish()"
+    @saved="changed = true"
+  />
+  <EditMaterialName
+    v-else-if="mode === 'NAME' && row"
+    :item="row"
+    :store-id="storeId"
+    @close="finish"
     @saved="changed = true"
   />
   <MaterialLifecycle

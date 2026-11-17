@@ -1,3 +1,4 @@
+import { InventoryMaterialService } from './inventory-material.service';
 import { InventoryUsageService } from './inventory-usage.service';
 import { InventoryLifecycleService } from './inventory-lifecycle.service';
 import { PurchasingAnalysisService } from './purchasing/purchasing-analysis.service';
@@ -19,7 +20,7 @@ import { StocktakeService } from './stocktakes/stocktake.service';
 @Module({
   imports: [AuthModule, MerchantModule],
   controllers: [InventoryController, PurchasingController, StocktakeController],
-  providers: [InventoryUsageService, InventoryLifecycleService, StocktakeService, PurchasingAnalysisService, PurchasingService, SupplierService, InventoryAlertService, InventoryService, InventoryReportService, InventoryRecipeService, OrderStockService],
+  providers: [InventoryMaterialService, InventoryUsageService, InventoryLifecycleService, StocktakeService, PurchasingAnalysisService, PurchasingService, SupplierService, InventoryAlertService, InventoryService, InventoryReportService, InventoryRecipeService, OrderStockService],
   exports: [OrderStockService],
 })
 export class InventoryModule {}

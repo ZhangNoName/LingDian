@@ -86,3 +86,15 @@ test('stock alert migration follows ingredient balances and backfills only curre
   assert.match(sql, /UNIQUE INDEX `inventory_alerts_activeItemKey_key`/);
   assert.match(sql, /FOREIGN KEY \(`itemId`, `storeId`\)/);
 });
+
+
+test('material-change history is ordered after lifecycle and scoped by a composite foreign key', async () => {
+  const root = new URL('../packages/db/prisma/migrations/', import.meta.url);
+  const names = (await readdir(root)).sort();
+  const target = '20261118_zzzzz_inventory_material_changes';
+  assert.ok(names.indexOf(target) > names.indexOf('20261118_zzzz_inventory_lifecycle'));
+  const sql = await readFile(new URL(target + '/migration.sql', root), 'utf8');
+  assert.match(sql, /FOREIGN KEY \(`itemId`, `storeId`\)/);
+  assert.match(sql, /inventory_material_changes_history_idx/);
+  assert.doesNotMatch(sql, /(?:UPDATE|DELETE FROM|ALTER TABLE) `(?:inventory_items|auth_audit_logs)`/);
+});

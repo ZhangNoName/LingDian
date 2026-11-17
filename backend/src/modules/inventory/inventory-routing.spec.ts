@@ -1,3 +1,4 @@
+import { InventoryMaterialService } from './inventory-material.service';
 import { InventoryUsageService } from './inventory-usage.service';
 import 'reflect-metadata';
 import { test } from 'node:test';
@@ -21,6 +22,7 @@ test('material detail routes coexist with purchasing and suppliers, and lifecycl
   const module = await Test.createTestingModule({
     controllers: [InventoryController, PurchasingController],
     providers: [
+      { provide: InventoryMaterialService, useValue: { rename: (_user: unknown, store: string, id: string, body: unknown) => ({ store, id, body }), changes: () => ({ route: 'changes' }) } },
       { provide: InventoryUsageService, useValue: { usage: () => ({ route: 'usage' }) } }, { provide: InventoryService, useValue: {} }, { provide: InventoryReportService, useValue: {} },
       { provide: InventoryRecipeService, useValue: { detail: () => ({ route: 'recipe' }) } }, { provide: InventoryAlertService, useValue: { detail: (_user: unknown, store: string, id: string) => ({ store, id, route: 'alert' }), list: () => ({ route: 'alerts' }) } },
       { provide: PurchasingAnalysisService, useValue: {} },
@@ -42,6 +44,12 @@ test('material detail routes coexist with purchasing and suppliers, and lifecycl
     assert.deepEqual(await (await fetch(base + '/recipes/sku-a')).json(), { route: 'recipe' });
     assert.deepEqual(await (await fetch(base + '/alerts')).json(), { route: 'alerts' });
     assert.deepEqual(await (await fetch(base + '/alerts/alert-a')).json(), { store: 'store-a', id: 'alert-a', route: 'alert' });
+    assert.deepEqual(await (await fetch(base + '/items/material-a/changes?kind=NAME&page=2')).json(), { route: 'changes' });
+    assert.equal((await fetch(base + '/items/material-a/changes?kind=AUTH_LOGIN')).status, 400);
+    const rename = (data: unknown) => fetch(base + '/items/material-a/name', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+    const renamed = await rename({ name: ' New name ', expectedVersion: 0, reason: ' Correction ' });
+    assert.equal(renamed.status, 200); assert.deepEqual(await renamed.json(), { store: 'store-a', id: 'material-a', body: { name: 'New name', expectedVersion: 0, reason: 'Correction' } });
+    for (const patch of [{ unit: 'new unit' }, { code: 'new code' }, { storeId: 'foreign' }, { quantity: 9 }, { expectedVersion: '0' }, { reason: ' ' }]) assert.equal((await rename({ name: 'New', expectedVersion: 0, reason: 'Correction', ...patch })).status, 400);
     const body = { isActive: false, expectedVersion: 2, reason: ' Retired ' };
     const put = (data: unknown) => fetch(base + '/items/material-a/lifecycle', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
     assert.equal((await put(body)).status, 200);

@@ -141,3 +141,16 @@ export interface InventoryUsagePage {
   unavailableRecipes: number;
   items: InventoryUsageRow[];
 }
+
+export interface RenameInventoryMaterialRequest { name: string; expectedVersion: number; reason: string }
+export type InventoryMaterialChangeKind = 'NAME' | 'ARCHIVE' | 'RESTORE';
+export interface InventoryMaterialChangeRecord {
+  id: string; kind: InventoryMaterialChangeKind; nameBefore: string | null; nameAfter: string | null;
+  isActiveBefore: boolean | null; isActiveAfter: boolean | null; actorId: string | null;
+  reason: string; versionBefore: number | null; createdAt: string;
+}
+export interface InventoryMaterialChangePage {
+  storeId: string; item: InventoryItemContract; generatedAt: string;
+  page: number; pageSize: number; total: number; kind: InventoryMaterialChangeKind | 'ALL';
+  items: InventoryMaterialChangeRecord[];
+}

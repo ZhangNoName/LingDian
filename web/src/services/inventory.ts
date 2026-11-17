@@ -61,3 +61,10 @@ export function changeInventoryLifecycle(storeId: string, itemId: string, body: 
 
 export function getInventoryRecipe(storeId: string, skuId: string): Promise<import('@lingdian/contracts').InventoryRecipeRecord> { return requestData(apiUrl(`${base(storeId)}/recipes/${encodeURIComponent(skuId)}`)) }
 export function getInventoryUsage(storeId: string, itemId: string, view: import('@lingdian/contracts').InventoryUsageView, page = 1): Promise<import('@lingdian/contracts').InventoryUsagePage> { return requestData(apiUrl(`${base(storeId)}/items/${encodeURIComponent(itemId)}/usage?${new URLSearchParams({ view, page: String(page) })}`)) }
+
+export function renameInventoryMaterial(storeId: string, itemId: string, body: import('@lingdian/contracts').RenameInventoryMaterialRequest): Promise<InventoryItemContract> {
+  return requestData(apiUrl(`${base(storeId)}/items/${encodeURIComponent(itemId)}/name`), { ...jsonPost(body), method: 'PUT' })
+}
+export function inventoryMaterialChanges(storeId: string, itemId: string, kind: import('@lingdian/contracts').InventoryMaterialChangeKind | 'ALL', page = 1): Promise<import('@lingdian/contracts').InventoryMaterialChangePage> {
+  return requestData(apiUrl(`${base(storeId)}/items/${encodeURIComponent(itemId)}/changes?${new URLSearchParams({ kind, page: String(page) })}`))
+}

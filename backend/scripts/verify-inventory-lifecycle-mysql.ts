@@ -69,9 +69,11 @@ export async function verifyInventoryLifecycle(db: PrismaService) {
   await assert.rejects(lifecycle.change(user, storeId, item.id, { ...body, expectedVersion: 5 }), /archiveStock/);
   await inventory.adjust(user, storeId, item.id, { requestId: 'lifecycle-stock-zero', kind: 'ISSUE', amount: 1, reason: 'Used', expectedVersion: 5 });
   const balance = await db.inventoryItem.findUniqueOrThrow({ where: { id: item.id } }), beforeAlert = await db.inventoryAlert.findUniqueOrThrow({ where: { activeItemKey: item.id } });
+  const changesBeforeFailure = await db.inventoryMaterialChange.count({ where: { storeId, itemId: item.id } });
   const failing = new InventoryLifecycleService({ $transaction: (fn: (tx: unknown) => unknown, options: unknown) => db.$transaction(async (tx: any) => fn({ ...tx, authAuditLog: { ...tx.authAuditLog, create: async (args: any) => { if (args.data.event === 'INVENTORY_MATERIAL_ARCHIVED') throw new Error('synthetic lifecycle audit failure'); return tx.authAuditLog.create(args); } } }), options as never) } as unknown as PrismaService, scope);
   await assert.rejects(failing.change(user, storeId, item.id, { ...body, expectedVersion: 6 }), /synthetic lifecycle audit/);
   assert.deepEqual(await db.inventoryItem.findUniqueOrThrow({ where: { id: item.id } }), balance);
+  assert.equal(await db.inventoryMaterialChange.count({ where: { storeId, itemId: item.id } }), changesBeforeFailure);
   assert.deepEqual(await db.inventoryAlert.findUniqueOrThrow({ where: { id: beforeAlert.id } }), beforeAlert);
   for (const kind of ['recipe', 'purchase', 'stocktake'] as const) {
     const row = await make('RACE-' + kind);

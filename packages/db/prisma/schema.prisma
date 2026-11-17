@@ -259,12 +259,34 @@ model InventoryItem {
   alerts       InventoryAlert[]
   purchaseLines PurchaseOrderLine[]
   stocktakeLines InventoryStocktakeLine[]
+  materialChanges InventoryMaterialChange[]
 
   @@unique([storeId, code])
   @@unique([id, storeId])
   @@index([storeId, updatedAt])
   @@index([storeId, isActive, updatedAt])
   @@map("inventory_items")
+}
+
+model InventoryMaterialChange {
+  id String @id @default(cuid())
+  storeId String
+  itemId String
+  kind String @db.VarChar(16)
+  nameBefore String? @db.VarChar(120)
+  nameAfter String? @db.VarChar(120)
+  isActiveBefore Boolean?
+  isActiveAfter Boolean?
+  reason String @db.VarChar(240)
+  actorId String?
+  versionBefore Int?
+  createdAt DateTime @default(now())
+  item InventoryItem @relation(fields: [itemId, storeId], references: [id, storeId], onDelete: Restrict, onUpdate: Restrict, map: "inventory_material_changes_item_store_fkey")
+
+  @@index([itemId, storeId], map: "inventory_material_changes_item_store_fkey")
+  @@index([storeId, itemId, createdAt, id], map: "inventory_material_changes_history_idx")
+  @@index([storeId, itemId, versionBefore], map: "inventory_material_changes_version_idx")
+  @@map("inventory_material_changes")
 }
 
 model InventoryMovement {

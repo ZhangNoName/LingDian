@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 const { requestData } = vi.hoisted(() => ({ requestData: vi.fn() }))
 vi.mock('@/lib/api', () => ({ requestData }))
-import { getInventoryAlert, getInventoryUsage, getInventoryRecipe, changeInventoryLifecycle, inventoryItemDetail, listInventory, getInventoryReport, listInventoryMovements, listInventoryAlerts, acknowledgeInventoryAlert } from './inventory'
+import { inventoryMaterialChanges, renameInventoryMaterial, getInventoryAlert, getInventoryUsage, getInventoryRecipe, changeInventoryLifecycle, inventoryItemDetail, listInventory, getInventoryReport, listInventoryMovements, listInventoryAlerts, acknowledgeInventoryAlert } from './inventory'
 
 describe('inventory report and history requests', () => {
   beforeEach(() => requestData.mockReset())
@@ -62,4 +62,16 @@ it('loads an exact alert by encoded store and id independently of list filters',
   const url = new URL(requestData.mock.calls.at(-1)![0])
   expect(url.pathname).toContain('/store%2Fa/inventory/alerts/alert%2F1%20%26%202')
   expect(url.search).toBe('')
+})
+
+it('scopes name-only writes and fixed-page change history without accepting quantity or unit changes', async () => {
+  const body = { name: 'Corrected name', expectedVersion: 4, reason: 'Spelling' }
+  await renameInventoryMaterial('store/a', 'item/1', body)
+  const [target, init] = requestData.mock.calls.at(-1)!
+  expect(target).toContain('/store%2Fa/inventory/items/item%2F1/name')
+  expect(init.method).toBe('PUT'); expect(JSON.parse(init.body)).toEqual(body)
+  await inventoryMaterialChanges('store/a', 'item/1', 'RESTORE', 2)
+  const url = new URL(requestData.mock.calls.at(-1)![0])
+  expect(url.pathname).toContain('/store%2Fa/inventory/items/item%2F1/changes')
+  expect(Object.fromEntries(url.searchParams)).toEqual({ kind: 'RESTORE', page: '2' })
 })
