@@ -23,14 +23,11 @@
           </select>
         </label>
         <InventoryAlertNotice v-if="storeReady" :key="merchantStore.selectedId.value" :store-id="merchantStore.selectedId.value" />
-        <div class="ml-auto flex gap-4 font-medium text-primary">
-          <RouterLink :to="{ name: 'profile-nickname' }" class="hover:underline">{{ locale === 'en-US' ? 'Profile' : '设置昵称' }}</RouterLink>
-          <RouterLink :to="{ name: 'change-password' }" class="hover:underline">{{ locale === 'en-US' ? 'Password' : '修改密码' }}</RouterLink>
-        </div>
+
       </div>
       <main class="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-4 md:px-6 md:pb-8">
         <div v-if="!storeReady && !accountPage" class="rounded-lg border bg-card p-8 text-sm" role="status">
-          <p>{{ storeLoadError || (loadingStores ? (locale === 'en-US' ? 'Loading stores…' : '正在加载门店…') : (locale === 'en-US' ? 'Select an authorized store to continue.' : '请选择已授权门店后继续。')) }}</p>
+          <p>{{ storeLoadError ? (locale === 'en-US' ? 'Could not load authorized stores.' : '无法加载授权门店，请重试。') : loadingStores ? (locale === 'en-US' ? 'Loading stores…' : '正在加载门店…') : (locale === 'en-US' ? 'Select an authorized store to continue.' : '请选择已授权门店后继续。') }}</p>
           <Button v-if="storeLoadError" variant="outline" class="mt-3" @click="loadStores">{{ locale === 'en-US' ? 'Retry' : '重试' }}</Button>
         </div>
         <RouterView v-else :key="merchantStore.selectedId.value" />
@@ -64,7 +61,7 @@
 <script setup lang="ts">
 import InventoryAlertNotice from '@/components/layout/InventoryAlertNotice.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
+import { RouterView, useRoute, useRouter } from 'vue-router'
 import { X } from '@lingdian/icons/web'
 import { merchantStore } from '@/auth/merchant-store'
 import { listMerchantStores } from '@/services/integrations'
@@ -72,8 +69,8 @@ import { merchantSession } from '@/auth/session'
 import { Button } from '@/baseComponents/button'
 import AppHeader from '@/components/layout/app-header/index.vue'
 import AppSidebar from '@/components/layout/app-sidebar/index.vue'
-import { ElMessage } from '@/components/ui/element-plus'
 import { createNavigationState } from './navigation-state'
+import {pageTitle as localizedPageTitle} from '@/i18n/page-titles'
 import { useLocale } from '@/i18n/locale'
 
 const route = useRoute()
@@ -82,20 +79,20 @@ const navigation = createNavigationState()
 const merchantUser = merchantSession.getUser()
 const loggingOut = ref(false)
 const loadingStores = ref(true)
-const storeLoadError = ref('')
+const storeLoadError = ref(false)
 const accountPage = computed(() => ['change-password', 'profile-nickname'].includes(String(route.name)))
 const storeReady = computed(() => !loadingStores.value && !storeLoadError.value && !!merchantStore.selectedId.value)
 
 const { locale } = useLocale()
-const pageTitle = computed(() => locale.value === 'en-US' && route.name === 'products' ? 'Products & menu' : locale.value === 'en-US' && route.name === 'orders' ? 'Orders' : locale.value === 'en-US' && route.name === 'dashboard' ? 'Business overview' : route.name === 'warehouse' && locale.value === 'en-US' ? 'Inventory' : String(route.meta.title ?? '零点管理后台'))
+const pageTitle = computed(() => localizedPageTitle(route.name,locale.value))
 const storeCount = computed(() => merchantStore.stores.value.length)
 const userLabel = computed(() => merchantUser ? `${locale.value === 'en-US' ? 'Merchant' : '商家'} ${merchantUser.userId.slice(-6)}` : locale.value === 'en-US' ? 'Merchant' : '商家账号')
 
 async function loadStores() {
   loadingStores.value = true
-  storeLoadError.value = ''
+  storeLoadError.value = false
   try { merchantStore.setStores(await listMerchantStores()) }
-  catch { storeLoadError.value = locale.value === 'en-US' ? 'Could not load authorized stores.' : '无法加载授权门店，请重试。' }
+  catch { storeLoadError.value = true }
   finally { loadingStores.value = false }
 }
 async function changeStore(event: Event) {
@@ -117,10 +114,11 @@ async function logout() {
   try {
     await merchantSession.logout()
   } catch {
-    ElMessage.error('服务端退出失败，本机登录状态已清除，请稍后重试。')
+    await router.replace({name:'login',query:{notice:'logout-unconfirmed'}})
+    return
   } finally {
     loggingOut.value = false
-    await router.replace({ name: 'login' })
+    if(router.currentRoute.value.name!=='login')await router.replace({ name: 'login' })
   }
 }
 

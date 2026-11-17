@@ -2,6 +2,8 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import type { IntegrationCapabilityContract, IntegrationProvider } from '@lingdian/contracts';
 import { INTEGRATION_PROVIDERS } from '@lingdian/contracts';
 import { PrismaService } from '../../prisma/prisma.service';
+import { Prisma } from '@lingdian/db';
+import type { AuthenticatedUser } from '../../common/auth/authenticated-user.type';
 import { SignedConnectorAdapter, type IntegrationAdapter } from './connector.adapter';
 import { readConnectorSettings, type ConnectorSettings } from './integration.config';
 import { StoreContextResolver } from '../stores/store-context.resolver';
@@ -59,11 +61,21 @@ export class IntegrationCatalogService {
         enabled: available && enabledByStore.get(setting.provider) === true,
         store_id: storeId,
         reason: this.unavailableReason(setting),
+        reason_code: !setting.deploymentEnabled
+          ? 'DEPLOYMENT_DISABLED'
+          : !this.isAvailable(setting)
+            ? 'NOT_CONFIGURED'
+            : null,
       };
     });
   }
 
-  async setEnabled(storeId: string, providerValue: string, enabled: boolean) {
+  async setEnabled(
+    storeId: string,
+    providerValue: string,
+    enabled: boolean,
+    actor?: Pick<AuthenticatedUser, 'userId' | 'sessionId'>,
+  ) {
     storeId = this.stores.resolveRequestedStoreId(storeId);
     await this.assertStoreExists(storeId);
     const provider = this.parseProvider(providerValue);
@@ -71,11 +83,25 @@ export class IntegrationCatalogService {
     if (enabled && (!setting.deploymentEnabled || !this.isAvailable(setting))) {
       throw new BadRequestException(this.unavailableReason(setting) ?? 'Integration is unavailable');
     }
-    await this.prisma.storeIntegration.upsert({
-      where: { storeId_provider: { storeId, provider } },
-      create: { storeId, provider, enabled },
-      update: { enabled },
-    });
+    await this.prisma.$transaction(
+      async (tx) => {
+        await tx.storeIntegration.upsert({
+          where: { storeId_provider: { storeId, provider } },
+          create: { storeId, provider, enabled },
+          update: { enabled },
+        });
+        if (actor)
+          await tx.authAuditLog.create({
+            data: {
+              event: 'INTEGRATION_SETTING_UPDATED',
+              userId: actor.userId,
+              sessionId: actor.sessionId,
+              metadata: { storeId, provider, enabled },
+            },
+          });
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted },
+    );
     const capability = (await this.list(storeId)).find((item) => item.provider === provider);
     if (!capability) throw new BadRequestException('Unknown integration provider');
     return capability;

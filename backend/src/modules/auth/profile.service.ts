@@ -15,6 +15,10 @@ const AVATAR_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 export class ProfileService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async getNickname(userId:string):Promise<{nickname:string|null}> {
+    return this.prisma.user.findUniqueOrThrow({where:{id:userId},select:{nickname:true}});
+  }
+
   async setNickname(userId: string, nickname: string): Promise<{ nickname: string }> {
     const normalized = nickname.trim();
     if (normalized.length < 1 || normalized.length > 32) {

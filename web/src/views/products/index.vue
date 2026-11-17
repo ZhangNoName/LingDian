@@ -170,11 +170,7 @@ onBeforeUnmount(() => {
   <section class="grid min-w-0 gap-4" :lang="locale">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <p class="text-sm text-muted-foreground">{{ t('subtitle') }}</p>
-      <label class="sr-only" for="product-language">{{ t('language') }}</label>
-      <select id="product-language" v-model="locale">
-        <option value="zh-CN">简体中文</option>
-        <option value="en-US">English</option>
-      </select>
+
     </div>
     <ProductMetricsGrid :metrics="metrics" />
     <p class="text-xs text-muted-foreground">{{ t('metricsHint') }}</p>

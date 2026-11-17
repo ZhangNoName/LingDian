@@ -84,8 +84,7 @@ onBeforeUnmount(() => { sequence++ })
         <p v-if="storeName" class="mt-1 text-sm font-medium">{{ storeName }}</p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
-        <label class="sr-only" for="inventory-language">{{ t('language') }}</label>
-        <select id="inventory-language" v-model="locale" class="control"><option value="zh-CN">简体中文</option><option value="en-US">English</option></select>
+
         <Button v-if="view === 'inventory'" variant="outline" :disabled="loading" @click="load">{{ t('refresh') }}</Button>
         <Button v-if="view === 'inventory'" :disabled="!storeId || loading || !!errorKey" @click="edit()">{{ t('newItem') }}</Button>
       </div>

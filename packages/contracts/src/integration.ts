@@ -20,6 +20,7 @@ export type IntegrationCapabilityContract = {
   enabled: boolean;
   store_id: string;
   reason: string | null;
+  reason_code?: 'DEPLOYMENT_DISABLED' | 'NOT_CONFIGURED' | null;
 };
 
 export type SetIntegrationEnabledRequest = {

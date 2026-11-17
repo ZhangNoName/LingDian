@@ -33,6 +33,6 @@ export class IntegrationsController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     this.storeScope.assertIncludes(user, storeId);
-    return this.catalog.setEnabled(storeId, provider, body.enabled);
+    return this.catalog.setEnabled(storeId, provider, body.enabled, user);
   }
 }

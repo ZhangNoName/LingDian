@@ -1,41 +1,86 @@
-<template>
-  <section class="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-    <p class="text-sm font-medium text-primary">个人资料</p>
-    <h2 class="mt-2 text-2xl font-semibold text-slate-900">设置昵称</h2>
-    <p class="mt-2 text-sm leading-6 text-slate-500">昵称仅用于显示，可与其他用户重复。</p>
-    <form class="mt-6 space-y-5" @submit.prevent="save">
-      <label class="block">
-        <span class="mb-2 block text-sm font-medium text-slate-700">昵称</span>
-        <input v-model="nickname" type="text" autocomplete="nickname" maxlength="32" required class="w-full rounded-lg border border-slate-300 px-3 py-2.5" />
-      </label>
-      <p v-if="statusMessage" class="text-sm" :class="hasError ? 'text-red-600' : 'text-emerald-600'">{{ statusMessage }}</p>
-      <button type="submit" class="rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50" :disabled="saving || !nickname.trim() || nickname.trim().length > 32">{{ saving ? '保存中…' : '保存昵称' }}</button>
-    </form>
-  </section>
-</template>
-
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+import AccountPanel from '@/components/account/AccountPanel.vue'
 import { merchantSession } from '@/auth/session'
-
-const nickname = ref('')
-const saving = ref(false)
-const statusMessage = ref('')
-const hasError = ref(false)
-
-async function save(): Promise<void> {
+import { merchantAuthErrorKey } from '@/auth/user-message'
+import { useAccountLocale, type AccountKey } from '@/i18n/account'
+const { t } = useAccountLocale(),
+  nickname = ref(''),
+  loading = ref(true),
+  loadFailed = ref(false),
+  saving = ref(false),
+  message = ref<AccountKey>(),
+  hasError = ref(false)
+let disposed = false
+async function load() {
+  loading.value = true
+  loadFailed.value = false
+  try {
+    const result = await merchantSession.getNickname()
+    if (!disposed) nickname.value = result.nickname ?? ''
+  } catch {
+    if (!disposed) loadFailed.value = true
+  } finally {
+    if (!disposed) loading.value = false
+  }
+}
+onMounted(load)
+onBeforeUnmount(() => {
+  disposed = true
+})
+async function save() {
+  if (saving.value || loading.value || loadFailed.value) return
   saving.value = true
-  statusMessage.value = ''
+  message.value = undefined
   try {
     const result = await merchantSession.updateNickname(nickname.value.trim())
+    if (disposed) return
     nickname.value = result.nickname
     hasError.value = false
-    statusMessage.value = '昵称已保存。'
-  } catch (error) {
+    message.value = 'nicknameSaved'
+  } catch (e) {
     hasError.value = true
-    statusMessage.value = error instanceof Error ? error.message : '昵称保存失败，请稍后重试。'
+    message.value = merchantAuthErrorKey(e, 'nicknameFailed')
   } finally {
     saving.value = false
   }
 }
 </script>
+<template>
+  <AccountPanel :title="t('nicknameTitle')" :description="t('nicknameHint')">
+    <p v-if="loading" role="status" class="account-help">{{ t('loading') }}</p>
+    <div v-else-if="loadFailed" role="alert">
+      <p class="text-sm text-destructive">{{ t('profileFailed') }}</p>
+      <button type="button" class="account-action mt-3" @click="load">{{ t('retry') }}</button>
+    </div>
+    <form v-else class="account-form" @submit.prevent="save">
+      <label class="account-label">
+        {{ t('nickname') }}
+        <input
+          v-model="nickname"
+          class="account-input"
+          autocomplete="nickname"
+          maxlength="32"
+          required
+          :disabled="saving"
+        />
+      </label>
+      <p
+        v-if="message"
+        class="account-status"
+        :class="hasError ? 'text-destructive' : 'text-emerald-700'"
+        :role="hasError ? 'alert' : 'status'"
+      >
+        {{ t(message) }}
+      </p>
+      <button
+        class="account-action account-primary justify-self-start"
+        type="submit"
+        :disabled="saving || !nickname.trim() || nickname.trim().length > 32"
+      >
+        {{ t(saving ? 'saving' : 'saveNickname') }}
+      </button>
+    </form>
+  </AccountPanel>
+</template>
+<style scoped src="../../components/account/account.css"></style>

@@ -28,3 +28,5 @@ describe('single store view', () => {
     expect(getStoreStatusPresentation('RESTING').label).toBe('暂停营业')
   })
 })
+
+it('translates store state labels without changing the status styling',()=>{expect(getStoreStatusPresentation('OPEN','en-US')).toEqual({...getStoreStatusPresentation('OPEN'),label:'Open'})})

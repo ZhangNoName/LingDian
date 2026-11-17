@@ -267,7 +267,7 @@ Only merchant `web/` contains password-reset and password-change pages. The
 administrator client supports account/password login and merchant management
 but no password-recovery UI. The user mini-program keeps phone, WeChat, and QQ
 login only. All three authenticated clients may update their own non-unique
-nickname.
+nickname. `GET /auth/profile/nickname` returns only the authenticated user nickname across authenticated audiences; customer profile/avatar endpoints retain their user-api guard. Merchant integration changes write `INTEGRATION_SETTING_UPDATED` in the same transaction as the flag update. See [merchant account/settings verification](../docs/25-account-settings-2026-11-17.md).
 
 Never create an administrator by editing a JWT or allowing an unknown phone
 number to use `admin-api`. Review `auth_audit_logs` at least weekly for login,

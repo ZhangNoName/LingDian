@@ -34,7 +34,7 @@ const implementedNavigationItems: NavigationItem[] = [
   },
   {
     label: '门店设置',
-    caption: '当前门店信息与营业状态',
+    caption: '当前门店资料与营业状态',
     to: '/stores',
     icon: Store,
   },
@@ -46,7 +46,7 @@ const implementedNavigationItems: NavigationItem[] = [
   },
   {
     label: '订单管理',
-    caption: '订单查询、状态流转、退款与详情追踪',
+    caption: '订单查询、履约状态与历史记录',
     to: '/orders',
     icon: ShoppingCart,
   },
@@ -58,7 +58,7 @@ const implementedNavigationItems: NavigationItem[] = [
   },
   {
     label: '系统设置',
-    caption: '账号角色、权限与设备设置',
+    caption: '账号资料、安全与外部集成',
     to: '/settings',
     icon: Settings,
   },

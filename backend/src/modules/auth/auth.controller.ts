@@ -179,6 +179,12 @@ export class AuthController {
   }
 
   @ApiBearerAuth()
+  @ApiOperation({summary:'Get the current user nickname'})
+  @UseGuards(AccessTokenGuard)
+  @Get('profile/nickname')
+  getNickname(@CurrentUser() user:AuthenticatedUser){return this.profile.getNickname(user.userId);}
+
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Update the current user nickname' })
   @UseGuards(AccessTokenGuard)
   @Patch('profile/nickname')

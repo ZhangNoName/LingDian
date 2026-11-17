@@ -325,3 +325,5 @@ test('account login issues the browser refresh cookie through the account authen
     user: { userId: 'merchant-1', sessionId: 'session-1', audience: 'merchant-api', roles: ['MERCHANT'] },
   });
 });
+
+test('nickname read matches the authenticated audience policy of nickname writes',()=>{assert.deepEqual(Reflect.getMetadata(GUARDS_METADATA,AuthController.prototype.getNickname),[AccessTokenGuard]);});

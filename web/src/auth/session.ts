@@ -8,6 +8,7 @@ let accessTokenExpiresAt = 0
 let currentUser: AuthenticatedUser | undefined
 let unauthorizedHandler: () => void | Promise<void> = redirectBrowserToLogin
 let refreshPromise: Promise<boolean> | undefined
+let memoryDeviceId: string | undefined
 const DEVICE_STORAGE_KEY = 'lingdian-merchant-device-id'
 
 export const merchantSession = {
@@ -107,6 +108,21 @@ export const merchantSession = {
     this.clear()
   },
 
+  async getNickname(): Promise<{ nickname: string | null }> {
+    const token = await requireAccessToken()
+    const response = await fetch(apiUrl('/auth/profile/nickname'), {
+      headers: { Authorization: `Bearer ${token}` },
+      credentials: 'include',
+    })
+    const body = (await response.json()) as ResponseEnvelope<{ nickname: string | null }> | { nickname: string | null }
+    if (!response.ok) throw new Error(readMessage(body) ?? 'Unable to read nickname.')
+    if (isResponseEnvelope<{ nickname: string | null }>(body)) {
+      if (body.code !== RES_CODE.SUCCESS || !body.data) throw new Error(body.msg || 'Unable to read nickname.')
+      return body.data
+    }
+    return body
+  },
+
   async updateNickname(nickname: string): Promise<{ nickname: string }> {
     const token = await requireAccessToken()
 
@@ -137,10 +153,10 @@ export const merchantSession = {
   async logout(): Promise<void> {
     try {
       let token = this.getAccessToken()
-      if (!token && currentUser && await this.refresh()) token = this.getAccessToken()
+      if (!token && currentUser && (await this.refresh())) token = this.getAccessToken()
       if (token) {
         let response = await postLogout(token)
-        if (response.status === 401 && await this.refresh()) {
+        if (response.status === 401 && (await this.refresh())) {
           const refreshedToken = this.getAccessToken()
           if (refreshedToken) response = await postLogout(refreshedToken)
         }
@@ -158,7 +174,7 @@ export const merchantSession = {
 
 async function requireAccessToken(): Promise<string> {
   let token = merchantSession.getAccessToken()
-  if (!token && await merchantSession.refresh()) token = merchantSession.getAccessToken()
+  if (!token && (await merchantSession.refresh())) token = merchantSession.getAccessToken()
   if (!token) throw new Error('Please sign in again.')
   return token
 }
@@ -172,26 +188,26 @@ function postLogout(token: string): Promise<Response> {
 }
 
 async function refreshMerchantSession(): Promise<boolean> {
-    const response = await fetch(apiUrl('/auth/refresh'), {
-      method: 'POST',
-      headers: authHeaders(),
-      credentials: 'include',
-      body: '{}',
-    })
+  const response = await fetch(apiUrl('/auth/refresh'), {
+    method: 'POST',
+    headers: authHeaders(),
+    credentials: 'include',
+    body: '{}',
+  })
 
-    if (response.status === 401) {
-      await merchantSession.handleUnauthorized()
-      return false
-    }
+  if (response.status === 401) {
+    await merchantSession.handleUnauthorized()
+    return false
+  }
 
-    const tokens = await readAuthTokens(response)
-    try {
-      merchantSession.acceptLogin(tokens)
-      return true
-    } catch {
-      await merchantSession.handleUnauthorized()
-      return false
-    }
+  const tokens = await readAuthTokens(response)
+  try {
+    merchantSession.acceptLogin(tokens)
+    return true
+  } catch {
+    await merchantSession.handleUnauthorized()
+    return false
+  }
 }
 
 function authHeaders(): Record<string, string> {
@@ -199,16 +215,25 @@ function authHeaders(): Record<string, string> {
 }
 
 function deviceId(): string {
-  const existing = localStorage.getItem(DEVICE_STORAGE_KEY)
-  if (existing) return existing
-  const created = globalThis.crypto?.randomUUID?.() ?? `merchant-${Date.now()}-${Math.random().toString(16).slice(2)}`
-  localStorage.setItem(DEVICE_STORAGE_KEY, created)
-  return created
+  try {
+    const existing = localStorage.getItem(DEVICE_STORAGE_KEY)
+    if (existing) return existing
+  } catch {
+    /* Storage is optional. */
+  }
+  memoryDeviceId ??=
+    globalThis.crypto?.randomUUID?.() ?? `merchant-${Date.now()}-${Math.random().toString(16).slice(2)}`
+  try {
+    localStorage.setItem(DEVICE_STORAGE_KEY, memoryDeviceId)
+  } catch {
+    /* Keep a stable in-memory device id. */
+  }
+  return memoryDeviceId
 }
 
 function withBrowserRefreshLock(name: string, operation: () => Promise<boolean>): Promise<boolean> {
   return navigator.locks?.request
-    ? navigator.locks.request(name, operation) as unknown as Promise<boolean>
+    ? (navigator.locks.request(name, operation) as unknown as Promise<boolean>)
     : operation()
 }
 
@@ -240,7 +265,13 @@ async function readAuthTokens(response: Response): Promise<AuthTokens> {
 }
 
 function readMessage(body: unknown): string | undefined {
-  return isResponseEnvelope<unknown>(body) ? body.msg : undefined
+  if (isResponseEnvelope<unknown>(body)) return body.msg
+  if (body && typeof body === 'object' && 'message' in body) {
+    const message = (body as { message: unknown }).message
+    if (typeof message === 'string') return message
+    if (Array.isArray(message) && message.every((value) => typeof value === 'string')) return message.join('; ')
+  }
+  return undefined
 }
 
 async function readErrorMessage(response: Response): Promise<string> {

@@ -1,175 +1,154 @@
-<template>
-  <div class="grid gap-5">
-    <Card class="rounded-lg border-border/80">
-      <CardHeader class="gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
-          <CardTitle class="text-xl">外部系统集成</CardTitle>
-          <CardDescription class="mt-1 leading-6">
-            收银、小票和外卖平台均默认关闭。部署端配置连接器后，仍需在这里为当前门店启用。
-          </CardDescription>
-        </div>
-        <div class="w-full rounded-lg border border-border bg-muted/30 px-4 py-3 md:w-80">
-          <p class="text-xs font-medium text-muted-foreground">当前门店（只读）</p>
-          <p v-if="loadingStores" class="mt-1 text-sm text-muted-foreground">正在读取门店信息…</p>
-          <template v-else-if="storeState.kind === 'ready'">
-            <div class="mt-1 flex flex-wrap items-center gap-2">
-              <strong class="text-sm text-foreground">{{ storeState.store.name }}</strong>
-              <Badge variant="outline">{{ storeStatusLabel(storeState.store.status) }}</Badge>
-            </div>
-            <code class="mt-1 block break-all text-xs text-muted-foreground">{{ storeState.store.code }}</code>
-          </template>
-          <p v-else-if="storeState.kind === 'empty'" class="mt-1 text-sm font-medium text-destructive">
-            尚未选择门店
-          </p>
-          <p v-else class="mt-1 text-sm font-medium text-destructive">
-            配置异常：检测到 {{ storeState.storeCount }} 家门店
-          </p>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <p v-if="errorMessage" class="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-          {{ errorMessage }}
-        </p>
-        <div v-if="loadingStores" class="py-10 text-center text-sm text-muted-foreground">正在加载门店…</div>
-        <div
-          v-else-if="storeLoadFailed"
-          class="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
-          role="alert"
-        >
-          无法确认当前门店，集成功能已停止加载。
-        </div>
-        <div v-else-if="storeState.kind === 'empty'" class="py-10 text-center">
-          <p class="font-medium text-foreground">尚未选择门店</p>
-          <p class="mt-2 text-sm text-muted-foreground">请联系平台管理员完成门店初始化和商家账号授权。</p>
-        </div>
-        <div
-          v-else-if="storeState.kind === 'conflict'"
-          class="rounded-lg border border-amber-300/70 bg-amber-50 p-4 text-sm text-amber-900"
-          role="alert"
-        >
-          <p class="font-medium">检测到 {{ storeState.storeCount }} 家可管理门店，集成功能已停止加载。</p>
-          <p class="mt-2 leading-6">请通过顶部选择器确认当前门店，或联系管理员检查账号授权。</p>
-        </div>
-        <div v-else-if="loadingCapabilities" class="py-10 text-center text-sm text-muted-foreground">正在加载集成配置…</div>
-        <div v-else-if="capabilities.length" class="grid gap-3 md:grid-cols-2">
-          <section
-            v-for="item in capabilities"
-            :key="item.provider"
-            class="flex items-start justify-between gap-4 rounded-lg border border-border p-4"
-          >
-            <div class="min-w-0">
-              <div class="flex flex-wrap items-center gap-2">
-                <h3 class="font-medium text-foreground">{{ item.display_name }}</h3>
-                <Badge variant="outline">{{ categoryLabel(item.category) }}</Badge>
-                <Badge v-if="!item.available" variant="secondary">未配置</Badge>
-              </div>
-              <p class="mt-2 text-sm leading-6 text-muted-foreground">
-                {{ item.reason ?? providerDescription(item.provider) }}
-              </p>
-              <code class="mt-2 block text-xs text-muted-foreground">{{ item.provider }}</code>
-            </div>
-            <ElSwitch
-              :model-value="item.enabled"
-              :disabled="!item.available || changingProvider === item.provider"
-              :loading="changingProvider === item.provider"
-              @change="(value) => changeEnabled(item, Boolean(value))"
-            />
-          </section>
-        </div>
-        <p v-else class="py-10 text-center text-sm text-muted-foreground">当前门店暂无可用的集成能力。</p>
-      </CardContent>
-    </Card>
-
-    <Card class="rounded-lg border-border/80">
-      <CardHeader>
-        <CardTitle class="text-base">接入边界</CardTitle>
-        <CardDescription class="mt-1 leading-6">
-          平台密钥、证书和官方 SDK 保留在独立连接器中；订单服务只投递带版本号和签名的标准事件。
-          连接器异常会自动重试，不会阻塞顾客下单。
-        </CardDescription>
-      </CardHeader>
-    </Card>
-  </div>
-</template>
-
 <script setup lang="ts">
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { RouterLink } from 'vue-router'
 import type { IntegrationCapabilityContract, IntegrationProvider } from '@lingdian/contracts'
-import { computed, onMounted, ref } from 'vue'
-import { Badge } from '@/baseComponents/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/baseComponents/card'
-import { ElMessage, ElSwitch } from '@/components/ui/element-plus'
-import {
-  listStoreIntegrations,
-  setStoreIntegrationEnabled,
-  type MerchantStoreSummary,
-} from '@/services/integrations'
-import { getStoreStatusPresentation, resolveSingleStoreView } from '@/views/stores/store-view'
+import { Button } from '@/baseComponents/button'
 import { merchantStore } from '@/auth/merchant-store'
-import { loadSingleStoreCapabilities } from './settings-state'
-
-const stores = computed(() => merchantStore.stores.value.filter((store) => store.id === merchantStore.selectedId.value))
-const capabilities = ref<IntegrationCapabilityContract[]>([])
-const loadingStores = ref(false)
-const loadingCapabilities = ref(false)
-const changingProvider = ref<IntegrationProvider | null>(null)
-const errorMessage = ref('')
-const storeLoadFailed = ref(false)
-const storeState = computed(() => resolveSingleStoreView(stores.value))
-
-onMounted(loadCapabilities)
-
-async function loadCapabilities() {
-  loadingCapabilities.value = true
-  errorMessage.value = ''
+import { listStoreIntegrations, setStoreIntegrationEnabled } from '@/services/integrations'
+import { loadSingleStoreCapabilities, assertCapabilitiesForStore } from './settings-state'
+import { useSettingsLocale, type SettingsKey } from './messages'
+const { t, locale } = useSettingsLocale(),
+  stores = computed(() => merchantStore.stores.value.filter((store) => store.id === merchantStore.selectedId.value)),
+  store = computed(() => (stores.value.length === 1 ? stores.value[0] : undefined)),
+  capabilities = ref<IntegrationCapabilityContract[]>([]),
+  loading = ref(true),
+  changing = ref<IntegrationProvider>(),
+  error = ref<SettingsKey>(),
+  notice = ref(false)
+let sequence = 0,
+  disposed = false
+async function load() {
+  const current = ++sequence
+  loading.value = true
+  error.value = undefined
+  notice.value = false
   try {
     const result = await loadSingleStoreCapabilities(stores.value, listStoreIntegrations)
-    capabilities.value = result.capabilities
-  } catch (error) {
-    errorMessage.value = toMessage(error)
+    if (current === sequence) capabilities.value = result.capabilities
+  } catch (e) {
+    if (current === sequence)
+      error.value = e instanceof Error && e.message === 'settings.storeMismatch' ? 'storeMismatch' : 'failed'
   } finally {
-    loadingCapabilities.value = false
+    if (current === sequence) loading.value = false
   }
 }
-
-async function changeEnabled(item: IntegrationCapabilityContract, enabled: boolean) {
-  if (storeState.value.kind !== 'ready') {
-    errorMessage.value = '无法确认当前门店，未修改集成配置。'
-    return
-  }
-
-  changingProvider.value = item.provider
-  errorMessage.value = ''
+watch(
+  () => merchantStore.selectedId.value,
+  () => {
+    sequence++
+    capabilities.value = []
+    void load()
+  },
+  { immediate: true },
+)
+async function toggle(item: IntegrationCapabilityContract) {
+  if (changing.value || !store.value || !item.available || loading.value) return
+  const id = store.value.id
+  changing.value = item.provider
+  error.value = undefined
+  notice.value = false
   try {
-    const updated = await setStoreIntegrationEnabled(storeState.value.store.id, item.provider, enabled)
-    capabilities.value = capabilities.value.map((candidate) =>
-      candidate.provider === updated.provider ? updated : candidate,
-    )
-    ElMessage.success(enabled ? '集成已启用' : '集成已停用')
-  } catch (error) {
-    errorMessage.value = toMessage(error)
+    const updated = await setStoreIntegrationEnabled(id, item.provider, !item.enabled)
+    if (disposed || id !== merchantStore.selectedId.value) return
+    assertCapabilitiesForStore([updated], id)
+    if (updated.provider !== item.provider) throw Error('settings.storeMismatch')
+    capabilities.value = capabilities.value.map((row) => (row.provider === updated.provider ? updated : row))
+    notice.value = true
+  } catch (e) {
+    if (!disposed)
+      error.value = e instanceof Error && e.message === 'settings.storeMismatch' ? 'storeMismatch' : 'saveFailed'
   } finally {
-    changingProvider.value = null
+    changing.value = undefined
   }
 }
-
-function categoryLabel(category: IntegrationCapabilityContract['category']): string {
-  return { CASHIER: '收银', PRINTING: '打印', DELIVERY: '外卖' }[category]
+function reason(item: IntegrationCapabilityContract): SettingsKey {
+  return item.reason_code === 'DEPLOYMENT_DISABLED'
+    ? 'deploymentDisabled'
+    : item.reason_code === 'NOT_CONFIGURED'
+      ? 'notConfigured'
+      : 'unavailable'
 }
-
-function providerDescription(provider: IntegrationProvider): string {
-  return {
-    CASHIER: '订单创建后同步到门店 POS 或 ERP 连接器。',
-    RECEIPT_PRINTER: '将标准小票任务发送到门店本地打印网关。',
-    MEITUAN_WAIMAI: '由美团连接器负责官方协议、签名和平台状态映射。',
-    JD_DAOJIA: '由京东到家连接器负责官方协议、签名和平台状态映射。',
-  }[provider]
-}
-
-function storeStatusLabel(status: MerchantStoreSummary['status']): string {
-  return getStoreStatusPresentation(status).label
-}
-
-function toMessage(error: unknown): string {
-  return error instanceof Error ? error.message : '集成配置加载失败，请稍后重试。'
-}
+onBeforeUnmount(() => {
+  disposed = true
+  sequence++
+})
 </script>
+<template>
+  <section class="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5" :lang="locale">
+    <section class="rounded-lg border bg-card p-5">
+      <h2 class="font-semibold">{{ t('account') }}</h2>
+      <p class="mt-2 text-sm leading-6 text-muted-foreground">{{ t('accountHint') }}</p>
+      <div class="mt-4 flex flex-wrap gap-3">
+        <Button as-child variant="outline">
+          <RouterLink :to="{ name: 'profile-nickname' }">{{ t('nickname') }}</RouterLink>
+        </Button>
+        <Button as-child variant="outline">
+          <RouterLink :to="{ name: 'change-password' }">{{ t('password') }}</RouterLink>
+        </Button>
+      </div>
+    </section>
+    <section class="grid min-w-0 gap-4 rounded-lg border bg-card p-5">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="min-w-0">
+          <h2 class="font-semibold">{{ t('integrations') }}</h2>
+          <p v-if="store" class="mt-1 break-words text-sm">{{ store.name }} · {{ store.code }}</p>
+        </div>
+        <Button variant="outline" :disabled="loading || !!changing || !store" @click="load">{{ t('refresh') }}</Button>
+      </div>
+      <p class="text-sm leading-6 text-muted-foreground">{{ t('description') }}</p>
+      <p v-if="notice" role="status" class="text-sm text-emerald-700">{{ t('saved') }}</p>
+      <div v-if="error" role="alert">
+        <p class="text-sm text-destructive">{{ t(error) }}</p>
+        <Button v-if="!changing" class="mt-3" variant="outline" @click="load">{{ t('refresh') }}</Button>
+      </div>
+      <p v-if="!store" role="status" class="text-sm text-muted-foreground">{{ t('noStore') }}</p>
+      <p v-else-if="loading" role="status" class="py-5 text-center text-sm text-muted-foreground">{{ t('loading') }}</p>
+      <div v-else-if="!error || error === 'saveFailed'" class="grid min-w-0 gap-3 lg:grid-cols-2">
+        <p v-if="!capabilities.length" class="text-sm text-muted-foreground">{{ t('empty') }}</p>
+        <section v-for="item in capabilities" :key="item.provider" class="grid min-w-0 gap-3 rounded-md border p-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h3 class="font-medium">{{ t(item.provider) }}</h3>
+            <span class="rounded border px-2 py-1 text-xs">
+              {{ t(!item.available ? 'notAvailable' : item.enabled ? 'enabled' : 'disabled') }}
+            </span>
+          </div>
+          <p class="text-sm leading-6 text-muted-foreground">
+            {{
+              t(
+                item.available
+                  ? item.provider === 'CASHIER'
+                    ? 'cashierHint'
+                    : item.provider === 'RECEIPT_PRINTER'
+                      ? 'printerHint'
+                      : 'deliveryHint'
+                  : reason(item),
+              )
+            }}
+          </p>
+          <button
+            type="button"
+            role="switch"
+            :aria-checked="item.enabled"
+            :aria-label="t(item.provider)"
+            :disabled="!item.available || !!changing"
+            class="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+            @click="toggle(item)"
+          >
+            <span>{{ t(changing === item.provider ? 'saving' : item.enabled ? 'enabled' : 'disabled') }}</span>
+            <span
+              aria-hidden="true"
+              class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full"
+              :class="item.enabled ? 'bg-primary' : 'bg-slate-300'"
+            >
+              <span
+                class="size-4 rounded-full bg-white transition-transform"
+                :class="item.enabled ? 'translate-x-[18px]' : 'translate-x-[2px]'"
+              />
+            </span>
+          </button>
+        </section>
+      </div>
+      <p class="text-xs leading-5 text-muted-foreground">{{ t('switchHint') }} {{ t('scope') }}</p>
+    </section>
+  </section>
+</template>

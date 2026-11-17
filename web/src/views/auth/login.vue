@@ -1,92 +1,90 @@
-<template>
-  <main class="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-    <section class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-      <p class="text-sm font-medium text-primary">灵点点餐系统</p>
-      <h1 class="mt-2 text-2xl font-semibold text-slate-900">商家登录</h1>
-      <p class="mt-2 text-sm leading-6 text-slate-500">使用已由超级管理员创建的商家账号登录。</p>
-
-      <form class="mt-8 space-y-5" @submit.prevent="login">
-        <label class="block">
-          <span class="mb-2 block text-sm font-medium text-slate-700">账号</span>
-          <input
-            v-model.trim="username"
-            type="text"
-            autocomplete="username"
-            minlength="3"
-            maxlength="64"
-            placeholder="请输入商家账号"
-            class="w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-            required
-          />
-        </label>
-
-        <label class="block">
-          <span class="mb-2 block text-sm font-medium text-slate-700">密码</span>
-          <input
-            v-model="password"
-            type="password"
-            autocomplete="current-password"
-            :minlength="merchantLoginPasswordMinimum"
-            maxlength="256"
-            placeholder="请输入密码"
-            class="w-full rounded-lg border border-slate-300 px-3 py-2.5 outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
-            required
-          />
-        </label>
-
-        <p
-          v-if="statusMessage"
-          class="text-sm"
-          :class="hasError ? 'text-red-600' : 'text-emerald-600'"
-          :role="hasError ? 'alert' : 'status'"
-          :aria-live="hasError ? 'assertive' : 'polite'"
-        >{{ statusMessage }}</p>
-
-        <button
-          type="submit"
-          class="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-          :disabled="loggingIn || !username || password.length < merchantLoginPasswordMinimum"
-        >
-          {{ loggingIn ? '登录中…' : '登录' }}
-        </button>
-      </form>
-
-      <RouterLink class="mt-5 inline-block text-sm font-medium text-primary hover:underline" :to="{ name: 'forgot-password' }">
-        忘记密码？
-      </RouterLink>
-    </section>
-  </main>
-</template>
-
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
+import AccountPanel from '@/components/account/AccountPanel.vue'
+import PasswordField from '@/components/account/PasswordField.vue'
 import { merchantSession } from '@/auth/session'
 import { merchantLoginPasswordMinimum } from '@/auth/password-policy'
 import { safeInternalRedirect } from '@/auth/redirect'
-import { getMerchantAuthMessage } from '@/auth/user-message'
-
-const router = useRouter()
-const route = useRoute()
-const username = ref('')
-const password = ref('')
-const loggingIn = ref(false)
-const statusMessage = ref(typeof route.query.message === 'string' ? route.query.message : '')
-const hasError = ref(false)
-
-async function login(): Promise<void> {
+import { merchantAuthErrorKey } from '@/auth/user-message'
+import { useAccountLocale, type AccountKey } from '@/i18n/account'
+const { t } = useAccountLocale(),
+  router = useRouter(),
+  route = useRoute(),
+  username = ref(''),
+  password = ref(''),
+  loggingIn = ref(false),
+  error = ref<AccountKey>()
+const notice = computed<AccountKey | undefined>(() =>
+  route.query.notice === 'password-reset'
+    ? 'passwordReset'
+    : route.query.notice === 'password-changed'
+      ? 'passwordChanged'
+      : route.query.notice === 'logout-unconfirmed'
+        ? 'logoutFailed'
+        : undefined,
+)
+async function login() {
+  if (loggingIn.value) return
   loggingIn.value = true
-  statusMessage.value = ''
-  hasError.value = false
-
+  error.value = undefined
   try {
     await merchantSession.login(username.value, password.value)
+    password.value = ''
     await router.replace(safeInternalRedirect(route.query.redirect))
-  } catch (error) {
-    hasError.value = true
-    statusMessage.value = getMerchantAuthMessage(error)
+  } catch (e) {
+    error.value = merchantAuthErrorKey(e)
   } finally {
     loggingIn.value = false
   }
 }
 </script>
+<template>
+  <AccountPanel public-page :title="t('loginTitle')" :description="t('loginHint')">
+    <form class="account-form" @submit.prevent="login">
+      <fieldset :disabled="loggingIn" class="grid min-w-0 gap-5">
+        <label class="account-label">
+          {{ t('username') }}
+          <input
+            v-model.trim="username"
+            class="account-input"
+            type="text"
+            autocomplete="username"
+            minlength="3"
+            maxlength="64"
+            :placeholder="t('usernamePlaceholder')"
+            required
+          />
+        </label>
+        <div>
+          <PasswordField
+            v-model="password"
+            :label="t('password')"
+            autocomplete="current-password"
+            :minlength="merchantLoginPasswordMinimum"
+            :disabled="loggingIn"
+          />
+        </div>
+      </fieldset>
+      <p
+        v-if="error || notice"
+        class="account-status"
+        :class="error ? 'text-destructive' : 'text-emerald-700'"
+        :role="error ? 'alert' : 'status'"
+      >
+        {{ t(error ?? notice!) }}
+      </p>
+      <button
+        class="account-action account-primary"
+        type="submit"
+        :disabled="loggingIn || username.length < 3 || password.length < merchantLoginPasswordMinimum"
+      >
+        {{ t(loggingIn ? 'loggingIn' : 'login') }}
+      </button>
+    </form>
+    <RouterLink class="mt-5 inline-block text-sm font-medium text-primary" :to="{ name: 'forgot-password' }">
+      {{ t('forgotLink') }}
+    </RouterLink>
+  </AccountPanel>
+</template>
+<style scoped src="../../components/account/account.css"></style>
