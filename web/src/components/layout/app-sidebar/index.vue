@@ -83,7 +83,7 @@ import { useLocale } from '@/i18n/locale'
 
 const { locale } = useLocale()
 const english: Record<string, [string, string]> = {
-  '/': ['Overview', 'Modules and quick actions'],
+  '/': ['Overview', 'Sales overview and current tasks'],
   '/stores': ['Store settings', 'Store information and opening status'],
   '/products': ['Products & menu', 'Products, categories and variants'],
   '/orders': ['Orders', 'Order search and status history'],

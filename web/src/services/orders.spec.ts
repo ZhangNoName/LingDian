@@ -30,3 +30,11 @@ describe('merchant order query', () => {
     expect(query).toBe('status=REFUNDING')
   })
 })
+
+describe('order period boundary compatibility', () => {
+  it('uses an exclusive UTC end for shareable order ranges', () => {
+    const params = new URLSearchParams(buildOrderQuery({ page: 1, pageSize: 20, keyword: '', status: 'PAID', orderType: '', paymentChannel: '', dateRange: [], startAt: '2026-11-01T00:00:00Z', endAt: '2026-11-02T00:00:00Z' }))
+    expect(params.get('endBefore')).toBe('2026-11-02T00:00:00Z')
+    expect(params.has('endDate')).toBe(false)
+  })
+})

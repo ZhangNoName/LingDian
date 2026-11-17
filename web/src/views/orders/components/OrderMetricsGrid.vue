@@ -1,66 +1,8 @@
-<template>
-  <section class="metrics-grid">
-    <article v-for="metric in metrics" :key="metric.label" class="metric-card">
-      <p>{{ metric.label }}</p>
-      <strong>{{ metric.value }}</strong>
-      <span>{{ metric.note }}</span>
-    </article>
-  </section>
-</template>
-
 <script setup lang="ts">
 import type { OrderSummaryMetric } from '../types'
-
-defineProps<{
-  metrics: OrderSummaryMetric[]
-}>()
+defineProps<{ metrics: OrderSummaryMetric[]; moreLabel: string; hint: string }>()
 </script>
-
-<style scoped>
-.metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.metric-card {
-  display: grid;
-  gap: 8px;
-  padding: 18px 20px;
-  border: 1px solid #d6e6f7;
-  border-radius: 16px;
-  background:
-    radial-gradient(circle at top right, rgba(38, 132, 255, 0.18), transparent 40%),
-    linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
-  box-shadow: 0 14px 30px rgba(28, 76, 128, 0.08);
-}
-
-.metric-card p {
-  margin: 0;
-  color: #5f6b7a;
-  font-size: 13px;
-}
-
-.metric-card strong {
-  font-size: 30px;
-  line-height: 1;
-  color: #142033;
-}
-
-.metric-card span {
-  color: #6f7b89;
-  font-size: 12px;
-}
-
-@media (max-width: 1400px) {
-  .metrics-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 720px) {
-  .metrics-grid {
-    grid-template-columns: 1fr;
-  }
-}
-</style>
+<template>
+  <div class="hidden sm:block"><dl class="grid gap-3 sm:grid-cols-3 xl:grid-cols-6"><div v-for="metric in metrics" :key="metric.label" class="min-w-0 rounded-lg border bg-card p-4"><dt class="text-xs leading-5 text-muted-foreground">{{ metric.label }}</dt><dd class="mt-2 break-words text-xl font-semibold tabular-nums">{{ metric.value }}</dd></div></dl><p class="mt-3 text-xs leading-5 text-muted-foreground">{{ hint }}</p></div>
+  <div class="grid gap-2 sm:hidden"><dl class="grid grid-cols-3 gap-2"><div v-for="metric in metrics.slice(0,3)" :key="metric.label" class="min-w-0 rounded-lg border bg-card p-3"><dt class="text-xs leading-5 text-muted-foreground">{{ metric.label }}</dt><dd class="mt-1 text-xl font-semibold tabular-nums">{{ metric.value }}</dd></div></dl><details class="rounded-md border bg-card px-3 py-2 text-xs"><summary class="cursor-pointer text-muted-foreground">{{ moreLabel }}</summary><dl class="mt-3 grid gap-3"><div v-for="metric in metrics.slice(3)" :key="metric.label" class="flex items-start justify-between gap-3"><dt>{{ metric.label }}</dt><dd class="shrink-0 font-semibold tabular-nums">{{ metric.value }}</dd></div></dl><p class="mt-3 leading-5 text-muted-foreground">{{ hint }}</p></details></div>
+</template>

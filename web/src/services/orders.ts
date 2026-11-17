@@ -11,6 +11,8 @@ import type {
 export type OrderListQuery = OrderFilters & {
   page: number
   pageSize: number
+  startAt?: string
+  endAt?: string
 }
 
 export function buildOrderQuery(query: OrderListQuery, includePagination = true): string {
@@ -24,7 +26,10 @@ export function buildOrderQuery(query: OrderListQuery, includePagination = true)
   if (query.orderType) params.set('orderType', query.orderType)
   if (query.paymentChannel) params.set('paymentChannel', query.paymentChannel)
 
-  if (query.dateRange.length === 2) {
+  if (query.startAt && query.endAt) {
+    params.set('startDate', query.startAt)
+    params.set('endBefore', query.endAt)
+  } else if (query.dateRange.length === 2) {
     const [start, end] = query.dateRange
     const startDate = new Date(start)
     const endDate = new Date(end)
@@ -58,13 +63,12 @@ export function updateMerchantOrderStatus(
   return requestData(apiUrl(`/merchant/orders/${encodeURIComponent(orderId)}/status`), {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status, operatorName: '订单后台', note: note || undefined }),
+    body: JSON.stringify({ status, note: note || undefined }),
   })
 }
 
 export function deleteMerchantOrder(orderId: string): Promise<OrderDetail> {
-  const query = new URLSearchParams({ operatorName: '订单后台' })
-  return requestData(apiUrl(`/merchant/orders/${encodeURIComponent(orderId)}?${query}`), {
+  return requestData(apiUrl(`/merchant/orders/${encodeURIComponent(orderId)}`), {
     method: 'DELETE',
   })
 }

@@ -79,3 +79,17 @@ describe('order presentation', () => {
     expect(statusLabel('WAITING_FOR_DRIVER')).toBe('未知状态（WAITING_FOR_DRIVER）')
   })
 })
+
+describe('localized order workflow', () => {
+  it('translates labels while preserving cash-only payment and refund invariants', () => {
+    expect(statusLabel('PAID', 'en-US')).toBe('Paid')
+    expect(orderSourceLabel('MINIAPP', 'en-US')).toBe('Mini app')
+    expect(paymentChannelLabel('WECHAT', 'en-US')).toBe('WeChat Pay')
+    expect(orderStatusActions('PENDING_PAYMENT', 'CASH', 'en-US').find(action => action.value === 'PAID')?.label).toBe('Confirm cash payment')
+    expect(orderStatusActions('PAID', 'WECHAT', 'en-US').some(action => ['REFUNDING','REFUNDED'].includes(action.value))).toBe(false)
+  })
+  it('fails closed on a future status instead of crashing the order detail', () => {
+    expect(orderStatusActions('WAITING_FOR_DRIVER' as never, 'CASH', 'en-US')).toEqual([])
+    expect(statusLabel('WAITING_FOR_DRIVER', 'en-US')).toBe('Unknown status (WAITING_FOR_DRIVER)')
+  })
+})

@@ -13,10 +13,10 @@ import { X } from '@lingdian/icons/web'
 import { cn } from '@/lib/utils'
 import { Button } from '@/baseComponents/button'
 
-const props = defineProps<DialogContentProps & { class?: string; closeLabel?: string }>()
+const props = defineProps<DialogContentProps & { class?: string; closeLabel?: string; closeDisabled?: boolean }>()
 const emit = defineEmits<DialogContentEmits>()
 const forwarded = useForwardPropsEmits(computed(() => {
-  const { closeLabel: _closeLabel, ...rest } = props
+  const { closeLabel: _closeLabel, closeDisabled: _closeDisabled, ...rest } = props
   return rest
 }), emit)
 </script>
@@ -41,6 +41,7 @@ const forwarded = useForwardPropsEmits(computed(() => {
         <Button
           variant="ghost"
           size="icon"
+          :disabled="props.closeDisabled"
           class="absolute right-4 top-4 size-9 rounded-md text-muted-foreground hover:bg-muted"
         >
           <X class="size-4" />

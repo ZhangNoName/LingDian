@@ -28,7 +28,7 @@ export type DashboardAction = {
 const implementedNavigationItems: NavigationItem[] = [
   {
     label: '工作台',
-    caption: '已接入能力与常用操作入口',
+    caption: '经营概览与待处理事项',
     to: '/',
     icon: LayoutDashboard,
   },

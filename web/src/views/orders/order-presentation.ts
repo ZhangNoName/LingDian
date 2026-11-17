@@ -128,8 +128,15 @@ const deletableStatuses = new Set<OrderStatus>([
   'COMPLETED',
 ])
 
-export function orderSourceLabel(source: OrderSource | string | null | undefined) {
-  if (!source) return '历史订单'
+const englishLabels: Record<string, string> = {
+  CREATING: 'Creating', PENDING_PAYMENT: 'Awaiting payment', PAID: 'Paid', PREPARING: 'Preparing', READY: 'Ready for pickup', COMPLETED: 'Completed', TIMED_OUT: 'Timed out', REFUNDING: 'Refunding', REFUNDED: 'Refunded', CANCELLED: 'Cancelled', FAILED: 'Failed', DELETED: 'Deleted',
+  DINE_IN: 'Dine-in', TAKEOUT: 'Delivery', PICKUP: 'Pickup', CASH: 'Cash', WECHAT: 'WeChat Pay', ALIPAY: 'Alipay', UNIONPAY: 'UnionPay', STRIPE: 'Stripe', PAYPAL: 'PayPal', CUSTOMER_SCAN: 'Customer scan', OTHER: 'Other', MINIAPP: 'Mini app', MEITUAN_WAIMAI: 'Meituan delivery', JD_DAOJIA: 'JD Daojia', POS: 'Point of sale', MANUAL: 'Manual entry',
+}
+const englishActions: Partial<Record<OrderStatus, string>> = { PENDING_PAYMENT: 'Await payment', PAID: 'Confirm cash payment', PREPARING: 'Start preparation', READY: 'Ready for pickup', COMPLETED: 'Complete order', REFUNDING: 'Start cash refund', REFUNDED: 'Record cash refund', CANCELLED: 'Cancel order', TIMED_OUT: 'Mark timed out', FAILED: 'Mark failed' }
+
+export function orderSourceLabel(source: OrderSource | string | null | undefined, locale = 'zh-CN') {
+  if (!source) return locale === 'en-US' ? 'Historical order' : '历史订单'
+  if (locale === 'en-US') return englishLabels[source] ?? source
   return orderSourceLabels[source as OrderSource] ?? source
 }
 
@@ -141,16 +148,19 @@ export function pickupBusinessDateLabel(date: string | null | undefined) {
   return date?.trim() || '未记录'
 }
 
-export function statusLabel(status: OrderStatus | string): string {
+export function statusLabel(status: OrderStatus | string, locale = 'zh-CN'): string {
+  if (locale === 'en-US') return englishLabels[status] ?? `Unknown status (${status})`
   return statusLabels[status as OrderStatus] ?? `未知状态（${status}）`
 }
 
-export function orderTypeLabel(type: OrderType | string): string {
+export function orderTypeLabel(type: OrderType | string, locale = 'zh-CN'): string {
+  if (locale === 'en-US') return englishLabels[type] ?? type
   return orderTypeLabels[type as OrderType] ?? type
 }
 
-export function paymentChannelLabel(channel: PaymentChannel | string | undefined): string {
-  if (!channel) return '未记录'
+export function paymentChannelLabel(channel: PaymentChannel | string | undefined, locale = 'zh-CN'): string {
+  if (!channel) return locale === 'en-US' ? 'Not recorded' : '未记录'
+  if (locale === 'en-US') return englishLabels[channel] ?? channel
   return paymentChannelLabels[channel as PaymentChannel] ?? channel
 }
 
@@ -173,10 +183,11 @@ export function timelineType(status: OrderStatus): OrderTagType {
 export function orderStatusActions(
   status: OrderStatus | undefined,
   paymentChannel: PaymentChannel | undefined,
+  locale = 'zh-CN',
 ): OrderStatusAction[] {
   if (!status) return []
 
-  const actions = actionsByStatus[status]
+  const actions = (actionsByStatus[status] ?? []).map(action => ({ ...action, label: locale === 'en-US' ? (englishActions[action.value] ?? action.value) : action.label }))
   if (paymentChannel === 'CASH') return actions
 
   // Online payment and refund states are advanced only by verified provider
@@ -190,11 +201,11 @@ export function canDeleteOrderStatus(status: OrderStatus | undefined): boolean {
   return status ? deletableStatuses.has(status) : false
 }
 
-export function formatDateTime(value: string | undefined): string {
+export function formatDateTime(value: string | undefined, locale = 'zh-CN'): string {
   if (!value) return '—'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '—'
-  return new Intl.DateTimeFormat('zh-CN', {
+  return new Intl.DateTimeFormat(locale, {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',

@@ -45,6 +45,17 @@ export async function verifyMerchantOperations(db: PrismaService) {
     await stock.reserve(tx, order, [{ skuId: 'operations-sku', quantity: 1 }], user.userId);
     await tx.order.update({ where: { id }, data: { stockExpiresAt: new Date(Date.now() + (expired ? -60000 : 3600000)) } });
   }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
+  const queries = new OrdersQueryService(db, stores);
+  const queryPeriod = { startDate: period.startAt, endBefore: period.endAt, page: 1, pageSize: 100 };
+  const paidSummary = await queries.getOrderSummary({ ...queryPeriod, status: 'PAID' }, { storeIds: [storeId] });
+  assert.deepEqual(paidSummary, { total_count: 1, pending_payment_count: 0, paid_count: 1, refunding_count: 0, refunded_count: 0, total_amount: 12.34 });
+  const refundSummary = await queries.getOrderSummary({ ...queryPeriod, status: 'REFUNDING' }, { storeIds: [storeId] });
+  assert.equal(refundSummary.total_count, 1); assert.equal(refundSummary.paid_count, 0); assert.equal(refundSummary.total_amount, 80);
+  const listedOrders = await queries.getOrders({ ...queryPeriod, status: 'PAID' }, { storeIds: [storeId] });
+  assert.equal(listedOrders.total, 1); assert.equal(listedOrders.items[0].id, 'ops-paid');
+  const legacySummary = await queries.getOrderSummary({ ...queryPeriod, endBefore: undefined, endDate: period.endAt, status: 'PAID' }, { storeIds: [storeId] });
+  assert.equal(legacySummary.total_count, 2); assert.equal(legacySummary.total_amount, 111.34);
+  console.log('PASS MySQL order queries: status intersections, exact refund-related amounts, half-open list/summary boundaries and legacy inclusive end.');
   const dashboard = await new MerchantDashboardService(db, scope).snapshot(user, storeId, period);
   assert.equal(dashboard.orders.total, 5); assert.equal(dashboard.orders.paidAmount, 32.34); assert.equal(dashboard.orders.paid, 2);
   assert.deepEqual(dashboard.topItems.map(row => [row.productName, row.quantity, row.orderCount]), [['Bread',5,1],['Renamed bread',4,1],['Legacy bread',1,1]]);

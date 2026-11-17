@@ -30,30 +30,20 @@ export class OrdersQueryService {
   ): Promise<OrderSummaryStatsContract> {
     const scopedWhere = this.buildOrderWhere(query, true, scope);
     const paidStatuses: OrderStatus[] = ['PAID', 'PREPARING', 'READY', 'COMPLETED'];
-    const [totalCount, pendingPaymentCount, paidCount, refundingCount, refundedCount, amounts] =
-      await Promise.all([
-        this.prisma.order.count({ where: scopedWhere }),
-        this.prisma.order.count({ where: { ...scopedWhere, status: 'PENDING_PAYMENT' } }),
-        this.prisma.order.count({ where: { ...scopedWhere, status: { in: paidStatuses } } }),
-        this.prisma.order.count({ where: { ...scopedWhere, status: 'REFUNDING' } }),
-        this.prisma.order.count({ where: { ...scopedWhere, status: 'REFUNDED' } }),
-        this.prisma.order.aggregate({
-          where: {
-            ...scopedWhere,
-            status: { in: [...paidStatuses, 'REFUNDING', 'REFUNDED'] },
-          },
-          _sum: { payableAmount: true },
-        }),
-      ]);
-
-    return {
-      total_count: totalCount,
-      pending_payment_count: pendingPaymentCount,
-      paid_count: paidCount,
-      refunding_count: refundingCount,
-      refunded_count: refundedCount,
-      total_amount: toNumber(amounts._sum.payableAmount),
-    };
+    return this.prisma.$transaction(async tx => {
+      const groups = await tx.order.groupBy({ by: ['status'], where: scopedWhere, _count: { _all: true }, _sum: { payableAmount: true } });
+      const counts = new Map(groups.map(group => [group.status, group._count._all]));
+      let amount = new Prisma.Decimal(0);
+      for (const group of groups) if ([...paidStatuses, 'REFUNDING', 'REFUNDED'].includes(group.status)) amount = amount.add(group._sum.payableAmount ?? 0);
+      const total = groups.reduce((sum, group) => sum + group._count._all, 0);
+      const cents = amount.mul(100).toNumber();
+      if (!Number.isSafeInteger(total) || !Number.isSafeInteger(cents)) throw new BadRequestException('orders.summaryTooLarge');
+      return {
+        total_count: total, pending_payment_count: counts.get('PENDING_PAYMENT') ?? 0,
+        paid_count: paidStatuses.reduce((sum, status) => sum + (counts.get(status) ?? 0), 0),
+        refunding_count: counts.get('REFUNDING') ?? 0, refunded_count: counts.get('REFUNDED') ?? 0, total_amount: cents / 100,
+      };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
   }
 
   async getOrders(
@@ -140,7 +130,7 @@ export class OrdersQueryService {
     excludeDeleted = true,
     scope: OrderScope = {},
   ): Prisma.OrderWhereInput {
-    const createdAt = this.buildDateRange(query.startDate, query.endDate);
+    const createdAt = this.buildDateRange(query.startDate, query.endDate, query.endBefore);
     const where: Prisma.OrderWhereInput = this.scopeWhere(scope);
     if (excludeDeleted) where.isDeleted = false;
     if (query.status) {
@@ -163,8 +153,9 @@ export class OrdersQueryService {
     return where;
   }
 
-  private buildDateRange(startDate?: string, endDate?: string) {
-    if (!startDate && !endDate) return undefined;
+  private buildDateRange(startDate?: string, endDate?: string, endBefore?: string) {
+    if (!startDate && !endDate && !endBefore) return undefined;
+    if (endDate && endBefore) throw new BadRequestException('orders.invalidPeriod');
     const range: Prisma.DateTimeFilter = {};
     if (startDate) {
       const parsedStartDate = new Date(startDate);
@@ -176,6 +167,13 @@ export class OrdersQueryService {
       if (Number.isNaN(parsedEndDate.getTime())) throw new BadRequestException('Invalid endDate');
       range.lte = parsedEndDate;
     }
+    if (endBefore) {
+      const end = new Date(endBefore);
+      if (!Number.isFinite(end.getTime())) throw new BadRequestException('orders.invalidPeriod');
+      range.lt = end;
+      if (startDate && (new Date(startDate) >= end || end.getTime() - new Date(startDate).getTime() > 366 * 86400000)) throw new BadRequestException('orders.invalidPeriod');
+    }
+    if (startDate && endDate && new Date(startDate) > new Date(endDate)) throw new BadRequestException('orders.invalidPeriod');
     return range;
   }
 }

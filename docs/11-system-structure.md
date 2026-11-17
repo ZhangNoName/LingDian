@@ -257,3 +257,6 @@ Web 门店选择按账号和标签页保存，退出清除、授权变更剔除�
 ## 2026-11-17 经营与占用运营增量
 
 商家工作台通过 `MerchantDashboardService` 提供期间订单/有效成交、服务方式、状态与前 10 规格快照，另列不限日期的当前预警/待履约/到期占用。门店内查询采用 RepeatableRead，排行用绑定参数 SQL；金额为订单口径的 CNY 应付金额，不是现金实收或利润。`StockHoldService` 属于 orders 模块，按门店列出预占，并复用支付关单验证和订单事务处理到期占用，没有强制释放路径或 inventory→orders 反向依赖。见 [经营与占用迭代](./20-merchant-operations-2026-11-17.md)。
+
+
+订单查询增量：商家订单页使用 URL 编码已查询条件和详情 ID，切店清除详情并使旧响应失效。新查询使用 startDate（含）+ endBefore（不含），旧 endDate 继续包含；汇总在 RepeatableRead 中按完整筛选分组，不覆盖状态条件。中英文、手机卡片和现金/终止/删除确认见 [订单交互迭代](./21-order-workflow-2026-11-17.md)。

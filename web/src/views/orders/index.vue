@@ -1,445 +1,111 @@
-<template>
-  <div class="orders-page">
-    <OrderMetricsGrid :metrics="metrics" />
-
-    <AppFormTable title="订单管理" description="统一查看订单状态、金额、餐品明细与完整流转轨迹。">
-      <template #headerActions>
-        <el-button :icon="RefreshCw" :loading="loading" @click="fetchOrders">刷新</el-button>
-      </template>
-
-      <template #form>
-        <AppForm :model="filters" :columns="5">
-          <el-form-item label="关键词">
-            <el-input
-              v-model="filters.keyword"
-              clearable
-              placeholder="搜索订单号 / 顾客 / 手机号 / 备注"
-            />
-          </el-form-item>
-
-          <el-form-item label="订单状态">
-            <el-select v-model="filters.status" clearable placeholder="全部状态">
-              <el-option
-                v-for="option in statusOptions"
-                :key="option.value"
-                :label="option.label"
-                :value="option.value"
-              />
-            </el-select>
-          </el-form-item>
-
-          <el-form-item label="订单类型">
-            <el-select v-model="filters.orderType" clearable placeholder="全部类型">
-              <el-option
-                v-for="option in orderTypeOptions"
-                :key="option.value"
-                :label="option.label"
-                :value="option.value"
-              />
-            </el-select>
-          </el-form-item>
-
-          <el-form-item label="支付渠道">
-            <el-select v-model="filters.paymentChannel" clearable placeholder="全部渠道">
-              <el-option
-                v-for="option in paymentChannelOptions"
-                :key="option.value"
-                :label="option.label"
-                :value="option.value"
-              />
-            </el-select>
-          </el-form-item>
-
-          <el-form-item label="日期区间">
-            <el-date-picker
-              v-model="filters.dateRange"
-              type="daterange"
-              start-placeholder="开始日期"
-              end-placeholder="结束日期"
-              range-separator="至"
-              class="full-width"
-            />
-          </el-form-item>
-
-          <template #actions>
-            <el-button @click="resetFilters">重置</el-button>
-            <el-button type="primary" :loading="loading" @click="applyFilters">查询</el-button>
-          </template>
-        </AppForm>
-      </template>
-
-      <AppTable>
-        <el-table
-          v-loading="loading"
-          :data="orders"
-          row-key="id"
-          class="orders-table"
-          empty-text="暂无订单数据"
-        >
-          <el-table-column prop="order_no" label="订单号" min-width="180" />
-          <el-table-column label="取餐码" width="104" align="center">
-            <template #default="{ row }">
-              <strong v-if="row.pickup_code" class="pickup-code-cell">
-                {{ pickupCodeLabel(row.pickup_code) }}
-              </strong>
-              <span v-else class="empty-cell">—</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="来源" width="124">
-            <template #default="{ row }">
-              <el-tag :type="row.order_source ? 'primary' : 'info'" effect="plain">
-                {{ orderSourceLabel(row.order_source) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="customer_name" label="顾客" width="120" />
-          <el-table-column prop="customer_mobile" label="手机号" width="140" />
-          <el-table-column label="类型" width="100">
-            <template #default="{ row }">
-              <el-tag effect="plain">{{ orderTypeLabel(row.order_type) }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="支付渠道" width="120">
-            <template #default="{ row }">
-              {{ paymentChannelLabel(row.payment_channel) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="订单状态" width="110">
-            <template #default="{ row }">
-              <el-tag :type="statusTagType(row.status)" effect="light">
-                {{ statusLabel(row.status) }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="餐品摘要" min-width="280">
-            <template #default="{ row }">
-              <div class="item-summary">
-                <p v-for="item in row.item_summary.slice(0, 2)" :key="item.id">
-                  {{ item.name }}
-                  <template v-if="item.sku_name"> / {{ item.sku_name }}</template>
-                  x{{ item.quantity }}
-                </p>
-                <span v-if="row.item_summary.length > 2">
-                  另含 {{ row.item_summary.length - 2 }} 项
-                </span>
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column label="金额" width="120">
-            <template #default="{ row }">¥{{ row.payable_amount.toFixed(2) }}</template>
-          </el-table-column>
-          <el-table-column prop="remark" label="备注" min-width="180" show-overflow-tooltip />
-          <el-table-column label="创建时间" width="176">
-            <template #default="{ row }">{{ formatDateTime(row.created_at) }}</template>
-          </el-table-column>
-          <el-table-column label="更新时间" width="176">
-            <template #default="{ row }">{{ formatDateTime(row.updated_at) }}</template>
-          </el-table-column>
-          <el-table-column label="操作" width="120" fixed="right">
-            <template #default="{ row }">
-              <el-button link type="primary" @click="openOrderDetail(row.id)">查看详情</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </AppTable>
-      <div class="orders-pagination">
-        <el-pagination
-          v-model:current-page="page"
-          v-model:page-size="pageSize"
-          :total="total"
-          :page-sizes="[20, 50, 100]"
-          layout="total, sizes, prev, pager, next, jumper"
-          @current-change="fetchOrders"
-          @size-change="handlePageSizeChange"
-        />
-      </div>
-    </AppFormTable>
-
-    <OrderDetailDialog
-      v-model:open="detailDialogOpen"
-      v-model:action-note="actionNote"
-      :actions="detailActions"
-      :can-delete="canDeleteOrder"
-      :deleting="deletingOrder"
-      :loading="detailLoading"
-      :order="activeOrder"
-      :saving-status="savingStatus"
-      @change-status="handleStatusChange"
-      @delete-order="handleDeleteOrder"
-    />
-  </div>
-</template>
-
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
-import {
-  ElButton,
-  ElDatePicker,
-  ElFormItem,
-  ElInput,
-  ElMessage,
-  ElMessageBox,
-  ElOption,
-  ElPagination,
-  ElSelect,
-  ElTable,
-  ElTableColumn,
-  ElTag,
-  vLoading,
-} from '@/components/ui/element-plus'
-import '@/styles/element-plus-management'
-import { RefreshCw } from '@lingdian/icons/web'
-import AppForm from '@/components/form/AppForm.vue'
-import AppFormTable from '@/components/form-table/AppFormTable.vue'
-import AppTable from '@/components/table/AppTable.vue'
-import {
-  deleteMerchantOrder,
-  getMerchantOrder,
-  listMerchantOrders,
-  summarizeMerchantOrders,
-  updateMerchantOrderStatus,
-} from '@/services/orders'
+import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { Button } from '@/baseComponents/button'
+import { deleteMerchantOrder, getMerchantOrder, listMerchantOrders, summarizeMerchantOrders } from '@/services/orders'
+import { updateMerchantOrderStatus } from '@/services/orders'
+import OrderList from './components/OrderList.vue'
 import OrderDetailDialog from './components/OrderDetailDialog.vue'
 import OrderMetricsGrid from './components/OrderMetricsGrid.vue'
-import {
-  canDeleteOrderStatus,
-  formatDateTime,
-  orderSourceLabel,
-  orderStatusActions,
-  orderTypeLabel,
-  orderTypeOptions,
-  paymentChannelLabel,
-  paymentChannelOptions,
-  pickupCodeLabel,
-  statusLabel,
-  statusOptions,
-  statusTagType,
-} from './order-presentation'
-import type {
-  OrderDetail,
-  OrderFilters,
-  OrderListItem,
-  OrderStatus,
-  OrderSummaryMetric,
-  OrderSummaryResponse,
-} from './types'
-
-const loading = ref(false)
-const detailLoading = ref(false)
-const deletingOrder = ref(false)
-const savingStatus = ref<OrderStatus | null>(null)
-const orders = ref<OrderListItem[]>([])
-const page = ref(1)
-const pageSize = ref(20)
-const total = ref(0)
-const activeOrder = ref<OrderDetail | null>(null)
-const detailDialogOpen = ref(false)
-const actionNote = ref('')
-let listRequestSequence = 0
-let detailRequestSequence = 0
-const summary = ref<OrderSummaryResponse>({
-  total_count: 0,
-  pending_payment_count: 0,
-  paid_count: 0,
-  refunding_count: 0,
-  refunded_count: 0,
-  total_amount: 0,
+import { useOrderLocale } from './use-order-locale'
+import { canDeleteOrderStatus, orderStatusActions, statusOptions, orderTypeOptions, paymentChannelOptions } from './order-presentation'
+import { dateInput, orderListFingerprint, orderPeriodForDraft, orderStateQuery, parseOrderState, type OrderFilterState } from './filter-state'
+import type { OrderDetail, OrderListItem, OrderStatus, OrderSummaryResponse, OrderSummaryMetric } from './types'
+import type { OrderMessageKey } from './messages'
+const route = useRoute(), router = useRouter(), { locale, t, status, type, channel, date, money } = useOrderLocale()
+const state = ref(parseOrderState(route.query)), filters = reactive({ keyword: '', status: '' as OrderFilterState['status'], orderType: '' as OrderFilterState['orderType'], paymentChannel: '' as OrderFilterState['paymentChannel'], from: '', to: '' })
+const listPanel = ref<HTMLElement>()
+const filtersOpen = ref(false), loading = ref(true), error = ref<OrderMessageKey>(), notice = ref<OrderMessageKey>()
+const orders = ref<OrderListItem[]>([]), total = ref(0), summary = ref<OrderSummaryResponse>()
+const detailOpen = ref(false), detailLoading = ref(false), detailError = ref(false), activeOrder = ref<OrderDetail | null>(null), actionNote = ref(''), savingStatus = ref<OrderStatus | null>(null), deleting = ref(false), actionError = ref(false)
+const busy = computed(() => !!savingStatus.value || deleting.value)
+const pageCount = computed(() => Math.max(1, Math.ceil(total.value / state.value.pageSize)))
+const dirty = computed(() => filters.keyword.trim() !== state.value.keyword || filters.status !== state.value.status || filters.orderType !== state.value.orderType || filters.paymentChannel !== state.value.paymentChannel || filters.from !== (state.value.startAt ? dateInput(new Date(state.value.startAt)) : '') || filters.to !== (state.value.endAt ? dateInput(new Date(Date.parse(state.value.endAt) - 1)) : ''))
+const detailActions = computed(() => orderStatusActions(activeOrder.value?.status, activeOrder.value?.payment_channel, locale.value))
+const metrics = computed<OrderSummaryMetric[]>(() => {
+  const value = summary.value, valid = !loading.value && !error.value
+  return [ ['total', value?.total_count], ['pending', value?.pending_payment_count], ['paid', value?.paid_count], ['refunding', value?.refunding_count], ['refunded', value?.refunded_count], ['amount', value?.total_amount] ].map(([key, count]) => ({ label: t(key as OrderMessageKey), value: valid && typeof count === 'number' ? key === 'amount' ? money(count) : count.toLocaleString(locale.value) : '—', note: '' }))
 })
-
-const filters = reactive<OrderFilters>({
-  keyword: '',
-  status: '',
-  orderType: '',
-  paymentChannel: '',
-  dateRange: [],
-})
-
-const metrics = computed<OrderSummaryMetric[]>(() => [
-  { label: '订单总数', value: summary.value.total_count, note: '当前筛选范围内的订单量' },
-  { label: '待支付', value: summary.value.pending_payment_count, note: '需要尽快确认付款' },
-  { label: '已支付', value: summary.value.paid_count, note: '进入履约或已完成阶段' },
-  { label: '退款中', value: summary.value.refunding_count, note: '需要跟进退款处理结果' },
-  { label: '已退款', value: summary.value.refunded_count, note: '已完成退款闭环' },
-  {
-    label: '累计金额',
-    value: `¥${summary.value.total_amount.toFixed(2)}`,
-    note: '已支付及退款相关订单金额',
-  },
-])
-
-const detailActions = computed(() => orderStatusActions(
-  activeOrder.value?.status,
-  activeOrder.value?.payment_channel,
-))
-const canDeleteOrder = computed(() => canDeleteOrderStatus(activeOrder.value?.status))
-
-async function fetchOrders() {
-  const requestSequence = ++listRequestSequence
-  loading.value = true
-
+const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
+let listSequence = 0, detailSequence = 0, lastList = '', selectedId = '', disposed = false
+async function load() {
+  const current = ++listSequence; loading.value = true; error.value = undefined
+  const query = { ...state.value, dateRange: [] as [] }
   try {
-    const query = { ...filters, dateRange: [...filters.dateRange] as OrderFilters['dateRange'], page: page.value, pageSize: pageSize.value }
-    const [summaryData, listData] = await Promise.all([
-      summarizeMerchantOrders(query),
-      listMerchantOrders(query),
-    ])
-
-    if (requestSequence !== listRequestSequence) return
-    summary.value = summaryData
-    orders.value = listData.items
-    total.value = listData.total
-  } catch (error) {
-    if (requestSequence === listRequestSequence) {
-      ElMessage.error(error instanceof Error ? error.message : '订单数据加载失败')
+    const [summaryData, listData] = await Promise.all([summarizeMerchantOrders(query), listMerchantOrders(query)])
+    if (current === listSequence) {
+      const lastPage = Math.max(1, Math.ceil(listData.total / state.value.pageSize))
+      if (state.value.page > lastPage) { await navigate({ ...state.value, page: lastPage }); return }
+      summary.value = summaryData; orders.value = listData.items; total.value = listData.total
     }
-  } finally {
-    if (requestSequence === listRequestSequence) loading.value = false
-  }
+  } catch (value) { if (current === listSequence) error.value = value instanceof Error && value.message === 'orders.summaryTooLarge' ? 'orders.summaryTooLarge' : 'loadFailed' }
+  finally { if (current === listSequence) loading.value = false }
 }
-
-async function openOrderDetail(orderId: string) {
-  const requestSequence = ++detailRequestSequence
-  detailDialogOpen.value = true
-  detailLoading.value = true
-  activeOrder.value = null
-  actionNote.value = ''
-
+async function loadDetail() {
+  if (!selectedId) return
+  const current = ++detailSequence, id = selectedId; detailLoading.value = true; detailError.value = false; activeOrder.value = null; actionError.value = false
+  try { const data = await getMerchantOrder(id); if (current === detailSequence) activeOrder.value = data }
+  catch { if (current === detailSequence) detailError.value = true }
+  finally { if (current === detailSequence) detailLoading.value = false }
+}
+async function navigate(next: OrderFilterState) { const paging = next.page !== state.value.page || next.pageSize !== state.value.pageSize; await router.push({ query: orderStateQuery(next) }); if (paging) { await nextTick(); listPanel.value?.scrollIntoView({ block: 'start' }) } }
+async function apply() {
   try {
-    const order = await getMerchantOrder(orderId)
-    if (requestSequence === detailRequestSequence) activeOrder.value = order
-  } catch (error) {
-    if (requestSequence === detailRequestSequence) {
-      detailDialogOpen.value = false
-      ElMessage.error(error instanceof Error ? error.message : '订单详情加载失败')
-    }
-  } finally {
-    if (requestSequence === detailRequestSequence) detailLoading.value = false
-  }
+    const period = orderPeriodForDraft(state.value, filters.from, filters.to)
+    const next = { ...state.value, keyword: filters.keyword.trim(), status: filters.status, orderType: filters.orderType, paymentChannel: filters.paymentChannel, ...period, page: 1 }
+    if (orderListFingerprint(next) === orderListFingerprint(state.value)) await load(); else await navigate(next)
+    filtersOpen.value = false
+  } catch { error.value = 'invalidPeriod' }
 }
-
-async function handleStatusChange(status: OrderStatus) {
-  if (!activeOrder.value) {
-    return
-  }
-
-  const orderId = activeOrder.value.id
-  savingStatus.value = status
-
+function reset() { const next = parseOrderState({}); next.orderId = state.value.orderId; if (orderListFingerprint(next) === orderListFingerprint(state.value)) { filters.keyword = ''; filters.status = ''; filters.orderType = ''; filters.paymentChannel = ''; filters.from = ''; filters.to = ''; void load() } else void navigate(next) }
+function openDetail(id: string) { if (!busy.value) void navigate({ ...state.value, orderId: id }) }
+function closeDetail(open: boolean) { if (!open && !busy.value) void navigate({ ...state.value, orderId: '' }) }
+async function saveStatus(target: OrderStatus) {
+  if (!activeOrder.value || busy.value || !detailActions.value.some(action => action.value === target)) return
+  const id = activeOrder.value.id; savingStatus.value = target; actionError.value = false; notice.value = undefined
   try {
-    const updated = await updateMerchantOrderStatus(orderId, status, actionNote.value.trim())
-    if (activeOrder.value?.id === orderId) activeOrder.value = updated
-
-    actionNote.value = ''
-    ElMessage.success(`订单已更新为${statusLabel(status)}`)
-    await fetchOrders()
-  } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '状态变更失败')
-  } finally {
-    savingStatus.value = null
+    const updated = await updateMerchantOrderStatus(id, target, actionNote.value.trim())
+    if (disposed) return
+    if (activeOrder.value?.id === id) { activeOrder.value = updated; actionNote.value = '' }
+    notice.value = 'saved'; await load()
+  } catch { if (!disposed) actionError.value = true }
+  finally { savingStatus.value = null }
+}
+async function remove() {
+  if (!activeOrder.value || busy.value || !canDeleteOrderStatus(activeOrder.value.status)) return
+  const id = activeOrder.value.id; deleting.value = true; actionError.value = false; notice.value = undefined
+  try { const updated = await deleteMerchantOrder(id); if (disposed) return; if (activeOrder.value?.id === id) activeOrder.value = updated; notice.value = 'deleted'; await load() }
+  catch { if (!disposed) actionError.value = true }
+  finally { deleting.value = false }
+}
+async function copyLink() { try { await navigator.clipboard.writeText(window.location.href); notice.value = 'copied' } catch { notice.value = 'copyFailed' } }
+watch(() => route.fullPath, () => {
+  const next = parseOrderState(route.query), canonical = orderStateQuery(next)
+  if (JSON.stringify(Object.entries(route.query).sort()) !== JSON.stringify(Object.entries(canonical).sort())) { void router.replace({ query: canonical }); return }
+  state.value = next
+  const fingerprint = orderListFingerprint(next)
+  if (fingerprint !== lastList) {
+    lastList = fingerprint; filters.keyword = next.keyword; filters.status = next.status; filters.orderType = next.orderType; filters.paymentChannel = next.paymentChannel; filters.from = next.startAt ? dateInput(new Date(next.startAt)) : ''; filters.to = next.endAt ? dateInput(new Date(Date.parse(next.endAt) - 1)) : ''; void load()
   }
-}
-
-async function handleDeleteOrder() {
-  if (!activeOrder.value) {
-    return
-  }
-
-  try {
-    await ElMessageBox.confirm(
-      '删除后订单不会物理移除，但会被标记为已删除并从默认列表中隐藏。是否继续？',
-      '删除订单',
-      {
-        confirmButtonText: '确认删除',
-        cancelButtonText: '取消',
-        type: 'warning',
-      },
-    )
-  } catch {
-    return
-  }
-
-  deletingOrder.value = true
-
-  try {
-    const orderId = activeOrder.value.id
-    const deleted = await deleteMerchantOrder(orderId)
-    if (activeOrder.value?.id === orderId) activeOrder.value = deleted
-    ElMessage.success('订单已标记为删除')
-    await fetchOrders()
-  } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '删除订单失败')
-  } finally {
-    deletingOrder.value = false
-  }
-}
-
-function resetFilters() {
-  filters.keyword = ''
-  filters.status = ''
-  filters.orderType = ''
-  filters.paymentChannel = ''
-  filters.dateRange = []
-  page.value = 1
-  void fetchOrders()
-}
-
-function applyFilters() {
-  page.value = 1
-  void fetchOrders()
-}
-
-function handlePageSizeChange() {
-  page.value = 1
-  void fetchOrders()
-}
-
-const route = useRoute()
-function openLinkedOrder() { const id = route.query.orderId; if (typeof id === 'string' && id.length <= 191 && id.trim()) void openOrderDetail(id) }
-watch(() => route.query.orderId, openLinkedOrder)
-onMounted(() => { void fetchOrders(); openLinkedOrder() })
+  if (next.orderId !== selectedId) { selectedId = next.orderId; detailSequence++; activeOrder.value = null; actionNote.value = ''; detailOpen.value = !!selectedId; if (selectedId) { notice.value = undefined; void loadDetail() } }
+}, { immediate: true })
+onBeforeUnmount(() => { disposed = true; listSequence++; detailSequence++ })
 </script>
-
+<template>
+  <section class="grid min-w-0 gap-4" :lang="locale">
+    <div class="flex flex-wrap items-center justify-between gap-3"><p class="text-sm text-muted-foreground">{{ t('subtitle') }}</p><label class="sr-only" for="order-language">{{ t('language') }}</label><select id="order-language" v-model="locale"><option value="zh-CN">简体中文</option><option value="en-US">English</option></select></div>
+    <OrderMetricsGrid :metrics="metrics" :more-label="t('moreSummary')" :hint="t('metricHint')" />
+    <div class="rounded-lg border bg-card"><div class="flex flex-wrap items-center justify-between gap-3 border-b p-4"><Button class="sm:hidden" variant="outline" aria-controls="order-filters" :aria-expanded="filtersOpen" @click="filtersOpen = !filtersOpen">{{ t('filters') }}</Button><h2 class="hidden font-semibold sm:block">{{ t('filters') }}</h2><div class="flex gap-2"><Button variant="outline" :disabled="loading || dirty" @click="load">{{ t('refresh') }}</Button><Button variant="ghost" :title="t('queryLinkHint')" @click="copyLink">{{ t('copyLink') }}</Button></div></div>
+      <form id="order-filters" :data-open="filtersOpen" class="order-filters flex flex-wrap items-end gap-3 p-4" @submit.prevent="apply"><label class="grow sm:grow-0">{{ t('search') }}<input v-model="filters.keyword" type="search" maxlength="120" :placeholder="t('searchHint')" /></label><label>{{ t('status') }}<select v-model="filters.status" :aria-label="t('status')"><option value="">{{ t('all') }}</option><option v-for="option in statusOptions" :key="option.value" :value="option.value">{{ status(option.value) }}</option></select></label><label>{{ t('type') }}<select v-model="filters.orderType" :aria-label="t('type')"><option value="">{{ t('all') }}</option><option v-for="option in orderTypeOptions" :key="option.value" :value="option.value">{{ type(option.value) }}</option></select></label><label>{{ t('channel') }}<select v-model="filters.paymentChannel" :aria-label="t('channel')"><option value="">{{ t('all') }}</option><option v-for="option in paymentChannelOptions" :key="option.value" :value="option.value">{{ channel(option.value) }}</option></select></label><label>{{ t('from') }}<input v-model="filters.from" type="date" :required="!!filters.to" /></label><label>{{ t('to') }}<input v-model="filters.to" type="date" :required="!!filters.from" :min="filters.from" /></label><Button variant="outline" type="button" :disabled="loading" @click="reset">{{ t('reset') }}</Button><Button type="submit" :disabled="loading">{{ t('apply') }}</Button></form>
+      <p class="border-t px-4 py-2 text-xs text-muted-foreground">{{ t('timeZone') }}: {{ timeZone }}<span v-if="state.startAt"> · {{ t('period') }}: {{ date(state.startAt) }} → {{ date(state.endAt) }}</span></p>
+    </div>
+    <p v-if="dirty" role="status" class="text-sm text-amber-800">{{ t('dirty') }}</p><p v-if="notice" role="status" class="text-sm">{{ t(notice) }}</p>
+    <div ref="listPanel" class="min-w-0 rounded-lg border bg-card"><p v-if="loading" role="status" class="p-8 text-center text-sm text-muted-foreground">{{ t('loading') }}</p><div v-else-if="error" role="alert" class="p-8 text-sm"><p>{{ t(error) }}</p><Button variant="outline" class="mt-3" @click="load">{{ t('refresh') }}</Button></div><p v-else-if="!orders.length" class="p-8 text-center text-sm text-muted-foreground">{{ t('empty') }}</p><OrderList v-else :orders="orders" @detail="openDetail" />
+      <div v-if="!error" class="flex flex-wrap items-center justify-between gap-3 border-t p-4 text-sm text-muted-foreground"><span>{{ total.toLocaleString(locale) }} {{ t('records') }} · {{ t('page') }} {{ state.page }} / {{ pageCount }}</span><label>{{ t('pageSize') }}<select :value="state.pageSize" :aria-label="t('pageSize')" :disabled="loading || dirty" @change="navigate({ ...state, page: 1, pageSize: Number(($event.target as HTMLSelectElement).value) })"><option v-for="size in [20,50,100]" :key="size" :value="size">{{ size }}</option></select></label><div class="flex gap-2"><Button size="sm" variant="outline" :disabled="loading || dirty || state.page <= 1" @click="navigate({ ...state, page: state.page - 1 })">{{ t('previous') }}</Button><Button size="sm" variant="outline" :disabled="loading || dirty || state.page >= pageCount" @click="navigate({ ...state, page: state.page + 1 })">{{ t('next') }}</Button></div></div>
+    </div>
+    <OrderDetailDialog :open="detailOpen" :loading="detailLoading" :error="detailError" :action-error="actionError" :feedback="notice === 'saved' || notice === 'deleted' ? t(notice) : undefined" :order="activeOrder" :actions="detailActions" :can-delete="canDeleteOrderStatus(activeOrder?.status)" :action-note="actionNote" :saving-status="savingStatus" :deleting="deleting" @update:open="closeDetail" @update:action-note="actionNote = $event" @change-status="saveStatus" @delete-order="remove" @retry="loadDetail" />
+  </section>
+</template>
 <style scoped>
-.orders-page {
-  display: grid;
-  gap: 20px;
-}
-
-.orders-table {
-  width: 100%;
-}
-
-.orders-pagination {
-  display: flex;
-  justify-content: flex-end;
-  padding-top: 16px;
-}
-
-.pickup-code-cell {
-  color: var(--primary);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 15px;
-  letter-spacing: 0.08em;
-}
-
-.empty-cell {
-  color: var(--muted-foreground);
-}
-
-.item-summary {
-  display: grid;
-  gap: 4px;
-}
-
-.item-summary p,
-.item-summary span {
-  margin: 0;
-  color: #546274;
-  line-height: 1.6;
-}
-
-.full-width {
-  width: 100%;
-}
+label { display: grid; min-width: 0; gap: .375rem; font-size: .75rem; color: var(--ld-text-muted); } input, select { min-width: 0; max-width: 100%; min-height: 2.25rem; border: 1px solid var(--ld-border-default); border-radius: .375rem; padding: .5rem .625rem; background: var(--ld-bg-elevated); color: var(--ld-text-heading); font-size: .875rem; } input:focus-visible, select:focus-visible { outline: 2px solid var(--ld-color-primary); outline-offset: 2px; } @media (max-width: 639px) { .order-filters:not([data-open="true"]) { display: none; } }
 </style>
