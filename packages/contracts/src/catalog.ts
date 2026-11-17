@@ -60,6 +60,7 @@ export type ProductSelectionGroupContract = {
 };
 
 export type ProductRecordContract = {
+  configuration_version?: number;
   id: string;
   store_id: string;
   category_id: string;
@@ -176,6 +177,7 @@ export type ProductConfigSelectionBindingContract = {
 };
 
 export type ProductConfigContract = {
+  expected_version?: number;
   type: ProductType;
   variants: ProductConfigVariantContract[];
   selection_groups: ProductConfigSelectionBindingContract[];

@@ -87,7 +87,7 @@ const accountPage = computed(() => ['change-password', 'profile-nickname'].inclu
 const storeReady = computed(() => !loadingStores.value && !storeLoadError.value && !!merchantStore.selectedId.value)
 
 const { locale } = useLocale()
-const pageTitle = computed(() => locale.value === 'en-US' && route.name === 'orders' ? 'Orders' : locale.value === 'en-US' && route.name === 'dashboard' ? 'Business overview' : route.name === 'warehouse' && locale.value === 'en-US' ? 'Inventory' : String(route.meta.title ?? '零点管理后台'))
+const pageTitle = computed(() => locale.value === 'en-US' && route.name === 'products' ? 'Products & menu' : locale.value === 'en-US' && route.name === 'orders' ? 'Orders' : locale.value === 'en-US' && route.name === 'dashboard' ? 'Business overview' : route.name === 'warehouse' && locale.value === 'en-US' ? 'Inventory' : String(route.meta.title ?? '零点管理后台'))
 const storeCount = computed(() => merchantStore.stores.value.length)
 const userLabel = computed(() => merchantUser ? `${locale.value === 'en-US' ? 'Merchant' : '商家'} ${merchantUser.userId.slice(-6)}` : locale.value === 'en-US' ? 'Merchant' : '商家账号')
 
@@ -101,6 +101,7 @@ async function loadStores() {
 async function changeStore(event: Event) {
   const id = (event.target as HTMLSelectElement).value
   if (route.name === 'orders' && route.query.orderId) await router.replace({ query: { ...route.query, orderId: undefined } })
+  if (route.name === 'products' && route.query.productId) await router.replace({ query: { ...route.query, productId: undefined } })
   merchantStore.select(id)
   navigation.closeMobile()
 }

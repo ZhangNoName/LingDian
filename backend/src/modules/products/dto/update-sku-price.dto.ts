@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsNumber, Min } from 'class-validator';
+import { IsNotEmpty, IsInt, IsNumber, IsOptional, Max, Min } from 'class-validator';
 
 export class UpdateSkuPriceDto {
   @ApiProperty({
@@ -14,7 +14,11 @@ export class UpdateSkuPriceDto {
     example: 19.9,
     minimum: 0,
   })
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Max(99999999.99)
   @Min(0)
   price!: number;
+  @IsOptional() @IsInt() @Min(0) @Max(2147483646)
+  expected_version?: number;
+
 }

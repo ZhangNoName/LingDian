@@ -47,18 +47,18 @@ export function saveMerchantProductConfig(productId: string, payload: ProductCon
   })
 }
 
-export function updateMerchantSkuPrice(skuId: string, price: number): Promise<unknown> {
+export function updateMerchantSkuPrice(skuId: string, price: number, expectedVersion: number): Promise<unknown> {
   return requestData(apiUrl('/merchant/sku/update-price'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sku_id: skuId, price }),
+    body: JSON.stringify({ sku_id: skuId, price, expected_version: expectedVersion }),
   })
 }
 
-export function updateMerchantSkuStock(skuId: string, stockCount: number): Promise<unknown> {
+export function updateMerchantSkuStock(skuId: string, stockCount: number, expectedVersion: number): Promise<unknown> {
   return requestData(apiUrl('/merchant/sku/update-stock'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sku_id: skuId, stock_count: stockCount }),
+    body: JSON.stringify({ sku_id: skuId, stock_count: stockCount, expected_version: expectedVersion }),
   })
 }

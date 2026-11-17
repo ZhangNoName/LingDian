@@ -1,62 +1,32 @@
-<template>
-  <section class="metrics-grid">
-    <el-card v-for="metric in metrics" :key="metric.label" shadow="never" class="metric-card">
-      <p class="metric-label">{{ metric.label }}</p>
-      <p class="metric-value">{{ metric.value }}</p>
-      <p class="metric-note">{{ metric.note }}</p>
-    </el-card>
-  </section>
-</template>
-
 <script setup lang="ts">
-import { ElCard } from '@/components/ui/element-plus'
-
-defineProps<{
-  metrics: Array<{
-    label: string
-    value: number
-    note: string
-  }>
-}>()
+import { useProductLocale } from '../use-product-locale'
+defineProps<{ metrics: Array<{ label: string; value: number | string }> }>()
+const { t } = useProductLocale()
 </script>
-
-<style scoped>
-.metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.metric-card {
-  border-radius: 8px;
-}
-
-.metric-label,
-.metric-note {
-  color: var(--muted-foreground);
-  font-size: 13px;
-}
-
-.metric-value {
-  margin-top: 10px;
-  color: var(--foreground);
-  font-size: 28px;
-  font-weight: 700;
-}
-
-.metric-note {
-  margin-top: 6px;
-}
-
-@media (max-width: 1024px) {
-  .metrics-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 720px) {
-  .metrics-grid {
-    grid-template-columns: 1fr;
-  }
-}
-</style>
+<template>
+  <div class="hidden sm:block">
+    <dl class="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div v-for="metric in metrics" :key="metric.label" class="rounded-lg border bg-card p-4">
+        <dt class="text-xs text-muted-foreground">{{ metric.label }}</dt>
+        <dd class="mt-2 text-xl font-semibold tabular-nums">{{ metric.value }}</dd>
+      </div>
+    </dl>
+  </div>
+  <div class="grid gap-2 sm:hidden">
+    <dl class="grid grid-cols-3 gap-2">
+      <div v-for="metric in metrics.slice(0, 3)" :key="metric.label" class="rounded-lg border bg-card p-3">
+        <dt class="text-xs text-muted-foreground">{{ metric.label }}</dt>
+        <dd class="mt-1 text-xl font-semibold tabular-nums">{{ metric.value }}</dd>
+      </div>
+    </dl>
+    <details class="rounded-md border bg-card px-3 py-2 text-xs">
+      <summary>{{ t('moreMetrics') }}</summary>
+      <dl class="mt-3 flex justify-between gap-3">
+        <div v-for="metric in metrics.slice(3)" :key="metric.label">
+          <dt>{{ metric.label }}</dt>
+          <dd class="mt-1 font-semibold">{{ metric.value }}</dd>
+        </div>
+      </dl>
+    </details>
+  </div>
+</template>

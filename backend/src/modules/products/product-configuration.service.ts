@@ -1,3 +1,4 @@
+import { claimCatalogVersion, type CatalogActor } from './product-write-policy';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import {
   Prisma,
@@ -22,10 +23,12 @@ export class ProductConfigurationService {
     productId: string,
     storeId: string,
     payload: SyncProductConfigDto,
+    actor?: CatalogActor,
   ): Promise<void> {
     this.validateSelectionConfiguration(payload);
 
     await this.prisma.$transaction(async (tx) => {
+      await claimCatalogVersion(tx, productId, storeId, payload.expected_version);
       if (payload.type) {
         await tx.product.update({
           where: { id: productId },
@@ -36,7 +39,8 @@ export class ProductConfigurationService {
       const variantIdMap = await this.syncVariants(tx, productId, payload);
       await this.syncSelectionBindings(tx, storeId, productId, payload, variantIdMap);
       await this.refreshProductSummary(tx, productId);
-    });
+      if (actor) await tx.authAuditLog.create({ data: { event: 'CATALOG_CONFIGURATION_UPDATED', userId: actor.userId, sessionId: actor.sessionId, metadata: { storeId, productId, expectedVersion: payload.expected_version, type: payload.type, variants: payload.variants.map(variant => ({ id: variant.id, name: variant.sku_name, price: variant.price, stock: variant.stock_count, active: variant.is_active, default: variant.is_default })), groupCount: payload.selection_groups?.length ?? 0 } } });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
   }
 
   async refreshProductSummary(tx: ProductWriteClient, productId: string) {
@@ -61,11 +65,14 @@ export class ProductConfigurationService {
   ) {
     const existingVariants = await tx.productSKU.findMany({ where: { productId } });
     const existingVariantMap = new Map(existingVariants.map((variant) => [variant.id, variant]));
+    for (const id of existingVariants.map(variant => variant.id).sort()) await tx.productSKU.updateMany({ where: { id, productId }, data: { recipeVersion: { increment: 0 } } });
     const activeVariantIds: string[] = [];
     const variantIdMap = new Map<string, string>();
     let requestedDefaultVariantId: string | undefined;
+    const enabledVariantIds: string[] = [];
 
     for (const [index, variant] of payload.variants.entries()) {
+      if (variant.id && !existingVariantMap.has(variant.id) && !variant.id.startsWith('draft_')) throw new BadRequestException('catalog.variantUnavailable');
       const savedVariant = variant.id && existingVariantMap.has(variant.id)
         ? await tx.productSKU.update({
             where: { id: variant.id },
@@ -91,6 +98,7 @@ export class ProductConfigurationService {
       if (variant.id) variantIdMap.set(variant.id, savedVariant.id);
       if (variant.is_default) requestedDefaultVariantId = savedVariant.id;
       activeVariantIds.push(savedVariant.id);
+      if (variant.is_active ?? true) enabledVariantIds.push(savedVariant.id);
     }
 
     await tx.productSKU.updateMany({
@@ -98,7 +106,7 @@ export class ProductConfigurationService {
       data: { isActive: false, isDefault: false },
     });
 
-    const defaultVariantId = requestedDefaultVariantId ?? activeVariantIds[0];
+    const defaultVariantId = requestedDefaultVariantId ?? enabledVariantIds[0] ?? activeVariantIds[0];
     if (defaultVariantId) {
       await tx.productSKU.updateMany({ where: { productId }, data: { isDefault: false } });
       await tx.productSKU.update({
@@ -131,7 +139,8 @@ export class ProductConfigurationService {
 
     for (const [index, binding] of payload.selection_groups.entries()) {
       const group = binding.group;
-      const savedGroup = group.id && existingGroupIds.has(group.id)
+      const shared = group.id && existingGroupIds.has(group.id) ? await tx.productSelectionGroup.count({ where: { groupId: group.id, NOT: { OR: [{ productId }, { variant: { productId } }] } } }) : 0;
+      const savedGroup = group.id && existingGroupIds.has(group.id) && !shared
         ? await tx.selectionGroup.update({
             where: { id: group.id },
             data: {
@@ -281,6 +290,11 @@ export class ProductConfigurationService {
   }
 
   private validateSelectionConfiguration(payload: SyncProductConfigDto) {
+    const ids = payload.variants.map(variant => variant.id).filter(Boolean);
+    if (new Set(ids).size !== ids.length) throw new BadRequestException('catalog.duplicateVariant');
+    if (payload.variants.some(variant => variant.is_active ?? true) && payload.variants.some(variant => variant.is_default && variant.is_active === false)) throw new BadRequestException('catalog.defaultInactive');
+    const groups = (payload.selection_groups ?? []).map(binding => binding.group.id).filter(Boolean);
+    if (new Set(groups).size !== groups.length) throw new BadRequestException('catalog.duplicateGroup');
     for (const binding of payload.selection_groups ?? []) {
       const group = binding.group;
       const minSelect = group.min_select ?? 0;

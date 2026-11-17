@@ -93,6 +93,7 @@ export const PRODUCT_MENU_INCLUDE = {
 } satisfies Prisma.ProductInclude;
 
 export const PRODUCT_LIST_SELECT = {
+  configurationVersion: true,
   id: true,
   storeId: true,
   categoryId: true,

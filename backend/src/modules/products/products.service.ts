@@ -1,3 +1,4 @@
+import { claimCatalogVersion, type CatalogActor } from './product-write-policy';
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   Prisma,
@@ -131,6 +132,7 @@ export class ProductsService {
     return {
       items: products.map((product) => ({
         id: product.id,
+        configuration_version: product.configurationVersion,
         store_id: product.storeId,
         category_id: product.categoryId,
         category: product.category?.name ?? '',
@@ -267,6 +269,7 @@ export class ProductsService {
           id: productId,
         },
         data: {
+          configurationVersion: { increment: 1 },
           ...(payload.category_id !== undefined ? { categoryId: payload.category_id } : {}),
           ...(payload.name !== undefined ? { name: payload.name } : {}),
           ...(payload.description !== undefined ? { description: payload.description } : {}),
@@ -278,7 +281,7 @@ export class ProductsService {
         },
       });
 
-      const defaultSku = existingProduct.skus.find((sku) => sku.isDefault) ?? existingProduct.skus[0];
+      const defaultSku = await tx.productSKU.findFirst({ where: { productId, isActive: true }, orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }] });
       if (defaultSku && (payload.price !== undefined || payload.stock !== undefined)) {
         await tx.productSKU.update({
           where: {
@@ -306,7 +309,7 @@ export class ProductsService {
         id: productId,
       },
       data: {
-        status,
+        status, configurationVersion: { increment: 1 },
       },
     });
 
@@ -374,7 +377,7 @@ export class ProductsService {
     return mapProductRecord(product);
   }
 
-  async syncProductConfiguration(productId: string, payload: SyncProductConfigDto, storeIds?: string[]) {
+  async syncProductConfiguration(productId: string, payload: SyncProductConfigDto, storeIds?: string[], actor?: CatalogActor) {
     const effectiveStoreIds = await this.productStoreScope(productId, storeIds);
     const product = await this.prisma.product.findFirst({
       where: {
@@ -388,31 +391,33 @@ export class ProductsService {
       throw new NotFoundException('商品不存在');
     }
 
-    await this.configuration.sync(productId, product.storeId, payload);
+    await this.configuration.sync(productId, product.storeId, payload, actor);
     this.invalidateProductStats();
     return this.getProductDetail(productId, effectiveStoreIds);
   }
 
-  async updateSkuStock(skuId: string, stockCount: number, storeIds?: string[]) {
-    await this.assertSkuInStores(skuId, await this.skuStoreScope(skuId, storeIds));
-    const sku = await this.prisma.productSKU.update({
-      where: { id: skuId },
-      data: { stockCount },
-    });
-    await this.configuration.refreshProductSummary(this.prisma, sku.productId);
-
+  async updateSkuStock(skuId: string, stockCount: number, storeIds?: string[], expectedVersion?: number, actor?: CatalogActor) {
+    const sku = await this.updateSku(skuId, { stockCount }, storeIds, expectedVersion, actor);
     return { id: sku.id, stock_count: sku.stockCount };
   }
 
-  async updateSkuPrice(skuId: string, price: number, storeIds?: string[]) {
-    await this.assertSkuInStores(skuId, await this.skuStoreScope(skuId, storeIds));
-    const sku = await this.prisma.productSKU.update({
-      where: { id: skuId },
-      data: { price },
-    });
-    await this.configuration.refreshProductSummary(this.prisma, sku.productId);
-
+  async updateSkuPrice(skuId: string, price: number, storeIds?: string[], expectedVersion?: number, actor?: CatalogActor) {
+    const sku = await this.updateSku(skuId, { price }, storeIds, expectedVersion, actor);
     return { id: sku.id, price: Number(sku.price) };
+  }
+
+  private async updateSku(skuId: string, patch: { price?: number; stockCount?: number }, storeIds?: string[], expectedVersion?: number, actor?: CatalogActor) {
+    const scope = await this.skuStoreScope(skuId, storeIds);
+    const existing = await this.prisma.productSKU.findFirst({ where: { id: skuId, product: { storeId: { in: scope } } }, include: { product: { select: { storeId: true } } } });
+    if (!existing) throw new NotFoundException('SKU 不存在');
+    return this.prisma.$transaction(async tx => {
+      await claimCatalogVersion(tx, existing.productId, existing.product.storeId, expectedVersion);
+      const before = await tx.productSKU.findUniqueOrThrow({ where: { id: skuId } });
+      const sku = await tx.productSKU.update({ where: { id: skuId }, data: patch });
+      await this.configuration.refreshProductSummary(tx, sku.productId);
+      if (actor) await tx.authAuditLog.create({ data: { event: 'CATALOG_SKU_UPDATED', userId: actor.userId, sessionId: actor.sessionId, metadata: { storeId: existing.product.storeId, productId: sku.productId, skuId, expectedVersion, before: { price: String(before.price), stock: before.stockCount }, after: { price: String(sku.price), stock: sku.stockCount } } } });
+      return sku;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
   }
 
   private invalidateProductStats() {

@@ -1,254 +1,214 @@
-<template>
-  <section class="editor-section">
-    <div class="section-header">
-      <div>
-        <h4>配置项结构</h4>
-        <p>普通商品和套餐都通过选择组建模，支持口味、去料、套餐组件等。</p>
-      </div>
-      <el-button type="primary" plain @click="$emit('add-group')">新增选择组</el-button>
-    </div>
-
-    <el-empty v-if="modelValue.length === 0" description="暂无选择组配置" />
-
-    <div v-else class="group-list">
-      <el-card v-for="(binding, bindingIndex) in modelValue" :key="`${binding.id ?? 'new'}-${bindingIndex}`" shadow="never">
-        <template #header>
-          <div class="group-card-header">
-            <span>{{ binding.group.name || `选择组 ${bindingIndex + 1}` }}</span>
-            <el-button link type="danger" @click="$emit('remove-group', bindingIndex)">删除</el-button>
-          </div>
-        </template>
-
-        <div class="group-grid">
-          <el-form-item label="绑定范围">
-            <el-select v-model="binding.scope">
-              <el-option label="商品级" value="PRODUCT" />
-              <el-option label="规格级" value="VARIANT" />
-            </el-select>
-          </el-form-item>
-          <el-form-item v-if="binding.scope === 'VARIANT'" label="绑定规格">
-            <el-select v-model="binding.target_variant_id" placeholder="选择一个 SKU">
-              <el-option
-                v-for="variant in selectableVariants"
-                :key="variant.id"
-                :label="variant.sku_name || '未命名规格'"
-                :value="variant.id"
-              />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="组名称">
-            <el-input v-model="binding.group.name" placeholder="如：辣度 / 饮料选择" />
-          </el-form-item>
-          <el-form-item label="组类型">
-            <el-select v-model="binding.group.group_type">
-              <el-option label="附加项" value="MODIFIER" />
-              <el-option label="套餐组件" value="COMPONENT" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="选择模式">
-            <el-select v-model="binding.group.selection_mode">
-              <el-option label="单选" value="SINGLE" />
-              <el-option label="多选" value="MULTIPLE" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="最少选择">
-            <el-input-number v-model="binding.group.min_select" :min="0" :precision="0" />
-          </el-form-item>
-          <el-form-item label="最多选择">
-            <el-input-number v-model="binding.group.max_select" :min="0" :precision="0" />
-          </el-form-item>
-          <el-form-item label="排序">
-            <el-input-number v-model="binding.sort_order" :min="0" :precision="0" />
-          </el-form-item>
-          <el-form-item label="组状态">
-            <div class="switch-row">
-              <span>必选</span>
-              <el-switch v-model="binding.group.is_required" />
-              <span>启用</span>
-              <el-switch v-model="binding.is_enabled" />
-            </div>
-          </el-form-item>
-          <el-form-item label="说明" class="description-field">
-            <el-input v-model="binding.group.description" placeholder="可选，补充规则说明" />
-          </el-form-item>
-        </div>
-
-        <div class="options-header">
-          <h5>选择项</h5>
-          <el-button size="small" @click="$emit('add-option', bindingIndex)">新增选项</el-button>
-        </div>
-
-        <el-table :data="binding.group.options" border empty-text="暂无选项">
-          <el-table-column label="名称" min-width="180">
-            <template #default="{ row }">
-              <el-input v-model="row.name" placeholder="如：不要生菜 / 可乐中杯" />
-            </template>
-          </el-table-column>
-          <el-table-column label="类型" width="140">
-            <template #default="{ row }">
-              <el-select v-model="row.option_type">
-                <el-option label="普通值" value="VALUE" />
-                <el-option label="引用 SKU" value="VARIANT" />
-              </el-select>
-            </template>
-          </el-table-column>
-          <el-table-column label="引用规格" min-width="200">
-            <template #default="{ row }">
-              <el-select
-                v-if="row.option_type === 'VARIANT'"
-                v-model="row.referenced_sku_id"
-                placeholder="选择引用的 SKU"
-              >
-                <el-option
-                  v-for="choice in referenceChoices"
-                  :key="choice.value"
-                  :label="choice.label"
-                  :value="choice.value"
-                />
-              </el-select>
-              <span v-else class="muted-text">普通值选项</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="加价" width="140">
-            <template #default="{ row }">
-              <el-input-number v-model="row.price_delta" :min="0" :precision="2" :step="1" />
-            </template>
-          </el-table-column>
-          <el-table-column label="默认" width="100">
-            <template #default="{ row }">
-              <el-switch v-model="row.is_default" />
-            </template>
-          </el-table-column>
-          <el-table-column label="启用" width="100">
-            <template #default="{ row }">
-              <el-switch v-model="row.is_active" />
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="100" fixed="right">
-            <template #default="{ $index }">
-              <el-button link type="danger" @click="$emit('remove-option', bindingIndex, $index)">删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-card>
-    </div>
-  </section>
-</template>
-
 <script setup lang="ts">
-import {
-  ElButton,
-  ElCard,
-  ElEmpty,
-  ElFormItem,
-  ElInput,
-  ElInputNumber,
-  ElOption,
-  ElSelect,
-  ElSwitch,
-  ElTable,
-  ElTableColumn,
-} from '@/components/ui/element-plus'
 import { computed } from 'vue'
+import { Button } from '@/baseComponents/button'
 import type { ProductSelectionBindingForm, ProductVariantForm } from '../types'
-
+import { useProductLocale } from '../use-product-locale'
 const props = defineProps<{
   modelValue: ProductSelectionBindingForm[]
   variants: ProductVariantForm[]
   externalSkuChoices: Array<{ value: string; label: string }>
 }>()
-
 defineEmits<{
-  (event: 'add-group'): void
-  (event: 'remove-group', index: number): void
-  (event: 'add-option', groupIndex: number): void
-  (event: 'remove-option', groupIndex: number, optionIndex: number): void
+  'add-group': []
+  'remove-group': [index: number]
+  'add-option': [group: number]
+  'remove-option': [group: number, option: number]
 }>()
-
+const { t } = useProductLocale()
 const referenceChoices = computed(() => [
-  ...props.variants
-    .filter((variant): variant is ProductVariantForm & { id: string } => Boolean(variant.id))
-    .map((variant) => ({
-      value: variant.id,
-      label: `当前商品 / ${variant.sku_name}`,
-    })),
-  ...props.externalSkuChoices,
+  ...new Map(
+    [
+      ...props.externalSkuChoices,
+      ...props.variants
+        .filter((variant) => variant.id)
+        .map((variant) => ({ value: variant.id!, label: `${t('currentProduct')} / ${variant.sku_name || '—'}` })),
+    ].map((item) => [item.value, item]),
+  ).values(),
 ])
-
-const selectableVariants = computed(() =>
-  props.variants.filter((variant): variant is ProductVariantForm & { id: string } => Boolean(variant.id)),
-)
 </script>
-
+<template>
+  <section class="grid gap-3">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h3 class="text-sm font-semibold">{{ t('groups') }}</h3>
+      <Button type="button" size="sm" variant="outline" :disabled="modelValue.length >= 20" @click="$emit('add-group')">
+        {{ t('addGroup') }}
+      </Button>
+    </div>
+    <p class="text-xs leading-5 text-muted-foreground">{{ t('referenceHint') }}</p>
+    <p v-if="!modelValue.length" class="rounded-md border p-6 text-center text-sm text-muted-foreground">
+      {{ t('noGroups') }}
+    </p>
+    <section
+      v-for="(binding, groupIndex) in modelValue"
+      :key="binding.id ?? groupIndex"
+      class="grid gap-3 rounded-md border p-3"
+    >
+      <div class="flex items-center justify-between gap-3">
+        <h4 class="min-w-0 break-words text-sm font-medium">
+          {{ binding.group.name || `${t('groupName')} ${groupIndex + 1}` }}
+        </h4>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          :aria-label="`${t('remove')} ${binding.group.name || groupIndex + 1}`"
+          @click="$emit('remove-group', groupIndex)"
+        >
+          {{ t('remove') }}
+        </Button>
+      </div>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <label>
+          {{ t('groupName') }} {{ groupIndex + 1 }}
+          <input v-model="binding.group.name" maxlength="191" required />
+        </label>
+        <label>
+          {{ t('scope') }}
+          <select v-model="binding.scope" :aria-label="t('scope')">
+            <option value="PRODUCT">{{ t('PRODUCT') }}</option>
+            <option value="VARIANT">{{ t('VARIANT') }}</option>
+          </select>
+        </label>
+        <label v-if="binding.scope === 'VARIANT'">
+          {{ t('targetVariant') }}
+          <select v-model="binding.target_variant_id" :aria-label="t('targetVariant')" required>
+            <option v-for="variant in variants" :key="variant.id" :value="variant.id">
+              {{ variant.sku_name || '—' }}
+            </option>
+          </select>
+        </label>
+        <label>
+          {{ t('groupType') }}
+          <select v-model="binding.group.group_type" :aria-label="t('groupType')">
+            <option value="MODIFIER">{{ t('MODIFIER') }}</option>
+            <option value="COMPONENT">{{ t('COMPONENT') }}</option>
+          </select>
+        </label>
+        <label>
+          {{ t('mode') }}
+          <select v-model="binding.group.selection_mode" :aria-label="t('mode')">
+            <option value="SINGLE">{{ t('SINGLE_SELECT') }}</option>
+            <option value="MULTIPLE">{{ t('MULTIPLE') }}</option>
+          </select>
+        </label>
+        <label>
+          {{ t('min') }}
+          <input v-model.number="binding.group.min_select" type="number" min="0" max="50" step="1" required />
+        </label>
+        <label>
+          {{ t('max') }}
+          <input v-model.number="binding.group.max_select" type="number" min="0" max="50" step="1" required />
+        </label>
+        <label class="sm:col-span-2">
+          {{ t('description') }}
+          <input v-model="binding.group.description" maxlength="191" />
+        </label>
+      </div>
+      <div class="flex flex-wrap gap-4">
+        <label class="check">
+          <input v-model="binding.group.is_required" type="checkbox" />
+          {{ t('required') }}
+        </label>
+        <label class="check">
+          <input v-model="binding.group.is_active" type="checkbox" />
+          {{ t('enabled') }}
+        </label>
+        <label class="check">
+          <input v-model="binding.is_enabled" type="checkbox" />
+          {{ t('groupEnabled') }}
+        </label>
+      </div>
+      <div
+        v-for="(option, optionIndex) in binding.group.options"
+        :key="option.id ?? optionIndex"
+        class="grid gap-3 rounded-md bg-muted/40 p-3 sm:grid-cols-2"
+      >
+        <label>
+          {{ t('optionName') }} {{ optionIndex + 1 }}
+          <input v-model="option.name" maxlength="191" required />
+        </label>
+        <label>
+          {{ t('optionType') }}
+          <select v-model="option.option_type" :aria-label="t('optionType')">
+            <option value="VALUE">{{ t('VALUE') }}</option>
+            <option value="VARIANT">{{ t('VARIANT') }}</option>
+          </select>
+        </label>
+        <label v-if="option.option_type === 'VARIANT'">
+          {{ t('reference') }}
+          <select v-model="option.referenced_sku_id" :aria-label="t('reference')" required>
+            <option v-for="choice in referenceChoices" :key="choice.value" :value="choice.value">
+              {{ choice.label }}
+            </option>
+          </select>
+        </label>
+        <label>
+          {{ t('surcharge') }}
+          <input v-model.number="option.price_delta" type="number" min="0" max="99999999.99" step="0.01" required />
+        </label>
+        <div class="flex flex-wrap items-center gap-4 sm:col-span-2">
+          <label class="check">
+            <input v-model="option.is_default" type="checkbox" />
+            {{ t('defaultOption') }}
+          </label>
+          <label class="check">
+            <input v-model="option.is_active" type="checkbox" />
+            {{ t('enabled') }}
+          </label>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            class="ml-auto"
+            :disabled="binding.group.options.length <= 1"
+            :aria-label="`${t('remove')} ${option.name || optionIndex + 1}`"
+            @click="$emit('remove-option', groupIndex, optionIndex)"
+          >
+            {{ t('remove') }}
+          </Button>
+        </div>
+      </div>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        class="justify-self-start"
+        :disabled="binding.group.options.length >= 50"
+        @click="$emit('add-option', groupIndex)"
+      >
+        {{ t('addOption') }}
+      </Button>
+    </section>
+  </section>
+</template>
 <style scoped>
-.editor-section {
+label {
   display: grid;
-  gap: 12px;
+  min-width: 0;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  color: var(--ld-text-muted);
 }
-
-.section-header,
-.group-card-header,
-.options-header {
+label.check {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 0.5rem;
 }
-
-.section-header h4,
-.options-header h5 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 700;
+input:not([type='checkbox']),
+select {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.25rem;
+  border: 1px solid var(--ld-border-default);
+  border-radius: 0.375rem;
+  padding: 0.5rem 0.625rem;
+  background: var(--ld-bg-elevated);
+  color: var(--ld-text-heading);
+  font-size: 0.875rem;
 }
-
-.section-header p {
-  margin: 4px 0 0;
-  color: var(--muted-foreground);
-  font-size: 13px;
-}
-
-.group-list {
-  display: grid;
-  gap: 12px;
-}
-
-.group-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px 16px;
-  margin-bottom: 16px;
-}
-
-.description-field {
-  grid-column: 1 / -1;
-}
-
-.switch-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 32px;
-}
-
-.options-header {
-  margin-bottom: 10px;
-}
-
-.muted-text {
-  color: var(--muted-foreground);
-  font-size: 13px;
-}
-
-@media (max-width: 720px) {
-  .section-header,
-  .group-card-header,
-  .options-header {
-    display: grid;
-  }
-
-  .group-grid {
-    grid-template-columns: 1fr;
-  }
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--ld-color-primary);
+  outline-offset: 2px;
 }
 </style>

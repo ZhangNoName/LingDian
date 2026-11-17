@@ -409,6 +409,7 @@ model Product {
   price             Decimal                 @db.Decimal(10, 2)
   status            ProductStatus           @default(DRAFT)
   isFeatured        Boolean                 @default(false)
+  configurationVersion Int                  @default(0)
   stock             Int                     @default(0)
   createdAt         DateTime                @default(now())
   updatedAt         DateTime                @updatedAt
