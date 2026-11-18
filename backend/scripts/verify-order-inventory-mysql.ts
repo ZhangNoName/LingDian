@@ -1,3 +1,4 @@
+import { verifyRuntimeDriver } from './verify-runtime-driver-mysql';
 import { verifyInventoryTrend } from './verify-inventory-trend-mysql';
 import { verifyInventoryMaterial } from './verify-inventory-material-mysql';
 import { verifyInventoryUsage } from './verify-inventory-usage-mysql';
@@ -37,9 +38,11 @@ async function main() {
       !/^\/lingdian_inventory_[a-z0-9_]*test$/.test(url.pathname)) {
     throw new Error('Refusing anything except a local lingdian_inventory_*test database.');
   }
-  const db = new PrismaClient({ adapter: new PrismaMariaDb(createMariaDbConnectionConfig(raw)) });
+  const config = createMariaDbConnectionConfig(raw);
+  const db = new PrismaClient({ adapter: new PrismaMariaDb(config) });
   try {
     assert.equal(await db.store.count(), 0, 'Refusing a database containing business stores; use a fresh migrated test database.');
+    await verifyRuntimeDriver(config);
     const prisma = db as PrismaService;
     const stores = new MultiStoreContextResolver(prisma, new ConfigService({ store: { primaryStoreId: 'test-store-a' } }));
     const scope = new MerchantStoreScope(stores);
