@@ -16,7 +16,7 @@
     "@lingdian/icons": "workspace:*",
     "@lingdian/observability": "workspace:*",
     "element-plus": "2.11.8",
-    "vue": "^3.5.30",
+    "vue": "3.5.45",
     "vue-router": "4.6.4"
   },
   "devDependencies": {

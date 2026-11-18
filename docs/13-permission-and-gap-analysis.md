@@ -152,16 +152,24 @@
 
 ## 6. 依赖风险例外
 
-`pnpm audit --prod --audit-level high` 在 2026-11-18 重新查询公告后报告 **0 critical + 52 high + 57 moderate + 12 low**（121 项；修复代理依赖前为 122 项，含 1 critical），命令非零。此前“1 high + 4 moderate”只代表旧公告快照，已不适用。本轮已将 backend → Express → proxy-addr 更新至 2.0.8，并用真实 HTTP 验证一层代理 IP 选择，相关 critical 告警消失，见 [代理依赖补丁](./39-proxy-trust-dependency-2026-11-18.md)。其余仍包含上传、图像、数据库驱动及 DCloud/uni-app 工具链；不能一概按开发服务器风险例外处理。本轮新增 Temporal/D3 依赖未出现在这些告警中。下一轮优先核对运行时修复版本、更新兼容补丁并回归认证/IP、上传及真实数据库路径，再处理工具链兼容性。
+2026-11-18 执行 `pnpm audit --prod --audit-level high`，报告 **0 critical、4 high、11 moderate、2 low**。更新上传、图像、数据库驱动和 HTTP 解析依赖后，高危告警由 52 项降至 41 项。本轮升级 Vue、数据库及构建链依赖后降至 4 项。代理依赖的验证见 [代理依赖补丁](./39-proxy-trust-dependency-2026-11-18.md)。
 
-以下现有缓解仅针对开发工具链，不关闭 API 运行时依赖告警：
+商家端仅在构建时读取 Shadcn Vue 的 Tailwind 样式，因此将其归入开发依赖。移除了小程序业务源码未使用的直接 Vue I18n 依赖。生产依赖审计仍包含 DCloud 工具链的传递路径，以下四项高危告警使审计命令继续返回非零。
+
+- DCloud 的 Vite 5 工具链当前锁定在 5.4.21。上游公告的修复版本为 6.4.4，DCloud 的官方模板仍使用 Vite 5。 [DCloud 模板](https://gitee.com/dcloud/uni-preset-vue/blob/vite/package.json) · [Vite 公告](https://github.com/advisories/GHSA-587h-7wmj-h5pm)
+- DCloud 附带的 Vue I18n 9 运行时使用 `@intlify/core-base` 和 `@intlify/shared` 的旧接口。两条告警属于同一份公告，v9 已停止维护。 [Vue I18n 维护状态](https://vue-i18n.intlify.dev/guide/maintenance)
+- DCloud 的插件工具使用 Picomatch，审计要求至少 4.0.8。截至本次核对，上游公开的最新版本为 4.0.7。 [Picomatch 发布记录](https://github.com/micromatch/picomatch/releases)
+
+当前部署和开发设置包括以下措施。
 
 - uni-app 开发服务器固定 `127.0.0.1`，不对局域网暴露；
 - Windows 上按路径边界阻断 `/__open-in-editor` 及其变体，并以真实中间件请求测试；
 - 小程序生产构建强制显式 HTTPS API；
 - 生产只部署静态构建产物，DCloud/Vite 开发服务器不进入运行时容器。
 
-后续应跟踪 DCloud 对新 Vite 主版本的官方兼容版本，再通过完整 H5/小程序构建和真机验收升级；不要为了让 audit 归零而强制覆盖不兼容 peer dependency。相关官方公告见 [GHSA-fx2h-pf6j-xcff](https://github.com/advisories/GHSA-fx2h-pf6j-xcff)、[GHSA-v6wh-96g9-6wx3](https://github.com/advisories/GHSA-v6wh-96g9-6wx3)、[GHSA-4w7w-66w2-5vf9](https://github.com/advisories/GHSA-4w7w-66w2-5vf9)、[GHSA-67mh-4wv8-2f99](https://github.com/advisories/GHSA-67mh-4wv8-2f99) 和 [GHSA-x565-32qp-m3vf](https://github.com/advisories/GHSA-x565-32qp-m3vf)。
+本轮通过全仓测试、类型检查、生产构建、微信小程序构建和隔离 MySQL 迁移及库存回归。使用本地静态产物验证了 390px 下的商家登录页语言切换与刷新恢复、平台登录页和顾客 H5 登录页。全仓测试通过 779 项，1 项因缺少 Docker Compose v2 跳过。
+
+DCloud 发布兼容版本后，使用 H5、微信小程序构建及真机验收验证升级。发布本轮补丁需按新锁文件重新构建镜像。
 
 ## 7. P2：规模经营能力
 
