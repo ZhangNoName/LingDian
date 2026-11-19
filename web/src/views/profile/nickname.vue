@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import DataActionButton from '@/components/DataActionButton.vue'
 import { Input } from '@lingdian/console-ui/input'
 import { Button } from '@lingdian/console-ui/button'
 import { onBeforeUnmount, onMounted, ref } from 'vue'
@@ -49,11 +50,11 @@ async function save() {
 }
 </script>
 <template>
-  <AccountPanel :title="t('nicknameTitle')" :description="t('nicknameHint')">
+  <AccountPanel :title="t('nicknameTitle')">
     <p v-if="loading" role="status" class="account-help">{{ t('loading') }}</p>
     <div v-else-if="loadFailed" role="alert">
       <p class="text-sm text-destructive">{{ t('profileFailed') }}</p>
-      <Button type="button" variant="outline" class="mt-3" @click="load">{{ t('retry') }}</Button>
+      <DataActionButton action="refresh" :label="t('retry')" class="mt-3" @click="load" />
     </div>
     <form v-else class="account-form" @submit.prevent="save">
       <label class="account-label">

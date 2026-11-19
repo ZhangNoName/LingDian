@@ -52,7 +52,7 @@ async function changePassword() {
 </script>
 <template>
   <AccountPanel :title="t('security')" :description="t('changeHint')">
-    <p v-if="forced" role="status" class="mb-5 rounded-md border border-amber-200 p-3 text-sm">
+    <p v-if="forced" role="status" class="mb-5 border border-amber-200 p-3 text-sm">
       {{ t('forcedChange') }}
     </p>
     <form class="account-form" @submit.prevent="changePassword">

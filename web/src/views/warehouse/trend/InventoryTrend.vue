@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import MerchantDatePicker from '@/components/MerchantDatePicker.vue'
+import DataActionButton from '@/components/DataActionButton.vue'
+import TablePagination from '@/components/table/TablePagination.vue'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { InventoryDailyTrend, InventoryTrendDay, InventoryTrendFilter } from '@lingdian/contracts'
 import type { ActivityState } from '../activity-state'
 import { Button } from '@lingdian/console-ui/button'
-import { Input } from '@lingdian/console-ui/input'
 import { SelectField } from '@lingdian/console-ui/select'
 import { inventoryDailyTrend } from '@/services/inventory'
 import { useLocale } from '@/i18n/locale'
@@ -70,9 +72,9 @@ const zones = computed(() => {
 })
 const selected = computed(() => (data.value ? selectedDay(data.value.days, view.value.day) : 0)),
   current = computed(() => data.value?.days[selected.value]),
-  pages = computed(() => Math.max(1, Math.ceil((data.value?.days.length ?? 0) / 20))),
+  pages = computed(() => Math.max(1, Math.ceil((data.value?.days.length ?? 0) / (view.value.pageSize ?? 20)))),
   page = computed(() => Math.min(view.value.page, pages.value)),
-  rows = computed(() => data.value?.days.slice((page.value - 1) * 20, page.value * 20) ?? [])
+  rows = computed(() => data.value?.days.slice((page.value - 1) * (view.value.pageSize ?? 20), page.value * (view.value.pageSize ?? 20)) ?? [])
 let sequence = 0,
   cacheKey = '',
   disposed = false
@@ -214,7 +216,7 @@ function choose(index: number) {
       query: selectionTarget(route.query, {
         ...view.value,
         day: selected.date,
-        page: Math.floor(index / 20) + 1,
+        page: Math.floor(index / (view.value.pageSize ?? 20)) + 1,
       }),
     })
 }
@@ -225,8 +227,8 @@ function history(day: InventoryTrendDay) {
   if (!loading.value && !failed.value && !dirty.value && day.state === 'RECORDED' && day.movementCount)
     void router.push({ query: trendHistoryTarget(route.query, props.state, view.value, day) })
 }
-function go(value: number) {
-  void router.push({ query: selectionTarget(route.query, { ...view.value, page: value }) })
+function go(value: number, pageSize = view.value.pageSize) {
+  void router.push({ query: selectionTarget(route.query, { ...view.value, page: value, pageSize }) })
 }
 function exportData() {
   if (data.value && !loading.value && !failed.value && !dirty.value)
@@ -250,10 +252,6 @@ onBeforeUnmount(() => {
           <p v-if="data && !failed" class="mt-1 text-xs text-muted-foreground">
             {{ data.item.code }} · {{ data.item.unit }}
           </p>
-          <p class="mt-1 break-words text-xs text-muted-foreground">
-            {{ zonedDate(state.startAt, view.timeZone) }} → {{ endDay(state.endAt, view.timeZone) }} ·
-            {{ view.timeZone }}
-          </p>
         </div>
         <div class="flex flex-wrap gap-2">
           <Button
@@ -262,26 +260,23 @@ onBeforeUnmount(() => {
             :aria-expanded="filtersOpen"
             @click="filtersOpen = !filtersOpen"
             >{{ t(filtersOpen ? 'hideFilters' : 'filters') }}</Button
-          ><Button size="sm" variant="ghost" :disabled="loading || dirty" @click="load">{{
-            t('refresh')
-          }}</Button
-          ><Button
-            size="sm"
-            variant="outline"
+          ><DataActionButton action="refresh" :label="t('refresh')" size="icon-sm" variant="ghost" :disabled="loading || dirty" @click="load" /><DataActionButton
+            action="export"
+            :label="t('export')"
+            size="icon-sm"
             :disabled="loading || failed || dirty || !data"
             @click="exportData"
-            >{{ t('export') }}</Button
-          >
+          />
         </div>
       </div>
       <form
         v-if="filtersOpen"
-        class="flex flex-wrap items-end gap-3 rounded-md border p-3"
+        class="flex flex-wrap items-end gap-3 border p-3"
         @submit.prevent="apply"
       >
-        <label>{{ t('from') }}<Input v-model="from" type="date" required /></label
-        ><label>{{ t('to') }}<Input v-model="to" type="date" required :min="from" /></label
-        ><label class="min-w-0 grow"
+        <MerchantDatePicker :label="t('from')" v-model="from" required />
+        <MerchantDatePicker :label="t('to')" v-model="to" required :min="from" />
+        <label class="min-w-0 grow"
           >{{ t('zone')
           }}<SelectField
             v-model="timeZone"
@@ -303,7 +298,7 @@ onBeforeUnmount(() => {
         class="grid justify-items-start gap-3 py-6 text-sm text-destructive"
       >
         <p>{{ t(error) }}</p>
-        <Button variant="outline" @click="dirty ? apply() : load()">{{ t('retry') }}</Button>
+        <DataActionButton action="refresh" :label="t('retry')" @click="dirty ? apply() : load()" />
       </div>
       <template v-else-if="data">
         <TrendChart
@@ -313,7 +308,7 @@ onBeforeUnmount(() => {
           :disabled="dirty"
           @select="choose"
         />
-        <div v-if="current" class="grid gap-3 rounded-md border p-3 text-sm" aria-live="polite">
+        <div v-if="current" class="grid gap-3 border p-3 text-sm" aria-live="polite">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <strong>{{ t('selected') }} · {{ current.date }}</strong
             ><span class="text-xs text-muted-foreground">{{
@@ -353,13 +348,6 @@ onBeforeUnmount(() => {
           </div>
         </div>
         <p v-if="data.summary.closing === null" class="text-sm text-muted-foreground">{{ t('noData') }}</p>
-        <p class="text-xs text-muted-foreground">{{ t('asOf') }}: {{ date(data.asOfAt) }}</p>
-        <details class="text-xs leading-5 text-muted-foreground">
-          <summary class="cursor-pointer">{{ t('coverage') }}</summary>
-          <p class="mt-2">{{ t('context') }}</p>
-          <p class="mt-2">{{ t('period') }}: {{ data.startAt }} → {{ data.endAt }}</p>
-          <p class="mt-2">{{ t('exportHint') }}</p>
-        </details>
         <h3 class="text-sm font-semibold">{{ t('table') }}</h3>
         <TrendDays
           :days="rows"
@@ -370,14 +358,16 @@ onBeforeUnmount(() => {
           @history="history"
         />
         <div class="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
-          <span>{{ data.days.length }} {{ t('records') }} · {{ t('page') }} {{ page }} / {{ pages }}</span>
+          <span>{{ data.days.length }} {{ t('records') }}</span>
           <div class="flex gap-2">
-            <Button size="sm" variant="outline" :disabled="dirty || page <= 1" @click="go(page - 1)">{{
-              t('previous')
-            }}</Button
-            ><Button size="sm" variant="outline" :disabled="dirty || page >= pages" @click="go(page + 1)">{{
-              t('next')
-            }}</Button>
+            <TablePagination
+              :page-size="view.pageSize ?? 20"
+              @update:page-size="go(1, $event)"
+              :page="page"
+              :pages="pages"
+              :disabled="dirty"
+              @update:page="go($event)"
+            />
           </div>
         </div>
       </template>

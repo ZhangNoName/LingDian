@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Disclosure } from '@lingdian/console-ui/collapsible'
+import DataActionButton from '@/components/DataActionButton.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type {
   InventoryItemContract,
@@ -141,7 +143,7 @@ onBeforeUnmount(() => {
       <p v-if="loading" role="status" class="text-sm text-muted-foreground">{{ t('loading') }}</p>
       <div v-else-if="failed" role="alert" class="grid justify-items-start gap-3 text-sm text-destructive">
         <p>{{ mt('failure') }}</p>
-        <Button variant="outline" @click="load(true)">{{ mt('read') }}</Button>
+        <DataActionButton action="refresh" :label="mt('read')" @click="load(true)" />
       </div>
       <template v-else-if="row">
         <p v-if="reloaded" role="status" class="text-xs text-muted-foreground">{{ mt('refreshed') }}</p>
@@ -151,7 +153,7 @@ onBeforeUnmount(() => {
             }}<template v-if="isActive"> · {{ t(statusKey[row.status]) }}</template></span
           ><span class="text-xs text-muted-foreground">{{ t('updated') }}: {{ date(row.updatedAt) }}</span>
         </div>
-        <dl class="grid grid-cols-3 gap-3 rounded-md border p-3 text-sm">
+        <dl class="grid grid-cols-3 gap-3 border p-3 text-sm">
           <div
             v-for="metric in [
               { key: 'quantity' as const, value: row.quantity },
@@ -171,7 +173,7 @@ onBeforeUnmount(() => {
           <span>{{ t('threshold') }}: {{ number(row.reorderPoint) }} {{ row.unit }}</span
           ><span v-if="isActive">{{ t('shortage') }}: {{ number(row.shortage) }} {{ row.unit }}</span>
         </div>
-        <p v-if="!isActive" class="rounded-md border p-3 text-sm text-muted-foreground">
+        <p v-if="!isActive" class="border p-3 text-sm text-muted-foreground">
           {{ mt('archivedHint') }}
         </p>
         <div class="flex flex-wrap gap-2">
@@ -204,12 +206,12 @@ onBeforeUnmount(() => {
             @change="changePageState"
           />
         </div>
-        <details v-if="row.lifecycleChangedAt" class="text-xs leading-5 text-muted-foreground">
-          <summary class="cursor-pointer">{{ mt('lifecycle') }}</summary>
+        <Disclosure v-if="row.lifecycleChangedAt" class="text-xs leading-5 text-muted-foreground">
+          <template #label>{{ mt('lifecycle') }}</template>
           <p class="mt-2 break-words">
             {{ date(row.lifecycleChangedAt) }} · {{ row.lifecycleActorId }}<br />{{ row.lifecycleReason }}
           </p>
-        </details>
+        </Disclosure>
         <div class="grid min-w-0 gap-2">
           <Button
             variant="outline"
@@ -238,7 +240,7 @@ onBeforeUnmount(() => {
           <Button variant="ghost" @click="action('LIFECYCLE')">{{
             lt(isActive ? 'archive' : 'restore')
           }}</Button
-          ><Button variant="ghost" @click="load(true)">{{ mt('read') }}</Button>
+          ><DataActionButton action="refresh" :label="mt('read')" variant="ghost" @click="load(true)" />
         </div>
       </template>
     </DialogContent></Dialog

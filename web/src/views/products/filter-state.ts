@@ -1,3 +1,4 @@
+import { extendedTablePageSizes, parseTablePageSize } from '@/components/table/page-size'
 import type { ProductType } from './types'
 export interface ProductFilterState {
   keyword: string
@@ -14,7 +15,7 @@ export function parseProductState(query: Record<string, unknown>): ProductFilter
       /^\d+$/.test(String(query.page)) && Number(query.page) > 0 && Number(query.page) <= 1000000
         ? Number(query.page)
         : 1,
-    pageSize: [20, 50, 100].includes(Number(query.pageSize)) ? Number(query.pageSize) : 20,
+    pageSize: parseTablePageSize(query.pageSize, 20, extendedTablePageSizes),
     productId: typeof query.productId === 'string' && query.productId.length <= 191 ? query.productId.trim() : '',
   }
 }

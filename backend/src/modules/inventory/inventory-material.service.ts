@@ -35,9 +35,10 @@ export class InventoryMaterialService {
       if (!item) throw new NotFoundException('inventory.notFound');
       const where: Prisma.InventoryMaterialChangeWhereInput = { storeId, itemId: id, ...(query.kind !== 'ALL' ? { kind: query.kind } : {}) };
       const total = await tx.inventoryMaterialChange.count({ where });
-      const page = Math.min(query.page, Math.max(1, Math.ceil(total / 20)));
-      const items = await tx.inventoryMaterialChange.findMany({ where, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], skip: (page - 1) * 20, take: 20 });
-      return { storeId, item: presentItem(item), generatedAt: new Date().toISOString(), kind: query.kind, page, pageSize: 20, total,
+      const pageSize = query.pageSize ?? 20;
+      const page = Math.min(query.page, Math.max(1, Math.ceil(total / pageSize)));
+      const items = await tx.inventoryMaterialChange.findMany({ where, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], skip: (page - 1) * pageSize, take: pageSize });
+      return { storeId, item: presentItem(item), generatedAt: new Date().toISOString(), kind: query.kind, page, pageSize, total,
         items: items.map(row => ({ id: row.id, kind: row.kind as InventoryMaterialChangeKind, nameBefore: row.nameBefore, nameAfter: row.nameAfter, isActiveBefore: row.isActiveBefore, isActiveAfter: row.isActiveAfter, reason: row.reason, actorId: row.actorId, versionBefore: row.versionBefore, createdAt: row.createdAt.toISOString() })),
       };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });

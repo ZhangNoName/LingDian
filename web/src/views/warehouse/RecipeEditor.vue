@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import DataActionButton from '@/components/DataActionButton.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { InventoryItemContract, InventoryRecipeRecord } from '@lingdian/contracts'
 import { Button } from '@lingdian/console-ui/button'
@@ -122,7 +123,7 @@ onBeforeUnmount(() => {
       <p v-if="loading" role="status" class="text-sm text-muted-foreground">{{ t('loading') }}</p>
       <div v-else-if="!record" role="alert" class="grid justify-items-start gap-3 text-sm text-destructive">
         <p>{{ t(error || 'loadFailed') }}</p>
-        <Button variant="outline" @click="load">{{ t('refresh') }}</Button>
+        <DataActionButton action="refresh" :label="t('refresh')" @click="load" />
       </div>
       <template v-else
         ><div class="flex flex-wrap items-end gap-2">
@@ -142,7 +143,7 @@ onBeforeUnmount(() => {
             <div
               v-for="(entry, index) in entries"
               :key="index"
-              class="grid gap-2 rounded-md border p-3 sm:grid-cols-[1fr_9rem_auto] sm:items-end"
+              class="grid gap-2 border p-3 sm:grid-cols-[1fr_9rem_auto] sm:items-end"
             >
               <label
                 >{{ t('ingredient')
@@ -176,7 +177,7 @@ onBeforeUnmount(() => {
           </fieldset>
           <p class="text-xs leading-5 text-muted-foreground">{{ t('recipeClearHint') }}</p>
           <p v-if="error" role="alert" class="text-sm text-destructive">{{ t(error) }}</p>
-          <div v-if="closePending" role="alert" class="grid gap-3 rounded-md border p-3 text-sm">
+          <div v-if="closePending" role="alert" class="grid gap-3 border p-3 text-sm">
             <p>{{ t('recipeDiscard') }}</p>
             <div class="flex flex-wrap justify-end gap-2">
               <Button type="button" variant="outline" :disabled="saving" @click="closePending = false">{{

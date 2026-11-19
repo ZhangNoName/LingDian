@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import TablePagination from '@/components/table/TablePagination.vue'
 import { onBeforeUnmount, ref, watch } from 'vue'
 import type { InventoryItemContract, InventoryPage } from '@lingdian/contracts'
 import { Button } from '@lingdian/console-ui/button'
@@ -16,6 +17,7 @@ const title = ref(''),
   keyword = ref(''),
   applied = ref(''),
   page = ref(1),
+  pageSize = ref(50),
   result = ref<InventoryPage>(),
   selected = ref<InventoryItemContract[]>([]),
   loading = ref(false),
@@ -32,7 +34,7 @@ async function load() {
   loading.value = true
   error.value = undefined
   try {
-    const data = await listInventory(props.storeId, { page: page.value, pageSize: 50, keyword: applied.value })
+    const data = await listInventory(props.storeId, { page: page.value, pageSize: pageSize.value, keyword: applied.value })
     if (current === sequence) result.value = data
   } catch {
     if (current === sequence) error.value = 'failed'
@@ -111,7 +113,7 @@ onBeforeUnmount(() => {
             ><Button type="button" variant="outline" :disabled="loading" @click="search">{{ t('find') }}</Button>
           </div>
           <p v-if="loading" role="status" class="help">{{ t('loading') }}</p>
-          <ul v-else class="grid max-h-52 gap-2 overflow-y-auto rounded-md border p-2">
+          <ul v-else class="grid max-h-52 gap-2 overflow-y-auto border p-2">
             <li v-for="item in result?.items" :key="item.id" class="flex items-center justify-between gap-3 text-sm">
               <span class="min-w-0 break-words"
                 >{{ item.name }} <span class="help">{{ item.code }} · {{ item.unit }}</span></span
@@ -127,17 +129,14 @@ onBeforeUnmount(() => {
             </li>
           </ul>
           <div class="flex justify-end gap-2">
-            <Button type="button" size="sm" variant="ghost" :disabled="loading || page <= 1" @click="go(page - 1)">{{
-              t('previous')
-            }}</Button
-            ><Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              :disabled="loading || page * 50 >= (result?.total ?? 0)"
-              @click="go(page + 1)"
-              >{{ t('next') }}</Button
-            >
+            <TablePagination
+              :page="page"
+              :page-size="pageSize"
+              @update:page-size="pageSize = $event; go(1)"
+              :pages="Math.ceil((result?.total ?? 0) / pageSize)"
+              :disabled="loading"
+              @update:page="go($event)"
+            />
           </div>
           <p class="text-sm font-medium">{{ t('selected') }}: {{ selected.length }} / 50</p>
           <ul class="grid gap-2">

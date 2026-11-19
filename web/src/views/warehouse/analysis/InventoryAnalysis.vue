@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import DataActionButton from '@/components/DataActionButton.vue'
+import TablePagination from '@/components/table/TablePagination.vue'
+import TableAction from '@/components/table/TableAction.vue'
+import { BarChart3 } from '@lingdian/icons/web'
 import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { InventoryMovementKind, InventoryPeriodReport } from '@lingdian/contracts'
@@ -34,8 +38,8 @@ const state = computed(() => parseAnalysisState(route.query)),
   }),
   all = computed(() => derived.value.rows),
   rows = computed(() => filterAnalysis(all.value, state.value.subset, state.value.order)),
-  pages = computed(() => Math.max(1, Math.ceil(rows.value.length / 20))),
-  visible = computed(() => rows.value.slice((props.state.page - 1) * 20, props.state.page * 20)),
+  pages = computed(() => Math.max(1, Math.ceil(rows.value.length / (props.state.pageSize ?? 20)))),
+  visible = computed(() => rows.value.slice((props.state.page - 1) * (props.state.pageSize ?? 20), props.state.page * (props.state.pageSize ?? 20))),
   selected = computed(() => rows.value.find((row) => row.itemId === state.value.itemId))
 const subset = computed({
     get: () => state.value.subset,
@@ -57,12 +61,12 @@ const metrics = computed(() => [
     value: all.value.filter((row) => row.countGain > 0 || row.countLoss > 0).length,
   },
 ])
-function navigate(next = state.value, page = props.state.page, replace = false) {
+function navigate(next = state.value, page = props.state.page, replace = false, pageSize = props.state.pageSize) {
   const target = {
     query: {
       view: 'report',
       ...inventoryNavigationContext(route.query),
-      ...activityQuery({ ...props.state, page }),
+      ...activityQuery({ ...props.state, page, pageSize }),
       ...analysisQuery(next),
     },
   }
@@ -156,7 +160,6 @@ function exportSnapshot() {
 </script>
 <template>
   <section ref="root" class="grid min-w-0 gap-4 p-4" :aria-label="t('title')">
-    <p class="text-xs leading-5 text-muted-foreground">{{ t('hint') }}</p>
     <p v-if="derived.failed" role="alert" class="text-sm text-destructive">{{ t('tooLarge') }}</p>
     <template v-else>
       <dl class="grid grid-cols-3 gap-3">
@@ -165,7 +168,6 @@ function exportSnapshot() {
           <dd class="mt-2 text-xl font-semibold tabular-nums">{{ number(metric.value) }}</dd>
         </div>
       </dl>
-      <p class="text-xs text-muted-foreground">{{ t('summaryHint') }}</p>
       <div class="flex flex-wrap items-end gap-3">
         <label class="grid min-w-0 gap-1 text-xs text-muted-foreground"
           >{{ t('filter')
@@ -186,24 +188,15 @@ function exportSnapshot() {
               { value: 'LOSS_RATE', label: t('LOSS_RATE') },
             ]"
           /></label
-        ><Button
-          size="sm"
-          variant="outline"
+        ><DataActionButton
+          action="export"
+          :label="t('export')"
+          size="icon-sm"
           class="sm:ml-auto"
           :disabled="dirty || !rows.length"
           @click="exportSnapshot"
-          >{{ t('export') }}</Button
-        >
+        />
       </div>
-      <details class="text-xs leading-5 text-muted-foreground">
-        <summary class="cursor-pointer">{{ t('rules') }}</summary>
-        <p class="mt-2 break-all">
-          {{ t('period') }}: {{ report.startAt }} → {{ report.endAt }} · {{ t('timeZone') }}: {{ timeZone }}
-        </p>
-        <p class="mt-2">{{ t('rateHint') }}</p>
-        <p class="mt-2">{{ t('countHint') }}</p>
-        <p class="mt-2">{{ t('exportHint') }}</p>
-      </details>
       <MaterialAnalysis
         v-if="selected"
         :row="selected"
@@ -215,14 +208,14 @@ function exportSnapshot() {
       <div
         v-else-if="state.itemId"
         role="status"
-        class="grid justify-items-start gap-2 rounded-md border p-3 text-sm"
+        class="grid justify-items-start gap-2 border p-3 text-sm"
       >
         <p>{{ t('unavailable') }}</p>
         <Button size="sm" variant="ghost" :disabled="dirty" @click="focus('')">{{ t('clear') }}</Button>
       </div>
       <p v-if="!rows.length" class="py-6 text-center text-sm text-muted-foreground">{{ t('empty') }}</p>
       <template v-else>
-        <Table container-class="hidden md:block" tabindex="0" :aria-label="t('title')" class="border-collapse text-left">
+        <Table framed container-class="hidden md:block" tabindex="0" :aria-label="t('title')" class="border-collapse text-left">
           <thead>
             <tr>
               <th scope="col">{{ t('material') }}</th>
@@ -254,24 +247,20 @@ function exportSnapshot() {
               <td>{{ number(row.countLoss) }} {{ row.unit }}</td>
               <td>{{ number(row.countDifference) }} {{ row.unit }}</td>
               <td>
-                <Button
-                  size="sm"
-                  variant="outline"
+                <TableAction :icon="BarChart3" :label="t('focus')"
                   :disabled="dirty"
                   :aria-label="`${t('focus')} ${row.name}`"
                   :data-analysis-item="row.itemId"
-                  @click="focus(row.itemId)"
-                  >{{ t('focus') }}</Button
-                >
+                  @click="focus(row.itemId)" />
               </td>
             </tr>
           </tbody>
         </Table>
-        <ul class="grid gap-3 md:hidden">
+        <ul class="table-scroll grid gap-3 md:hidden">
           <li
             v-for="row in visible"
             :key="row.itemId"
-            class="grid min-w-0 gap-3 rounded-md border p-3 text-sm"
+            class="grid min-w-0 gap-3 border p-3 text-sm"
             :class="{ 'border-primary': row.itemId === state.itemId }"
           >
             <div>
@@ -294,16 +283,12 @@ function exportSnapshot() {
                 </dd>
               </div>
             </dl>
-            <Button
+            <TableAction :icon="BarChart3" :label="t('focus')"
               class="justify-self-end"
-              size="sm"
-              variant="outline"
               :disabled="dirty"
               :aria-label="`${t('focus')} ${row.name}`"
               :data-analysis-item="row.itemId"
-              @click="focus(row.itemId)"
-              >{{ t('focus') }}</Button
-            >
+              @click="focus(row.itemId)" />
           </li>
         </ul>
       </template>
@@ -311,41 +296,23 @@ function exportSnapshot() {
         class="flex flex-wrap items-center justify-between gap-3 border-t pt-3 text-sm text-muted-foreground"
       >
         <span
-          >{{ number(rows.length) }} {{ t('records') }} · {{ t('page') }} {{ props.state.page }} /
-          {{ pages }}</span
+          >{{ number(rows.length) }} {{ t('records') }}</span
         >
         <div class="flex gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            :disabled="dirty || props.state.page <= 1"
-            @click="navigate(state, props.state.page - 1)"
-            >{{ t('previous') }}</Button
-          ><Button
-            size="sm"
-            variant="outline"
-            :disabled="dirty || props.state.page >= pages"
-            @click="navigate(state, props.state.page + 1)"
-            >{{ t('next') }}</Button
-          >
+          <TablePagination
+            :page-size="props.state.pageSize ?? 20"
+            @update:page-size="navigate(state, 1, false, $event)"
+            :page="props.state.page"
+            :pages="pages"
+            :disabled="dirty"
+            @update:page="navigate(state, $event)"
+          />
         </div>
       </div>
-      <p class="text-xs text-muted-foreground">{{ t('snapshot') }}</p>
     </template>
   </section>
 </template>
 <style scoped>
-th,
-td {
-  border-bottom: 1px solid var(--ld-border-default);
-  padding: 0.75rem 0.875rem;
-}
-thead th {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--ld-text-muted);
-  white-space: nowrap;
-}
 td {
   text-align: right;
   font-variant-numeric: tabular-nums;

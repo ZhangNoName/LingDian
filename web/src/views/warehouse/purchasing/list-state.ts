@@ -1,15 +1,17 @@
+import { parseTablePageSize } from '@/components/table/page-size'
 import type { LocationQuery } from 'vue-router'
 import type { PurchaseDeliveryFilter, PurchaseStatus } from '@lingdian/contracts'
 import { dateInput } from '../activity-state'
 export interface PurchasingListState {
   keyword: string
   page: number
+  pageSize?: number
   status: PurchaseStatus | 'ACTIVE' | 'ALL'
   delivery: PurchaseDeliveryFilter
   expectedBefore: string
 }
-const orderKeys = ['purchaseKeyword', 'purchasePage', 'purchaseStatus', 'purchaseDelivery', 'purchaseExpectedBefore']
-const supplierKeys = ['supplierKeyword', 'supplierPage']
+const orderKeys = ['purchaseKeyword', 'purchasePage', 'purchaseStatus', 'purchaseDelivery', 'purchaseExpectedBefore', 'purchasePageSize']
+const supplierKeys = ['supplierKeyword', 'supplierPage', 'supplierPageSize']
 export function dateCutoff(day: string): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new Error('invalidDelivery')
   const date = new Date(day + 'T00:00:00')
@@ -24,6 +26,7 @@ export function parseListState(
 ): PurchasingListState {
   const keyword = query[suppliers ? 'supplierKeyword' : 'purchaseKeyword']
   const page = query[suppliers ? 'supplierPage' : 'purchasePage']
+  const pageSize = parseTablePageSize(query[suppliers ? 'supplierPageSize' : 'purchasePageSize'])
   const delivery =
     !suppliers && (query.purchaseDelivery === 'BEFORE' || query.purchaseDelivery === 'UNDATED')
       ? query.purchaseDelivery
@@ -42,6 +45,7 @@ export function parseListState(
       expectedBefore = new Date(cutoff).toISOString()
   }
   return {
+    ...(pageSize !== 20 ? { pageSize } : {}),
     keyword: typeof keyword === 'string' ? keyword.trim().slice(0, 120) : '',
     page:
       typeof page === 'string' && /^\d+$/.test(page) && Number(page) >= 1 && Number(page) <= 1000000 ? Number(page) : 1,
@@ -60,10 +64,12 @@ export function parseListState(
 export function listQuery(state: PurchasingListState, suppliers = false): Record<string, string> {
   if (suppliers)
     return {
+      ...(state.pageSize && state.pageSize !== 20 ? { supplierPageSize: String(state.pageSize) } : {}),
       ...(state.keyword ? { supplierKeyword: state.keyword } : {}),
       ...(state.page > 1 ? { supplierPage: String(state.page) } : {}),
     }
   return {
+    ...(state.pageSize && state.pageSize !== 20 ? { purchasePageSize: String(state.pageSize) } : {}),
     ...(state.keyword ? { purchaseKeyword: state.keyword } : {}),
     ...(state.page > 1 ? { purchasePage: String(state.page) } : {}),
     ...(state.status !== 'ACTIVE' && state.delivery === 'ALL' ? { purchaseStatus: state.status } : {}),

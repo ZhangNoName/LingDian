@@ -1,3 +1,4 @@
+import { parseTablePageSize } from '@/components/table/page-size'
 import type { LocationQuery } from 'vue-router'
 import type { InventoryTrendDay } from '@lingdian/contracts'
 import { activityQuery, parseActivityState, type ActivityState } from '../activity-state'
@@ -6,6 +7,7 @@ export interface TrendView {
   timeZone: string
   day: string
   page: number
+  pageSize?: number
 }
 export function zone(value: unknown, fallback = Intl.DateTimeFormat().resolvedOptions().timeZone) {
   try {
@@ -33,7 +35,9 @@ export function dayKey(value: unknown) {
 }
 export function parseTrendView(query: Record<string, unknown>, fallback?: string): TrendView {
   const page = query.trendPage
+  const pageSize = parseTablePageSize(query.trendPageSize)
   return {
+    ...(pageSize !== 20 ? { pageSize } : {}),
     timeZone: zone(query.trendZone, fallback),
     day: dayKey(query.trendDay),
     page:
@@ -45,6 +49,7 @@ export function parseTrendView(query: Record<string, unknown>, fallback?: string
 export function trendQuery(view: TrendView): Record<string, string> {
   return {
     trendZone: view.timeZone,
+    ...(view.pageSize && view.pageSize !== 20 ? { trendPageSize: String(view.pageSize) } : {}),
     ...(view.day ? { trendDay: view.day } : {}),
     ...(view.page > 1 ? { trendPage: String(view.page) } : {}),
   }
@@ -65,7 +70,7 @@ export function trendTarget(
 }
 export function selectionTarget(query: LocationQuery, view: TrendView) {
   const next = { ...query }
-  for (const key of ['trendZone', 'trendDay', 'trendPage']) delete next[key]
+  for (const key of ['trendZone', 'trendDay', 'trendPage', 'trendPageSize']) delete next[key]
   return { ...next, ...trendQuery(view) }
 }
 /** A history drill-down carries a bounded source range; tenant ids are never forwarded. */

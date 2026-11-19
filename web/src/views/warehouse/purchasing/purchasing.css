@@ -10,15 +10,6 @@ label {
   font-size: 0.75rem;
   color: var(--ld-text-muted);
 }
-th,
-td {
-  padding: 0.875rem 1rem;
-  border-bottom: 1px solid var(--ld-border-default);
-}
-th {
-  font-size: 0.75rem;
-  color: var(--ld-text-muted);
-}
 .help {
   font-size: 0.75rem;
   line-height: 1.6;

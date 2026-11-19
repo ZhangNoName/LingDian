@@ -13,6 +13,8 @@ import { cn } from '../utils'
 import { Button } from '../button'
 import DialogOverlay from './DialogOverlay.vue'
 
+defineOptions({ inheritAttrs: false })
+
 const props = defineProps<DialogContentProps & {
   class?: string
   closeLabel?: string
@@ -31,7 +33,7 @@ const forwarded = useForwardPropsEmits(computed(() => {
     <DialogOverlay />
     <DialogContent
       :data-slot="props.side ? 'sheet-content' : 'dialog-content'"
-      v-bind="forwarded"
+      v-bind="{ ...$attrs, ...forwarded }"
       :class="
         cn(
           'fixed z-50 gap-4 bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out',

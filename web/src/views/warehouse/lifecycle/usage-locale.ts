@@ -1,7 +1,5 @@
 import { useLocale } from '@/i18n/locale'
 const zh = {
-  operation: '操作说明',
-  rules: '关联口径',
   show: '查看关联业务',
   hide: '收起关联业务',
   title: '关联业务',
@@ -9,7 +7,6 @@ const zh = {
   PURCHASES: '未收采购',
   STOCKTAKES: '盘点草稿',
   snapshot: '关联信息读取时间',
-  hint: '配方含停用规格；采购仅计该原料尚未收齐的有效单据；盘点仅计草稿。此页用于核对，确认停用时仍会复查。',
   unavailable: '部分配方关联无法在当前门店打开，请联系管理员核对。',
   loading: '正在读取关联…',
   failed: '关联信息读取失败，请重试。',
@@ -48,8 +45,6 @@ const zh = {
 } as const
 export type UsageKey = keyof typeof zh
 const en: Record<UsageKey, string> = {
-  operation: 'Operation details',
-  rules: 'Record definitions',
   show: 'View related records',
   hide: 'Hide related records',
   title: 'Related records',
@@ -57,7 +52,6 @@ const en: Record<UsageKey, string> = {
   PURCHASES: 'Outstanding purchases',
   STOCKTAKES: 'Draft stocktakes',
   snapshot: 'Related records read at',
-  hint: 'Recipes include inactive variants. Purchases include active orders with this material outstanding. Only draft stocktakes are listed. Archiving rechecks these conditions.',
   unavailable: 'Some recipe references cannot be opened in this store. Ask an administrator to review them.',
   loading: 'Loading related records…',
   failed: 'Could not load related records. Please retry.',

@@ -5,11 +5,15 @@ import { cn } from '../utils'
 const props = defineProps<{
   class?: HTMLAttributes['class']
   containerClass?: HTMLAttributes['class']
+  framed?: boolean
 }>()
 </script>
 
 <template>
-  <div data-slot="table-container" :class="cn('relative w-full overflow-auto', props.containerClass)">
+  <div
+    data-slot="table-container"
+    :class="cn('relative min-w-0 max-w-full overflow-auto', framed ? 'w-auto rounded-table border bg-card' : 'w-full', props.containerClass)"
+  >
     <table data-slot="table" :class="cn('w-full caption-bottom text-sm', props.class)">
       <slot />
     </table>

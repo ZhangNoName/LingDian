@@ -1,9 +1,5 @@
 ﻿<template>
-  <Card class="rounded-lg border-border/80">
-    <CardHeader>
-      <CardTitle class="text-xl">财务结算</CardTitle>
-      <CardDescription class="mt-1 leading-6">承接支付流水、退款记录、门店结算、对账和发票管理。</CardDescription>
-    </CardHeader>
+  <Card class="border-border/80">
     <CardContent>
       <div class="flex flex-wrap gap-2">
         <Badge variant="outline">支付流水</Badge>
@@ -18,5 +14,5 @@
 
 <script setup lang="ts">
 import { Badge } from '@lingdian/console-ui/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lingdian/console-ui/card'
+import { Card, CardContent } from '@lingdian/console-ui/card'
 </script>

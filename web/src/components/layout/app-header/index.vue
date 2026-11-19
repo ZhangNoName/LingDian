@@ -1,72 +1,34 @@
-﻿<template>
-  <header class="sticky top-0 z-20 border-b border-border/70 bg-background/85 px-4 py-4 backdrop-blur md:px-6">
-    <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-      <div class="flex items-start gap-3">
-        <Button
-          variant="outline"
-          size="icon"
-          class="size-10 rounded-xl md:hidden"
-          :aria-label="english ? 'Open navigation' : '打开导航菜单'"
-          aria-controls="merchant-mobile-navigation"
-          :aria-expanded="mobileNavigationOpen"
-          @click="$emit('open-mobile-navigation')"
-        >
-          <PanelLeft class="size-4" />
-        </Button>
-        <Button
-          variant="outline"
-          size="icon"
-          class="hidden size-10 rounded-xl md:inline-flex"
-          :aria-label="
-            english
-              ? sidebarCollapsed
-                ? 'Expand sidebar'
-                : 'Collapse sidebar'
-              : sidebarCollapsed
-                ? '展开侧栏'
-                : '收起侧栏'
-          "
-          @click="$emit('toggle-desktop-sidebar')"
-        >
-          <PanelLeft class="size-4" />
-        </Button>
-
-        <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-primary">LingDian Console</p>
-          <h1 class="mt-2 text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
-            {{ title }}
-          </h1>
-        </div>
-      </div>
-
-      <div class="flex flex-wrap items-center gap-2">
-        <LanguageSelect />
-        <Badge variant="secondary" class="rounded-full px-3 py-1 text-xs">
-          <span class="mr-1 inline-block size-2 rounded-full bg-emerald-500"></span>
-          {{
-            english
-              ? `${storeCount} authorized ${storeCount === 1 ? 'store' : 'stores'}`
-              : storeCount > 0
-                ? `可管理 ${storeCount} 家门店`
-                : '商家工作台'
-          }}
-        </Badge>
-        <Badge variant="outline" class="hidden rounded-full px-3 py-1 text-xs text-muted-foreground md:inline-flex">
-          {{
-            english
-              ? sidebarCollapsed
-                ? 'Sidebar collapsed'
-                : 'Sidebar expanded'
-              : sidebarCollapsed
-                ? '侧栏已收起'
-                : '侧栏已展开'
-          }}
-        </Badge>
-        <Badge variant="outline" class="rounded-full px-3 py-1 text-xs text-muted-foreground">{{ userLabel }}</Badge>
-        <Button variant="outline" size="sm" :disabled="loggingOut" @click="$emit('logout')">
-          {{ english ? (loggingOut ? 'Signing out…' : 'Sign out') : loggingOut ? '退出中…' : '退出登录' }}
-        </Button>
-      </div>
+<template>
+  <header class="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border/70 px-4 py-3 md:px-6">
+    <div class="flex min-w-0 flex-1 items-center gap-3">
+      <Button
+        variant="outline"
+        size="icon-sm"
+        class="md:hidden"
+        :aria-label="english ? 'Open navigation' : '打开导航菜单'"
+        aria-controls="merchant-mobile-navigation"
+        :aria-expanded="mobileNavigationOpen"
+        @click="$emit('open-mobile-navigation')"
+      >
+        <PanelLeft />
+      </Button>
+      <Button
+        variant="outline"
+        size="icon-sm"
+        class="hidden md:inline-flex"
+        :aria-label="sidebarLabel"
+        :title="sidebarLabel"
+        aria-controls="merchant-desktop-navigation"
+        :aria-expanded="!sidebarCollapsed"
+        @click="$emit('toggle-desktop-sidebar')"
+      >
+        <PanelLeft />
+      </Button>
+      <h1 class="text-xl font-semibold tracking-tight">{{ title }}</h1>
+    </div>
+    <LanguageSelect />
+    <div v-if="$slots.default" class="flex w-full min-w-0 items-center justify-between gap-2 lg:w-auto">
+      <slot />
     </div>
   </header>
 </template>
@@ -76,24 +38,22 @@ import { computed } from 'vue'
 import LanguageSelect from '@/components/LanguageSelect.vue'
 import { useLocale } from '@/i18n/locale'
 import { PanelLeft } from '@lingdian/icons/web'
-import { Badge } from '@lingdian/console-ui/badge'
 import { Button } from '@lingdian/console-ui/button'
 
-const { locale } = useLocale()
-const english = computed(() => locale.value === 'en-US')
-
-defineEmits<{
-  (event: 'toggle-desktop-sidebar'): void
-  (event: 'open-mobile-navigation'): void
-  (event: 'logout'): void
-}>()
-
-defineProps<{
+const props = defineProps<{
   title: string
   sidebarCollapsed: boolean
   mobileNavigationOpen: boolean
-  storeCount: number
-  userLabel: string
-  loggingOut: boolean
 }>()
+
+defineEmits<{
+  'toggle-desktop-sidebar': []
+  'open-mobile-navigation': []
+}>()
+
+const { locale } = useLocale()
+const english = computed(() => locale.value === 'en-US')
+const sidebarLabel = computed(() => props.sidebarCollapsed
+  ? (english.value ? 'Expand sidebar' : '展开侧栏')
+  : (english.value ? 'Collapse sidebar' : '收起侧栏'))
 </script>

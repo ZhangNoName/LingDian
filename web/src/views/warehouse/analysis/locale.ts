@@ -31,7 +31,6 @@ const zh = {
   rateHint: '登记损耗率 = 登记损耗 ÷（出库 + 登记损耗）。没有出库和登记损耗时显示“—”；不把盘亏并入登记损耗。',
   countHint: '盘点净差 = 盘盈 − 盘亏。净差为零仍可能同时有盘盈和盘亏，请分别核对；盘亏不自动归因为损耗。',
   comparisonHint: '条形仅比较这一原料的数量，长度从零起；期末是所选范围的账面余额，不代表当前可用库存或未来供货能力。',
-  rules: '查看分析口径',
   focus: '查看分析',
   detail: '原料分析',
   clear: '清除选中原料',
@@ -91,7 +90,6 @@ const en: Record<Key, string> = {
     'Net count difference = gains − losses. A zero net difference can include both gains and losses; check each separately. Count losses are not automatically attributed to waste.',
   comparisonHint:
     'Bars compare quantities of this material only, from zero. Closing is the book balance at the selected period end, not current available stock or a future supply estimate.',
-  rules: 'Analysis definitions',
   focus: 'Analyze',
   detail: 'Material analysis',
   clear: 'Clear selected material',

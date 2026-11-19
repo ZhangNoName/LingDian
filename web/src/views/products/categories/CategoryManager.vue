@@ -1,9 +1,13 @@
 <script setup lang="ts">
+import DataActionButton from '@/components/DataActionButton.vue'
+import TablePagination from '@/components/table/TablePagination.vue'
+import TableAction from '@/components/table/TableAction.vue'
+import { Pencil } from '@lingdian/icons/web'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { CategoryContract, MerchantCategoryPage, MerchantCategoryRecord } from '@lingdian/contracts'
 import { Button } from '@lingdian/console-ui/button'
 import { Input } from '@lingdian/console-ui/input'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@lingdian/console-ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@lingdian/console-ui/dialog'
 import { merchantCategories } from '@/services/products'
 import CategoryEditor from './CategoryEditor.vue'
 import { useCategoryLocale } from './locale'
@@ -14,6 +18,7 @@ const result = ref<MerchantCategoryPage>(),
   keyword = ref(''),
   applied = ref(''),
   page = ref(1),
+  pageSize = ref(50),
   loading = ref(false),
   failed = ref(false),
   editing = ref(false),
@@ -29,10 +34,10 @@ async function load() {
   loading.value = true
   failed.value = false
   try {
-    const data = await merchantCategories(props.storeId, applied.value, '', page.value)
+    const data = await merchantCategories(props.storeId, applied.value, '', page.value, pageSize.value)
     if (current === sequence) {
       result.value = data
-      const last = Math.max(1, Math.ceil(data.total / 50))
+      const last = Math.max(1, Math.ceil(data.total / pageSize.value))
       if (page.value > last) {
         page.value = last
         void load()
@@ -109,10 +114,9 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <Dialog :open="open" @update:open="close"
-    ><DialogContent class="max-h-[92dvh] max-w-3xl overflow-y-auto" :close-label="t('close')" :close-disabled="busy"
+    ><DialogContent class="max-h-[92dvh] max-w-3xl overflow-y-auto" :close-label="t('close')" :close-disabled="busy" :aria-describedby="undefined"
       ><DialogHeader
-        ><DialogTitle>{{ t(editing ? (selected ? 'edit' : 'new') : 'title') }}</DialogTitle
-        ><DialogDescription>{{ t('hint') }}</DialogDescription></DialogHeader
+        ><DialogTitle>{{ t(editing ? (selected ? 'edit' : 'new') : 'title') }}</DialogTitle></DialogHeader
       >
       <CategoryEditor
         v-if="editing"
@@ -125,8 +129,7 @@ onBeforeUnmount(() => {
       />
       <div v-else class="grid min-w-0 gap-4">
         <div class="flex flex-wrap justify-end gap-2">
-          <Button variant="outline" :disabled="loading || dirty" @click="load">{{ t('reload') }}</Button
-          ><Button @click="edit()">{{ t('new') }}</Button>
+          <DataActionButton action="refresh" :label="t('reload')" :disabled="loading || dirty" @click="load" /><Button @click="edit()">{{ t('new') }}</Button>
         </div>
         <form class="flex items-end gap-2" @submit.prevent="search">
           <label class="grid min-w-0 grow gap-1 text-xs text-muted-foreground"
@@ -142,11 +145,11 @@ onBeforeUnmount(() => {
         <p v-if="loading" role="status" class="help">{{ t('loading') }}</p>
         <div v-else-if="failed" role="alert">
           <p>{{ t('failed') }}</p>
-          <Button variant="outline" @click="load">{{ t('reload') }}</Button>
+          <DataActionButton action="refresh" :label="t('reload')" @click="load" />
         </div>
         <p v-else-if="!result?.total" class="help py-6 text-center">{{ t('empty') }}</p>
-        <ul v-else class="grid gap-3 sm:grid-cols-2">
-          <li v-for="row in result.items" :key="row.id" class="grid min-w-0 gap-3 rounded-md border p-3 text-sm">
+        <ul v-else class="table-scroll grid gap-3 sm:grid-cols-2">
+          <li v-for="row in result.items" :key="row.id" class="grid min-w-0 gap-3 border p-3 text-sm">
             <div class="flex items-start justify-between gap-2">
               <strong class="min-w-0 break-words">{{ row.name }}</strong
               ><span class="shrink-0 text-xs text-muted-foreground">{{ t(row.is_visible ? 'shown' : 'hidden') }}</span>
@@ -155,34 +158,28 @@ onBeforeUnmount(() => {
               {{ t('sort') }}: {{ number(row.sort_order) }} · {{ t('products') }} {{ number(row.product_count) }} ·
               {{ t('active') }} {{ number(row.active_product_count) }}
             </p>
-            <Button
-              size="sm"
-              variant="outline"
+            <TableAction :icon="Pencil" :label="t('edit')"
               class="justify-self-end"
               :aria-label="`${t('edit')} ${row.name}`"
-              @click="edit(row)"
-              >{{ t('edit') }}</Button
-            >
+              @click="edit(row)" />
           </li>
         </ul>
         <div v-if="!loading && !failed" class="flex flex-wrap items-center justify-between gap-2 text-sm">
-          <span>{{ number(result?.total ?? 0) }} {{ t('total') }} · {{ t('page') }} {{ page }}</span>
+          <span>{{ number(result?.total ?? 0) }} {{ t('total') }}</span>
           <div class="flex gap-2">
-            <Button size="sm" variant="outline" :disabled="dirty || page <= 1" @click="go(page - 1)">{{
-              t('previous')
-            }}</Button
-            ><Button
-              size="sm"
-              variant="outline"
-              :disabled="dirty || page * 50 >= (result?.total ?? 0)"
-              @click="go(page + 1)"
-              >{{ t('next') }}</Button
-            >
+            <TablePagination
+              :page="page"
+              :page-size="pageSize"
+              @update:page-size="pageSize = $event; go(1)"
+              :pages="Math.ceil((result?.total ?? 0) / pageSize)"
+              :disabled="dirty"
+              @update:page="go($event)"
+            />
           </div>
         </div>
         <p class="help">{{ t('countHint') }}</p>
       </div>
-      <div v-if="leaving" role="alert" class="grid gap-3 rounded-md border p-3">
+      <div v-if="leaving" role="alert" class="grid gap-3 border p-3">
         <p class="text-sm">{{ t('leaveHint') }}</p>
         <div class="flex flex-wrap justify-end gap-2">
           <Button variant="outline" @click="leaving = undefined">{{ t('keep') }}</Button

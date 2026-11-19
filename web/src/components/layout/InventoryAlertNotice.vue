@@ -25,7 +25,7 @@ onMounted(() => { void load(); timer = setInterval(load, 60000); document.addEve
 onBeforeUnmount(() => { sequence++; if (timer) clearInterval(timer); document.removeEventListener('visibilitychange', visible); window.removeEventListener('inventory-alerts-changed', changed) })
 </script>
 <template>
-  <RouterLink :to="{ name: 'warehouse', query: { view: 'alerts' } }" class="inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-muted" :title="locale === 'en-US' ? 'Checked every minute while visible' : '页面可见时每分钟更新'">
-    <span>{{ locale === 'en-US' ? 'Stock alerts' : '库存预警' }}</span><span v-if="failed" class="text-xs text-muted-foreground">{{ locale === 'en-US' ? 'Unavailable' : '暂不可用' }}</span><span v-else-if="open !== undefined" class="rounded bg-muted px-1.5 text-xs tabular-nums" :class="{ 'font-semibold text-amber-800': open > 0 }">{{ open }}</span>
+  <RouterLink :to="{ name: 'warehouse', query: { view: 'alerts' } }" class="inline-flex shrink-0 items-center gap-2 px-2 py-1 text-sm hover:bg-muted">
+    <span>{{ locale === 'en-US' ? 'Stock alerts' : '库存预警' }}</span><span v-if="failed" class="text-xs text-muted-foreground">{{ locale === 'en-US' ? 'Unavailable' : '暂不可用' }}</span><span v-else-if="open !== undefined" class="bg-muted px-1.5 text-xs tabular-nums" :class="{ 'font-semibold text-amber-800': open > 0 }">{{ open }}</span>
   </RouterLink>
 </template>

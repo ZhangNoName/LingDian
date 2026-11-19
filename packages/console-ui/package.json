@@ -7,6 +7,7 @@
     "./*": "./src/*/index.ts"
   },
   "dependencies": {
+    "@internationalized/date": "3.12.2",
     "@lingdian/icons": "workspace:*",
     "@vueuse/core": "^14.2.1",
     "class-variance-authority": "^0.7.1",

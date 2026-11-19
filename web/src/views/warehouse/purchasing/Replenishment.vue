@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import DataActionButton from '@/components/DataActionButton.vue'
+import TablePagination from '@/components/table/TablePagination.vue'
+import { PackagePlus } from '@lingdian/icons/web'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { ReplenishmentSnapshot, ReplenishmentRow } from '@lingdian/contracts'
@@ -14,7 +17,7 @@ const props = defineProps<{ storeId: string; storeName: string }>(),
   emit = defineEmits<{ create: [ReplenishmentRow]; pending: [string] }>(),
   route = useRoute(),
   router = useRouter(),
-  { t, number, date } = usePurchasingLocale()
+  { t, number } = usePurchasingLocale()
 const state = computed(() => replenishmentState(route.query)),
   applied = computed(() => state.value.keyword),
   subset = computed({
@@ -28,6 +31,7 @@ const state = computed(() => replenishmentState(route.query)),
   loading = ref(true),
   error = ref<Key>(),
   filtersOpen = ref(false),
+  pageSize = ref(20),
   page = ref(1)
 const dirty = computed(() => keyword.value.trim() !== applied.value),
   rows = computed(() =>
@@ -39,9 +43,9 @@ const dirty = computed(() => keyword.value.trim() !== applied.value),
       )
       .sort((a, b) => b.recommendedQuantity - a.recommendedQuantity || a.code.localeCompare(b.code)),
   ),
-  pages = computed(() => Math.max(1, Math.ceil(rows.value.length / 20)))
+  pages = computed(() => Math.max(1, Math.ceil(rows.value.length / pageSize.value)))
 const display = computed(() =>
-  rows.value.slice((page.value - 1) * 20, page.value * 20).map((row) => ({
+  rows.value.slice((page.value - 1) * pageSize.value, page.value * pageSize.value).map((row) => ({
     key: row.id,
     title: row.name,
     subtitle: `${row.code} · ${t('available')} ${number(row.availableQuantity ?? row.quantity)} / ${t('threshold')} ${number(row.reorderPoint)} ${row.unit} · ${t('onOrderCount')} ${row.pendingOrderCount}`,
@@ -49,6 +53,7 @@ const display = computed(() =>
     value: `${number(row.pendingQuantity)} ${row.unit}`,
     action: row.id,
     actionLabel: t('createFromPlan'),
+    actionIcon: PackagePlus,
     disabled: row.recommendedQuantity <= 0,
     secondaryAction: row.pendingOrderCount > 0 ? row.id : undefined,
     secondaryLabel: t('viewPending'),
@@ -143,10 +148,18 @@ onBeforeUnmount(() => {
       >
         {{ t('filters') }}
       </Button>
-      <Button variant="outline" :disabled="loading || dirty" @click="load">{{ t('refresh') }}</Button>
-      <Button variant="outline" :disabled="loading || dirty || !!error || !rows.length" @click="exportSnapshot">
-        {{ t('exportSnapshot') }}
-      </Button>
+      <DataActionButton
+        action="refresh"
+        :label="t('refresh')"
+        :disabled="loading || dirty"
+        @click="load"
+      />
+      <DataActionButton
+        action="export"
+        :label="t('exportSnapshot')"
+        :disabled="loading || dirty || !!error || !rows.length"
+        @click="exportSnapshot"
+      />
     </div>
     <form
       id="replenishment-filters"
@@ -172,12 +185,8 @@ onBeforeUnmount(() => {
       </label>
       <Button type="submit" variant="outline" :disabled="loading">{{ t('find') }}</Button>
     </form>
-    <details class="help">
-      <summary class="cursor-pointer">{{ t('calculation') }}</summary>
-      <p class="mt-2">{{ t('restockHint') }}</p>
-    </details>
     <p v-if="dirty" role="status" class="text-sm text-amber-800">{{ t('dirty') }}</p>
-    <div v-if="state.itemId" class="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm">
+    <div v-if="state.itemId" class="flex flex-wrap items-center justify-between gap-2 border p-3 text-sm">
       <p>
         {{ t('selectedMaterial') }}:
         {{ !loading && !error ? (snapshot?.rows[0]?.name ?? t('unavailableMaterial')) : '…' }}
@@ -192,15 +201,15 @@ onBeforeUnmount(() => {
     <p v-if="loading" role="status" class="help py-6 text-center">{{ t('loading') }}</p>
     <div v-else-if="error" role="alert">
       <p class="error">{{ t(error) }}</p>
-      <Button variant="outline" @click="load">{{ t('refresh') }}</Button>
+      <DataActionButton action="refresh" :label="t('refresh')" @click="load" />
     </div>
     <template v-else-if="snapshot && !dirty">
-      <dl class="grid grid-cols-2 gap-3">
-        <div class="rounded-md border p-3">
+      <dl class="grid grid-cols-2 divide-x border">
+        <div class="p-3">
           <dt class="help">{{ t('needed') }}</dt>
           <dd class="mt-2 text-lg font-semibold">{{ number(snapshot.summary.neededCount) }}</dd>
         </div>
-        <div class="rounded-md border p-3">
+        <div class="p-3">
           <dt class="help">{{ t('covered') }}</dt>
           <dd class="mt-2 text-lg font-semibold">{{ number(snapshot.summary.coveredCount) }}</dd>
         </div>
@@ -216,13 +225,17 @@ onBeforeUnmount(() => {
         @secondary="$emit('pending', $event)"
       />
       <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
-        <span>{{ rows.length }} {{ t('records') }} · {{ t('page') }} {{ page }} / {{ pages }}</span>
+        <span>{{ rows.length }} {{ t('records') }}</span>
         <div class="flex gap-2">
-          <Button size="sm" variant="outline" :disabled="page <= 1" @click="page--">{{ t('previous') }}</Button>
-          <Button size="sm" variant="outline" :disabled="page >= pages" @click="page++">{{ t('next') }}</Button>
+          <TablePagination
+            :page="page"
+            :page-size="pageSize"
+            @update:page-size="pageSize = $event; page = 1"
+            :pages="pages"
+            @update:page="page = $event"
+          />
         </div>
       </div>
-      <p class="help">{{ t('generatedAt') }}: {{ date(snapshot.generatedAt) }}</p>
     </template>
   </section>
 </template>

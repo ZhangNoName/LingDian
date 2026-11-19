@@ -1,6 +1,7 @@
+import { parseTablePageSize } from '@/components/table/page-size'
 import type { InventoryMovementKind } from '@lingdian/contracts'
 
-export interface ActivityState { startAt: string; endAt: string; keyword: string; itemId: string; kind: InventoryMovementKind | ''; page: number }
+export interface ActivityState { startAt: string; endAt: string; keyword: string; itemId: string; kind: InventoryMovementKind | ''; page: number; pageSize?: number }
 export const movementKinds: InventoryMovementKind[] = ['RECEIVE', 'ISSUE', 'LOSS', 'COUNT', 'THRESHOLD', 'RESERVE', 'RELEASE']
 export function dateInput(value: Date): string {
   return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
@@ -24,10 +25,12 @@ export function defaultActivityState(now = new Date()): ActivityState {
 }
 export function parseActivityState(query: Record<string, unknown>, now = new Date()): ActivityState {
   const defaults = defaultActivityState(now)
+  const pageSize = parseTablePageSize(query.pageSize)
   const instant = (value: unknown, fallback: string) => typeof value === 'string' && /(?:Z|[+-]\d{2}:\d{2})$/.test(value) && Number.isFinite(Date.parse(value)) ? new Date(value).toISOString() : fallback
   const startAt = instant(query.startAt, defaults.startAt), endAt = instant(query.endAt, defaults.endAt)
   const validPeriod = Date.parse(startAt) < Date.parse(endAt) && Date.parse(endAt) - Date.parse(startAt) <= 366 * 86400000
   return {
+    ...(pageSize !== 20 ? { pageSize } : {}),
     startAt: validPeriod ? startAt : defaults.startAt, endAt: validPeriod ? endAt : defaults.endAt,
     keyword: typeof query.keyword === 'string' ? query.keyword.trim().slice(0, 120) : '',
     itemId: typeof query.itemId === 'string' ? query.itemId.slice(0, 191) : '',
@@ -36,7 +39,7 @@ export function parseActivityState(query: Record<string, unknown>, now = new Dat
   }
 }
 export function activityQuery(state: ActivityState): Record<string, string> {
-  return { startAt: state.startAt, endAt: state.endAt, ...(state.keyword ? { keyword: state.keyword } : {}), ...(state.itemId ? { itemId: state.itemId } : {}), ...(state.kind ? { kind: state.kind } : {}), ...(state.page > 1 ? { page: String(state.page) } : {}) }
+  return { ...(state.pageSize && state.pageSize !== 20 ? { pageSize: String(state.pageSize) } : {}), startAt: state.startAt, endAt: state.endAt, ...(state.keyword ? { keyword: state.keyword } : {}), ...(state.itemId ? { itemId: state.itemId } : {}), ...(state.kind ? { kind: state.kind } : {}), ...(state.page > 1 ? { page: String(state.page) } : {}) }
 }
 
 /** Keep a shared exact interval when only non-date filters are changed. */

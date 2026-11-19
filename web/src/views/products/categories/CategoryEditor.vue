@@ -82,9 +82,8 @@ onBeforeUnmount(() => {
           </div>
         </dl></template
       >
-      <p v-else class="help">{{ t('createHint') }}</p>
     </fieldset>
-    <div v-if="confirming" class="grid gap-3 rounded-md border p-3">
+    <div v-if="confirming" class="grid gap-3 border p-3">
       <p class="text-sm">{{ t(visible ? 'showHint' : 'hideHint') }}</p>
       <p class="help">{{ t('impact') }}: {{ number(category?.active_product_count) }}</p>
       <div class="flex flex-wrap justify-end gap-2">

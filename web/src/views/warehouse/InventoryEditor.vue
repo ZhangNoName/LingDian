@@ -87,14 +87,14 @@ onBeforeUnmount(() => { sequence++ })
             </label>
             <p class="help">{{ t('available') }}: {{ (item.availableQuantity ?? item.quantity).toLocaleString(locale) }} {{ item.unit }} · {{ t('reserved') }}: {{ (item.reservedQuantity ?? 0).toLocaleString(locale) }} {{ item.unit }}</p>
             <p class="help">{{ t(form.kind === 'COUNT' ? 'countHint' : form.kind === 'THRESHOLD' ? 'thresholdHint' : 'precision') }}</p>
-            <div class="rounded-md bg-muted p-3 text-sm tabular-nums" aria-live="polite">
+            <div class="bg-muted p-3 text-sm tabular-nums" aria-live="polite">
               {{ t('before') }}: {{ item.quantity.toLocaleString(locale) }} → {{ t('after') }}: {{ predicted.toLocaleString(locale, { maximumFractionDigits: 3 }) }} {{ item.unit }}
               <p v-if="form.kind === 'THRESHOLD'" class="mt-1">{{ t('threshold') }}: {{ item.reorderPoint.toLocaleString(locale) }} → {{ Number(form.amount).toLocaleString(locale) }}</p>
             </div>
             <label>{{ t('reason') }}<Textarea v-model="form.reason" required maxlength="240" rows="3" :placeholder="t('reasonHint')" /></label>
           </template>
         </fieldset>
-        <p v-if="errorKey" role="alert" class="rounded-md border border-destructive/30 p-3 text-sm text-destructive">{{ t(errorKey) }}</p>
+        <p v-if="errorKey" role="alert" class="border border-destructive/30 p-3 text-sm text-destructive">{{ t(errorKey) }}</p>
         <p v-if="item && errorKey === 'unexpected'" class="help">{{ t('retryHint') }}</p>
         <div class="flex justify-end gap-2 border-t pt-4">
           <Button type="button" variant="outline" :disabled="saving" @click="setOpen(false)">{{ t('cancel') }}</Button>

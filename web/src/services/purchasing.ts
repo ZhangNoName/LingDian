@@ -23,10 +23,11 @@ export function supplierList(
   page = 1,
   keyword = '',
   active = false,
+  pageSize = 20,
 ): Promise<PurchasingPage<SupplierRecord>> {
   return requestData(
     apiUrl(
-      `${base(store)}/suppliers?${new URLSearchParams({ page: String(page), pageSize: '20', keyword, status: active ? 'ACTIVE' : 'ALL' })}`,
+      `${base(store)}/suppliers?${new URLSearchParams({ page: String(page), pageSize: String(pageSize), keyword, status: active ? 'ACTIVE' : 'ALL' })}`,
     ),
   )
 }
@@ -49,18 +50,19 @@ export function purchaseList(
   status = 'ACTIVE',
   pendingItemId = '',
   delivery: PurchaseDeliveryQuery = {},
+  pageSize = 20,
 ): Promise<PurchasingPage<PurchaseRecord>> {
   return requestData(
     apiUrl(
-      `${base(store)}/purchases?${new URLSearchParams({ page: String(page), pageSize: '20', keyword, status, ...(pendingItemId ? { pendingItemId } : {}), ...(delivery.delivery && delivery.delivery !== 'ALL' ? { delivery: delivery.delivery } : {}), ...(delivery.expectedBefore ? { expectedBefore: delivery.expectedBefore } : {}) })}`,
+      `${base(store)}/purchases?${new URLSearchParams({ page: String(page), pageSize: String(pageSize), keyword, status, ...(pendingItemId ? { pendingItemId } : {}), ...(delivery.delivery && delivery.delivery !== 'ALL' ? { delivery: delivery.delivery } : {}), ...(delivery.expectedBefore ? { expectedBefore: delivery.expectedBefore } : {}) })}`,
     ),
   )
 }
 export function purchaseDetail(store: string, id: string): Promise<PurchaseRecord> {
   return requestData(apiUrl(`${base(store)}/purchases/${encodeURIComponent(id)}`))
 }
-export function purchaseReceipts(store: string, id: string, page = 1): Promise<PurchasingPage<PurchaseReceiptRecord>> {
-  return requestData(apiUrl(`${base(store)}/purchases/${encodeURIComponent(id)}/receipts?page=${page}&pageSize=10`))
+export function purchaseReceipts(store: string, id: string, page = 1, pageSize = 10): Promise<PurchasingPage<PurchaseReceiptRecord>> {
+  return requestData(apiUrl(`${base(store)}/purchases/${encodeURIComponent(id)}/receipts?page=${page}&pageSize=${pageSize}`))
 }
 export function createPurchase(store: string, body: CreatePurchaseRequest): Promise<PurchaseRecord> {
   return write(`${base(store)}/purchases`, body)

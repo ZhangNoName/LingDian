@@ -11,8 +11,8 @@ export function listInventory(storeId: string, query: InventoryQuery): Promise<I
   if (query.lifecycle) params.set('lifecycle', query.lifecycle)
   return requestData(apiUrl(`${base(storeId)}?${params}`))
 }
-export function listInventoryMovements(storeId: string, page: number, filter: InventoryActivityFilter = {}): Promise<InventoryMovementPage> {
-  const params = new URLSearchParams({ page: String(page), pageSize: '20' })
+export function listInventoryMovements(storeId: string, page: number, filter: InventoryActivityFilter = {}, pageSize = 20): Promise<InventoryMovementPage> {
+  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize) })
   appendFilter(params, filter)
   return requestData(apiUrl(`${base(storeId)}/movements?${params}`))
 }
@@ -34,17 +34,17 @@ function jsonPost(body: unknown): RequestInit {
   return { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
 }
 
-export function listInventoryRecipes(storeId: string, page: number, keyword = ''): Promise<import('@lingdian/contracts').InventoryRecipePage> {
-  const params = new URLSearchParams({ page: String(page), pageSize: '20', keyword })
+export function listInventoryRecipes(storeId: string, page: number, keyword = '', pageSize = 20): Promise<import('@lingdian/contracts').InventoryRecipePage> {
+  const params = new URLSearchParams({ page: String(page), pageSize: String(pageSize), keyword })
   return requestData(apiUrl(`${base(storeId)}/recipes?${params}`))
 }
 export function saveInventoryRecipe(storeId: string, skuId: string, body: import('@lingdian/contracts').SaveInventoryRecipeRequest): Promise<import('@lingdian/contracts').InventoryRecipeRecord> {
   return requestData(apiUrl(`${base(storeId)}/recipes/${encodeURIComponent(skuId)}`), { ...jsonPost(body), method: 'PUT' })
 }
 
-export interface AlertQuery { page: number; status?: import('@lingdian/contracts').InventoryAlertStatus | 'ACTIVE' | 'ALL'; keyword?: string; severity?: 'LOW' | 'OUT' }
+export interface AlertQuery { page: number; pageSize?: number; status?: import('@lingdian/contracts').InventoryAlertStatus | 'ACTIVE' | 'ALL'; keyword?: string; severity?: 'LOW' | 'OUT' }
 export function listInventoryAlerts(storeId: string, query: AlertQuery): Promise<import('@lingdian/contracts').InventoryAlertPage> {
-  const params = new URLSearchParams({ page: String(query.page), pageSize: '20', status: query.status ?? 'ACTIVE' })
+  const params = new URLSearchParams({ page: String(query.page), pageSize: String(query.pageSize ?? 20), status: query.status ?? 'ACTIVE' })
   if (query.keyword?.trim()) params.set('keyword', query.keyword.trim())
   if (query.severity) params.set('severity', query.severity)
   return requestData(apiUrl(`${base(storeId)}/alerts?${params}`))
@@ -60,13 +60,13 @@ export function inventoryItemDetail(storeId: string, itemId: string): Promise<In
 export function changeInventoryLifecycle(storeId: string, itemId: string, body: import('@lingdian/contracts').ChangeInventoryLifecycleRequest): Promise<InventoryItemContract> { return requestData(apiUrl(`${base(storeId)}/items/${encodeURIComponent(itemId)}/lifecycle`), { ...jsonPost(body), method: 'PUT' }) }
 
 export function getInventoryRecipe(storeId: string, skuId: string): Promise<import('@lingdian/contracts').InventoryRecipeRecord> { return requestData(apiUrl(`${base(storeId)}/recipes/${encodeURIComponent(skuId)}`)) }
-export function getInventoryUsage(storeId: string, itemId: string, view: import('@lingdian/contracts').InventoryUsageView, page = 1): Promise<import('@lingdian/contracts').InventoryUsagePage> { return requestData(apiUrl(`${base(storeId)}/items/${encodeURIComponent(itemId)}/usage?${new URLSearchParams({ view, page: String(page) })}`)) }
+export function getInventoryUsage(storeId: string, itemId: string, view: import('@lingdian/contracts').InventoryUsageView, page = 1, pageSize = 20): Promise<import('@lingdian/contracts').InventoryUsagePage> { return requestData(apiUrl(`${base(storeId)}/items/${encodeURIComponent(itemId)}/usage?${new URLSearchParams({ view, page: String(page), ...(pageSize !== 20 ? { pageSize: String(pageSize) } : {}) })}`)) }
 
 export function renameInventoryMaterial(storeId: string, itemId: string, body: import('@lingdian/contracts').RenameInventoryMaterialRequest): Promise<InventoryItemContract> {
   return requestData(apiUrl(`${base(storeId)}/items/${encodeURIComponent(itemId)}/name`), { ...jsonPost(body), method: 'PUT' })
 }
-export function inventoryMaterialChanges(storeId: string, itemId: string, kind: import('@lingdian/contracts').InventoryMaterialChangeKind | 'ALL', page = 1): Promise<import('@lingdian/contracts').InventoryMaterialChangePage> {
-  return requestData(apiUrl(`${base(storeId)}/items/${encodeURIComponent(itemId)}/changes?${new URLSearchParams({ kind, page: String(page) })}`))
+export function inventoryMaterialChanges(storeId: string, itemId: string, kind: import('@lingdian/contracts').InventoryMaterialChangeKind | 'ALL', page = 1, pageSize = 20): Promise<import('@lingdian/contracts').InventoryMaterialChangePage> {
+  return requestData(apiUrl(`${base(storeId)}/items/${encodeURIComponent(itemId)}/changes?${new URLSearchParams({ kind, page: String(page), ...(pageSize !== 20 ? { pageSize: String(pageSize) } : {}) })}`))
 }
 
 export function inventoryDailyTrend(storeId: string, itemId: string, filter: import('@lingdian/contracts').InventoryTrendFilter): Promise<import('@lingdian/contracts').InventoryDailyTrend> {

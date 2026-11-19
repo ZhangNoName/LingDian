@@ -42,7 +42,7 @@ async function login() {
 }
 </script>
 <template>
-  <AccountPanel public-page :title="t('loginTitle')" :description="t('loginHint')">
+  <AccountPanel public-page :title="t('loginTitle')">
     <form class="account-form" @submit.prevent="login">
       <fieldset :disabled="loggingIn" class="grid min-w-0 gap-5">
         <label class="account-label">

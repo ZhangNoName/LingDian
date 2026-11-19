@@ -76,10 +76,11 @@ export function merchantCategories(
   keyword = '',
   categoryId = '',
   page = 1,
+  pageSize = 50,
 ): Promise<import('@lingdian/contracts').MerchantCategoryPage> {
   return requestData(
     apiUrl(
-      `${catalogBase(storeId)}/categories?${new URLSearchParams({ page: String(page), pageSize: '50', keyword, ...(categoryId ? { categoryId } : {}) })}`,
+      `${catalogBase(storeId)}/categories?${new URLSearchParams({ page: String(page), pageSize: String(pageSize), keyword, ...(categoryId ? { categoryId } : {}) })}`,
     ),
   )
 }

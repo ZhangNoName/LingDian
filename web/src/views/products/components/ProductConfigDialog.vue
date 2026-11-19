@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import DataActionButton from '@/components/DataActionButton.vue'
 import { computed, ref, watch } from 'vue'
 import { Button } from '@lingdian/console-ui/button'
 import { SelectField } from '@lingdian/console-ui/select'
@@ -116,18 +117,18 @@ function submit() {
 </script>
 <template>
   <Dialog :open="open" @update:open="close">
-    <DialogContent class="max-h-[92dvh] max-w-4xl overflow-y-auto" :close-label="t('close')" :close-disabled="busy">
+    <DialogContent class="max-h-[92dvh] max-w-4xl overflow-y-auto" :close-label="t('close')" :close-disabled="busy" v-bind="tab === 'image' ? { 'aria-describedby': undefined } : {}">
       <DialogHeader>
         <DialogTitle>
           {{ ct('manage') }}
           <span class="mt-1 block break-words text-sm">{{ product?.name }}</span>
         </DialogTitle>
-        <DialogDescription>{{ tab === 'image' ? ct('imageDescription') : t('configurationHint') }}</DialogDescription>
+        <DialogDescription v-if="tab !== 'image'">{{ t('configurationHint') }}</DialogDescription>
       </DialogHeader>
       <p v-if="loading" role="status" class="p-6 text-center text-sm text-muted-foreground">{{ t('loading') }}</p>
       <div v-else-if="!product || !draft" role="alert">
         <p>{{ t(error ?? 'loadFailed') }}</p>
-        <Button variant="outline" @click="$emit('retry')">{{ t('refresh') }}</Button>
+        <DataActionButton action="refresh" :label="t('refresh')" @click="$emit('retry')" />
       </div>
       <div v-else class="grid min-w-0 gap-4">
         <ProductStatusPanel
@@ -246,7 +247,7 @@ function submit() {
           </div>
         </form>
       </div>
-      <div v-if="closePending" role="alert" class="grid gap-3 rounded-md border p-3">
+      <div v-if="closePending" role="alert" class="grid gap-3 border p-3">
         <p class="text-sm">{{ ct('unsavedClose') }}</p>
         <div class="flex flex-wrap justify-end gap-2">
           <Button variant="outline" @click="closePending = false">{{ ct('keepEditing') }}</Button

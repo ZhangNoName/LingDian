@@ -2,7 +2,6 @@ import { useLocale } from '@/i18n/locale'
 const zh = {
   draftSummary: '保存实盘不会调整库存。核对差异后，再确认过账。',
   recordSummary: '保留账面快照与已保存的实盘结果，已结束盘点单只读。',
-  rules: '查看盘点与过账口径',
   closeHint: '本地实盘数量尚未保存，关闭会放弃这些修改。',
   keepEditing: '继续填写',
   discardClose: '放弃并关闭',
@@ -30,7 +29,6 @@ const zh = {
   closed: '盘点单已结束，不能再修改。',
   notFound: '当前门店找不到该盘点单。',
   draftHint: '实盘填写现场物理数量，包含订单已占用但尚未消耗的原料。空白表示未盘点，零表示已盘点且为零。',
-  stockHint: '盘点期间不会冻结库存。账面版本变化时拒绝整单过账，请避开收货和出库时段操作。不同原料和单位分别核对。',
   expected: '账面数量',
   reservedQty: '订单占用',
   counted: '实盘数量',
@@ -83,7 +81,6 @@ export type Key = keyof typeof zh
 const en: Record<Key, string> = {
   draftSummary: 'Saving counts does not change stock. Review the differences before posting.',
   recordSummary: 'Baselines and saved counts are retained. Completed stocktakes are read-only.',
-  rules: 'Counting and posting rules',
   closeHint: 'Your local counts have not been saved. Closing will discard these changes.',
   keepEditing: 'Keep editing',
   discardClose: 'Discard and close',
@@ -112,8 +109,6 @@ const en: Record<Key, string> = {
   notFound: 'This stocktake is unavailable in the selected store.',
   draftHint:
     'Count physical stock, including material reserved for orders but not yet consumed. Blank means not counted; zero is a completed zero count.',
-  stockHint:
-    'Counting does not freeze stock. Any baseline version change blocks the entire posting. Choose a quiet period without receipts or issues. Check each material and unit separately.',
   expected: 'Expected quantity',
   reservedQty: 'Reserved for orders',
   counted: 'Counted quantity',

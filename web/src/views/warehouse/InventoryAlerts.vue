@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import DataActionButton from '@/components/DataActionButton.vue'
+import TablePagination from '@/components/table/TablePagination.vue'
+import TableAction from '@/components/table/TableAction.vue'
+import { ClipboardList, EyeIcon } from '@lingdian/icons/web'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { InventoryAlertPage, InventoryAlertRecord } from '@lingdian/contracts'
@@ -89,7 +93,7 @@ async function load() {
   try {
     const data = await listInventoryAlerts(store, { ...snapshot, severity: snapshot.severity || undefined })
     if (current !== sequence) return
-    const last = Math.max(1, Math.ceil(data.total / 20))
+    const last = Math.max(1, Math.ceil(data.total / (snapshot.pageSize ?? 20)))
     if (snapshot.page > last) {
       await navigate({ ...snapshot, page: last }, id.value, true)
       return
@@ -126,7 +130,7 @@ watch(
 )
 async function apply() {
   filtersOpen.value = false
-  const next = { keyword: keyword.value.trim(), status: status.value, severity: severity.value, page: 1 }
+  const next = { keyword: keyword.value.trim(), status: status.value, severity: severity.value, page: 1, pageSize: state.value.pageSize }
   if (canonicalAlerts(route.query, next, id.value)) await load()
   else await navigate(next)
 }
@@ -135,7 +139,7 @@ function reset() {
   keyword.value = ''
   status.value = 'ACTIVE'
   severity.value = ''
-  const next = parseAlertState({})
+  const next = { ...parseAlertState({}), pageSize: state.value.pageSize }
   if (canonicalAlerts(route.query, next, '')) void load()
   else void navigate(next, '')
 }
@@ -226,7 +230,6 @@ onBeforeUnmount(() => {
         }}</strong>
       </div>
     </div>
-    <p class="px-4 pt-2 text-xs text-muted-foreground">{{ t('summaryHint') }}</p>
     <div class="flex flex-wrap gap-2 border-b px-4 py-3 md:hidden">
       <Button
         type="button"
@@ -237,17 +240,14 @@ onBeforeUnmount(() => {
         @click="filtersOpen = !filtersOpen"
         >{{ t(filtersOpen ? 'hideFilters' : 'filters')
         }}<span v-if="filterCount" class="ml-1">({{ filterCount }})</span></Button
-      ><Button type="button" size="sm" variant="ghost" :disabled="loading || dirty" @click="load">{{
-        t('refresh')
-      }}</Button
-      ><Button
-        type="button"
-        size="sm"
+      ><DataActionButton action="refresh" :label="t('refresh')" size="icon-sm" variant="ghost" :disabled="loading || dirty" @click="load" /><DataActionButton
+        action="export"
+        :label="t('export')"
+        size="icon-sm"
         variant="ghost"
         :disabled="loading || error || dirty || !result?.total"
         @click="exportPage"
-        >{{ t('export') }}</Button
-      >
+      />
       <p v-if="filterSummary" class="w-full break-words text-xs text-muted-foreground">{{ filterSummary }}</p>
     </div>
     <form
@@ -279,41 +279,30 @@ onBeforeUnmount(() => {
           ]"
         /></label
       ><Button type="submit" variant="outline" :disabled="loading">{{ t('apply') }}</Button
-      ><Button type="button" variant="ghost" class="hidden md:inline-flex" :disabled="loading || dirty" @click="load">{{
-        t('refresh')
-      }}</Button
-      ><Button type="button" variant="ghost" :disabled="loading" @click="reset">{{ t('reset') }}</Button
-      ><Button
-        type="button"
-        variant="outline"
+      ><DataActionButton action="refresh" :label="t('refresh')" variant="ghost" class="hidden md:inline-flex" :disabled="loading || dirty" @click="load" /><Button type="button" variant="ghost" :disabled="loading" @click="reset">{{ t('reset') }}</Button
+      ><DataActionButton
+        action="export"
+        :label="t('export')"
         class="hidden md:ml-auto md:inline-flex"
         :disabled="loading || error || dirty || !result?.total"
         @click="exportPage"
-        >{{ t('export') }}</Button
-      >
+      />
     </form>
     <p v-if="dirty" role="status" class="border-b px-4 py-2 text-xs text-amber-800">
       {{ t('filterChanged') }}
     </p>
-    <p class="hidden border-b px-4 py-3 text-xs leading-5 text-muted-foreground md:block">{{ t('hint') }}</p>
-    <details class="border-b px-4 py-3 text-xs leading-5 text-muted-foreground md:hidden">
-      <summary class="cursor-pointer">{{ t('rules') }}</summary>
-      <p class="mt-2">{{ t('hint') }}</p>
-      <p class="mt-2">{{ t('exportScope') }}</p>
-    </details>
     <p v-if="loading" role="status" class="p-8 text-center text-sm text-muted-foreground">
       {{ t('loading') }}
     </p>
     <div v-else-if="error" role="alert" class="grid justify-items-start gap-3 p-8 text-sm text-destructive">
       <p>{{ t('failure') }}</p>
-      <Button variant="outline" @click="load">{{ t('refresh') }}</Button>
+      <DataActionButton action="refresh" :label="t('refresh')" @click="load" />
     </div>
     <div v-else-if="!result?.total" class="p-8 text-center text-sm text-muted-foreground">
       <p class="font-medium text-foreground">{{ t('empty') }}</p>
-      <p class="mt-2">{{ t('emptyHint') }}</p>
     </div>
     <template v-else>
-      <Table container-class="hidden md:block" tabindex="0" :aria-label="t('title')" class="border-collapse text-start">
+      <Table framed container-class="mx-4 mt-4 hidden md:block" tabindex="0" :aria-label="t('title')" class="border-collapse text-start">
         <thead>
           <tr>
             <th>{{ t('material') }}</th>
@@ -354,23 +343,19 @@ onBeforeUnmount(() => {
               {{ row.note ?? '—' }}
             </td>
             <td>
-              <Button
-                size="sm"
-                variant="outline"
+              <TableAction :icon="row.status === 'OPEN' ? ClipboardList : EyeIcon" :label="t(row.status === 'OPEN' ? 'acknowledge' : 'detail')"
                 :aria-label="`${t('detail')} ${row.name}`"
-                @click="view(row)"
-                >{{ t(row.status === 'OPEN' ? 'acknowledge' : 'detail') }}</Button
-              >
+                @click="view(row)" />
             </td>
           </tr>
         </tbody>
       </Table>
 
-      <ul class="grid gap-3 p-4 md:hidden">
+      <ul class="table-scroll grid gap-3 p-4 md:hidden">
         <li
           v-for="row in result?.items"
           :key="row.id"
-          class="grid min-w-0 gap-3 rounded-md border p-3 text-sm"
+          class="grid min-w-0 gap-3 border p-3 text-sm"
         >
           <div class="flex flex-wrap justify-between gap-2">
             <strong class="break-words">{{ row.name }}</strong
@@ -395,14 +380,10 @@ onBeforeUnmount(() => {
           <p v-if="row.note" class="line-clamp-2 break-words text-muted-foreground">
             {{ t('followup') }}: {{ row.note }}
           </p>
-          <Button
-            size="sm"
-            variant="outline"
+          <TableAction :icon="row.status === 'OPEN' ? ClipboardList : EyeIcon" :label="t(row.status === 'OPEN' ? 'acknowledge' : 'detail')"
             class="justify-self-end"
             :aria-label="`${t('detail')} ${row.name}`"
-            @click="view(row)"
-            >{{ t(row.status === 'OPEN' ? 'acknowledge' : 'detail') }}</Button
-          >
+            @click="view(row)" />
         </li>
       </ul>
     </template>
@@ -411,23 +392,17 @@ onBeforeUnmount(() => {
       class="flex flex-wrap justify-between gap-3 border-t p-4 text-sm text-muted-foreground"
     >
       <span
-        >{{ number(result?.total ?? 0) }} {{ t('total') }} · {{ t('page') }} {{ state.page }} /
-        {{ Math.max(1, Math.ceil((result?.total ?? 0) / 20)) }}</span
+        >{{ number(result?.total ?? 0) }} {{ t('total') }}</span
       >
       <div class="flex gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          :disabled="dirty || state.page <= 1"
-          @click="navigate({ ...state, page: state.page - 1 })"
-          >{{ t('previous') }}</Button
-        ><Button
-          size="sm"
-          variant="outline"
-          :disabled="dirty || state.page * 20 >= (result?.total ?? 0)"
-          @click="navigate({ ...state, page: state.page + 1 })"
-          >{{ t('next') }}</Button
-        >
+        <TablePagination
+          :page-size="state.pageSize ?? 20"
+          @update:page-size="navigate({ ...state, page: 1, pageSize: $event })"
+          :page="state.page"
+          :pages="Math.ceil((result?.total ?? 0) / (state.pageSize ?? 20))"
+          :disabled="dirty"
+          @update:page="navigate({ ...state, page: $event })"
+        />
       </div>
     </div>
     <AlertDetail
@@ -448,17 +423,6 @@ label {
   min-width: 0;
   gap: 0.375rem;
   font-size: 0.75rem;
-  color: var(--ld-text-muted);
-}
-th,
-td {
-  padding: 0.875rem 1rem;
-  border-bottom: 1px solid var(--ld-border-default);
-  white-space: nowrap;
-}
-thead th {
-  font-size: 0.75rem;
-  font-weight: 500;
   color: var(--ld-text-muted);
 }
 dt {

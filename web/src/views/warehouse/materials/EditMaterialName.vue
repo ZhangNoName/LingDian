@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import DataActionButton from '@/components/DataActionButton.vue'
 import { computed, onBeforeUnmount, ref } from 'vue'
 import type { InventoryItemContract } from '@lingdian/contracts'
 import { Button } from '@lingdian/console-ui/button'
@@ -128,10 +129,7 @@ onBeforeUnmount(() => {
         <p v-if="failed" role="alert" class="text-sm text-destructive">{{ t('failure') }}</p>
         <p v-if="error" role="alert" class="text-sm text-destructive">{{ errorText }}</p>
         <div class="flex flex-wrap justify-end gap-2 border-t pt-3">
-          <Button v-if="stale || failed" type="button" variant="outline" :disabled="busy" @click="read">{{
-            t('read')
-          }}</Button
-          ><Button type="button" variant="ghost" :disabled="saving" @click="close">{{ t('cancel') }}</Button
+          <DataActionButton action="refresh" :label="t('read')" v-if="stale || failed" :disabled="busy" @click="read" /><Button type="button" variant="ghost" :disabled="saving" @click="close">{{ t('cancel') }}</Button
           ><Button
             type="submit"
             :disabled="busy || stale || failed || !active || same || !name.trim() || !reason.trim()"

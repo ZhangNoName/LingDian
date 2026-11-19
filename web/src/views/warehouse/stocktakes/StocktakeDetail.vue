@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import DataActionButton from '@/components/DataActionButton.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { StocktakeRecord } from '@lingdian/contracts'
 import { Button } from '@lingdian/console-ui/button'
@@ -163,7 +164,7 @@ onBeforeUnmount(() => {
       <p v-if="loading" role="status" class="help">{{ t('loading') }}</p>
       <div v-else-if="failed" role="alert">
         <p>{{ t('failed') }}</p>
-        <Button variant="outline" @click="load">{{ t('reload') }}</Button>
+        <DataActionButton action="refresh" :label="t('reload')" @click="load" />
       </div>
       <div v-else-if="record" class="grid min-w-0 gap-4">
         <div class="flex flex-wrap items-center justify-between gap-2">
@@ -173,10 +174,7 @@ onBeforeUnmount(() => {
             {{ record.lines.length }}</strong
           >
           <div class="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" :disabled="saving || dirty" @click="load">{{ t('reload') }}</Button
-            ><Button size="sm" variant="outline" :disabled="saving || dirty" @click="exportRecord">{{
-              t('export')
-            }}</Button>
+            <DataActionButton action="refresh" :label="t('reload')" size="icon-sm" :disabled="saving || dirty" @click="load" /><DataActionButton action="export" :label="t('export')" size="icon-sm" :disabled="saving || dirty" @click="exportRecord" />
           </div>
         </div>
         <p class="text-sm whitespace-pre-wrap break-words">{{ record.note }}</p>
@@ -193,13 +191,12 @@ onBeforeUnmount(() => {
         </p>
         <p v-if="editable && stockChanged" role="alert" class="text-sm text-amber-800">{{ t('stockChanged') }}</p>
         <p v-if="editable" class="help">{{ t('draftHint') }}</p>
-        <details v-if="editable" class="help"><summary class="cursor-pointer">{{ t('rules') }}</summary><p class="mt-2">{{ t('stockHint') }}</p></details>
         <form class="grid min-w-0 gap-4" @submit.prevent="save">
           <fieldset class="grid min-w-0 gap-3" :disabled="saving || !!confirmation || !editable">
             <div
               v-for="line in record.lines"
               :key="line.id"
-              class="grid min-w-0 gap-3 rounded-md border p-3 text-sm sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+              class="grid min-w-0 gap-3 border p-3 text-sm sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
             >
               <div class="min-w-0">
                 <strong class="break-words">{{ line.itemName }}</strong>
@@ -249,7 +246,7 @@ onBeforeUnmount(() => {
           >
         </div>
         <p v-if="editable && belowReserved" role="alert" class="error">{{ t('reserved') }}</p>
-        <div v-if="confirmation" class="grid gap-3 rounded-md border p-3">
+        <div v-if="confirmation" class="grid gap-3 border p-3">
           <p class="text-sm">
             {{ t(confirmation === 'post' ? 'postHint' : confirmation === 'cancel' ? 'cancelHint' : 'recountHint') }}
           </p>
@@ -259,7 +256,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
         <p v-if="error" role="alert" class="error">{{ t(error) }}</p>
-        <div v-if="closePending" role="alert" class="grid gap-3 rounded-md border p-3">
+        <div v-if="closePending" role="alert" class="grid gap-3 border p-3">
           <p class="text-sm">{{ t('closeHint') }}</p>
           <div class="flex flex-wrap justify-end gap-2">
             <Button variant="outline" @click="closePending = false">{{ t('keepEditing') }}</Button

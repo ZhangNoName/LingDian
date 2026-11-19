@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import DataActionButton from '@/components/DataActionButton.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { ProductRecordContract } from '@lingdian/contracts'
 import { Button } from '@lingdian/console-ui/button'
@@ -107,7 +108,7 @@ onBeforeUnmount(() => {
     <p class="help">{{ t('hint') }}</p>
     <div class="grid min-w-0 grid-cols-[6rem_minmax(0,1fr)] gap-3 sm:gap-4 sm:grid-cols-[12rem_minmax(0,1fr)]">
       <div
-        class="flex h-24 w-24 justify-self-center items-center justify-center overflow-hidden rounded-md border bg-muted/20 sm:h-48 sm:w-48"
+        class="flex h-24 w-24 justify-self-center items-center justify-center overflow-hidden border bg-muted/20 sm:h-48 sm:w-48"
       >
         <img
           v-if="source && !broken"
@@ -151,7 +152,7 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </div>
-    <div v-if="removing" class="grid gap-3 rounded-md border p-3">
+    <div v-if="removing" class="grid gap-3 border p-3">
       <p class="text-sm">{{ t('removeHint') }}</p>
       <div class="flex flex-wrap justify-end gap-2">
         <Button type="button" variant="outline" :disabled="saving" @click="clear">{{ t('keep') }}</Button
@@ -165,16 +166,16 @@ onBeforeUnmount(() => {
       {{ t('version') }}
     </p>
     <p v-if="notice" role="status" class="text-sm text-emerald-700">{{ t('saved') }}</p>
-    <Button
-      type="button"
+    <DataActionButton
+      action="refresh"
+      :label="t('reload')"
       class="justify-self-start"
-      size="sm"
+      size="icon-sm"
       variant="ghost"
       :disabled="saving || disabled"
       @click="reloadConfirm = true"
-      >{{ t('reload') }}</Button
-    >
-    <div v-if="reloadConfirm" class="grid gap-3 rounded-md border p-3">
+    />
+    <div v-if="reloadConfirm" class="grid gap-3 border p-3">
       <p class="text-sm">{{ t('reloadHint') }}</p>
       <div class="flex flex-wrap justify-end gap-2">
         <Button variant="outline" @click="reloadConfirm = false">{{ t('back') }}</Button

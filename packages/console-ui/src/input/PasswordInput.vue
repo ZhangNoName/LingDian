@@ -32,8 +32,8 @@ const visible = ref(false)
       @mousedown.prevent
       @click="visible = !visible"
     >
-      <EyeOffIcon v-if="visible" aria-hidden="true" />
-      <EyeIcon v-else aria-hidden="true" />
+      <EyeIcon v-if="visible" aria-hidden="true" />
+      <EyeOffIcon v-else aria-hidden="true" />
     </Button>
   </div>
 </template>

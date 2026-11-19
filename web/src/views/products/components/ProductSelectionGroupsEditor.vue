@@ -37,13 +37,13 @@ const referenceChoices = computed(() => [
       </Button>
     </div>
     <p class="text-xs leading-5 text-muted-foreground">{{ t('referenceHint') }}</p>
-    <p v-if="!modelValue.length" class="rounded-md border p-6 text-center text-sm text-muted-foreground">
+    <p v-if="!modelValue.length" class="border p-6 text-center text-sm text-muted-foreground">
       {{ t('noGroups') }}
     </p>
     <section
       v-for="(binding, groupIndex) in modelValue"
       :key="binding.id ?? groupIndex"
-      class="grid gap-3 rounded-md border p-3"
+      class="grid gap-3 border p-3"
     >
       <div class="flex items-center justify-between gap-3">
         <h4 class="min-w-0 break-words text-sm font-medium">
@@ -137,7 +137,7 @@ const referenceChoices = computed(() => [
       <div
         v-for="(option, optionIndex) in binding.group.options"
         :key="option.id ?? optionIndex"
-        class="grid gap-3 rounded-md bg-muted/40 p-3 sm:grid-cols-2"
+        class="grid gap-3 bg-muted/40 p-3 sm:grid-cols-2"
       >
         <label>
           {{ t('optionName') }} {{ optionIndex + 1 }}

@@ -122,10 +122,10 @@ onBeforeUnmount(() => {
         ><DialogTitle>{{ t(desired ? 'restoreTitle' : 'archiveTitle') }} · {{ current?.name }}</DialogTitle
         ><DialogDescription>{{ current?.code }} · {{ current?.unit }}</DialogDescription></DialogHeader
       >
-      <p v-if="!showUsage" class="text-sm leading-6 text-muted-foreground">
+      <p class="text-sm leading-6 text-muted-foreground">
         {{ t(desired ? 'restoreHint' : 'archiveHint') }}
       </p>
-      <dl v-if="current" class="grid grid-cols-2 gap-3 rounded-md border p-3 text-sm">
+      <dl v-if="current" class="grid grid-cols-2 gap-3 border p-3 text-sm">
         <div>
           <dt class="text-xs text-muted-foreground">{{ t('quantity') }}</dt>
           <dd class="mt-1 break-words tabular-nums">
@@ -139,16 +139,11 @@ onBeforeUnmount(() => {
           </dd>
         </div>
       </dl>
-      <p v-if="!desired && !showUsage" class="text-xs leading-5 text-muted-foreground">{{ t('conditions') }}</p>
+      <p v-if="!desired" class="text-xs leading-5 text-muted-foreground">{{ t('conditions') }}</p>
       <p v-if="current?.lifecycleChangedAt" class="break-words text-xs leading-5 text-muted-foreground">
         {{ t('changed') }}: {{ new Date(current.lifecycleChangedAt).toLocaleString(locale) }} · {{ t('actor') }}:
         {{ current.lifecycleActorId }}<br />{{ current.lifecycleReason }}
       </p>
-      <details v-if="showUsage" class="text-xs leading-5 text-muted-foreground">
-        <summary class="cursor-pointer">{{ ut('operation') }}</summary>
-        <p class="mt-2">{{ t(desired ? 'restoreHint' : 'archiveHint') }}</p>
-        <p v-if="!desired" class="mt-2">{{ t('conditions') }}</p>
-      </details>
       <div class="grid min-w-0 gap-2">
         <Button
           type="button"
@@ -184,7 +179,7 @@ onBeforeUnmount(() => {
             maxlength="240"
             rows="3"
             :disabled="busy"
-            class="min-w-0 rounded-md border bg-card px-3 py-2 text-sm"
+            class="min-w-0 border bg-card px-3 py-2 text-sm"
           />
         </label>
         <p v-if="error" role="alert" class="text-sm leading-6 text-destructive">{{ t(error) }}</p>

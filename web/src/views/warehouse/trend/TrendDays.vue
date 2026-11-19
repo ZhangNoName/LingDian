@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { InventoryTrendDay } from '@lingdian/contracts'
-import { Button } from '@lingdian/console-ui/button'
+import { CalendarDays, History } from '@lingdian/icons/web'
+import TableAction from '@/components/table/TableAction.vue'
 import { Table } from '@lingdian/console-ui/table'
 import { useTrendLocale } from './locale'
 defineProps<{ days: InventoryTrendDay[]; unit: string; selectedDate: string; disabled: boolean }>()
@@ -18,7 +19,7 @@ const columns = [
 ] as const
 </script>
 <template>
-  <Table container-class="hidden md:block" tabindex="0" :aria-label="t('table')" class="border-collapse text-start">
+  <Table framed container-class="hidden md:block" tabindex="0" :aria-label="t('table')" class="border-collapse text-start">
     <thead>
       <tr>
         <th>{{ t('date') }}</th>
@@ -30,15 +31,7 @@ const columns = [
     <tbody>
       <tr v-for="row in days" :key="row.date" :class="row.date === selectedDate ? 'bg-muted' : ''">
         <th scope="row">
-          <Button
-            type="button"
-            variant="link"
-            class="h-auto p-0"
-            :disabled="disabled"
-            @click="$emit('select', row)"
-          >
-            {{ row.date }}</Button
-          ><span class="mt-1 block text-xs font-normal text-muted-foreground">{{
+          <span class="break-words font-medium">{{ row.date }}</span><span class="mt-1 block text-xs font-normal text-muted-foreground">{{
             t(row.state === 'RECORDED' ? (row.partial ? 'partial' : 'full') : row.state)
           }}</span>
         </th>
@@ -47,29 +40,35 @@ const columns = [
         </td>
         <td class="tabular-nums">{{ row.state === 'RECORDED' ? row.movementCount : '—' }}</td>
         <td>
-          <Button
-            size="sm"
-            variant="ghost"
-            :aria-label="t('history') + ' ' + row.date"
-            :disabled="disabled || row.state !== 'RECORDED' || !row.movementCount"
-            @click="$emit('history', row)"
-            >{{ t('history') }}</Button
-          >
+          <div class="flex gap-1">
+            <TableAction
+              :icon="CalendarDays"
+              :label="t('select')"
+              :aria-label="`${t('select')} ${row.date}`"
+              :disabled="disabled"
+              @click="$emit('select', row)"
+            />
+            <TableAction
+              :icon="History"
+              :label="t('history')"
+              :aria-label="`${t('history')} ${row.date}`"
+              :disabled="disabled || row.state !== 'RECORDED' || !row.movementCount"
+              @click="$emit('history', row)"
+            />
+          </div>
         </td>
       </tr>
     </tbody>
   </Table>
-  <ul class="grid gap-3 md:hidden">
+  <ul class="table-scroll grid gap-3 md:hidden">
     <li
       v-for="row in days"
       :key="row.date"
-      class="grid min-w-0 gap-3 rounded-md border p-3 text-sm"
+      class="grid min-w-0 gap-3 border p-3 text-sm"
       :class="row.date === selectedDate ? 'bg-muted' : ''"
     >
       <div class="flex flex-wrap items-center justify-between gap-2">
-        <Button type="button" variant="link" class="h-auto p-0" :disabled="disabled" @click="$emit('select', row)">
-          {{ row.date }}</Button
-        ><span class="text-xs text-muted-foreground">{{
+        <span class="break-words font-medium">{{ row.date }}</span><span class="text-xs text-muted-foreground">{{
           t(row.state === 'RECORDED' ? (row.partial ? 'partial' : 'full') : row.state)
         }}</span>
       </div>
@@ -89,28 +88,22 @@ const columns = [
           {{ number(row.countLoss) }}</template
         >
       </p>
-      <Button
-        size="sm"
-        variant="ghost"
-        class="justify-self-end"
-        :disabled="disabled || row.state !== 'RECORDED' || !row.movementCount"
-        :aria-label="t('history') + ' ' + row.date"
-        @click="$emit('history', row)"
-        >{{ t('history') }}</Button
-      >
+      <div class="flex justify-end gap-2">
+        <TableAction
+          :icon="CalendarDays"
+          :label="t('select')"
+          :aria-label="`${t('select')} ${row.date}`"
+          :disabled="disabled"
+          @click="$emit('select', row)"
+        />
+        <TableAction
+          :icon="History"
+          :label="t('history')"
+          :aria-label="`${t('history')} ${row.date}`"
+          :disabled="disabled || row.state !== 'RECORDED' || !row.movementCount"
+          @click="$emit('history', row)"
+        />
+      </div>
     </li>
   </ul>
 </template>
-<style scoped>
-th,
-td {
-  padding: 0.75rem;
-  border-bottom: 1px solid var(--ld-border-default);
-  white-space: nowrap;
-}
-thead th {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--ld-text-muted);
-}
-</style>

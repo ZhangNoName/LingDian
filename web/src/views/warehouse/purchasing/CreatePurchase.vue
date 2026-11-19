@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import MerchantDatePicker from '@/components/MerchantDatePicker.vue'
 import { onBeforeUnmount, ref, watch } from 'vue'
 import type { InventoryItemContract, SupplierRecord, ReplenishmentRow } from '@lingdian/contracts'
 import { Button } from '@lingdian/console-ui/button'
@@ -176,10 +177,7 @@ onBeforeUnmount(() => {
             />
           </label>
           <div class="grid gap-3 sm:grid-cols-2">
-            <label>
-              {{ t('expectedAt') }}
-              <Input v-model="expectedAt" type="date" />
-            </label>
+            <MerchantDatePicker :label="t('expectedAt')" v-model="expectedAt" />
             <label>
               {{ t('note') }}
               <Input v-model="note" maxlength="240" />
@@ -223,7 +221,7 @@ onBeforeUnmount(() => {
           </div>
           <p class="help">{{ t('lookupHint') }}</p>
           <p v-if="finding" role="status" class="help">{{ t('loading') }}</p>
-          <div v-for="line in lines" :key="line.item.id" class="grid gap-3 rounded-md border p-3 sm:grid-cols-2">
+          <div v-for="line in lines" :key="line.item.id" class="grid gap-3 border p-3 sm:grid-cols-2">
             <div class="flex items-center justify-between gap-3 sm:col-span-2">
               <p class="break-words text-sm font-medium">
                 {{ line.item.code }} · {{ line.item.name }} ({{ line.item.unit }})

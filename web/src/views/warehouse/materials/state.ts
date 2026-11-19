@@ -1,3 +1,4 @@
+import { parseTablePageSize } from '@/components/table/page-size'
 import type { LocationQuery } from 'vue-router'
 import type { InventoryLifecycle, InventoryStatus } from '@lingdian/contracts'
 import { activityQuery, defaultActivityState } from '../activity-state'
@@ -6,8 +7,9 @@ export interface StockState {
   status: InventoryStatus | ''
   lifecycle: InventoryLifecycle
   page: number
+  pageSize?: number
 }
-const keys = ['stockKeyword', 'stockStatus', 'stockPage', 'inventoryLifecycle', 'materialId']
+const keys = ['stockKeyword', 'stockStatus', 'stockPage', 'inventoryLifecycle', 'materialId', 'stockPageSize']
 export function materialRecordId(value: unknown): string {
   return typeof value === 'string' && value.trim().length <= 191 && !/[\x00-\x1f\x7f]/.test(value)
     ? value.trim()
@@ -18,7 +20,9 @@ export function parseStockState(query: Record<string, unknown>): StockState {
     query.inventoryLifecycle === 'ARCHIVED' || query.inventoryLifecycle === 'ALL'
       ? query.inventoryLifecycle
       : 'ACTIVE'
+  const pageSize = parseTablePageSize(query.stockPageSize)
   return {
+    ...(pageSize !== 20 ? { pageSize } : {}),
     keyword: typeof query.stockKeyword === 'string' ? query.stockKeyword.trim().slice(0, 120) : '',
     status:
       lifecycle !== 'ARCHIVED' &&
@@ -38,6 +42,7 @@ export function parseStockState(query: Record<string, unknown>): StockState {
 }
 export function stockQuery(state: StockState, id = ''): Record<string, string> {
   return {
+    ...(state.pageSize && state.pageSize !== 20 ? { stockPageSize: String(state.pageSize) } : {}),
     ...(state.keyword ? { stockKeyword: state.keyword } : {}),
     ...(state.status && state.lifecycle !== 'ARCHIVED' ? { stockStatus: state.status } : {}),
     ...(state.page > 1 ? { stockPage: String(state.page) } : {}),

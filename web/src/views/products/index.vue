@@ -1,6 +1,12 @@
 <script setup lang="ts">
+import DataActionButton from '@/components/DataActionButton.vue'
+import TablePagination from '@/components/table/TablePagination.vue'
+import { extendedTablePageSizes } from '@/components/table/page-size'
+import TableAction from '@/components/table/TableAction.vue'
+import { Settings } from '@lingdian/icons/web'
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { Badge } from '@lingdian/console-ui/badge'
 import { Button } from '@lingdian/console-ui/button'
 import { Card } from '@lingdian/console-ui/card'
 import { Input } from '@lingdian/console-ui/input'
@@ -18,7 +24,7 @@ import NewProductDialog from './components/NewProductDialog.vue'
 import CategoryManager from './categories/CategoryManager.vue'
 import { useCatalogLocale } from './catalog-management-locale'
 import ProductConfigDialog from './components/ProductConfigDialog.vue'
-import ProductMetricsGrid from './components/ProductMetricsGrid.vue'
+import SummaryMetrics from '@/components/SummaryMetrics.vue'
 import { useProductLocale } from './use-product-locale'
 import { parseProductState, productListKey, productStateQuery, type ProductFilterState } from './filter-state'
 import type { ProductConfigForm, ProductListRecord, ProductRecord, ProductStats } from './types'
@@ -191,12 +197,11 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section class="grid min-w-0 gap-4" :lang="locale">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <p class="text-sm text-muted-foreground">{{ t('subtitle') }}</p>
-      <div class="flex flex-wrap gap-2"><Button variant="outline" @click="categoriesOpen = true">{{ locale === 'en-US' ? 'Categories' : '分类管理' }}</Button><Button @click="newProductOpen = true">{{ ct('newProduct') }}</Button></div>
+    <div class="flex flex-wrap justify-end gap-2">
+      <Button variant="outline" @click="categoriesOpen = true">{{ locale === 'en-US' ? 'Categories' : '分类管理' }}</Button>
+      <Button @click="newProductOpen = true">{{ ct('newProduct') }}</Button>
     </div>
-    <ProductMetricsGrid :metrics="metrics" />
-    <p class="text-xs text-muted-foreground">{{ t('metricsHint') }}</p>
+    <SummaryMetrics :metrics="metrics" :more-label="t('moreMetrics')" desktop-columns="lg:grid-cols-5" />
     <Card class="gap-0 p-0">
       <div class="flex items-center justify-between gap-3 border-b p-4">
         <Button
@@ -209,7 +214,7 @@ onBeforeUnmount(() => {
           {{ t('filters') }}
         </Button>
         <h2 class="hidden text-sm font-semibold sm:block">{{ t('title') }}</h2>
-        <Button variant="outline" :disabled="loading || dirty" @click="load">{{ t('refresh') }}</Button>
+        <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" />
       </div>
       <form
         id="product-filters"
@@ -243,11 +248,11 @@ onBeforeUnmount(() => {
       <p v-if="loading" role="status" class="p-8 text-center text-sm text-muted-foreground">{{ t('loading') }}</p>
       <div v-else-if="loadError" role="alert" class="p-8 text-sm">
         <p>{{ t('loadFailed') }}</p>
-        <Button variant="outline" class="mt-3" @click="load">{{ t('refresh') }}</Button>
+        <DataActionButton action="refresh" :label="t('refresh')" class="mt-3" @click="load" />
       </div>
       <p v-else-if="!products.length" class="p-8 text-center text-sm text-muted-foreground">{{ t('empty') }}</p>
       <div v-else>
-        <Table container-class="hidden md:block" tabindex="0" :aria-label="t('title')" class="border-collapse text-start">
+        <Table framed container-class="mx-4 mt-4 hidden md:block" tabindex="0" :aria-label="t('title')" class="border-collapse text-start">
           <thead>
             <tr>
               <th>{{ t('product') }}</th>
@@ -264,7 +269,7 @@ onBeforeUnmount(() => {
                 {{ product.name }}
                 <span class="mt-1 block text-xs font-normal text-muted-foreground">{{ product.category }}</span>
               </th>
-              <td>{{ t(product.type) }}</td>
+              <td><Badge variant="outline">{{ t(product.type) }}</Badge></td>
               <td>
                 {{ t(product.status) }}
                 <span
@@ -279,19 +284,14 @@ onBeforeUnmount(() => {
                 {{ product.skus.filter((sku) => sku.is_active).length }} / {{ product.selection_group_count }}
               </td>
               <td>
-                <Button
-                  variant="outline"
-                  size="sm"
+                <TableAction :icon="Settings" :label="t('configure')"
                   :aria-label="`${t('configure')} ${product.name}`"
-                  @click="navigate({ ...state, productId: product.id })"
-                >
-                  {{ t('configure') }}
-                </Button>
+                  @click="navigate({ ...state, productId: product.id })" />
               </td>
             </tr>
           </tbody>
         </Table>
-        <ul class="divide-y md:hidden">
+        <ul class="table-scroll divide-y md:hidden">
           <li v-for="product in products" :key="product.id" class="grid gap-3 p-4 text-sm">
             <div class="flex justify-between gap-3">
               <div class="min-w-0">
@@ -305,57 +305,33 @@ onBeforeUnmount(() => {
             </div>
             <div class="flex items-center justify-between gap-3">
               <strong class="tabular-nums">{{ money(product.price) }}</strong>
-              <Button
-                variant="outline"
-                size="sm"
+              <TableAction :icon="Settings" :label="t('configure')"
                 :aria-label="`${t('configure')} ${product.name}`"
-                @click="navigate({ ...state, productId: product.id })"
-              >
-                {{ t('configure') }}
-              </Button>
+                @click="navigate({ ...state, productId: product.id })" />
             </div>
           </li>
         </ul>
       </div>
       <div
         v-if="!loadError"
-        class="flex flex-wrap items-center justify-between gap-3 border-t p-4 text-sm text-muted-foreground"
+        class="flex flex-wrap items-center justify-between gap-3 border-t p-4 text-sm text-muted-foreground md:border-t-0"
       >
-        <span>{{ total }} {{ t('records') }} · {{ t('page') }} {{ state.page }} / {{ pageCount }}</span>
-        <label>
-          {{ t('pageSize') }}
-          <SelectField
-            :model-value="state.pageSize"
-            :aria-label="t('pageSize')"
-            :disabled="loading || dirty"
-            @update:model-value="navigate({ ...state, page: 1, pageSize: $event })"
-            :options="[20, 50, 100].map((size) => ({ value: size, label: String(size) }))"
-          />
-        </label>
+        <span>{{ total }} {{ t('records') }}</span>
         <div class="flex gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            :disabled="loading || dirty || state.page <= 1"
-            @click="navigate({ ...state, page: state.page - 1 })"
-          >
-            {{ t('previous') }}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            :disabled="loading || dirty || state.page >= pageCount"
-            @click="navigate({ ...state, page: state.page + 1 })"
-          >
-            {{ t('next') }}
-          </Button>
+          <TablePagination
+            :page-size="state.pageSize"
+            @update:page-size="navigate({ ...state, page: 1, pageSize: $event })"
+            :page-sizes="extendedTablePageSizes"
+            :page="state.page"
+            :pages="pageCount"
+            :disabled="loading || dirty"
+            @update:page="navigate({ ...state, page: $event })"
+          />
         </div>
       </div>
     </Card>
-    <footer class="text-xs leading-5 text-muted-foreground">
-      <p>{{ t('stockHint') }}</p>
-      <p>{{ ct('imagesHint') }}</p>
-      <RouterLink class="mt-2 inline-block text-sm text-primary" to="/warehouse?view=recipes">
+    <footer>
+      <RouterLink class="inline-block text-sm text-primary" to="/warehouse?view=recipes">
         {{ t('recipeLink') }}
       </RouterLink>
     </footer>
@@ -377,23 +353,12 @@ onBeforeUnmount(() => {
   </section>
 </template>
 <style scoped>
-label {
+.product-filters label {
   display: grid;
   min-width: 0;
   gap: 0.375rem;
   font-size: 0.75rem;
   color: var(--ld-text-muted);
-}
-th,
-td {
-  padding: 0.875rem 1rem;
-  border-bottom: 1px solid var(--ld-border-default);
-  white-space: nowrap;
-}
-thead th {
-  font-size: 0.75rem;
-  color: var(--ld-text-muted);
-  font-weight: 500;
 }
 @media (max-width: 639px) {
   .product-filters:not([data-open='true']) {

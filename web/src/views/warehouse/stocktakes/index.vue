@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import DataActionButton from '@/components/DataActionButton.vue'
+import TablePagination from '@/components/table/TablePagination.vue'
+import { parseTablePageSize } from '@/components/table/page-size'
+import TableAction from '@/components/table/TableAction.vue'
+import { EyeIcon } from '@lingdian/icons/web'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { StocktakePage, StocktakeStatus } from '@lingdian/contracts'
@@ -24,6 +29,7 @@ const state = computed(() => ({
     status: (['DRAFT', 'POSTED', 'CANCELLED'].includes(String(route.query.stocktakeStatus))
       ? String(route.query.stocktakeStatus)
       : 'ALL') as StocktakeStatus | 'ALL',
+    pageSize: parseTablePageSize(route.query.stocktakePageSize),
     page: Math.min(1000000, Math.max(1, Number.parseInt(String(route.query.stocktakePage ?? 1)) || 1)),
   })),
   id = computed(() => (typeof route.query.stocktakeId === 'string' ? route.query.stocktakeId : ''))
@@ -34,10 +40,10 @@ async function load() {
   loading.value = true
   failed.value = false
   try {
-    const data = await listStocktakes(props.storeId, state.value.page, state.value.keyword, state.value.status)
+    const data = await listStocktakes(props.storeId, state.value.page, state.value.keyword, state.value.status, state.value.pageSize)
     if (current === sequence) {
       result.value = data
-      const last = Math.max(1, Math.ceil(data.total / 20))
+      const last = Math.max(1, Math.ceil(data.total / state.value.pageSize))
       if (state.value.page > last) void navigate(last)
     }
   } catch {
@@ -47,7 +53,7 @@ async function load() {
   }
 }
 watch(
-  () => [props.storeId, state.value.keyword, state.value.status, state.value.page],
+  () => [props.storeId, state.value.keyword, state.value.status, state.value.page, state.value.pageSize],
   () => {
     keyword.value = state.value.keyword
     status.value = state.value.status
@@ -55,12 +61,13 @@ watch(
   },
   { immediate: true },
 )
-function navigate(page = 1) {
+function navigate(page = 1, pageSize = state.value.pageSize) {
   return router.push({
     query: {
       ...route.query,
       stocktakeKeyword: keyword.value.trim() || undefined,
       stocktakeStatus: status.value === 'ALL' ? undefined : status.value,
+      stocktakePageSize: pageSize === 20 ? undefined : String(pageSize),
       stocktakePage: page === 1 ? undefined : String(page),
     },
   })
@@ -84,8 +91,7 @@ onBeforeUnmount(() => {
 <template>
   <section class="grid min-w-0 gap-4 p-4">
     <div class="flex flex-wrap justify-end gap-2">
-      <Button variant="outline" :disabled="loading || filterDirty" @click="load">{{ t('reload') }}</Button
-      ><Button @click="creating = true">{{ t('new') }}</Button>
+      <DataActionButton action="refresh" :label="t('reload')" :disabled="loading || filterDirty" @click="load" /><Button @click="creating = true">{{ t('new') }}</Button>
     </div>
     <form class="flex flex-wrap items-end gap-3" @submit.prevent="search">
       <label class="grow">{{ t('filter') }}<Input v-model="keyword" type="search" maxlength="120" /></label
@@ -101,14 +107,14 @@ onBeforeUnmount(() => {
     <p v-if="loading" role="status" class="help py-8 text-center">{{ t('loading') }}</p>
     <div v-else-if="failed" role="alert">
       <p>{{ t('failed') }}</p>
-      <Button variant="outline" @click="load">{{ t('reload') }}</Button>
+      <DataActionButton action="refresh" :label="t('reload')" @click="load" />
     </div>
     <p v-else-if="!result?.total" class="help py-8 text-center">{{ t('empty') }}</p>
-    <ul v-else class="grid gap-3">
+    <ul v-else class="table-scroll grid gap-3">
       <li
         v-for="row in result.items"
         :key="row.id"
-        class="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3 text-sm"
+        class="flex flex-wrap items-center justify-between gap-3 border p-3 text-sm"
       >
         <div class="min-w-0">
           <strong class="break-words">{{ row.title }}</strong>
@@ -118,24 +124,20 @@ onBeforeUnmount(() => {
             {{ date(row.createdAt) }}
           </p>
         </div>
-        <Button size="sm" variant="outline" :aria-label="`${t('detail')} ${row.title}`" @click="open(row.id)">{{
-          t('detail')
-        }}</Button>
+        <TableAction :icon="EyeIcon" :label="t('detail')" :aria-label="`${t('detail')} ${row.title}`" @click="open(row.id)" />
       </li>
     </ul>
     <div v-if="!loading && !failed" class="flex flex-wrap items-center justify-between gap-2 text-sm">
-      <span>{{ result?.total ?? 0 }} {{ t('total') }} · {{ t('page') }} {{ state.page }}</span>
+      <span>{{ result?.total ?? 0 }} {{ t('total') }}</span>
       <div class="flex gap-2">
-        <Button size="sm" variant="outline" :disabled="filterDirty || state.page <= 1" @click="navigate(state.page - 1)">{{
-          t('previous')
-        }}</Button
-        ><Button
-          size="sm"
-          variant="outline"
-          :disabled="filterDirty || state.page * 20 >= (result?.total ?? 0)"
-          @click="navigate(state.page + 1)"
-          >{{ t('next') }}</Button
-        >
+        <TablePagination
+          :page-size="state.pageSize"
+          @update:page-size="navigate(1, $event)"
+          :page="state.page"
+          :pages="Math.ceil((result?.total ?? 0) / state.pageSize)"
+          :disabled="filterDirty"
+          @update:page="navigate($event)"
+        />
       </div>
     </div>
     <CreateStocktake v-model:open="creating" :store-id="storeId" @saved="created" /><StocktakeDetail

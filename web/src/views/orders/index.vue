@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import MerchantDatePicker from '@/components/MerchantDatePicker.vue'
+import DataActionButton from '@/components/DataActionButton.vue'
+import TablePagination from '@/components/table/TablePagination.vue'
+import { extendedTablePageSizes } from '@/components/table/page-size'
 import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Button } from '@lingdian/console-ui/button'
@@ -9,13 +13,13 @@ import { deleteMerchantOrder, getMerchantOrder, listMerchantOrders, summarizeMer
 import { updateMerchantOrderStatus } from '@/services/orders'
 import OrderList from './components/OrderList.vue'
 import OrderDetailDialog from './components/OrderDetailDialog.vue'
-import OrderMetricsGrid from './components/OrderMetricsGrid.vue'
+import SummaryMetrics from '@/components/SummaryMetrics.vue'
 import { useOrderLocale } from './use-order-locale'
 import { canDeleteOrderStatus, orderStatusActions, statusOptions, orderTypeOptions, paymentChannelOptions } from './order-presentation'
 import { dateInput, orderListFingerprint, orderPeriodForDraft, orderStateQuery, parseOrderState, type OrderFilterState } from './filter-state'
 import type { OrderDetail, OrderListItem, OrderStatus, OrderSummaryResponse, OrderSummaryMetric } from './types'
 import type { OrderMessageKey } from './messages'
-const route = useRoute(), router = useRouter(), { locale, t, status, type, channel, date, money } = useOrderLocale()
+const route = useRoute(), router = useRouter(), { locale, t, status, type, channel, money } = useOrderLocale()
 const state = ref(parseOrderState(route.query)), filters = reactive({ keyword: '', status: '' as OrderFilterState['status'], orderType: '' as OrderFilterState['orderType'], paymentChannel: '' as OrderFilterState['paymentChannel'], from: '', to: '' })
 const listPanel = ref<HTMLElement>()
 const filtersOpen = ref(false), loading = ref(true), error = ref<OrderMessageKey>(), notice = ref<OrderMessageKey>()
@@ -29,7 +33,6 @@ const metrics = computed<OrderSummaryMetric[]>(() => {
   const value = summary.value, valid = !loading.value && !error.value
   return [ ['total', value?.total_count], ['pending', value?.pending_payment_count], ['paid', value?.paid_count], ['refunding', value?.refunding_count], ['refunded', value?.refunded_count], ['amount', value?.total_amount] ].map(([key, count]) => ({ label: t(key as OrderMessageKey), value: valid && typeof count === 'number' ? key === 'amount' ? money(count) : count.toLocaleString(locale.value) : '—', note: '' }))
 })
-const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
 let listSequence = 0, detailSequence = 0, lastList = '', selectedId = '', disposed = false
 async function load() {
   const current = ++listSequence; loading.value = true; error.value = undefined
@@ -96,9 +99,8 @@ onBeforeUnmount(() => { disposed = true; listSequence++; detailSequence++ })
 </script>
 <template>
   <section class="grid min-w-0 gap-4" :lang="locale">
-    <div class="flex flex-wrap items-center justify-between gap-3"><p class="text-sm text-muted-foreground">{{ t('subtitle') }}</p></div>
-    <OrderMetricsGrid :metrics="metrics" :more-label="t('moreSummary')" :hint="t('metricHint')" />
-    <Card class="gap-0 p-0"><div class="flex flex-wrap items-center justify-between gap-3 border-b p-4"><Button class="sm:hidden" variant="outline" aria-controls="order-filters" :aria-expanded="filtersOpen" @click="filtersOpen = !filtersOpen">{{ t('filters') }}</Button><h2 class="hidden font-semibold sm:block">{{ t('filters') }}</h2><div class="flex gap-2"><Button variant="outline" :disabled="loading || dirty" @click="load">{{ t('refresh') }}</Button><Button variant="ghost" :title="t('queryLinkHint')" @click="copyLink">{{ t('copyLink') }}</Button></div></div>
+    <SummaryMetrics :metrics="metrics" :more-label="t('moreSummary')" desktop-columns="xl:grid-cols-6" />
+    <Card class="gap-0 p-0"><div class="flex flex-wrap items-center justify-between gap-3 border-b p-4"><Button class="sm:hidden" variant="outline" aria-controls="order-filters" :aria-expanded="filtersOpen" @click="filtersOpen = !filtersOpen">{{ t('filters') }}</Button><h2 class="hidden font-semibold sm:block">{{ t('filters') }}</h2><div class="flex gap-2"><DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" /><Button variant="ghost" :title="t('queryLinkHint')" @click="copyLink">{{ t('copyLink') }}</Button></div></div>
       <form id="order-filters" :data-open="filtersOpen" class="order-filters flex flex-wrap items-end gap-3 p-4" @submit.prevent="apply">
         <label class="grow sm:grow-0">
           {{ t('search') }}
@@ -137,38 +139,28 @@ onBeforeUnmount(() => { disposed = true; listSequence++; detailSequence++ })
             ]"
           />
         </label>
-        <label>
-          {{ t('from') }}
-          <Input v-model="filters.from" type="date" :required="!!filters.to" />
-        </label>
-        <label>
-          {{ t('to') }}
-          <Input v-model="filters.to" type="date" :required="!!filters.from" :min="filters.from" />
-        </label>
+        <MerchantDatePicker :label="t('from')" v-model="filters.from" :required="!!filters.to" />
+        <MerchantDatePicker :label="t('to')" v-model="filters.to" :required="!!filters.from" :min="filters.from" />
         <Button variant="outline" type="button" :disabled="loading" @click="reset">{{ t('reset') }}</Button>
         <Button type="submit" :disabled="loading">{{ t('apply') }}</Button>
       </form>
-      <p class="border-t px-4 py-2 text-xs text-muted-foreground">{{ t('timeZone') }}: {{ timeZone }}<span v-if="state.startAt"> · {{ t('period') }}: {{ date(state.startAt) }} → {{ date(state.endAt) }}</span></p>
     </Card>
     <p v-if="dirty" role="status" class="text-sm text-amber-800">{{ t('dirty') }}</p><p v-if="notice" role="status" class="text-sm">{{ t(notice) }}</p>
     <div ref="listPanel" class="min-w-0">
       <Card class="min-w-0 gap-0 p-0">
-        <p v-if="loading" role="status" class="p-8 text-center text-sm text-muted-foreground">{{ t('loading') }}</p><div v-else-if="error" role="alert" class="p-8 text-sm"><p>{{ t(error) }}</p><Button variant="outline" class="mt-3" @click="load">{{ t('refresh') }}</Button></div><p v-else-if="!orders.length" class="p-8 text-center text-sm text-muted-foreground">{{ t('empty') }}</p><OrderList v-else :orders="orders" @detail="openDetail" />
-        <div v-if="!error" class="flex flex-wrap items-center justify-between gap-3 border-t p-4 text-sm text-muted-foreground">
-          <span>{{ total.toLocaleString(locale) }} {{ t('records') }} · {{ t('page') }} {{ state.page }} / {{ pageCount }}</span>
-          <label>
-            {{ t('pageSize') }}
-            <SelectField
-              :model-value="state.pageSize"
-              :aria-label="t('pageSize')"
-              :disabled="loading || dirty"
-              :options="[20, 50, 100].map((size) => ({ value: size, label: String(size) }))"
-              @update:model-value="navigate({ ...state, page: 1, pageSize: $event })"
-            />
-          </label>
+        <p v-if="loading" role="status" class="p-8 text-center text-sm text-muted-foreground">{{ t('loading') }}</p><div v-else-if="error" role="alert" class="p-8 text-sm"><p>{{ t(error) }}</p><DataActionButton action="refresh" :label="t('refresh')" class="mt-3" @click="load" /></div><p v-else-if="!orders.length" class="p-8 text-center text-sm text-muted-foreground">{{ t('empty') }}</p><OrderList v-else :orders="orders" @detail="openDetail" />
+        <div v-if="!error" class="flex flex-wrap items-center justify-between gap-3 border-t p-4 text-sm text-muted-foreground md:border-t-0">
+          <span>{{ total.toLocaleString(locale) }} {{ t('records') }}</span>
           <div class="flex gap-2">
-            <Button size="sm" variant="outline" :disabled="loading || dirty || state.page <= 1" @click="navigate({ ...state, page: state.page - 1 })">{{ t('previous') }}</Button>
-            <Button size="sm" variant="outline" :disabled="loading || dirty || state.page >= pageCount" @click="navigate({ ...state, page: state.page + 1 })">{{ t('next') }}</Button>
+            <TablePagination
+              :page-size="state.pageSize"
+              @update:page-size="navigate({ ...state, page: 1, pageSize: $event })"
+              :page-sizes="extendedTablePageSizes"
+              :page="state.page"
+              :pages="pageCount"
+              :disabled="loading || dirty"
+              @update:page="navigate({ ...state, page: $event })"
+            />
           </div>
         </div>
       </Card>
@@ -177,5 +169,5 @@ onBeforeUnmount(() => { disposed = true; listSequence++; detailSequence++ })
   </section>
 </template>
 <style scoped>
-label { display: grid; min-width: 0; gap: .375rem; font-size: .75rem; color: var(--ld-text-muted); } @media (max-width: 639px) { .order-filters:not([data-open="true"]) { display: none; } }
+.order-filters label { display: grid; min-width: 0; gap: .375rem; font-size: .75rem; color: var(--ld-text-muted); } @media (max-width: 639px) { .order-filters:not([data-open="true"]) { display: none; } }
 </style>

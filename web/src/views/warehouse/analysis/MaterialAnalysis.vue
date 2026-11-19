@@ -22,7 +22,7 @@ watch(
 )
 </script>
 <template>
-  <section aria-labelledby="material-analysis-title" class="grid min-w-0 gap-4 rounded-md border p-4">
+  <section aria-labelledby="material-analysis-title" class="grid min-w-0 gap-4 border p-4">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div class="min-w-0">
         <h3
@@ -57,7 +57,7 @@ watch(
             >{{ number(bar.value) }} {{ row.unit }}</strong
           >
         </div>
-        <div aria-hidden="true" class="h-2 overflow-hidden rounded-sm bg-muted">
+        <div aria-hidden="true" class="h-2 overflow-hidden bg-muted">
           <div
             class="h-full"
             :class="bar.key === 'lost' ? 'bg-amber-600' : 'bg-slate-500'"

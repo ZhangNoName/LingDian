@@ -3,3 +3,63 @@
 @import "shadcn-vue/tailwind.css";
 @import "../../theme/console.css";
 @source "../../packages/console-ui/src";
+
+:root {
+  --console-radius-control: 4px;
+  --console-radius-option: 0px;
+  --console-radius-overlay: 6px;
+  --console-radius-panel: 6px;
+  --console-radius-select: 0px;
+  --console-radius-table: 4px;
+  --console-radius-status: 2px;
+  --console-panel-shadow: 0 0 transparent;
+}
+
+@layer components {
+  :where([data-slot="table-container"], .table-scroll) {
+    min-inline-size: 0;
+    max-inline-size: 100%;
+    max-block-size: min(60dvh, 38rem, max(10rem, 100dvh - 23rem));
+    overflow: auto;
+    overscroll-behavior-x: contain;
+  }
+
+  [data-slot="table-container"] > table > thead {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: 1;
+    background: var(--muted);
+  }
+
+  :where([data-slot="table-container"] > table) :where(th, td) {
+    padding: 0.5rem 0.75rem;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+
+  :where([data-slot="table-container"] > table) thead th {
+    height: 2.5rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--foreground);
+    font-weight: 500;
+    text-align: start;
+  }
+
+  :where([data-slot="table-container"] > table) tbody th {
+    text-align: start;
+  }
+
+  :where([data-slot="table-container"] > table) tbody > tr {
+    height: 3rem;
+    border-bottom: 1px solid var(--border);
+    transition: background-color 150ms ease;
+  }
+
+  :where([data-slot="table-container"] > table) tbody > tr:last-child {
+    border-bottom: 0;
+  }
+
+  :where([data-slot="table-container"] > table) tbody > tr:hover {
+    background: color-mix(in oklab, var(--muted) 60%, var(--card));
+  }
+}

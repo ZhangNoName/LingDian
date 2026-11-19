@@ -43,7 +43,7 @@ onBeforeUnmount(() => {
 })
 </script>
 <template>
-  <section class="grid min-w-0 gap-3 rounded-md border p-3">
+  <section class="grid min-w-0 gap-3 border p-3">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <p class="text-sm">
         {{ t('status') }}:
@@ -63,8 +63,7 @@ onBeforeUnmount(() => {
         </Button>
       </div>
     </div>
-    <p class="help">{{ t('statusHint') }}</p>
-    <div v-if="target" class="grid gap-3 rounded-md bg-muted/30 p-3">
+    <div v-if="target" class="grid gap-3 bg-muted/30 p-3">
       <p class="text-sm font-medium">{{ t('statusSelect') }}: {{ t(target) }}</p>
       <p class="help">{{ t(target === 'ACTIVE' ? 'publishHint' : 'unpublishHint') }}</p>
       <RouterLink v-if="target === 'ACTIVE'" class="text-sm text-primary" to="/warehouse?view=recipes">

@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { Button } from '@lingdian/console-ui/button'
+import type { Component } from 'vue'
+import TableAction from '@/components/table/TableAction.vue'
+import { ShoppingCart } from '@lingdian/icons/web'
 import { Table } from '@lingdian/console-ui/table'
 import { usePurchasingLocale } from './locale'
 export interface AnalysisRow {
@@ -10,6 +12,7 @@ export interface AnalysisRow {
   value: string
   action: string
   actionLabel: string
+  actionIcon: Component
   disabled?: boolean
   secondaryAction?: string
   secondaryLabel?: string
@@ -19,7 +22,7 @@ defineEmits<{ action: [string]; secondary: [string] }>()
 const { t } = usePurchasingLocale()
 </script>
 <template>
-  <Table container-class="hidden md:block" class="border-collapse text-start">
+  <Table framed tabindex="0" container-class="hidden md:block" class="border-collapse text-start">
     <thead>
       <tr>
         <th>{{ titleHeading }}</th>
@@ -38,30 +41,22 @@ const { t } = usePurchasingLocale()
         <td class="tabular-nums">{{ row.value }}</td>
         <td>
           <div class="flex flex-wrap justify-end gap-2">
-            <Button
+            <TableAction :icon="ShoppingCart" :label="row.secondaryLabel ?? row.title"
               v-if="row.secondaryAction"
-              size="sm"
               variant="ghost"
               :aria-label="`${row.secondaryLabel} ${row.title}`"
-              @click="$emit('secondary', row.secondaryAction)"
-              >{{ row.secondaryLabel }}</Button
-            >
-            <Button
-              size="sm"
-              variant="outline"
+              @click="$emit('secondary', row.secondaryAction)" />
+            <TableAction :icon="row.actionIcon" :label="row.actionLabel"
               :disabled="row.disabled"
               :aria-label="`${row.actionLabel} ${row.title}`"
-              @click="$emit('action', row.action)"
-            >
-              {{ row.actionLabel }}
-            </Button>
+              @click="$emit('action', row.action)" />
           </div>
         </td>
       </tr>
     </tbody>
   </Table>
-  <ul class="grid gap-3 md:hidden">
-    <li v-for="row in rows" :key="row.key" class="grid gap-2 rounded-md border p-3 text-sm">
+  <ul class="table-scroll grid gap-3 md:hidden">
+    <li v-for="row in rows" :key="row.key" class="grid gap-2 border p-3 text-sm">
       <strong class="break-words">{{ row.title }}</strong>
       <p class="help break-words">{{ row.subtitle }}</p>
       <dl class="grid grid-cols-2 gap-3">
@@ -75,24 +70,16 @@ const { t } = usePurchasingLocale()
         </div>
       </dl>
       <div class="flex flex-wrap justify-end gap-2">
-        <Button
+        <TableAction :icon="ShoppingCart" :label="row.secondaryLabel ?? row.title"
           v-if="row.secondaryAction"
-          size="sm"
           variant="ghost"
           :aria-label="`${row.secondaryLabel} ${row.title}`"
-          @click="$emit('secondary', row.secondaryAction)"
-          >{{ row.secondaryLabel }}</Button
-        >
-        <Button
+          @click="$emit('secondary', row.secondaryAction)" />
+        <TableAction :icon="row.actionIcon" :label="row.actionLabel"
           class="justify-self-end"
-          size="sm"
-          variant="outline"
           :disabled="row.disabled"
           :aria-label="`${row.actionLabel} ${row.title}`"
-          @click="$emit('action', row.action)"
-        >
-          {{ row.actionLabel }}
-        </Button>
+          @click="$emit('action', row.action)" />
       </div>
     </li>
   </ul>

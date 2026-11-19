@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import DataActionButton from '@/components/DataActionButton.vue'
+import TablePagination from '@/components/table/TablePagination.vue'
 import { onBeforeUnmount, ref, watch } from 'vue'
 import type { InventoryUsagePage, InventoryUsageRow, InventoryUsageView } from '@lingdian/contracts'
 import { Button } from '@lingdian/console-ui/button'
@@ -17,6 +19,7 @@ const props = defineProps<{
   emit = defineEmits<{ change: [view: InventoryUsageView, page: number]; inspect: [row: InventoryUsageRow] }>()
 const { t, number, date } = useUsageLocale(),
   data = ref<InventoryUsagePage>(),
+  pageSize = ref(20),
   loading = ref(true),
   failed = ref(false)
 const tabs = ['RECIPES', 'PURCHASES', 'STOCKTAKES'] as const
@@ -28,7 +31,7 @@ async function load() {
   loading.value = true
   failed.value = false
   try {
-    const result = await getInventoryUsage(props.storeId, props.itemId, props.view, props.page)
+    const result = await getInventoryUsage(props.storeId, props.itemId, props.view, props.page, pageSize.value)
     if (token === sequence) {
       data.value = result
       if (result.page !== props.page) emit('change', props.view, result.page)
@@ -39,7 +42,7 @@ async function load() {
     if (token === sequence) loading.value = false
   }
 }
-watch([() => props.itemId, () => props.storeId, () => props.view, () => props.page, () => props.revision], load, {
+watch([() => props.itemId, () => props.storeId, () => props.view, () => props.page, pageSize, () => props.revision], load, {
   immediate: true,
 })
 function exportPage() {
@@ -111,10 +114,6 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section :aria-label="t('title')" class="grid min-w-0 gap-3 border-y py-3">
-    <details class="text-xs leading-5 text-muted-foreground">
-      <summary class="cursor-pointer">{{ t('rules') }}</summary>
-      <p class="mt-2">{{ t('hint') }}</p>
-    </details>
     <div class="flex max-w-full flex-wrap gap-1">
       <Button
         v-for="tab in tabs"
@@ -132,7 +131,7 @@ onBeforeUnmount(() => {
     <p v-if="loading" role="status" class="text-sm text-muted-foreground">{{ t('loading') }}</p>
     <div v-else-if="failed" role="alert" class="grid justify-items-start gap-2 text-sm text-destructive">
       <p>{{ t('failed') }}</p>
-      <Button type="button" size="sm" variant="outline" :disabled="disabled" @click="load">{{ t('refresh') }}</Button>
+      <DataActionButton action="refresh" :label="t('refresh')" size="icon-sm" :disabled="disabled" @click="load" />
     </div>
     <template v-else-if="data"
       ><p v-if="data.unavailableRecipes" role="status" class="text-xs leading-5 text-amber-800">
@@ -143,7 +142,7 @@ onBeforeUnmount(() => {
         <li
           v-for="row in data.items"
           :key="row.kind === 'RECIPES' ? row.skuId : row.kind === 'PURCHASES' ? row.orderId : row.stocktakeId"
-          class="grid min-w-0 gap-2 rounded-md border p-3 text-sm"
+          class="grid min-w-0 gap-2 border p-3 text-sm"
         >
           <template v-if="row.kind === 'RECIPES'"
             ><strong class="break-words">{{ row.productName }} · {{ row.skuName }}</strong>
@@ -178,37 +177,28 @@ onBeforeUnmount(() => {
       </ul>
       <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
         <span
-          >{{ number(data.total) }} {{ t('records') }} · {{ t('page') }} {{ data.page }} /
-          {{ Math.max(1, Math.ceil(data.total / 20)) }}</span
+          >{{ number(data.total) }} {{ t('records') }}</span
         >
         <div class="flex gap-2">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            :disabled="disabled || data.page <= 1"
-            @click="$emit('change', view, data.page - 1)"
-            >{{ t('previous') }}</Button
-          ><Button
-            type="button"
-            size="sm"
-            variant="outline"
-            :disabled="disabled || data.page * 20 >= data.total"
-            @click="$emit('change', view, data.page + 1)"
-            >{{ t('next') }}</Button
-          >
+          <TablePagination
+            :page="data.page"
+            :page-size="pageSize"
+            @update:page-size="pageSize = $event; $emit('change', view, 1)"
+            :pages="Math.ceil(data.total / data.pageSize)"
+            :disabled="disabled"
+            @update:page="$emit('change', view, $event)"
+          />
         </div>
       </div>
       <div class="flex flex-wrap gap-2">
-        <Button type="button" size="sm" variant="ghost" :disabled="disabled" @click="load">{{ t('refresh') }}</Button
-        ><Button
-          type="button"
-          size="sm"
+        <DataActionButton action="refresh" :label="t('refresh')" size="icon-sm" variant="ghost" :disabled="disabled" @click="load" /><DataActionButton
+          action="export"
+          :label="t('export')"
+          size="icon-sm"
           variant="ghost"
           :disabled="disabled || !data.items.length"
           @click="exportPage"
-          >{{ t('export') }}</Button
-        >
+        />
       </div>
       <p class="text-xs text-muted-foreground">{{ t('snapshot') }}: {{ date(data.generatedAt) }}</p></template
     >

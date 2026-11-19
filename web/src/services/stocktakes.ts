@@ -20,9 +20,10 @@ export function listStocktakes(
   page = 1,
   keyword = '',
   status: StocktakeStatus | 'ALL' = 'ALL',
+  pageSize = 20,
 ): Promise<StocktakePage> {
   return requestData(
-    apiUrl(`${base(store)}?${new URLSearchParams({ page: String(page), pageSize: '20', keyword, status })}`),
+    apiUrl(`${base(store)}?${new URLSearchParams({ page: String(page), pageSize: String(pageSize), keyword, status })}`),
   )
 }
 export function getStocktake(store: string, id: string): Promise<StocktakeRecord> {

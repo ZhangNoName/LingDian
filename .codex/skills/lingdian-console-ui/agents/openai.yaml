@@ -1,0 +1,4 @@
+interface:
+  display_name: "LingDian 管理端组件规范"
+  short_description: "按共享 New York v4 规范实现和审查 LingDian 商家端与平台后台组件"
+  default_prompt: "使用 $lingdian-console-ui 检查并按项目组件规范修正这处管理端界面。"

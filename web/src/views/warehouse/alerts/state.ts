@@ -1,18 +1,22 @@
+import { parseTablePageSize } from '@/components/table/page-size'
 import type { LocationQuery } from 'vue-router'
 export interface AlertState {
   status: 'ACTIVE' | 'OPEN' | 'ACKNOWLEDGED' | 'RESOLVED' | 'ALL'
   severity: '' | 'LOW' | 'OUT'
   keyword: string
   page: number
+  pageSize?: number
 }
-const keys = ['alertStatus', 'alertSeverity', 'alertKeyword', 'alertPage', 'alertId']
+const keys = ['alertStatus', 'alertSeverity', 'alertKeyword', 'alertPage', 'alertId', 'alertPageSize']
 export function alertId(value: unknown): string {
   return typeof value === 'string' && value.trim().length <= 191 && !/[\x00-\x1f\x7f]/.test(value)
     ? value.trim()
     : ''
 }
 export function parseAlertState(query: Record<string, unknown>): AlertState {
+  const pageSize = parseTablePageSize(query.alertPageSize)
   return {
+    ...(pageSize !== 20 ? { pageSize } : {}),
     status:
       typeof query.alertStatus === 'string' &&
       ['OPEN', 'ACKNOWLEDGED', 'RESOLVED', 'ALL'].includes(query.alertStatus)
@@ -31,6 +35,7 @@ export function parseAlertState(query: Record<string, unknown>): AlertState {
 }
 export function alertQuery(state: AlertState, id = ''): Record<string, string> {
   return {
+    ...(state.pageSize && state.pageSize !== 20 ? { alertPageSize: String(state.pageSize) } : {}),
     ...(state.status !== 'ACTIVE' ? { alertStatus: state.status } : {}),
     ...(state.severity ? { alertSeverity: state.severity } : {}),
     ...(state.keyword ? { alertKeyword: state.keyword } : {}),

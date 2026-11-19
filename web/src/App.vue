@@ -11,6 +11,6 @@ const route = useRoute(),
   { locale } = useLocale()
 watchEffect(() => {
   document.documentElement.lang = locale.value
-  document.title = pageTitle(route.name, locale.value) + ' · LingDian'
+  document.title = pageTitle(route.name, locale.value, route.query) + ' · LingDian'
 })
 </script>

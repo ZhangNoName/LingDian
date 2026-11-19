@@ -1,3 +1,4 @@
+import { extendedTablePageSizes, parseTablePageSize } from '@/components/table/page-size'
 import { statusOptions, orderTypeOptions, paymentChannelOptions } from './order-presentation'
 import { periodFromDates, dateInput } from '@/views/warehouse/activity-state'
 import type { OrderStatus, OrderType, PaymentChannel } from './types'
@@ -8,7 +9,7 @@ export function parseOrderState(query: Record<string, unknown>): OrderFilterStat
   const instant = (value: unknown) => typeof value === 'string' && /(?:Z|[+-]\d{2}:\d{2})$/.test(value) && Number.isFinite(Date.parse(value)) ? new Date(value).toISOString() : ''
   const startAt = instant(query.startAt), endAt = instant(query.endAt)
   const validPeriod = startAt && endAt && Date.parse(startAt) < Date.parse(endAt) && Date.parse(endAt) - Date.parse(startAt) <= 366 * 86400000
-  return { keyword: text(query.keyword, 120), status: statusOptions.some(option => option.value === query.status) ? query.status as OrderStatus : '', orderType: orderTypeOptions.some(option => option.value === query.orderType) ? query.orderType as OrderType : '', paymentChannel: paymentChannelOptions.some(option => option.value === query.paymentChannel) ? query.paymentChannel as PaymentChannel : '', startAt: validPeriod ? startAt : '', endAt: validPeriod ? endAt : '', page: /^\d+$/.test(String(query.page)) && Number(query.page) >= 1 && Number(query.page) <= 1000000 ? Number(query.page) : 1, pageSize: [20, 50, 100].includes(Number(query.pageSize)) ? Number(query.pageSize) : 20, orderId: text(query.orderId, 191) }
+  return { keyword: text(query.keyword, 120), status: statusOptions.some(option => option.value === query.status) ? query.status as OrderStatus : '', orderType: orderTypeOptions.some(option => option.value === query.orderType) ? query.orderType as OrderType : '', paymentChannel: paymentChannelOptions.some(option => option.value === query.paymentChannel) ? query.paymentChannel as PaymentChannel : '', startAt: validPeriod ? startAt : '', endAt: validPeriod ? endAt : '', page: /^\d+$/.test(String(query.page)) && Number(query.page) >= 1 && Number(query.page) <= 1000000 ? Number(query.page) : 1, pageSize: parseTablePageSize(query.pageSize, 20, extendedTablePageSizes), orderId: text(query.orderId, 191) }
 }
 export function orderStateQuery(state: OrderFilterState): Record<string, string> {
   const query: Record<string, string> = {}

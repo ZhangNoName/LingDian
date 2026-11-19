@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import DataActionButton from '@/components/DataActionButton.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { InventoryAlertRecord } from '@lingdian/contracts'
 import { Button } from '@lingdian/console-ui/button'
@@ -136,12 +137,12 @@ onBeforeUnmount(() => {
       <p v-if="loading" role="status" class="text-sm text-muted-foreground">{{ t('loading') }}</p>
       <div v-else-if="failed" role="alert" class="grid justify-items-start gap-3 text-sm text-destructive">
         <p>{{ t('detailFailure') }}</p>
-        <Button variant="outline" @click="load(true)">{{ t('readLatest') }}</Button>
+        <DataActionButton action="refresh" :label="t('readLatest')" @click="load(true)" />
       </div>
       <template v-else-if="row">
         <p v-if="recorded" role="status" class="text-sm text-emerald-700">{{ t('saved') }}</p>
         <p v-if="reloaded" role="status" class="text-sm text-muted-foreground">{{ t('readDone') }}</p>
-        <div class="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm">
+        <div class="flex flex-wrap items-center justify-between gap-2 border p-3 text-sm">
           <span>{{ t(stateKey[row.status]) }} · {{ t(row.severity === 'OUT' ? 'out' : 'low') }}</span
           ><span class="font-mono text-xs text-muted-foreground">{{ row.code }}</span>
         </div>
@@ -172,8 +173,7 @@ onBeforeUnmount(() => {
           >
         </dl>
         <div class="flex flex-wrap justify-end gap-2">
-          <Button variant="outline" :disabled="busy" @click="load(true)">{{ t('readLatest') }}</Button
-          ><Button variant="outline" :disabled="busy" @click="stock">{{ t('viewStock') }}</Button
+          <DataActionButton action="refresh" :label="t('readLatest')" :disabled="busy" @click="load(true)" /><Button variant="outline" :disabled="busy" @click="stock">{{ t('viewStock') }}</Button
           ><Button v-if="row.status !== 'RESOLVED'" variant="outline" :disabled="busy" @click="replenish">{{
             t('viewReplenishment')
           }}</Button>

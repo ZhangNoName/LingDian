@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import DataActionButton from '@/components/DataActionButton.vue'
+import TablePagination from '@/components/table/TablePagination.vue'
 import { onBeforeUnmount, ref, watch } from 'vue'
 import type { InventoryMaterialChangeKind, InventoryMaterialChangePage } from '@lingdian/contracts'
-import { Button } from '@lingdian/console-ui/button'
 import { SelectField } from '@lingdian/console-ui/select'
 import { useLocale } from '@/i18n/locale'
 import { inventoryMaterialChanges } from '@/services/inventory'
@@ -19,6 +20,7 @@ const props = defineProps<{
 const { locale } = useLocale(),
   { t } = useMaterialProfileLocale()
 const result = ref<InventoryMaterialChangePage>(),
+  pageSize = ref(20),
   loading = ref(true),
   failed = ref(false)
 const kinds = ['ALL', 'NAME', 'ARCHIVE', 'RESTORE'] as const
@@ -31,7 +33,7 @@ async function load() {
   loading.value = true
   failed.value = false
   try {
-    const data = await inventoryMaterialChanges(props.storeId, props.itemId, props.kind, props.page)
+    const data = await inventoryMaterialChanges(props.storeId, props.itemId, props.kind, props.page, pageSize.value)
     if (
       data.storeId !== props.storeId ||
       data.item.id !== props.itemId ||
@@ -49,7 +51,7 @@ async function load() {
   }
 }
 watch(
-  [() => props.storeId, () => props.itemId, () => props.kind, () => props.page, () => props.revision],
+  [() => props.storeId, () => props.itemId, () => props.kind, () => props.page, pageSize, () => props.revision],
   load,
   { immediate: true },
 )
@@ -82,7 +84,6 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section class="grid min-w-0 gap-3 border-y py-3" :aria-label="t('history')">
-    <p class="text-xs leading-5 text-muted-foreground">{{ t('historyHint') }}</p>
     <div class="flex flex-wrap items-center justify-between gap-2">
       <label class="grid gap-1 text-xs text-muted-foreground"
         >{{ t('filter')
@@ -93,19 +94,19 @@ onBeforeUnmount(() => {
           @update:model-value="$emit('change', $event, 1)"
           :options="kinds.map((value) => ({ value, label: t(value) }))"
         /></label
-      ><Button
-        type="button"
+      ><DataActionButton
+        action="export"
+        :label="t('export')"
         variant="ghost"
-        size="sm"
+        size="icon-sm"
         :disabled="loading || failed || !result?.items.length"
         @click="exportPage"
-        >{{ t('export') }}</Button
-      >
+      />
     </div>
     <p v-if="loading" role="status" class="text-sm text-muted-foreground">{{ t('loading') }}</p>
     <div v-else-if="failed" role="alert" class="grid justify-items-start gap-2 text-sm text-destructive">
       <p>{{ t('historyFailure') }}</p>
-      <Button type="button" variant="outline" size="sm" @click="load">{{ t('refresh') }}</Button>
+      <DataActionButton action="refresh" :label="t('refresh')" size="icon-sm" @click="load" />
     </div>
     <template v-else-if="result"
       ><p v-if="!result.items.length" class="py-2 text-sm text-muted-foreground">{{ t('empty') }}</p>
@@ -113,7 +114,7 @@ onBeforeUnmount(() => {
         <li
           v-for="row in result.items"
           :key="row.id"
-          class="grid min-w-0 gap-2 rounded-md border p-3 text-sm"
+          class="grid min-w-0 gap-2 border p-3 text-sm"
         >
           <div class="flex flex-wrap justify-between gap-2">
             <strong>{{ t(row.kind) }}</strong
@@ -133,30 +134,21 @@ onBeforeUnmount(() => {
       </ol>
       <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
         <span
-          >{{ result.total.toLocaleString(locale) }} {{ t('records') }} · {{ t('page') }} {{ result.page }} /
-          {{ Math.max(1, Math.ceil(result.total / 20)) }}</span
+          >{{ result.total.toLocaleString(locale) }} {{ t('records') }}</span
         >
         <div class="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            :disabled="result.page <= 1"
-            @click="$emit('change', kind, result.page - 1)"
-            >{{ t('previous') }}</Button
-          ><Button
-            type="button"
-            variant="outline"
-            size="sm"
-            :disabled="result.page * 20 >= result.total"
-            @click="$emit('change', kind, result.page + 1)"
-            >{{ t('next') }}</Button
-          >
+          <TablePagination
+            :page="result.page"
+            :page-size="pageSize"
+            @update:page-size="pageSize = $event; $emit('change', kind, 1)"
+            :pages="Math.ceil(result.total / result.pageSize)"
+            @update:page="$emit('change', kind, $event)"
+          />
         </div>
       </div>
       <div class="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
         <span>{{ t('snapshot') }}: {{ date(result.generatedAt) }}</span
-        ><Button type="button" variant="ghost" size="sm" @click="load">{{ t('refresh') }}</Button>
+        ><DataActionButton action="refresh" :label="t('refresh')" variant="ghost" size="icon-sm" @click="load" />
       </div>
     </template>
   </section>

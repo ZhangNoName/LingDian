@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { InventoryItemContract, InventoryStatus } from '@lingdian/contracts'
-import { Button } from '@lingdian/console-ui/button'
+import { CircleAlert, CircleCheck, CircleX, EyeIcon, History, Pencil } from '@lingdian/icons/web'
+import { Badge } from '@lingdian/console-ui/badge'
+import TableAction from '@/components/table/TableAction.vue'
 import { Table } from '@lingdian/console-ui/table'
 import { useLocale } from '@/i18n/locale'
 import { useLifecycleLocale } from '../lifecycle/locale'
@@ -17,12 +19,14 @@ const { locale } = useLocale(),
   { t: mt } = useMaterialLocale()
 const t = (key: MessageKey) => (locale.value === 'en-US' ? en : zh)[key]
 const statusKey: Record<InventoryStatus, MessageKey> = { HEALTHY: 'healthy', LOW: 'low', OUT: 'out' }
+const statusIcon = { HEALTHY: CircleCheck, LOW: CircleAlert, OUT: CircleX }
+const statusColor = { HEALTHY: 'text-emerald-600', LOW: 'text-amber-600', OUT: 'text-destructive' }
 const number = (value: number) => value.toLocaleString(locale.value, { maximumFractionDigits: 3 })
 const date = (value: string) =>
   new Intl.DateTimeFormat(locale.value, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value))
 </script>
 <template>
-  <Table container-class="hidden md:block" tabindex="0" :aria-label="t('inventory')" class="border-collapse text-start">
+  <Table framed container-class="mx-4 mt-4 hidden md:block" tabindex="0" :aria-label="t('inventory')" class="border-collapse text-start">
     <thead>
       <tr>
         <th>{{ t('name') }}</th>
@@ -38,19 +42,17 @@ const date = (value: string) =>
     <tbody>
       <tr v-for="item in items" :key="item.id">
         <th scope="row">
-          <Button
-            type="button"
-            variant="link"
-            class="h-auto whitespace-normal break-words p-0 text-left focus-visible:underline"
-            :aria-label="`${mt('more')} ${item.name}`"
-            @click="$emit('detail', item)"
-          >
-            {{ item.name }}</Button
-          ><span class="mt-1 block font-mono text-xs font-normal text-muted-foreground">{{
+          <span class="break-words font-medium">{{ item.name }}</span><span class="mt-1 block font-mono text-xs font-normal text-muted-foreground">{{
             item.code
           }}</span>
         </th>
-        <td>{{ item.isActive === false ? lt('ARCHIVED') : t(statusKey[item.status]) }}</td>
+        <td>
+          <Badge v-if="item.isActive === false" variant="outline">{{ lt('ARCHIVED') }}</Badge>
+          <span v-else class="inline-flex items-center gap-2">
+            <component :is="statusIcon[item.status]" :class="statusColor[item.status]" class="size-3.5" aria-hidden="true" />
+            {{ t(statusKey[item.status]) }}
+          </span>
+        </td>
         <td>{{ number(item.quantity) }} {{ item.unit }}</td>
         <td>{{ number(item.reservedQuantity ?? 0) }}</td>
         <td class="font-medium">{{ number(item.availableQuantity ?? item.quantity) }}</td>
@@ -58,37 +60,34 @@ const date = (value: string) =>
         <td class="text-xs text-muted-foreground">{{ date(item.updatedAt) }}</td>
         <td>
           <div class="flex gap-1">
-            <Button
+            <TableAction
+              :icon="EyeIcon"
+              :label="mt('more')"
+              :aria-label="`${mt('more')} ${item.name}`"
+              @click="$emit('detail', item)"
+            />
+            <TableAction
               v-if="item.isActive !== false"
-              variant="outline"
-              size="sm"
+              :icon="Pencil"
+              :label="t('adjust')"
               :aria-label="`${t('adjust')} ${item.name}`"
               @click="$emit('edit', item)"
-              >{{ t('adjust') }}</Button
-            ><Button
-              variant="ghost"
-              size="sm"
+            />
+            <TableAction
+              :icon="History"
+              :label="t('records')"
               :aria-label="`${t('records')} ${item.name}`"
               @click="$emit('history', item.id)"
-              >{{ t('records') }}</Button
-            >
+            />
           </div>
         </td>
       </tr>
     </tbody>
   </Table>
-  <ul class="grid gap-3 p-4 md:hidden">
-    <li v-for="item in items" :key="item.id" class="grid min-w-0 gap-3 rounded-md border p-3 text-sm">
+  <ul class="table-scroll grid gap-3 p-4 md:hidden">
+    <li v-for="item in items" :key="item.id" class="grid min-w-0 gap-3 border p-3 text-sm">
       <div class="flex flex-wrap items-start justify-between gap-2">
-        <Button
-          type="button"
-          variant="link"
-          class="h-auto min-w-0 shrink whitespace-normal break-words p-0 text-left focus-visible:underline"
-          :aria-label="`${mt('more')} ${item.name}`"
-          @click="$emit('detail', item)"
-        >
-          {{ item.name }}</Button
-        ><span class="text-xs text-muted-foreground">{{
+        <span class="break-words font-medium">{{ item.name }}</span><span class="text-xs text-muted-foreground">{{
           item.isActive === false ? lt('ARCHIVED') : t(statusKey[item.status])
         }}</span>
       </div>
@@ -110,34 +109,26 @@ const date = (value: string) =>
         {{ t('threshold') }}: {{ number(item.reorderPoint) }} · {{ t('updated') }}: {{ date(item.updatedAt) }}
       </p>
       <div class="flex justify-end gap-2">
-        <Button
+        <TableAction
+          :icon="EyeIcon"
+          :label="mt('more')"
+          :aria-label="`${mt('more')} ${item.name}`"
+          @click="$emit('detail', item)"
+        />
+        <TableAction
           v-if="item.isActive !== false"
-          size="sm"
-          variant="outline"
+          :icon="Pencil"
+          :label="t('adjust')"
           :aria-label="`${t('adjust')} ${item.name}`"
           @click="$emit('edit', item)"
-          >{{ t('adjust') }}</Button
-        ><Button
-          size="sm"
-          variant="ghost"
+        />
+        <TableAction
+          :icon="History"
+          :label="t('records')"
           :aria-label="`${t('records')} ${item.name}`"
           @click="$emit('history', item.id)"
-          >{{ t('records') }}</Button
-        >
+        />
       </div>
     </li>
   </ul>
 </template>
-<style scoped>
-th,
-td {
-  padding: 0.875rem 1rem;
-  border-bottom: 1px solid var(--ld-border-default);
-  white-space: nowrap;
-}
-thead th {
-  font-size: 0.75rem;
-  font-weight: 500;
-  color: var(--ld-text-muted);
-}
-</style>

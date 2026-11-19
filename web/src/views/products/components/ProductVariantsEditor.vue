@@ -34,7 +34,7 @@ function selectDefault(value: unknown) {
       <div
         v-for="(variant, index) in modelValue"
         :key="variant.id ?? index"
-        class="grid gap-3 rounded-md border p-3 sm:grid-cols-3"
+        class="grid gap-3 border p-3 sm:grid-cols-3"
       >
         <label>
           {{ t('variantName') }} {{ index + 1 }}

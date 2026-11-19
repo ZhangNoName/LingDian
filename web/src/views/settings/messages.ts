@@ -2,12 +2,9 @@ import { useLocale } from '@/i18n/locale'
 const zh = {
   notAvailable: '未接入',
   account: '账号与偏好',
-  accountHint: '管理个人显示名称与登录密码。界面语言可在顶部切换。',
   nickname: '设置昵称',
   password: '修改密码',
   integrations: '外部系统集成',
-  description: '为当前门店启用收银、小票和外卖连接。实际投递状态请联系管理员核对。',
-  scope: '配置仅影响当前选择的授权门店，切店后会重新读取。',
   refresh: '刷新',
   loading: '正在读取集成配置…',
   failed: '集成配置读取失败，请重试。',
@@ -22,26 +19,18 @@ const zh = {
   notConfigured: '连接尚未配置完成，请联系管理员。',
   saving: '正在保存…',
   storeMismatch: '配置与当前门店不匹配，请刷新或联系管理员。',
-  switchHint: '开启后将参与订单同步；关闭不会撤销已经投递的记录。',
   CASHIER: '收银系统',
   RECEIPT_PRINTER: '小票打印',
   MEITUAN_WAIMAI: '美团外卖',
   JD_DAOJIA: '京东到家',
-  cashierHint: '将门店订单同步到已接入的收银系统。',
-  printerHint: '将订单发送到已接入的小票打印设备。',
-  deliveryHint: '通过已接入的外卖服务处理门店订单。',
 } as const
 export type SettingsKey = keyof typeof zh
 const en: Record<SettingsKey, string> = {
   notAvailable: 'Not set up',
   account: 'Account & preferences',
-  accountHint: 'Manage your display name and password. Change the interface language in the header.',
   nickname: 'Nickname',
   password: 'Change password',
   integrations: 'External integrations',
-  description:
-    'Enable connected point of sale, receipt printing or delivery services for this store. Ask your administrator to check delivery status.',
-  scope: 'Settings apply to the selected authorized store and reload when you switch stores.',
   refresh: 'Refresh',
   loading: 'Loading integration settings…',
   failed: 'Could not load integrations. Please retry.',
@@ -56,15 +45,10 @@ const en: Record<SettingsKey, string> = {
   notConfigured: 'Setup is incomplete. Contact your administrator.',
   saving: 'Saving…',
   storeMismatch: 'These settings do not match the selected store. Refresh or contact your administrator.',
-  switchHint:
-    'Enabled services participate in order synchronization. Disabling a service does not undo previously delivered records.',
   CASHIER: 'Point of sale',
   RECEIPT_PRINTER: 'Receipt printer',
   MEITUAN_WAIMAI: 'Meituan delivery',
   JD_DAOJIA: 'JD Daojia',
-  cashierHint: 'Send store orders to the connected point of sale system.',
-  printerHint: 'Send orders to the connected receipt printer.',
-  deliveryHint: 'Handle store orders through the connected delivery service.',
 }
 export function useSettingsLocale() {
   const { locale } = useLocale()

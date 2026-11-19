@@ -17,5 +17,8 @@ test('name writes require text, explicit versions and reasons; history has bound
   assert.equal(validateSync(body).length, 0); assert.equal(body.name, 'Whole milk'); assert.equal(body.reason, 'Correct spelling');
   for (const patch of [{ name: '' }, { name: ' ' }, { name: ['name'] }, { name: 'x'.repeat(121) }, { expectedVersion: '0' }, { expectedVersion: -1 }, { expectedVersion: 1.5 }, { reason: ' ' }, { reason: 'x'.repeat(241) }]) assert.ok(validateSync(plainToInstance(RenameInventoryMaterialDto, { ...input, ...patch })).length);
   assert.deepEqual(Object.assign({}, plainToInstance(InventoryMaterialChangesDto, {})), { kind: 'ALL', page: 1 });
-  for (const query of [{ kind: ['NAME'] }, { kind: 'AUTH_LOGIN' }, { page: 0 }, { page: [2] }, { page: 1000001 }]) assert.ok(validateSync(plainToInstance(InventoryMaterialChangesDto, query)).length);
+  const sized = plainToInstance(InventoryMaterialChangesDto, { pageSize: '10' });
+  assert.equal(sized.pageSize, 10);
+  assert.equal(validateSync(sized).length, 0);
+  for (const query of [{ pageSize: 0 }, { pageSize: 51 }, { pageSize: [20] }, { kind: ['NAME'] }, { kind: 'AUTH_LOGIN' }, { page: 0 }, { page: [2] }, { page: 1000001 }]) assert.ok(validateSync(plainToInstance(InventoryMaterialChangesDto, query)).length);
 });

@@ -12,7 +12,7 @@ function updateLocale(value: unknown) {
 </script>
 <template>
   <Select :model-value="locale" @update:model-value="updateLocale">
-    <SelectTrigger class="w-[180px] max-w-full" :aria-label="label">
+    <SelectTrigger class="max-w-full" :aria-label="label">
       <SelectValue />
     </SelectTrigger>
     <SelectContent>

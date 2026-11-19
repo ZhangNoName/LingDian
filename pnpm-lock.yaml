@@ -223,6 +223,9 @@ importers:
 
   packages/console-ui:
     dependencies:
+      '@internationalized/date':
+        specifier: 3.12.2
+        version: 3.12.2
       '@lingdian/icons':
         specifier: workspace:*
         version: link:../icons

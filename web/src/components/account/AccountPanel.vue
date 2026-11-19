@@ -2,7 +2,7 @@
 import { Card } from '@lingdian/console-ui/card'
 import LanguageSelect from '@/components/LanguageSelect.vue'
 import { useAccountLocale } from '@/i18n/account'
-defineProps<{ title: string; description: string; publicPage?: boolean }>()
+defineProps<{ title: string; description?: string; publicPage?: boolean }>()
 const { t, locale } = useAccountLocale()
 </script>
 <template>
@@ -19,7 +19,7 @@ const { t, locale } = useAccountLocale()
         <LanguageSelect />
       </div>
       <component :is="publicPage ? 'h1' : 'h2'" class="break-words text-xl font-semibold">{{ title }}</component>
-      <p class="mt-2 text-sm leading-6 text-muted-foreground">{{ description }}</p>
+      <p v-if="description" class="mt-2 text-sm leading-6 text-muted-foreground">{{ description }}</p>
       <div class="mt-6"><slot /></div>
     </Card>
   </component>

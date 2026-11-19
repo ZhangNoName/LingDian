@@ -160,6 +160,5 @@ function inspect(event: MouseEvent) {
         "
         @update:model-value="select"
     /></label>
-    <p class="text-xs leading-5 text-muted-foreground">{{ t('lineHint') }}</p>
   </figure>
 </template>

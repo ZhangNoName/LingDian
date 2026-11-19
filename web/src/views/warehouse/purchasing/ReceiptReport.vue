@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import MerchantDatePicker from '@/components/MerchantDatePicker.vue'
+import DataActionButton from '@/components/DataActionButton.vue'
+import TablePagination from '@/components/table/TablePagination.vue'
+import { EyeIcon, Filter } from '@lingdian/icons/web'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { PurchaseReceiptReport, PurchaseReportFilter } from '@lingdian/contracts'
@@ -23,6 +27,7 @@ const state = computed(() => receiptState(route.query)),
   keyword = ref(''),
   loading = ref(true),
   error = ref<Key>(),
+  pageSize = ref(20),
   page = ref(1),
   group = ref<'suppliers' | 'materials' | 'lines'>('suppliers'),
   filtersOpen = ref(false)
@@ -31,8 +36,7 @@ const dirty = computed(
       from.value !== dateInput(new Date(state.value.startAt)) ||
       to.value !== lastDate(state.value.endAt) ||
       keyword.value.trim() !== (state.value.keyword ?? ''),
-  ),
-  zone = Intl.DateTimeFormat().resolvedOptions().timeZone
+  )
 function lastDate(value: string) {
   return dateInput(new Date(Date.parse(value) - 1))
 }
@@ -48,6 +52,7 @@ const display = computed<AnalysisRow[]>(() => {
       value: money(row.totalCostCents),
       action: 'supplier:' + row.supplierId,
       actionLabel: t('focus'),
+      actionIcon: Filter,
     }))
   if (group.value === 'materials')
     return data.materials.map((row) => ({
@@ -58,6 +63,7 @@ const display = computed<AnalysisRow[]>(() => {
       value: money(row.totalCostCents),
       action: 'item:' + row.itemId,
       actionLabel: t('focus'),
+      actionIcon: Filter,
     }))
   return data.rows.map((row) => ({
     key: row.receiptId + ':' + row.itemId,
@@ -67,10 +73,11 @@ const display = computed<AnalysisRow[]>(() => {
     value: money(row.costCents),
     action: 'order:' + row.orderId,
     actionLabel: t('details'),
+    actionIcon: EyeIcon,
   }))
 })
-const visible = computed(() => display.value.slice((page.value - 1) * 20, page.value * 20)),
-  pages = computed(() => Math.max(1, Math.ceil(display.value.length / 20)))
+const visible = computed(() => display.value.slice((page.value - 1) * pageSize.value, page.value * pageSize.value)),
+  pages = computed(() => Math.max(1, Math.ceil(display.value.length / pageSize.value)))
 let sequence = 0
 async function load() {
   const current = ++sequence
@@ -198,14 +205,13 @@ onBeforeUnmount(() => {
         {{ t('filters') }}
       </Button>
       <div class="ml-auto flex gap-2">
-        <Button variant="outline" :disabled="loading || dirty" @click="load">{{ t('refresh') }}</Button>
-        <Button
-          variant="outline"
+        <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" />
+        <DataActionButton
+          action="export"
+          :label="t('exportSnapshot')"
           :disabled="loading || dirty || !!error || !report?.rows.length"
           @click="exportSnapshot"
-        >
-          {{ t('exportSnapshot') }}
-        </Button>
+        />
       </div>
     </div>
     <form
@@ -214,14 +220,8 @@ onBeforeUnmount(() => {
       class="analysis-filters flex flex-wrap items-end gap-3"
       @submit.prevent="apply"
     >
-      <label>
-        {{ t('from') }}
-        <Input v-model="from" type="date" required />
-      </label>
-      <label>
-        {{ t('to') }}
-        <Input v-model="to" type="date" required />
-      </label>
+      <MerchantDatePicker :label="t('from')" v-model="from" required />
+      <MerchantDatePicker :label="t('to')" v-model="to" required />
       <label class="grow">
         {{ t('search') }}
         <Input v-model="keyword" type="search" maxlength="120" />
@@ -229,11 +229,6 @@ onBeforeUnmount(() => {
       <Button type="button" variant="outline" :disabled="loading" @click="reset">{{ t('reset') }}</Button>
       <Button type="submit" :disabled="loading">{{ t('apply') }}</Button>
     </form>
-    <details class="help">
-      <summary class="cursor-pointer">{{ t('reportScope') }}</summary>
-      <p class="mt-2">{{ t('reportHint') }}</p>
-      <p class="mt-2 break-all">{{ zone }} · {{ state.startAt }} → {{ state.endAt }}</p>
-    </details>
     <div v-if="state.supplierId || state.itemId" class="flex flex-wrap items-center gap-2 text-sm">
       <span>{{ t('filterActive') }}</span>
       <Button size="sm" variant="outline" @click="navigate({ ...state, supplierId: undefined, itemId: undefined })">
@@ -244,10 +239,10 @@ onBeforeUnmount(() => {
     <p v-if="loading" role="status" class="help py-6 text-center">{{ t('loading') }}</p>
     <div v-else-if="error" role="alert">
       <p class="error">{{ t(error) }}</p>
-      <Button variant="outline" @click="load">{{ t('refresh') }}</Button>
+      <DataActionButton action="refresh" :label="t('refresh')" @click="load" />
     </div>
     <template v-else-if="report && !dirty">
-      <dl class="grid grid-cols-3 gap-3">
+      <dl class="grid grid-cols-3 divide-x border">
         <div
           v-for="metric in [
             { key: 'totalCost' as const, value: money(report.summary.totalCostCents) },
@@ -255,7 +250,7 @@ onBeforeUnmount(() => {
             { key: 'distinctOrders' as const, value: number(report.summary.orderCount) },
           ]"
           :key="metric.key"
-          class="min-w-0 rounded-md border p-3"
+          class="min-w-0 p-3"
         >
           <dt class="help">{{ t(metric.key) }}</dt>
           <dd class="mt-2 break-words text-lg font-semibold tabular-nums">{{ metric.value }}</dd>
@@ -281,13 +276,17 @@ onBeforeUnmount(() => {
         @action="action"
       />
       <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
-        <span>{{ display.length }} {{ t('records') }} · {{ t('page') }} {{ page }} / {{ pages }}</span>
+        <span>{{ display.length }} {{ t('records') }}</span>
         <div class="flex gap-2">
-          <Button size="sm" variant="outline" :disabled="page <= 1" @click="page--">{{ t('previous') }}</Button>
-          <Button size="sm" variant="outline" :disabled="page >= pages" @click="page++">{{ t('next') }}</Button>
+          <TablePagination
+            :page="page"
+            :page-size="pageSize"
+            @update:page-size="pageSize = $event; page = 1"
+            :pages="pages"
+            @update:page="page = $event"
+          />
         </div>
       </div>
-      <p class="help">{{ t('generatedAt') }}: {{ date(report.generatedAt) }} · {{ t('snapshotHint') }}</p>
     </template>
   </section>
 </template>

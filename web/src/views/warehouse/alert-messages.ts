@@ -1,7 +1,6 @@
 export const alertZh = {
   filters: '筛选',
   hideFilters: '收起筛选',
-  rules: '预警与导出说明',
   exportScope: '仅导出当前筛选的本页记录；分页结果会随业务变化。',
   alertIdentifier: '预警编号',
   materialIdentifier: '原料编号',
@@ -15,7 +14,6 @@ export const alertZh = {
   viewReplenishment: '查看补货',
   viewStock: '查看库存',
   title: '预警中心',
-  hint: '按可用库存提醒；可用库存高于当前阈值或原料停用时解除，确认跟进不会解除。',
   active: '处理中',
   open: '待跟进',
   acknowledged: '已跟进',
@@ -77,7 +75,6 @@ export type AlertMessageKey = keyof typeof alertZh
 export const alertEn: Record<AlertMessageKey, string> = {
   filters: 'Filters',
   hideFilters: 'Hide filters',
-  rules: 'Alert and export details',
   exportScope: 'Exports this page of the applied filters only. Results may change between pages.',
   alertIdentifier: 'Alert ID',
   materialIdentifier: 'Material ID',
@@ -91,7 +88,6 @@ export const alertEn: Record<AlertMessageKey, string> = {
   viewReplenishment: 'View replenishment',
   viewStock: 'View stock',
   title: 'Stock alerts',
-  hint: 'Based on available stock. Acknowledgement does not resolve an alert. Resolved when available stock exceeds the current threshold or the material is archived.',
   active: 'Active',
   open: 'Needs follow-up',
   acknowledged: 'Acknowledged',

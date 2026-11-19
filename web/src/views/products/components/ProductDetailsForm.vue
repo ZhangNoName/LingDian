@@ -189,11 +189,10 @@ onBeforeUnmount(() => {
           ]"
         />
       </label>
-      <p class="help">{{ t('categoriesHint') }}</p>
       <Button type="button" class="justify-self-start" variant="outline" @click="newCategory = !newCategory">
         {{ t('addCategory') }}
       </Button>
-      <div v-if="newCategory" class="flex items-end gap-2 rounded-md border p-3">
+      <div v-if="newCategory" class="flex items-end gap-2 border p-3">
         <label class="grow">
           {{ t('categoryName') }}
           <Input v-model="categoryName" maxlength="120" @keydown.enter.prevent="addCategory" />

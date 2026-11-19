@@ -1,7 +1,6 @@
 export const zh = {
   title: '商品与菜单',
   filters: '商品筛选',
-  subtitle: '维护规格、价格与顾客可选项',
   language: '语言',
   search: '搜索商品、分类或规格',
   type: '商品类型',
@@ -18,7 +17,6 @@ export const zh = {
   packages: '套餐',
   variantsCount: '规格数',
   groupsCount: '选择组数',
-  metricsHint: '当前门店全部商品，不随列表筛选变化。',
   moreMetrics: '规格与选项汇总',
   product: '商品',
   category: '分类',
@@ -104,7 +102,6 @@ export type ProductMessageKey = keyof typeof zh
 export const en: Record<ProductMessageKey, string> = {
   title: 'Products & menu',
   filters: 'Product filters',
-  subtitle: 'Manage variants, prices and customer choices',
   language: 'Language',
   search: 'Search product, category or variant',
   type: 'Product type',
@@ -121,7 +118,6 @@ export const en: Record<ProductMessageKey, string> = {
   packages: 'Packages',
   variantsCount: 'Variants',
   groupsCount: 'Choice groups',
-  metricsHint: 'All products in the selected store, independent of list filters.',
   moreMetrics: 'Variant and choice totals',
   product: 'Product',
   category: 'Category',

@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import MerchantDatePicker from '@/components/MerchantDatePicker.vue'
+import DataActionButton from '@/components/DataActionButton.vue'
+import TablePagination from '@/components/table/TablePagination.vue'
+import TableAction from '@/components/table/TableAction.vue'
+import { EyeIcon, Pencil } from '@lingdian/icons/web'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { PurchaseDeliveryFilter, PurchaseRecord, SupplierRecord, ReplenishmentRow } from '@lingdian/contracts'
@@ -6,6 +11,7 @@ import { Button } from '@lingdian/console-ui/button'
 import { Input } from '@lingdian/console-ui/input'
 import { SelectField } from '@lingdian/console-ui/select'
 import { Table } from '@lingdian/console-ui/table'
+import { useWarehouseViewLock } from '@/config/warehouse-view-lock'
 import { purchaseList, supplierList } from '@/services/purchasing'
 import { downloadCsv } from '../report'
 import { dateInput } from '../activity-state'
@@ -53,7 +59,7 @@ const id = computed(() => (typeof route.query.purchaseId === 'string' ? route.qu
   pendingMaterial = computed(() =>
     orders.value.flatMap((order) => order.lines).find((line) => line.itemId === pendingItemId.value),
   ),
-  pageCount = computed(() => Math.max(1, Math.ceil(total.value / 20))),
+  pageCount = computed(() => Math.max(1, Math.ceil(total.value / (listState.value.pageSize ?? 20)))),
   dirty = computed(
     () =>
       keyword.value.trim() !== applied.value ||
@@ -62,6 +68,8 @@ const id = computed(() => (typeof route.query.purchaseId === 'string' ? route.qu
           delivery.value !== listState.value.delivery ||
           (delivery.value === 'BEFORE' && before.value !== dateInput(new Date(listState.value.expectedBefore))))),
   )
+useWarehouseViewLock(() => loading.value || dirty.value)
+
 const statusLabel = (value: PurchasingListState['status']) =>
   t(value === 'ACTIVE' ? 'active' : value === 'ALL' ? 'all' : value)
 const deliveryKey = (value: PurchaseDeliveryFilter): Key =>
@@ -89,10 +97,10 @@ async function load() {
       ? await purchaseList(props.storeId, state.page, state.keyword, state.status, pendingItemId.value, {
           delivery: state.delivery,
           ...(state.delivery === 'BEFORE' ? { expectedBefore: state.expectedBefore } : {}),
-        })
-      : await supplierList(props.storeId, state.page, state.keyword)
+        }, state.pageSize)
+      : await supplierList(props.storeId, state.page, state.keyword, false, state.pageSize)
     if (current !== sequence) return
-    const last = Math.max(1, Math.ceil(result.total / 20))
+    const last = Math.max(1, Math.ceil(result.total / (state.pageSize ?? 20)))
     if (state.page > last) {
       await navigate({ ...state, page: last }, true)
       return
@@ -139,17 +147,6 @@ watch(
 watch(delivery, (value) => {
   if (value !== 'ALL') status.value = 'ACTIVE'
 })
-function switchView(next: 'orders' | 'suppliers' | 'report' | 'replenishment') {
-  void router.push({
-    query: {
-      ...route.query,
-      purchaseView: next === 'orders' ? undefined : next,
-      purchaseId: undefined,
-      pendingItemId: undefined,
-    },
-  })
-  saved.value = false
-}
 function showPending(itemId: string) {
   void router.push({
     query: {
@@ -187,7 +184,7 @@ async function search() {
   }
 }
 function resetFilters() {
-  const state = parseListState({}, view.value === 'suppliers', !!pendingItemId.value, new Date())
+  const state = { ...parseListState({}, view.value === 'suppliers', !!pendingItemId.value), pageSize: listState.value.pageSize }
   keyword.value = ''
   status.value = 'ACTIVE'
   delivery.value = 'ALL'
@@ -264,55 +261,18 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section class="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 p-4">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <div class="flex min-w-0 max-w-full flex-nowrap gap-1 overflow-x-auto [&>button]:shrink-0">
-        <Button
-          :variant="view === 'orders' ? 'secondary' : 'ghost'"
-          :disabled="loading || dirty"
-          :aria-pressed="view === 'orders'"
-          @click="switchView('orders')"
-        >
-          {{ t('orders') }}
-        </Button>
-        <Button
-          :variant="view === 'suppliers' ? 'secondary' : 'ghost'"
-          :disabled="loading || dirty"
-          :aria-pressed="view === 'suppliers'"
-          @click="switchView('suppliers')"
-        >
-          {{ t('suppliers') }}
-        </Button>
-        <Button
-          :variant="view === 'report' ? 'secondary' : 'ghost'"
-          :disabled="loading || dirty"
-          :aria-pressed="view === 'report'"
-          @click="switchView('report')"
-        >
-          {{ t('receiptReport') }}
-        </Button>
-        <Button
-          :variant="view === 'replenishment' ? 'secondary' : 'ghost'"
-          :disabled="loading || dirty"
-          :aria-pressed="view === 'replenishment'"
-          @click="switchView('replenishment')"
-        >
-          {{ t('replenishment') }}
-        </Button>
-      </div>
-      <div v-if="view === 'orders' || view === 'suppliers'" class="flex flex-wrap gap-2">
-        <Button variant="outline" :disabled="loading" @click="load">{{ t('refresh') }}</Button>
-        <Button
-          v-if="view === 'orders'"
-          variant="outline"
-          :disabled="loading || failed || !orders.length || dirty"
-          @click="exportPage"
-        >
-          {{ t('export') }}
-        </Button>
-        <Button @click="view === 'orders' ? createOrder() : edit()">
-          {{ t(view === 'orders' ? 'newOrder' : 'newSupplier') }}
-        </Button>
-      </div>
+    <div v-if="view === 'orders' || view === 'suppliers'" class="flex flex-wrap justify-end gap-2">
+      <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading" @click="load" />
+      <DataActionButton
+        action="export"
+        :label="t('export')"
+        v-if="view === 'orders'"
+        :disabled="loading || failed || !orders.length || dirty"
+        @click="exportPage"
+      />
+      <Button @click="view === 'orders' ? createOrder() : edit()">
+        {{ t(view === 'orders' ? 'newOrder' : 'newSupplier') }}
+      </Button>
     </div>
     <ReceiptReport
       v-if="view === 'report'"
@@ -330,17 +290,13 @@ onBeforeUnmount(() => {
       @pending="showPending"
     />
     <template v-else>
-      <div v-if="view === 'orders' && pendingItemId" class="grid gap-2 rounded-md border p-3 text-sm">
+      <div v-if="view === 'orders' && pendingItemId" class="grid gap-2 border p-3 text-sm">
         <p class="font-medium">
           {{ t('pendingFilter')
           }}<span v-if="!loading && !failed && pendingMaterial">
             · {{ pendingMaterial.itemName }} ({{ pendingMaterial.itemCode }})</span
           >
         </p>
-        <details class="help">
-          <summary class="cursor-pointer">{{ t('pendingScope') }}</summary>
-          <p class="mt-2">{{ t('pendingFilterHint') }}</p>
-        </details>
         <div class="flex flex-wrap gap-2">
           <Button size="sm" variant="outline" :disabled="dirty || loading" @click="backToPlan">{{
             t('backToPlan')
@@ -399,9 +355,7 @@ onBeforeUnmount(() => {
             ]"
           /></label
         >
-        <label v-if="view === 'orders' && delivery === 'BEFORE'"
-          >{{ t('exclusiveBefore') }}<Input v-model="before" type="date" required
-        /></label>
+        <MerchantDatePicker v-if="view === 'orders' && delivery === 'BEFORE'" :label="t('exclusiveBefore')" v-model="before" required />
         <Button type="submit" variant="outline" :disabled="loading">{{ t('find') }}</Button
         ><Button type="button" variant="ghost" :disabled="loading" @click="resetFilters">{{ t('reset') }}</Button>
       </form>
@@ -413,23 +367,15 @@ onBeforeUnmount(() => {
           · {{ date(listState.expectedBefore) }} ({{ timeZone }}) · {{ t('cutoffHint') }}</template
         ><template v-if="applied"> · {{ applied }}</template>
       </p>
-      <details v-if="view === 'orders' && listState.delivery !== 'ALL'" class="help">
-        <summary class="cursor-pointer">{{ t('deliveryRules') }}</summary>
-        <template v-if="listState.delivery === 'BEFORE'"
-          ><p class="mt-2 break-all">{{ listState.expectedBefore }} · {{ timeZone }}</p>
-          <p class="mt-2">{{ t('cutoffExplanation') }}</p></template
-        >
-        <p class="mt-2">{{ t('deliveryHint') }}</p>
-      </details>
       <p v-if="saved" role="status" class="text-sm text-emerald-700">{{ t('saved') }}</p>
       <p v-if="loading" role="status" class="help py-6 text-center">{{ t('loading') }}</p>
       <div v-else-if="failed" role="alert">
         <p>{{ t('failed') }}</p>
-        <Button variant="outline" @click="load">{{ t('refresh') }}</Button>
+        <DataActionButton action="refresh" :label="t('refresh')" @click="load" />
       </div>
       <p v-else-if="!total" class="help py-8 text-center">{{ t('empty') }}</p>
       <template v-else-if="view === 'orders'">
-        <Table container-class="hidden md:block" class="border-collapse text-start">
+        <Table framed tabindex="0" container-class="hidden md:block" class="border-collapse text-start">
           <thead>
             <tr>
               <th>{{ t('orderNo') }}</th>
@@ -454,21 +400,16 @@ onBeforeUnmount(() => {
               <td>{{ date(order.expectedAt) }}</td>
               <td v-if="pendingItemId">{{ outstanding(order) }}</td>
               <td>
-                <Button
-                  variant="outline"
-                  size="sm"
+                <TableAction :icon="EyeIcon" :label="t('details')"
                   :disabled="dirty || loading"
                   :aria-label="`${t('details')} ${order.orderNo}`"
-                  @click="open(order.id)"
-                >
-                  {{ t('details') }}
-                </Button>
+                  @click="open(order.id)" />
               </td>
             </tr>
           </tbody>
         </Table>
-        <ul class="grid gap-3 md:hidden">
-          <li v-for="order in orders" :key="order.id" class="grid gap-3 rounded-md border p-3 text-sm">
+        <ul class="table-scroll grid gap-3 md:hidden">
+          <li v-for="order in orders" :key="order.id" class="grid gap-3 border p-3 text-sm">
             <div class="flex justify-between gap-3">
               <strong class="min-w-0 break-words">{{ order.orderNo }}</strong>
               <span class="shrink-0">{{ t(order.status) }}</span>
@@ -482,51 +423,42 @@ onBeforeUnmount(() => {
             </p>
             <div class="flex items-center justify-between gap-3">
               <span class="help">{{ date(order.createdAt) }}</span>
-              <Button
-                size="sm"
-                variant="outline"
+              <TableAction :icon="EyeIcon" :label="t('details')"
                 :disabled="dirty || loading"
                 :aria-label="`${t('details')} ${order.orderNo}`"
-                @click="open(order.id)"
-              >
-                {{ t('details') }}
-              </Button>
+                @click="open(order.id)" />
             </div>
           </li>
         </ul>
       </template>
-      <ul v-else class="grid gap-3 sm:grid-cols-2">
-        <li v-for="record in suppliers" :key="record.id" class="grid gap-2 rounded-md border p-3 text-sm">
+      <ul v-else class="table-scroll grid gap-3 sm:grid-cols-2">
+        <li v-for="record in suppliers" :key="record.id" class="grid gap-2 border p-3 text-sm">
           <div class="flex justify-between gap-3">
             <strong class="break-words">{{ record.name }}</strong>
             <span v-if="!record.isActive" class="help">{{ t('disabled') }}</span>
           </div>
           <p class="help break-words">{{ record.code }} · {{ record.contact }}</p>
           <p v-if="record.note" class="help break-words">{{ record.note }}</p>
-          <Button
+          <TableAction :icon="Pencil" :label="t('edit')"
             class="justify-self-end"
-            size="sm"
-            variant="outline"
             :aria-label="`${t('edit')} ${record.name}`"
-            @click="edit(record)"
-          >
-            {{ t('edit') }}
-          </Button>
+            @click="edit(record)" />
         </li>
       </ul>
       <div v-if="!loading && !failed" class="flex flex-wrap items-center justify-between gap-3 border-t pt-3 text-sm">
-        <span>{{ total }} {{ t('records') }} · {{ t('page') }} {{ page }} / {{ pageCount }}</span>
+        <span>{{ total }} {{ t('records') }}</span>
         <div class="flex gap-2">
-          <Button size="sm" variant="outline" :disabled="loading || page <= 1 || dirty" @click="go(page - 1)">
-            {{ t('previous') }}
-          </Button>
-          <Button size="sm" variant="outline" :disabled="loading || page >= pageCount || dirty" @click="go(page + 1)">
-            {{ t('next') }}
-          </Button>
+          <TablePagination
+            :page-size="listState.pageSize ?? 20"
+            @update:page-size="navigate({ ...listState, page: 1, pageSize: $event })"
+            :page="page"
+            :pages="pageCount"
+            :disabled="loading || dirty"
+            @update:page="go($event)"
+          />
         </div>
       </div>
     </template>
-    <p class="help">{{ t('scopeHint') }}</p>
     <SupplierEditor v-model:open="supplierOpen" :store-id="storeId" :supplier="selectedSupplier" @saved="onSaved" />
     <CreatePurchase v-model:open="newOrder" :store-id="storeId" :seed-item="seedItem" @saved="created" />
     <PurchaseDetail v-if="id" :id="id" :store-id="storeId" @close="open('')" @saved="onSaved" />

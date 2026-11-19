@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import DataActionButton from '@/components/DataActionButton.vue'
+import TablePagination from '@/components/table/TablePagination.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { InventoryItemContract, InventoryPage, InventoryStatus } from '@lingdian/contracts'
@@ -48,7 +50,7 @@ const dirty = computed(
     status.value !== state.value.status ||
     scope.value !== state.value.lifecycle,
 )
-const pages = computed(() => Math.max(1, Math.ceil((inventory.value?.total ?? 0) / 20)))
+const pages = computed(() => Math.max(1, Math.ceil((inventory.value?.total ?? 0) / (state.value.pageSize ?? 20))))
 const statusKey: Record<InventoryStatus, MessageKey> = { HEALTHY: 'healthy', LOW: 'low', OUT: 'out' }
 const filterSummary = computed(() =>
   [
@@ -74,13 +76,13 @@ async function load() {
   try {
     const result = await listInventory(props.storeId, {
       page: snapshot.page,
-      pageSize: 20,
+      pageSize: snapshot.pageSize ?? 20,
       keyword: snapshot.keyword,
       status: snapshot.status || undefined,
       lifecycle: snapshot.lifecycle,
     })
     if (token !== sequence) return
-    const last = Math.max(1, Math.ceil(result.total / 20))
+    const last = Math.max(1, Math.ceil(result.total / (snapshot.pageSize ?? 20)))
     if (snapshot.page > last) {
       await navigate({ ...snapshot, page: last }, id.value, true)
       return
@@ -118,6 +120,7 @@ async function apply() {
     status: scope.value === 'ARCHIVED' ? ('' as const) : status.value,
     lifecycle: scope.value,
     page: 1,
+    pageSize: state.value.pageSize,
   }
   if (canonicalStock(route.query, next, id.value)) await load()
   else await navigate(next)
@@ -127,7 +130,7 @@ function clear() {
   status.value = ''
   scope.value = 'ACTIVE'
   filtersOpen.value = false
-  const next = parseStockState({})
+  const next = { ...parseStockState({}), pageSize: state.value.pageSize }
   if (canonicalStock(route.query, next, '')) void load()
   else void navigate(next, '')
 }
@@ -206,7 +209,7 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section class="min-w-0">
-    <div class="grid grid-cols-3 gap-3 border-b p-4" :aria-label="mt('summary')">
+    <div class="grid grid-cols-3 gap-2 border-b px-4 py-3" :aria-label="mt('summary')">
       <Button
         type="button"
         variant="ghost"
@@ -216,7 +219,7 @@ onBeforeUnmount(() => {
           { key: 'out' as const, value: inventory?.summary.out, status: 'OUT' as const },
         ]"
         :key="metric.key"
-        class="block h-auto min-w-0 whitespace-normal rounded-md p-2 text-left"
+        class="block h-auto min-w-0 whitespace-normal p-2 text-left"
         :class="state.lifecycle === 'ACTIVE' && state.status === metric.status ? 'bg-muted' : ''"
         :aria-pressed="state.lifecycle === 'ACTIVE' && state.status === metric.status"
         :disabled="loading"
@@ -230,7 +233,6 @@ onBeforeUnmount(() => {
         }}</strong>
       </Button>
     </div>
-    <p class="px-4 pt-2 text-xs text-muted-foreground">{{ mt('summary') }}</p>
     <p v-if="notice" role="status" class="px-4 pt-3 text-sm text-emerald-700">{{ t('saved') }}</p>
     <div class="flex flex-wrap gap-2 px-4 py-3 md:hidden">
       <Button
@@ -240,8 +242,7 @@ onBeforeUnmount(() => {
         aria-controls="stock-list-filters"
         @click="filtersOpen = !filtersOpen"
         >{{ mt(filtersOpen ? 'hideFilters' : 'showFilters') }}</Button
-      ><Button size="sm" variant="ghost" :disabled="loading || dirty" @click="load">{{ t('refresh') }}</Button
-      ><Button size="sm" :disabled="loading || failed" @click="edit()">{{ t('newItem') }}</Button>
+      ><DataActionButton action="refresh" :label="t('refresh')" size="icon-sm" variant="ghost" :disabled="loading || dirty" @click="load" /><Button size="sm" :disabled="loading || failed" @click="edit()">{{ t('newItem') }}</Button>
       <p v-if="filterSummary" class="w-full break-words text-xs text-muted-foreground">{{ filterSummary }}</p>
     </div>
     <form
@@ -278,14 +279,14 @@ onBeforeUnmount(() => {
         /></label
       ><Button type="submit" variant="outline" :disabled="loading">{{ t('searchButton') }}</Button
       ><Button type="button" variant="ghost" :disabled="loading" @click="clear">{{ t('clear') }}</Button
-      ><Button
-        type="button"
+      ><DataActionButton
+        action="refresh"
+        :label="t('refresh')"
         variant="ghost"
         class="hidden md:inline-flex"
         :disabled="loading || dirty"
         @click="load"
-        >{{ t('refresh') }}</Button
-      ><Button
+      /><Button
         type="button"
         class="hidden md:ml-auto md:inline-flex"
         :disabled="loading || failed"
@@ -299,13 +300,14 @@ onBeforeUnmount(() => {
       <span
         >{{ lt(state.lifecycle) }} · {{ loading || failed ? '—' : number(inventory?.total ?? 0) }}
         {{ t('total') }}</span
-      ><Button
+      ><DataActionButton
+        action="export"
+        :label="t('export')"
         variant="ghost"
-        size="sm"
+        size="icon-sm"
         :disabled="loading || failed || dirty || !inventory?.total"
         @click="exportPage"
-        >{{ t('export') }}</Button
-      >
+      />
     </div>
     <p v-if="dirty" role="status" class="border-b px-4 py-2 text-xs text-amber-800">{{ t('unapplied') }}</p>
     <p v-if="loading" role="status" class="p-8 text-center text-sm text-muted-foreground">
@@ -313,7 +315,7 @@ onBeforeUnmount(() => {
     </p>
     <div v-else-if="failed" role="alert" class="grid justify-items-start gap-3 p-8 text-sm text-destructive">
       <p>{{ t('loadFailed') }}</p>
-      <Button variant="outline" @click="load">{{ t('refresh') }}</Button>
+      <DataActionButton action="refresh" :label="t('refresh')" @click="load" />
     </div>
     <div
       v-else-if="!inventory?.total"
@@ -345,23 +347,17 @@ onBeforeUnmount(() => {
     />
     <div
       v-if="!loading && !failed"
-      class="flex flex-wrap items-center justify-between gap-3 border-t p-4 text-sm text-muted-foreground"
+      class="flex flex-wrap items-center justify-end gap-3 p-4 text-sm text-muted-foreground"
     >
-      <span>{{ t('page') }} {{ state.page }} / {{ pages }}</span>
-      <div class="flex gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          :disabled="dirty || state.page <= 1"
-          @click="navigate({ ...state, page: state.page - 1 })"
-          >{{ t('previous') }}</Button
-        ><Button
-          size="sm"
-          variant="outline"
-          :disabled="dirty || state.page >= pages"
-          @click="navigate({ ...state, page: state.page + 1 })"
-          >{{ t('next') }}</Button
-        >
+      <div class="ml-auto flex gap-2">
+        <TablePagination
+          :page-size="state.pageSize ?? 20"
+          @update:page-size="navigate({ ...state, page: 1, pageSize: $event })"
+          :page="state.page"
+          :pages="pages"
+          :disabled="dirty"
+          @update:page="navigate({ ...state, page: $event })"
+        />
       </div>
     </div>
     <MaterialDetail
