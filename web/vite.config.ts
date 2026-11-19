@@ -54,6 +54,7 @@ export default defineConfig({
     },
   },
   resolve: {
+    dedupe: ['vue'],
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@theme': path.resolve(__dirname, '../theme'),

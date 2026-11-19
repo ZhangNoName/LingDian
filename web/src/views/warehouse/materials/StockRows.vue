@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { InventoryItemContract, InventoryStatus } from '@lingdian/contracts'
-import { Button } from '@/baseComponents/button'
+import { Button } from '@lingdian/console-ui/button'
+import { Table } from '@lingdian/console-ui/table'
 import { useLocale } from '@/i18n/locale'
 import { useLifecycleLocale } from '../lifecycle/locale'
 import { en, zh, type MessageKey } from '../messages'
@@ -21,70 +22,72 @@ const date = (value: string) =>
   new Intl.DateTimeFormat(locale.value, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value))
 </script>
 <template>
-  <div class="hidden overflow-x-auto md:block" tabindex="0" :aria-label="t('inventory')">
-    <table>
-      <thead>
-        <tr>
-          <th>{{ t('name') }}</th>
-          <th>{{ t('status') }}</th>
-          <th>{{ t('quantity') }}</th>
-          <th>{{ t('reserved') }}</th>
-          <th>{{ t('available') }}</th>
-          <th>{{ t('threshold') }}</th>
-          <th>{{ t('updated') }}</th>
-          <th>{{ t('actions') }}</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="item in items" :key="item.id">
-          <th scope="row">
-            <button
-              class="break-words text-left font-medium text-primary underline-offset-4 hover:underline focus-visible:underline"
-              :aria-label="`${mt('more')} ${item.name}`"
-              @click="$emit('detail', item)"
+  <Table container-class="hidden md:block" tabindex="0" :aria-label="t('inventory')" class="border-collapse text-start">
+    <thead>
+      <tr>
+        <th>{{ t('name') }}</th>
+        <th>{{ t('status') }}</th>
+        <th>{{ t('quantity') }}</th>
+        <th>{{ t('reserved') }}</th>
+        <th>{{ t('available') }}</th>
+        <th>{{ t('threshold') }}</th>
+        <th>{{ t('updated') }}</th>
+        <th>{{ t('actions') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr v-for="item in items" :key="item.id">
+        <th scope="row">
+          <Button
+            type="button"
+            variant="link"
+            class="h-auto whitespace-normal break-words p-0 text-left focus-visible:underline"
+            :aria-label="`${mt('more')} ${item.name}`"
+            @click="$emit('detail', item)"
+          >
+            {{ item.name }}</Button
+          ><span class="mt-1 block font-mono text-xs font-normal text-muted-foreground">{{
+            item.code
+          }}</span>
+        </th>
+        <td>{{ item.isActive === false ? lt('ARCHIVED') : t(statusKey[item.status]) }}</td>
+        <td>{{ number(item.quantity) }} {{ item.unit }}</td>
+        <td>{{ number(item.reservedQuantity ?? 0) }}</td>
+        <td class="font-medium">{{ number(item.availableQuantity ?? item.quantity) }}</td>
+        <td>{{ number(item.reorderPoint) }}</td>
+        <td class="text-xs text-muted-foreground">{{ date(item.updatedAt) }}</td>
+        <td>
+          <div class="flex gap-1">
+            <Button
+              v-if="item.isActive !== false"
+              variant="outline"
+              size="sm"
+              :aria-label="`${t('adjust')} ${item.name}`"
+              @click="$emit('edit', item)"
+              >{{ t('adjust') }}</Button
+            ><Button
+              variant="ghost"
+              size="sm"
+              :aria-label="`${t('records')} ${item.name}`"
+              @click="$emit('history', item.id)"
+              >{{ t('records') }}</Button
             >
-              {{ item.name }}</button
-            ><span class="mt-1 block font-mono text-xs font-normal text-muted-foreground">{{
-              item.code
-            }}</span>
-          </th>
-          <td>{{ item.isActive === false ? lt('ARCHIVED') : t(statusKey[item.status]) }}</td>
-          <td>{{ number(item.quantity) }} {{ item.unit }}</td>
-          <td>{{ number(item.reservedQuantity ?? 0) }}</td>
-          <td class="font-medium">{{ number(item.availableQuantity ?? item.quantity) }}</td>
-          <td>{{ number(item.reorderPoint) }}</td>
-          <td class="text-xs text-muted-foreground">{{ date(item.updatedAt) }}</td>
-          <td>
-            <div class="flex gap-1">
-              <Button
-                v-if="item.isActive !== false"
-                variant="outline"
-                size="sm"
-                :aria-label="`${t('adjust')} ${item.name}`"
-                @click="$emit('edit', item)"
-                >{{ t('adjust') }}</Button
-              ><Button
-                variant="ghost"
-                size="sm"
-                :aria-label="`${t('records')} ${item.name}`"
-                @click="$emit('history', item.id)"
-                >{{ t('records') }}</Button
-              >
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+          </div>
+        </td>
+      </tr>
+    </tbody>
+  </Table>
   <ul class="grid gap-3 p-4 md:hidden">
     <li v-for="item in items" :key="item.id" class="grid min-w-0 gap-3 rounded-md border p-3 text-sm">
       <div class="flex flex-wrap items-start justify-between gap-2">
-        <button
-          class="min-w-0 break-words text-left font-medium text-primary underline-offset-4 hover:underline"
+        <Button
+          type="button"
+          variant="link"
+          class="h-auto min-w-0 shrink whitespace-normal break-words p-0 text-left focus-visible:underline"
           :aria-label="`${mt('more')} ${item.name}`"
           @click="$emit('detail', item)"
         >
-          {{ item.name }}</button
+          {{ item.name }}</Button
         ><span class="text-xs text-muted-foreground">{{
           item.isActive === false ? lt('ARCHIVED') : t(statusKey[item.status])
         }}</span>
@@ -126,12 +129,6 @@ const date = (value: string) =>
   </ul>
 </template>
 <style scoped>
-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: start;
-  font-size: 0.875rem;
-}
 th,
 td {
   padding: 0.875rem 1rem;

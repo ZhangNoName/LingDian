@@ -1,17 +1,29 @@
 <script setup lang="ts">
-import { computed, ref, useId } from 'vue'
-import { useElementSize } from '@vueuse/core'
+import { RangeInput } from '@lingdian/console-ui/input'
+import { computed, onBeforeUnmount, ref, useId } from 'vue'
+import { useResizeObserver } from '@vueuse/core'
 import type { InventoryTrendDay } from '@lingdian/contracts'
 import { trendGeometry } from './model'
 import { useTrendLocale } from './locale'
 const props = defineProps<{ days: InventoryTrendDay[]; selected: number; unit: string; disabled: boolean }>(),
   emit = defineEmits<{ select: [index: number] }>()
 const root = ref<HTMLElement>(),
-  { width } = useElementSize(root),
+  width = ref(0),
   { t, number, day, axis } = useTrendLocale(),
   id = useId()
 const graph = computed(() => trendGeometry(props.days, width.value || 300)),
   current = computed(() => props.days[props.selected])
+let resizeFrame = 0
+useResizeObserver(root, ([entry]) => {
+  if (!entry) return
+  cancelAnimationFrame(resizeFrame)
+  const nextWidth = entry.contentRect.width
+  if (nextWidth === width.value) return
+  resizeFrame = requestAnimationFrame(() => {
+    width.value = nextWidth
+  })
+})
+onBeforeUnmount(() => cancelAnimationFrame(resizeFrame))
 function select(index: number) {
   if (!props.disabled && Number.isFinite(index))
     emit('select', Math.max(0, Math.min(props.days.length - 1, Math.round(index))))
@@ -136,20 +148,17 @@ function inspect(event: MouseEvent) {
     </svg>
     <label class="grid gap-2 text-xs text-muted-foreground"
       >{{ t('select')
-      }}<input
-        type="range"
-        min="0"
+      }}<RangeInput
         :max="Math.max(0, days.length - 1)"
-        step="1"
-        :value="selected"
+        :aria-label="t('select')"
+        :model-value="selected"
         :disabled="disabled"
         :aria-valuetext="
           current
             ? `${current.date} · ${current.state === 'RECORDED' ? t('availableClosing') + ': ' + number(current.availableClosing) + ' ' + unit : t(current.state)}`
             : ''
         "
-        class="h-8 w-full accent-primary"
-        @input="select(($event.target as HTMLInputElement).valueAsNumber)"
+        @update:model-value="select"
     /></label>
     <p class="text-xs leading-5 text-muted-foreground">{{ t('lineHint') }}</p>
   </figure>

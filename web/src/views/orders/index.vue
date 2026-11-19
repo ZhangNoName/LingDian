@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Button } from '@/baseComponents/button'
+import { Button } from '@lingdian/console-ui/button'
+import { Card } from '@lingdian/console-ui/card'
+import { Input } from '@lingdian/console-ui/input'
+import { SelectField } from '@lingdian/console-ui/select'
 import { deleteMerchantOrder, getMerchantOrder, listMerchantOrders, summarizeMerchantOrders } from '@/services/orders'
 import { updateMerchantOrderStatus } from '@/services/orders'
 import OrderList from './components/OrderList.vue'
@@ -95,17 +98,84 @@ onBeforeUnmount(() => { disposed = true; listSequence++; detailSequence++ })
   <section class="grid min-w-0 gap-4" :lang="locale">
     <div class="flex flex-wrap items-center justify-between gap-3"><p class="text-sm text-muted-foreground">{{ t('subtitle') }}</p></div>
     <OrderMetricsGrid :metrics="metrics" :more-label="t('moreSummary')" :hint="t('metricHint')" />
-    <div class="rounded-lg border bg-card"><div class="flex flex-wrap items-center justify-between gap-3 border-b p-4"><Button class="sm:hidden" variant="outline" aria-controls="order-filters" :aria-expanded="filtersOpen" @click="filtersOpen = !filtersOpen">{{ t('filters') }}</Button><h2 class="hidden font-semibold sm:block">{{ t('filters') }}</h2><div class="flex gap-2"><Button variant="outline" :disabled="loading || dirty" @click="load">{{ t('refresh') }}</Button><Button variant="ghost" :title="t('queryLinkHint')" @click="copyLink">{{ t('copyLink') }}</Button></div></div>
-      <form id="order-filters" :data-open="filtersOpen" class="order-filters flex flex-wrap items-end gap-3 p-4" @submit.prevent="apply"><label class="grow sm:grow-0">{{ t('search') }}<input v-model="filters.keyword" type="search" maxlength="120" :placeholder="t('searchHint')" /></label><label>{{ t('status') }}<select v-model="filters.status" :aria-label="t('status')"><option value="">{{ t('all') }}</option><option v-for="option in statusOptions" :key="option.value" :value="option.value">{{ status(option.value) }}</option></select></label><label>{{ t('type') }}<select v-model="filters.orderType" :aria-label="t('type')"><option value="">{{ t('all') }}</option><option v-for="option in orderTypeOptions" :key="option.value" :value="option.value">{{ type(option.value) }}</option></select></label><label>{{ t('channel') }}<select v-model="filters.paymentChannel" :aria-label="t('channel')"><option value="">{{ t('all') }}</option><option v-for="option in paymentChannelOptions" :key="option.value" :value="option.value">{{ channel(option.value) }}</option></select></label><label>{{ t('from') }}<input v-model="filters.from" type="date" :required="!!filters.to" /></label><label>{{ t('to') }}<input v-model="filters.to" type="date" :required="!!filters.from" :min="filters.from" /></label><Button variant="outline" type="button" :disabled="loading" @click="reset">{{ t('reset') }}</Button><Button type="submit" :disabled="loading">{{ t('apply') }}</Button></form>
+    <Card class="gap-0 p-0"><div class="flex flex-wrap items-center justify-between gap-3 border-b p-4"><Button class="sm:hidden" variant="outline" aria-controls="order-filters" :aria-expanded="filtersOpen" @click="filtersOpen = !filtersOpen">{{ t('filters') }}</Button><h2 class="hidden font-semibold sm:block">{{ t('filters') }}</h2><div class="flex gap-2"><Button variant="outline" :disabled="loading || dirty" @click="load">{{ t('refresh') }}</Button><Button variant="ghost" :title="t('queryLinkHint')" @click="copyLink">{{ t('copyLink') }}</Button></div></div>
+      <form id="order-filters" :data-open="filtersOpen" class="order-filters flex flex-wrap items-end gap-3 p-4" @submit.prevent="apply">
+        <label class="grow sm:grow-0">
+          {{ t('search') }}
+          <Input v-model="filters.keyword" type="search" maxlength="120" :placeholder="t('searchHint')" />
+        </label>
+        <label>
+          {{ t('status') }}
+          <SelectField
+            v-model="filters.status"
+            :aria-label="t('status')"
+            :options="[
+              { value: '', label: t('all') },
+              ...statusOptions.map((option) => ({ value: option.value, label: status(option.value) })),
+            ]"
+          />
+        </label>
+        <label>
+          {{ t('type') }}
+          <SelectField
+            v-model="filters.orderType"
+            :aria-label="t('type')"
+            :options="[
+              { value: '', label: t('all') },
+              ...orderTypeOptions.map((option) => ({ value: option.value, label: type(option.value) })),
+            ]"
+          />
+        </label>
+        <label>
+          {{ t('channel') }}
+          <SelectField
+            v-model="filters.paymentChannel"
+            :aria-label="t('channel')"
+            :options="[
+              { value: '', label: t('all') },
+              ...paymentChannelOptions.map((option) => ({ value: option.value, label: channel(option.value) })),
+            ]"
+          />
+        </label>
+        <label>
+          {{ t('from') }}
+          <Input v-model="filters.from" type="date" :required="!!filters.to" />
+        </label>
+        <label>
+          {{ t('to') }}
+          <Input v-model="filters.to" type="date" :required="!!filters.from" :min="filters.from" />
+        </label>
+        <Button variant="outline" type="button" :disabled="loading" @click="reset">{{ t('reset') }}</Button>
+        <Button type="submit" :disabled="loading">{{ t('apply') }}</Button>
+      </form>
       <p class="border-t px-4 py-2 text-xs text-muted-foreground">{{ t('timeZone') }}: {{ timeZone }}<span v-if="state.startAt"> · {{ t('period') }}: {{ date(state.startAt) }} → {{ date(state.endAt) }}</span></p>
-    </div>
+    </Card>
     <p v-if="dirty" role="status" class="text-sm text-amber-800">{{ t('dirty') }}</p><p v-if="notice" role="status" class="text-sm">{{ t(notice) }}</p>
-    <div ref="listPanel" class="min-w-0 rounded-lg border bg-card"><p v-if="loading" role="status" class="p-8 text-center text-sm text-muted-foreground">{{ t('loading') }}</p><div v-else-if="error" role="alert" class="p-8 text-sm"><p>{{ t(error) }}</p><Button variant="outline" class="mt-3" @click="load">{{ t('refresh') }}</Button></div><p v-else-if="!orders.length" class="p-8 text-center text-sm text-muted-foreground">{{ t('empty') }}</p><OrderList v-else :orders="orders" @detail="openDetail" />
-      <div v-if="!error" class="flex flex-wrap items-center justify-between gap-3 border-t p-4 text-sm text-muted-foreground"><span>{{ total.toLocaleString(locale) }} {{ t('records') }} · {{ t('page') }} {{ state.page }} / {{ pageCount }}</span><label>{{ t('pageSize') }}<select :value="state.pageSize" :aria-label="t('pageSize')" :disabled="loading || dirty" @change="navigate({ ...state, page: 1, pageSize: Number(($event.target as HTMLSelectElement).value) })"><option v-for="size in [20,50,100]" :key="size" :value="size">{{ size }}</option></select></label><div class="flex gap-2"><Button size="sm" variant="outline" :disabled="loading || dirty || state.page <= 1" @click="navigate({ ...state, page: state.page - 1 })">{{ t('previous') }}</Button><Button size="sm" variant="outline" :disabled="loading || dirty || state.page >= pageCount" @click="navigate({ ...state, page: state.page + 1 })">{{ t('next') }}</Button></div></div>
+    <div ref="listPanel" class="min-w-0">
+      <Card class="min-w-0 gap-0 p-0">
+        <p v-if="loading" role="status" class="p-8 text-center text-sm text-muted-foreground">{{ t('loading') }}</p><div v-else-if="error" role="alert" class="p-8 text-sm"><p>{{ t(error) }}</p><Button variant="outline" class="mt-3" @click="load">{{ t('refresh') }}</Button></div><p v-else-if="!orders.length" class="p-8 text-center text-sm text-muted-foreground">{{ t('empty') }}</p><OrderList v-else :orders="orders" @detail="openDetail" />
+        <div v-if="!error" class="flex flex-wrap items-center justify-between gap-3 border-t p-4 text-sm text-muted-foreground">
+          <span>{{ total.toLocaleString(locale) }} {{ t('records') }} · {{ t('page') }} {{ state.page }} / {{ pageCount }}</span>
+          <label>
+            {{ t('pageSize') }}
+            <SelectField
+              :model-value="state.pageSize"
+              :aria-label="t('pageSize')"
+              :disabled="loading || dirty"
+              :options="[20, 50, 100].map((size) => ({ value: size, label: String(size) }))"
+              @update:model-value="navigate({ ...state, page: 1, pageSize: $event })"
+            />
+          </label>
+          <div class="flex gap-2">
+            <Button size="sm" variant="outline" :disabled="loading || dirty || state.page <= 1" @click="navigate({ ...state, page: state.page - 1 })">{{ t('previous') }}</Button>
+            <Button size="sm" variant="outline" :disabled="loading || dirty || state.page >= pageCount" @click="navigate({ ...state, page: state.page + 1 })">{{ t('next') }}</Button>
+          </div>
+        </div>
+      </Card>
     </div>
     <OrderDetailDialog :open="detailOpen" :loading="detailLoading" :error="detailError" :action-error="actionError" :feedback="notice === 'saved' || notice === 'deleted' ? t(notice) : undefined" :order="activeOrder" :actions="detailActions" :can-delete="canDeleteOrderStatus(activeOrder?.status)" :action-note="actionNote" :saving-status="savingStatus" :deleting="deleting" @update:open="closeDetail" @update:action-note="actionNote = $event" @change-status="saveStatus" @delete-order="remove" @retry="loadDetail" />
   </section>
 </template>
 <style scoped>
-label { display: grid; min-width: 0; gap: .375rem; font-size: .75rem; color: var(--ld-text-muted); } input, select { min-width: 0; max-width: 100%; min-height: 2.25rem; border: 1px solid var(--ld-border-default); border-radius: .375rem; padding: .5rem .625rem; background: var(--ld-bg-elevated); color: var(--ld-text-heading); font-size: .875rem; } input:focus-visible, select:focus-visible { outline: 2px solid var(--ld-color-primary); outline-offset: 2px; } @media (max-width: 639px) { .order-filters:not([data-open="true"]) { display: none; } }
+label { display: grid; min-width: 0; gap: .375rem; font-size: .75rem; color: var(--ld-text-muted); } @media (max-width: 639px) { .order-filters:not([data-open="true"]) { display: none; } }
 </style>

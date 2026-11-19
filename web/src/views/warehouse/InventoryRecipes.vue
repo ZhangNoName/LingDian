@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import type { InventoryRecipePage, InventoryRecipeRecord } from '@lingdian/contracts'
-import { Button } from '@/baseComponents/button'
+import { Button } from '@lingdian/console-ui/button'
+import { Input } from '@lingdian/console-ui/input'
 import RecipeEditor from './RecipeEditor.vue'
 import { useLocale } from '@/i18n/locale'
 import { listInventoryRecipes } from '@/services/inventory'
@@ -28,7 +29,7 @@ onBeforeUnmount(() => { sequence++ })
 
 <template>
   <section>
-    <form class="flex flex-wrap items-end gap-3 border-b p-4" @submit.prevent="page = 1; load()"><label>{{ t('search') }}<input v-model="keyword" type="search" maxlength="120" /></label><Button variant="outline" :disabled="loading">{{ t('searchButton') }}</Button></form>
+    <form class="flex flex-wrap items-end gap-3 border-b p-4" @submit.prevent="page = 1; load()"><label>{{ t('search') }}<Input v-model="keyword" type="search" maxlength="120" /></label><Button variant="outline" :disabled="loading">{{ t('searchButton') }}</Button></form>
     <p v-if="saved" role="status" class="px-4 pt-3 text-sm text-emerald-700">{{ t('recipeSaved') }}</p>
     <p v-if="loading" role="status" class="p-8 text-center text-sm text-muted-foreground">{{ t('loading') }}</p>
     <div v-else-if="error" role="alert" class="grid justify-items-start gap-3 p-8 text-sm text-destructive"><p>{{ t(error) }}</p><Button variant="outline" @click="load">{{ t('refresh') }}</Button></div>
@@ -46,6 +47,4 @@ onBeforeUnmount(() => { sequence++ })
 
 <style scoped>
 label { display: grid; min-width: 0; gap: .375rem; font-size: .75rem; color: var(--ld-text-muted); }
-input, select { min-width: 0; max-width: 100%; min-height: 2.25rem; border: 1px solid var(--ld-border-default); border-radius: .375rem; padding: .5rem .625rem; background: var(--ld-bg-elevated); color: var(--ld-text-heading); font-size: .875rem; }
-input:focus-visible, select:focus-visible { outline: 2px solid var(--ld-color-primary); outline-offset: 2px; }
 </style>

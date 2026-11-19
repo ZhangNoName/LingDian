@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import type { ProductRecordContract, ProductStatus } from '@lingdian/contracts'
 import { catalogStatusActions } from '../catalog-lifecycle'
-import { Button } from '@/baseComponents/button'
+import { Button } from '@lingdian/console-ui/button'
 import { updateMerchantProductStatus } from '@/services/products'
 import { useCatalogLocale, catalogError, type CatalogKey } from '../catalog-management-locale'
 const props = defineProps<{ product: ProductRecordContract; storeId: string; disabled: boolean }>(),

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Button } from '@lingdian/console-ui/button'
 import type { Component } from 'vue'
 
 defineOptions({ inheritAttrs: false })
@@ -6,12 +7,12 @@ defineProps<{ icon: Component }>()
 </script>
 
 <template>
-  <el-button class="icon-button" v-bind="$attrs">
+  <Button type="button" class="icon-button" v-bind="$attrs">
     <span class="icon-button__content">
-      <el-icon class="icon-button__icon"><component :is="icon" /></el-icon>
+      <span class="icon-button__icon" aria-hidden="true"><component :is="icon" /></span>
       <span class="icon-button__label"><slot /></span>
     </span>
-  </el-button>
+  </Button>
 </template>
 
 <style scoped>

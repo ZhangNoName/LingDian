@@ -24,7 +24,7 @@
 </template>
 
 <script setup lang="ts">
-import { Card, CardContent, CardHeader, CardTitle } from '@/baseComponents/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@lingdian/console-ui/card'
 
 const metrics = [
   { label: '本周销售额', value: '¥ 186,420', trend: '周环比 +8.2%' },

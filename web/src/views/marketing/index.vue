@@ -21,8 +21,8 @@
 </template>
 
 <script setup lang="ts">
-import { Badge } from '@/baseComponents/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/baseComponents/card'
+import { Badge } from '@lingdian/console-ui/badge'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@lingdian/console-ui/card'
 
 const campaigns = [
   { name: '新人首单满 30 减 8', detail: '适用 18 家门店，自动发券。', status: '进行中' },

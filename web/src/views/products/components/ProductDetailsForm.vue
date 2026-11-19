@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { CategoryContract, ProductRecordContract } from '@lingdian/contracts'
-import { Button } from '@/baseComponents/button'
+import { Button } from '@lingdian/console-ui/button'
+import { Checkbox, Input } from '@lingdian/console-ui/input'
+import { SelectField } from '@lingdian/console-ui/select'
+import { Textarea } from '@lingdian/console-ui/textarea'
 import {
   merchantCategories,
   createMerchantCategory,
@@ -41,8 +44,9 @@ const options = computed(() =>
     ? [selectedCategory.value, ...categories.value]
     : categories.value,
 )
-function selectCategory() {
-  selectedCategory.value = categories.value.find((row) => row.id === category.value) ?? selectedCategory.value
+function selectCategory(id: string) {
+  category.value = id
+  selectedCategory.value = categories.value.find((row) => row.id === id) ?? selectedCategory.value
 }
 let requestId = '',
   sequence = 0,
@@ -159,27 +163,31 @@ onBeforeUnmount(() => {
       <p v-if="!product" class="help">{{ t('createHint') }}</p>
       <label>
         {{ t('name') }}
-        <input v-model="name" required maxlength="191" />
+        <Input v-model="name" required maxlength="191" />
       </label>
       <label>
         {{ t('description') }}
-        <textarea v-model="description" maxlength="2000" rows="3" />
+        <Textarea v-model="description" maxlength="2000" rows="3" />
       </label>
       <div class="flex items-end gap-2">
         <label class="grow">
           {{ t('findCategory') }}
-          <input v-model="keyword" type="search" maxlength="120" @keydown.enter.prevent="lookup" />
+          <Input v-model="keyword" type="search" maxlength="120" @keydown.enter.prevent="lookup" />
         </label>
         <Button type="button" variant="outline" :disabled="loading" @click="lookup">{{ t('find') }}</Button>
       </div>
       <label>
         {{ t('category') }}
-        <select v-model="category" @change="selectCategory" :aria-label="t('category')" required>
-          <option value="">{{ t('choose') }}</option>
-          <option v-for="row in options" :key="row.id" :value="row.id" :disabled="!row.is_visible">
-            {{ row.name }}{{ row.is_visible ? '' : ` (${t('hidden')})` }}
-          </option>
-        </select>
+        <SelectField
+          :model-value="category"
+          @update:model-value="selectCategory"
+          :aria-label="t('category')"
+          required
+          :options="[
+            { value: '', label: t('choose') },
+            ...options.map((row) => ({ value: row.id, label: `${row.name}${row.is_visible ? '' : ` (${t('hidden')})`}`, disabled: !row.is_visible })),
+          ]"
+        />
       </label>
       <p class="help">{{ t('categoriesHint') }}</p>
       <Button type="button" class="justify-self-start" variant="outline" @click="newCategory = !newCategory">
@@ -188,7 +196,7 @@ onBeforeUnmount(() => {
       <div v-if="newCategory" class="flex items-end gap-2 rounded-md border p-3">
         <label class="grow">
           {{ t('categoryName') }}
-          <input v-model="categoryName" maxlength="120" @keydown.enter.prevent="addCategory" />
+          <Input v-model="categoryName" maxlength="120" @keydown.enter.prevent="addCategory" />
         </label>
         <Button type="button" variant="outline" :disabled="!categoryName.trim()" @click="addCategory">
           {{ t('add') }}
@@ -199,15 +207,15 @@ onBeforeUnmount(() => {
       <template v-if="!product">
         <label>
           {{ t('skuName') }}
-          <input v-model="skuName" required maxlength="191" />
+          <Input v-model="skuName" required maxlength="191" />
         </label>
         <label>
           {{ t('price') }}
-          <input v-model.number="price" type="number" min="0" max="99999999.99" step="0.01" required />
+          <Input v-model.number="price" type="number" min="0" max="99999999.99" step="0.01" required />
         </label>
       </template>
       <label class="check">
-        <input v-model="featured" type="checkbox" />
+        <Checkbox v-model="featured" />
         {{ t('featured') }}
       </label>
     </fieldset>

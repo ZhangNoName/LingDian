@@ -1,5 +1,5 @@
 <template>
-  <section class="app-table">
+  <section class="app-table rounded-md">
     <header v-if="title || description || $slots.headerActions" class="app-table__header">
       <div v-if="title || description">
         <h3 v-if="title">{{ title }}</h3>
@@ -33,7 +33,6 @@ defineProps<{
   gap: 16px;
   padding: 20px;
   border: 1px solid var(--border);
-  border-radius: 8px;
   background: var(--card);
 }
 

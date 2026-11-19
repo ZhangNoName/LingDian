@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Button } from '@/baseComponents/button'
+import { Button } from '@lingdian/console-ui/button'
+import { Checkbox, Input } from '@lingdian/console-ui/input'
+import { SelectField } from '@lingdian/console-ui/select'
 import type { ProductSelectionBindingForm, ProductVariantForm } from '../types'
 import { useProductLocale } from '../use-product-locale'
 const props = defineProps<{
@@ -60,61 +62,75 @@ const referenceChoices = computed(() => [
       <div class="grid gap-3 sm:grid-cols-2">
         <label>
           {{ t('groupName') }} {{ groupIndex + 1 }}
-          <input v-model="binding.group.name" maxlength="191" required />
+          <Input v-model="binding.group.name" maxlength="191" required />
         </label>
         <label>
           {{ t('scope') }}
-          <select v-model="binding.scope" :aria-label="t('scope')">
-            <option value="PRODUCT">{{ t('PRODUCT') }}</option>
-            <option value="VARIANT">{{ t('VARIANT') }}</option>
-          </select>
+          <SelectField
+            v-model="binding.scope"
+            :aria-label="t('scope')"
+            :options="[
+              { value: 'PRODUCT', label: t('PRODUCT') },
+              { value: 'VARIANT', label: t('VARIANT') },
+            ]"
+          />
         </label>
         <label v-if="binding.scope === 'VARIANT'">
           {{ t('targetVariant') }}
-          <select v-model="binding.target_variant_id" :aria-label="t('targetVariant')" required>
-            <option v-for="variant in variants" :key="variant.id" :value="variant.id">
-              {{ variant.sku_name || '—' }}
-            </option>
-          </select>
+          <SelectField
+            :model-value="binding.target_variant_id ?? ''"
+            :aria-label="t('targetVariant')"
+            required
+            @update:model-value="binding.target_variant_id = $event"
+            :options="variants.filter((variant) => variant.id).map((variant) => ({ value: variant.id!, label: variant.sku_name || '—' }))"
+          />
         </label>
         <label>
           {{ t('groupType') }}
-          <select v-model="binding.group.group_type" :aria-label="t('groupType')">
-            <option value="MODIFIER">{{ t('MODIFIER') }}</option>
-            <option value="COMPONENT">{{ t('COMPONENT') }}</option>
-          </select>
+          <SelectField
+            v-model="binding.group.group_type"
+            :aria-label="t('groupType')"
+            :options="[
+              { value: 'MODIFIER', label: t('MODIFIER') },
+              { value: 'COMPONENT', label: t('COMPONENT') },
+            ]"
+          />
         </label>
         <label>
           {{ t('mode') }}
-          <select v-model="binding.group.selection_mode" :aria-label="t('mode')">
-            <option value="SINGLE">{{ t('SINGLE_SELECT') }}</option>
-            <option value="MULTIPLE">{{ t('MULTIPLE') }}</option>
-          </select>
+          <SelectField
+            v-model="binding.group.selection_mode"
+            :aria-label="t('mode')"
+            :options="[
+              { value: 'SINGLE', label: t('SINGLE_SELECT') },
+              { value: 'MULTIPLE', label: t('MULTIPLE') },
+            ]"
+          />
         </label>
         <label>
           {{ t('min') }}
-          <input v-model.number="binding.group.min_select" type="number" min="0" max="50" step="1" required />
+          <Input v-model.number="binding.group.min_select" type="number" min="0" max="50" step="1" required />
         </label>
         <label>
           {{ t('max') }}
-          <input v-model.number="binding.group.max_select" type="number" min="0" max="50" step="1" required />
+          <Input v-model.number="binding.group.max_select" type="number" min="0" max="50" step="1" required />
         </label>
         <label class="sm:col-span-2">
           {{ t('description') }}
-          <input v-model="binding.group.description" maxlength="191" />
+          <Input v-model="binding.group.description" maxlength="191" />
         </label>
       </div>
       <div class="flex flex-wrap gap-4">
         <label class="check">
-          <input v-model="binding.group.is_required" type="checkbox" />
+          <Checkbox v-model="binding.group.is_required" />
           {{ t('required') }}
         </label>
         <label class="check">
-          <input v-model="binding.group.is_active" type="checkbox" />
+          <Checkbox v-model="binding.group.is_active" />
           {{ t('enabled') }}
         </label>
         <label class="check">
-          <input v-model="binding.is_enabled" type="checkbox" />
+          <Checkbox v-model="binding.is_enabled" />
           {{ t('groupEnabled') }}
         </label>
       </div>
@@ -125,34 +141,40 @@ const referenceChoices = computed(() => [
       >
         <label>
           {{ t('optionName') }} {{ optionIndex + 1 }}
-          <input v-model="option.name" maxlength="191" required />
+          <Input v-model="option.name" maxlength="191" required />
         </label>
         <label>
           {{ t('optionType') }}
-          <select v-model="option.option_type" :aria-label="t('optionType')">
-            <option value="VALUE">{{ t('VALUE') }}</option>
-            <option value="VARIANT">{{ t('VARIANT') }}</option>
-          </select>
+          <SelectField
+            v-model="option.option_type"
+            :aria-label="t('optionType')"
+            :options="[
+              { value: 'VALUE', label: t('VALUE') },
+              { value: 'VARIANT', label: t('VARIANT') },
+            ]"
+          />
         </label>
         <label v-if="option.option_type === 'VARIANT'">
           {{ t('reference') }}
-          <select v-model="option.referenced_sku_id" :aria-label="t('reference')" required>
-            <option v-for="choice in referenceChoices" :key="choice.value" :value="choice.value">
-              {{ choice.label }}
-            </option>
-          </select>
+          <SelectField
+            :model-value="option.referenced_sku_id ?? ''"
+            :aria-label="t('reference')"
+            required
+            @update:model-value="option.referenced_sku_id = $event"
+            :options="referenceChoices"
+          />
         </label>
         <label>
           {{ t('surcharge') }}
-          <input v-model.number="option.price_delta" type="number" min="0" max="99999999.99" step="0.01" required />
+          <Input v-model.number="option.price_delta" type="number" min="0" max="99999999.99" step="0.01" required />
         </label>
         <div class="flex flex-wrap items-center gap-4 sm:col-span-2">
           <label class="check">
-            <input v-model="option.is_default" type="checkbox" />
+            <Checkbox v-model="option.is_default" />
             {{ t('defaultOption') }}
           </label>
           <label class="check">
-            <input v-model="option.is_active" type="checkbox" />
+            <Checkbox v-model="option.is_active" />
             {{ t('enabled') }}
           </label>
           <Button
@@ -193,22 +215,5 @@ label.check {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-}
-input:not([type='checkbox']),
-select {
-  width: 100%;
-  min-width: 0;
-  min-height: 2.25rem;
-  border: 1px solid var(--ld-border-default);
-  border-radius: 0.375rem;
-  padding: 0.5rem 0.625rem;
-  background: var(--ld-bg-elevated);
-  color: var(--ld-text-heading);
-  font-size: 0.875rem;
-}
-input:focus-visible,
-select:focus-visible {
-  outline: 2px solid var(--ld-color-primary);
-  outline-offset: 2px;
 }
 </style>

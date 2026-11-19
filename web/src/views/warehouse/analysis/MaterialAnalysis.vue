@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
-import { Button } from '@/baseComponents/button'
+import { Button } from '@lingdian/console-ui/button'
 import type { InventoryMovementKind } from '@lingdian/contracts'
 import { analysisBars, type AnalysisRow } from './model'
 import { useTrendLocale } from '../trend/locale'

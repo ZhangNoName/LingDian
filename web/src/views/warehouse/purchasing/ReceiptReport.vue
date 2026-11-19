@@ -2,7 +2,9 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { PurchaseReceiptReport, PurchaseReportFilter } from '@lingdian/contracts'
-import { Button } from '@/baseComponents/button'
+import { Button } from '@lingdian/console-ui/button'
+import { Input } from '@lingdian/console-ui/input'
+import { SelectField } from '@lingdian/console-ui/select'
 import { purchaseReport } from '@/services/purchasing'
 import { dateInput, periodFromDates } from '../activity-state'
 import { downloadCsv } from '../report'
@@ -214,15 +216,15 @@ onBeforeUnmount(() => {
     >
       <label>
         {{ t('from') }}
-        <input v-model="from" type="date" required />
+        <Input v-model="from" type="date" required />
       </label>
       <label>
         {{ t('to') }}
-        <input v-model="to" type="date" required />
+        <Input v-model="to" type="date" required />
       </label>
       <label class="grow">
         {{ t('search') }}
-        <input v-model="keyword" type="search" maxlength="120" />
+        <Input v-model="keyword" type="search" maxlength="120" />
       </label>
       <Button type="button" variant="outline" :disabled="loading" @click="reset">{{ t('reset') }}</Button>
       <Button type="submit" :disabled="loading">{{ t('apply') }}</Button>
@@ -261,11 +263,15 @@ onBeforeUnmount(() => {
       </dl>
       <label class="max-w-xs">
         {{ t('summaryView') }}
-        <select v-model="group" :aria-label="t('summaryView')">
-          <option value="suppliers">{{ t('supplierSummary') }}</option>
-          <option value="materials">{{ t('materialSummary') }}</option>
-          <option value="lines">{{ t('receiptLines') }}</option>
-        </select>
+        <SelectField
+          v-model="group"
+          :aria-label="t('summaryView')"
+          :options="[
+            { value: 'suppliers', label: t('supplierSummary') },
+            { value: 'materials', label: t('materialSummary') },
+            { value: 'lines', label: t('receiptLines') },
+          ]"
+        />
       </label>
       <AnalysisTable
         :rows="visible"

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { InventoryAlertRecord } from '@lingdian/contracts'
-import { Button } from '@/baseComponents/button'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/baseComponents/dialog'
+import { Button } from '@lingdian/console-ui/button'
+import { Textarea } from '@lingdian/console-ui/textarea'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@lingdian/console-ui/dialog'
 import { useLocale } from '@/i18n/locale'
 import { acknowledgeInventoryAlert, getInventoryAlert } from '@/services/inventory'
 import { useLifecycleLocale } from '../lifecycle/locale'
@@ -180,7 +181,7 @@ onBeforeUnmount(() => {
         <form v-if="row.status === 'OPEN'" class="grid gap-3 border-t pt-4" @submit.prevent="acknowledge">
           <label
             >{{ t('note')
-            }}<textarea
+            }}<Textarea
               v-model="note"
               required
               maxlength="240"
@@ -201,7 +202,7 @@ onBeforeUnmount(() => {
           </div>
         </form>
         <div v-else-if="note" class="grid gap-2 border-t pt-4">
-          <label>{{ t('retained') }}<textarea :value="note" readonly rows="3" /></label>
+          <label>{{ t('retained') }}<Textarea :model-value="note" readonly rows="3" /></label>
           <p class="text-xs leading-5 text-muted-foreground">{{ t('retainedHint') }}</p>
         </div>
         <p class="text-xs leading-5 text-muted-foreground">{{ t('escalation') }}</p>
@@ -224,20 +225,6 @@ label {
   gap: 0.375rem;
   font-size: 0.75rem;
   color: var(--ld-text-muted);
-}
-textarea {
-  min-width: 0;
-  width: 100%;
-  border: 1px solid var(--ld-border-default);
-  border-radius: 0.375rem;
-  padding: 0.5rem 0.625rem;
-  background: var(--ld-bg-elevated);
-  color: var(--ld-text-heading);
-  font-size: 0.875rem;
-}
-textarea:focus-visible {
-  outline: 2px solid var(--ld-color-primary);
-  outline-offset: 2px;
 }
 dt {
   color: var(--ld-text-muted);

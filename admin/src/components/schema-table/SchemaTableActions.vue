@@ -1,4 +1,5 @@
 <script setup lang="ts" generic="Row extends object">
+import { Button } from '@lingdian/console-ui/button'
 import { computed } from 'vue'
 import type { SchemaAction } from './types'
 
@@ -18,17 +19,24 @@ function invoke(action: SchemaAction<Row>): void {
 
 <template>
   <div class="schema-actions">
-    <el-tooltip v-for="action in visibleActions" :key="action.key" :content="action.label" placement="top">
-      <el-button
-        text
-        circle
-        :type="action.type ?? 'primary'"
-        :disabled="disabled(action)"
-        :aria-label="action.label"
-        @click="invoke(action)"
-      >
-        <el-icon><component :is="action.icon" /></el-icon>
-      </el-button>
-    </el-tooltip>
+    <Button
+      v-for="action in visibleActions"
+      :key="action.key"
+      type="button"
+      :variant="action.type === 'danger' ? 'destructive' : 'ghost'"
+      size="icon-sm"
+      :class="{
+        'text-primary': !action.type || action.type === 'primary',
+        'text-emerald-700 dark:text-emerald-300': action.type === 'success',
+        'text-amber-700 dark:text-amber-300': action.type === 'warning',
+        'text-muted-foreground': action.type === 'info',
+      }"
+      :disabled="disabled(action)"
+      :aria-label="action.label"
+      :title="action.label"
+      @click="invoke(action)"
+    >
+      <component :is="action.icon" />
+    </Button>
   </div>
 </template>

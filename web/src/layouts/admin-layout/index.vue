@@ -17,10 +17,16 @@
       <div class="flex flex-wrap items-center justify-between gap-3 px-4 pt-3 text-sm md:px-6">
         <label v-if="merchantStore.stores.value.length" class="flex min-w-0 items-center gap-2">
           <span class="shrink-0 text-muted-foreground">{{ locale === 'en-US' ? 'Store' : '当前门店' }}</span>
-          <select :value="merchantStore.selectedId.value" class="max-w-60 rounded-md border bg-card px-3 py-2" :aria-label="locale === 'en-US' ? 'Store' : '当前门店'" @change="changeStore">
-            <option disabled value="">{{ locale === 'en-US' ? 'Select a store' : '请选择门店' }}</option>
-            <option v-for="store in merchantStore.stores.value" :key="store.id" :value="store.id">{{ store.name }}</option>
-          </select>
+          <SelectField
+            :model-value="merchantStore.selectedId.value"
+            class="max-w-60 truncate"
+            :aria-label="locale === 'en-US' ? 'Store' : '当前门店'"
+            @update:model-value="changeStore"
+            :options="[
+              { value: '', label: locale === 'en-US' ? 'Select a store' : '请选择门店', disabled: true },
+              ...merchantStore.stores.value.map((store) => ({ value: store.id, label: store.name })),
+            ]"
+          />
         </label>
         <InventoryAlertNotice v-if="storeReady" :key="merchantStore.selectedId.value" :store-id="merchantStore.selectedId.value" />
 
@@ -42,7 +48,7 @@
       aria-modal="true"
       :aria-label="locale === 'en-US' ? 'Store navigation' : '商家导航'"
     >
-      <button class="absolute inset-0 bg-slate-950/45" type="button" :aria-label="locale === 'en-US' ? 'Close navigation' : '关闭导航菜单'" @click="navigation.closeMobile" />
+      <Button type="button" variant="ghost" class="absolute inset-0 h-full w-full rounded-none bg-slate-950/45 p-0 hover:bg-slate-950/45" :aria-label="locale === 'en-US' ? 'Close navigation' : '关闭导航菜单'" @click="navigation.closeMobile" />
       <section class="relative h-full w-[min(18rem,calc(100vw-3rem))] overflow-hidden bg-card shadow-2xl">
         <div class="flex items-center justify-between border-b border-border px-4 py-3">
           <span class="text-sm font-semibold text-foreground">{{ locale === 'en-US' ? 'Navigation' : '导航菜单' }}</span>
@@ -66,7 +72,8 @@ import { X } from '@lingdian/icons/web'
 import { merchantStore } from '@/auth/merchant-store'
 import { listMerchantStores } from '@/services/integrations'
 import { merchantSession } from '@/auth/session'
-import { Button } from '@/baseComponents/button'
+import { Button } from '@lingdian/console-ui/button'
+import { SelectField } from '@lingdian/console-ui/select'
 import AppHeader from '@/components/layout/app-header/index.vue'
 import AppSidebar from '@/components/layout/app-sidebar/index.vue'
 import { createNavigationState } from './navigation-state'
@@ -95,8 +102,7 @@ async function loadStores() {
   catch { storeLoadError.value = true }
   finally { loadingStores.value = false }
 }
-async function changeStore(event: Event) {
-  const id = (event.target as HTMLSelectElement).value
+async function changeStore(id: string) {
   if (route.name === 'orders' && route.query.orderId) await router.replace({ query: { ...route.query, orderId: undefined } })
   if (route.name === 'products' && route.query.productId) await router.replace({ query: { ...route.query, productId: undefined } })
   if (route.name === 'warehouse') {

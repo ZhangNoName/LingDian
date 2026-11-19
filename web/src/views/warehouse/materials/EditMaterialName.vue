@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue'
 import type { InventoryItemContract } from '@lingdian/contracts'
-import { Button } from '@/baseComponents/button'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/baseComponents/dialog'
+import { Button } from '@lingdian/console-ui/button'
+import { Input } from '@lingdian/console-ui/input'
+import { Textarea } from '@lingdian/console-ui/textarea'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@lingdian/console-ui/dialog'
 import { inventoryItemDetail, renameInventoryMaterial } from '@/services/inventory'
 import { useLocale } from '@/i18n/locale'
 import { en, zh, type MessageKey } from '../messages'
@@ -113,10 +115,10 @@ onBeforeUnmount(() => {
       <p v-if="readDone" role="status" class="text-xs text-muted-foreground">{{ t('reloaded') }}</p>
       <form class="grid gap-4" @submit.prevent="save">
         <fieldset :disabled="busy" class="grid min-w-0 gap-4">
-          <label>{{ t('name') }}<input v-model="name" required maxlength="120" :readonly="!active" /></label
+          <label>{{ t('name') }}<Input v-model="name" required maxlength="120" :readonly="!active" /></label
           ><label
             >{{ t('reason')
-            }}<textarea v-model="reason" rows="3" required maxlength="240" :readonly="!active" />
+            }}<Textarea v-model="reason" rows="3" required maxlength="240" :readonly="!active" />
           </label>
         </fieldset>
         <p v-if="!active" role="status" class="text-sm text-muted-foreground">
@@ -146,19 +148,5 @@ label {
   min-width: 0;
   gap: 0.375rem;
   font-size: 0.875rem;
-}
-input,
-textarea {
-  min-width: 0;
-  width: 100%;
-  border: 1px solid var(--ld-border-default);
-  border-radius: 0.375rem;
-  padding: 0.625rem 0.75rem;
-  background: var(--ld-bg-elevated);
-}
-input:focus-visible,
-textarea:focus-visible {
-  outline: 2px solid var(--ld-color-primary);
-  outline-offset: 2px;
 }
 </style>

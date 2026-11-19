@@ -2,7 +2,9 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import type { IntegrationCapabilityContract, IntegrationProvider } from '@lingdian/contracts'
-import { Button } from '@/baseComponents/button'
+import { Badge } from '@lingdian/console-ui/badge'
+import { Button } from '@lingdian/console-ui/button'
+import { Card } from '@lingdian/console-ui/card'
 import { merchantStore } from '@/auth/merchant-store'
 import { listStoreIntegrations, setStoreIntegrationEnabled } from '@/services/integrations'
 import { loadSingleStoreCapabilities, assertCapabilitiesForStore } from './settings-state'
@@ -75,7 +77,7 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section class="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5" :lang="locale">
-    <section class="rounded-lg border bg-card p-5">
+    <Card class="gap-0 p-5">
       <h2 class="font-semibold">{{ t('account') }}</h2>
       <p class="mt-2 text-sm leading-6 text-muted-foreground">{{ t('accountHint') }}</p>
       <div class="mt-4 flex flex-wrap gap-3">
@@ -86,8 +88,8 @@ onBeforeUnmount(() => {
           <RouterLink :to="{ name: 'change-password' }">{{ t('password') }}</RouterLink>
         </Button>
       </div>
-    </section>
-    <section class="grid min-w-0 gap-4 rounded-lg border bg-card p-5">
+    </Card>
+    <Card class="min-w-0 p-5">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="min-w-0">
           <h2 class="font-semibold">{{ t('integrations') }}</h2>
@@ -105,12 +107,12 @@ onBeforeUnmount(() => {
       <p v-else-if="loading" role="status" class="py-5 text-center text-sm text-muted-foreground">{{ t('loading') }}</p>
       <div v-else-if="!error || error === 'saveFailed'" class="grid min-w-0 gap-3 lg:grid-cols-2">
         <p v-if="!capabilities.length" class="text-sm text-muted-foreground">{{ t('empty') }}</p>
-        <section v-for="item in capabilities" :key="item.provider" class="grid min-w-0 gap-3 rounded-md border p-4">
+        <Card v-for="item in capabilities" :key="item.provider" class="min-w-0 gap-3 p-4">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <h3 class="font-medium">{{ t(item.provider) }}</h3>
-            <span class="rounded border px-2 py-1 text-xs">
+            <Badge :variant="item.available && item.enabled ? 'secondary' : 'outline'">
               {{ t(!item.available ? 'notAvailable' : item.enabled ? 'enabled' : 'disabled') }}
-            </span>
+            </Badge>
           </div>
           <p class="text-sm leading-6 text-muted-foreground">
             {{
@@ -125,30 +127,31 @@ onBeforeUnmount(() => {
               )
             }}
           </p>
-          <button
+          <Button
             type="button"
+            variant="outline"
             role="switch"
             :aria-checked="item.enabled"
             :aria-label="t(item.provider)"
             :disabled="!item.available || !!changing"
-            class="flex items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+            class="h-10 w-full justify-between"
             @click="toggle(item)"
           >
             <span>{{ t(changing === item.provider ? 'saving' : item.enabled ? 'enabled' : 'disabled') }}</span>
             <span
               aria-hidden="true"
               class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full"
-              :class="item.enabled ? 'bg-primary' : 'bg-slate-300'"
+              :class="item.enabled ? 'bg-primary' : 'bg-muted-foreground/40'"
             >
               <span
                 class="size-4 rounded-full bg-white transition-transform"
                 :class="item.enabled ? 'translate-x-[18px]' : 'translate-x-[2px]'"
               />
             </span>
-          </button>
-        </section>
+          </Button>
+        </Card>
       </div>
       <p class="text-xs leading-5 text-muted-foreground">{{ t('switchHint') }} {{ t('scope') }}</p>
-    </section>
+    </Card>
   </section>
 </template>

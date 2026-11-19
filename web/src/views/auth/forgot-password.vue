@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Input } from '@lingdian/console-ui/input'
+import { Button } from '@lingdian/console-ui/button'
 import { ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import AccountPanel from '@/components/account/AccountPanel.vue'
@@ -54,9 +56,9 @@ async function resetPassword() {
       <fieldset :disabled="submitting || sending" class="grid min-w-0 gap-5">
         <label class="account-label">
           {{ t('username') }}
-          <input
+          <Input
             v-model.trim="username"
-            class="account-input"
+            class="h-10"
             autocomplete="username"
             minlength="3"
             maxlength="64"
@@ -66,24 +68,24 @@ async function resetPassword() {
         <div>
           <label for="reset-code" class="account-label">{{ t('code') }}</label>
           <div class="mt-2 flex min-w-0 gap-2">
-            <input
+            <Input
               id="reset-code"
               v-model.trim="code"
-              class="account-input grow"
+              class="h-10 grow"
               inputmode="numeric"
               autocomplete="one-time-code"
               pattern="[0-9]{6}"
               maxlength="6"
               required
             />
-            <button
-              class="account-action shrink-0"
+            <Button
+              variant="outline" size="lg" class="h-10"
               type="button"
               :disabled="sending || username.length < 3"
               @click="requestCode"
             >
               {{ t(sending ? 'sending' : 'sendCode') }}
-            </button>
+            </Button>
           </div>
         </div>
         <div>
@@ -105,8 +107,8 @@ async function resetPassword() {
       >
         {{ t(message) }}
       </p>
-      <button
-        class="account-action account-primary"
+      <Button
+        size="lg" class="h-10"
         type="submit"
         :disabled="
           submitting ||
@@ -117,7 +119,7 @@ async function resetPassword() {
         "
       >
         {{ t(submitting ? 'submitting' : 'resetPassword') }}
-      </button>
+      </Button>
     </form>
     <RouterLink class="mt-5 inline-block text-sm font-medium text-primary" :to="{ name: 'login' }">
       {{ t('backLogin') }}

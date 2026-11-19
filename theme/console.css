@@ -1,0 +1,94 @@
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: var(--ld-bg-page);
+  --foreground: var(--ld-text-heading);
+  --card: var(--ld-bg-elevated);
+  --card-foreground: var(--ld-text-heading);
+  --popover: var(--ld-bg-elevated);
+  --popover-foreground: light-dark(#0a0a0a, #fafafa);
+  --primary: var(--ld-color-primary);
+  --primary-foreground: var(--ld-text-inverse);
+  --secondary: light-dark(#f5f5f5, #262626);
+  --secondary-foreground: light-dark(#171717, #fafafa);
+  --muted: light-dark(#f5f5f5, #262626);
+  --muted-foreground: light-dark(#737373, #a3a3a3);
+  --accent: light-dark(#f5f5f5, #262626);
+  --accent-foreground: light-dark(#171717, #fafafa);
+  --destructive: light-dark(#dc2626, #f87171);
+  --destructive-foreground: #ffffff;
+  --border: light-dark(#e5e5e5, rgb(255 255 255 / 10%));
+  --input: light-dark(#e5e5e5, rgb(255 255 255 / 15%));
+  --ring: var(--ld-color-secondary);
+  --chart-1: var(--ld-color-primary);
+  --chart-2: var(--ld-color-success);
+  --chart-3: var(--ld-color-warning);
+  --chart-4: light-dark(#722ed1, #b37feb);
+  --chart-5: light-dark(#13c2c2, #36cfc9);
+  --radius: 0.625rem;
+  --sidebar: var(--ld-bg-elevated);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: var(--accent);
+  --sidebar-accent-foreground: var(--accent-foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+}
+
+@theme inline {
+  --font-sans: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-heading: var(--font-sans);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html,
+  body,
+  #app {
+    @apply min-h-full;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}

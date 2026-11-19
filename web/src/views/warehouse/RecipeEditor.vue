@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { InventoryItemContract, InventoryRecipeRecord } from '@lingdian/contracts'
-import { Button } from '@/baseComponents/button'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/baseComponents/dialog'
+import { Button } from '@lingdian/console-ui/button'
+import { Input } from '@lingdian/console-ui/input'
+import { SelectField } from '@lingdian/console-ui/select'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@lingdian/console-ui/dialog'
 import { useLocale } from '@/i18n/locale'
 import { getInventoryRecipe, listInventory, saveInventoryRecipe } from '@/services/inventory'
 import { en, zh, type MessageKey } from './messages'
@@ -126,7 +128,7 @@ onBeforeUnmount(() => {
         ><div class="flex flex-wrap items-end gap-2">
           <label class="grow"
             >{{ t('materialSearch')
-            }}<input
+            }}<Input
               v-model="keyword"
               type="search"
               maxlength="120"
@@ -144,15 +146,18 @@ onBeforeUnmount(() => {
             >
               <label
                 >{{ t('ingredient')
-                }}<select v-model="entry.itemId" required :aria-label="`${t('ingredient')} ${index + 1}`">
-                  <option disabled value="">—</option>
-                  <option v-for="item in options" :key="item.id" :value="item.id">
-                    {{ item.name }} · {{ item.code }} ({{ item.unit }})
-                  </option>
-                </select></label
+                }}<SelectField
+                  v-model="entry.itemId"
+                  required
+                  :aria-label="`${t('ingredient')} ${index + 1}`"
+                  :options="[
+                    { value: '', label: '—', disabled: true },
+                    ...options.map((item) => ({ value: item.id, label: `${item.name} · ${item.code} (${item.unit})` })),
+                  ]"
+                /></label
               ><label
                 >{{ t('perUnit')
-                }}<input
+                }}<Input
                   v-model.number="entry.quantity"
                   type="number"
                   min="0.001"
@@ -198,22 +203,5 @@ label {
   gap: 0.375rem;
   font-size: 0.75rem;
   color: var(--ld-text-muted);
-}
-input,
-select {
-  min-width: 0;
-  max-width: 100%;
-  min-height: 2.25rem;
-  border: 1px solid var(--ld-border-default);
-  border-radius: 0.375rem;
-  padding: 0.5rem 0.625rem;
-  background: var(--ld-bg-elevated);
-  color: var(--ld-text-heading);
-  font-size: 0.875rem;
-}
-input:focus-visible,
-select:focus-visible {
-  outline: 2px solid var(--ld-color-primary);
-  outline-offset: 2px;
 }
 </style>

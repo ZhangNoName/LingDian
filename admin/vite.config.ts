@@ -4,8 +4,7 @@ import { defineConfig } from 'vitest/config'
 import type { Plugin } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueInspector from 'vite-plugin-vue-inspector'
-import Components from 'unplugin-vue-components/vite'
-import { ElementPlusResolver } from 'unplugin-vue-components/resolvers'
+import tailwindcss from '@tailwindcss/vite'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -33,13 +32,10 @@ function bundleSizeBudget(): Plugin {
 }
 
 // https://vite.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig({
   plugins: [
     vue(),
-    Components({
-      resolvers: [ElementPlusResolver({ importStyle: mode === 'test' ? false : 'css' })],
-      dts: false,
-    }),
+    tailwindcss(),
     bundleSizeBudget(),
     vueInspector({
       toggleComboKey: 'alt',
@@ -58,6 +54,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   resolve: {
+    dedupe: ['vue'],
     alias: {
       '@theme': path.resolve(__dirname, '../theme'),
     },
@@ -65,4 +62,4 @@ export default defineConfig(({ mode }) => ({
   test: {
     environment: 'jsdom',
   },
-}))
+})

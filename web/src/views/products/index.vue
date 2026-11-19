@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { Button } from '@/baseComponents/button'
+import { Button } from '@lingdian/console-ui/button'
+import { Card } from '@lingdian/console-ui/card'
+import { Input } from '@lingdian/console-ui/input'
+import { SelectField } from '@lingdian/console-ui/select'
+import { Table } from '@lingdian/console-ui/table'
 import {
   getMerchantProduct,
   getMerchantProductStats,
@@ -193,7 +197,7 @@ onBeforeUnmount(() => {
     </div>
     <ProductMetricsGrid :metrics="metrics" />
     <p class="text-xs text-muted-foreground">{{ t('metricsHint') }}</p>
-    <div class="rounded-lg border bg-card">
+    <Card class="gap-0 p-0">
       <div class="flex items-center justify-between gap-3 border-b p-4">
         <Button
           class="sm:hidden"
@@ -215,23 +219,27 @@ onBeforeUnmount(() => {
       >
         <label class="grow sm:grow-0">
           {{ t('search') }}
-          <input v-model="filters.keyword" type="search" maxlength="120" />
+          <Input v-model="filters.keyword" type="search" maxlength="120" />
         </label>
         <label>
           {{ t('type') }}
-          <select v-model="filters.type" :aria-label="t('type')">
-            <option value="">{{ t('all') }}</option>
-            <option value="SINGLE">{{ t('SINGLE') }}</option>
-            <option value="PACKAGE">{{ t('PACKAGE') }}</option>
-          </select>
+          <SelectField
+            v-model="filters.type"
+            :aria-label="t('type')"
+            :options="[
+              { value: '', label: t('all') },
+              { value: 'SINGLE', label: t('SINGLE') },
+              { value: 'PACKAGE', label: t('PACKAGE') },
+            ]"
+          />
         </label>
         <Button type="button" variant="outline" :disabled="loading" @click="reset">{{ t('reset') }}</Button>
         <Button type="submit" :disabled="loading">{{ t('apply') }}</Button>
       </form>
-    </div>
+    </Card>
     <p v-if="saved" role="status" class="text-sm text-emerald-700">{{ t('saved') }}</p>
     <p v-if="dirty" role="status" class="text-sm text-amber-800">{{ t('dirty') }}</p>
-    <div class="min-w-0 rounded-lg border bg-card">
+    <Card class="min-w-0 gap-0 p-0">
       <p v-if="loading" role="status" class="p-8 text-center text-sm text-muted-foreground">{{ t('loading') }}</p>
       <div v-else-if="loadError" role="alert" class="p-8 text-sm">
         <p>{{ t('loadFailed') }}</p>
@@ -239,52 +247,50 @@ onBeforeUnmount(() => {
       </div>
       <p v-else-if="!products.length" class="p-8 text-center text-sm text-muted-foreground">{{ t('empty') }}</p>
       <div v-else>
-        <div class="hidden overflow-x-auto md:block" tabindex="0" :aria-label="t('title')">
-          <table>
-            <thead>
-              <tr>
-                <th>{{ t('product') }}</th>
-                <th>{{ t('type') }}</th>
-                <th>{{ t('status') }}</th>
-                <th>{{ t('price') }}</th>
-                <th>{{ t('variantsCount') }} / {{ t('groupsCount') }}</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="product in products" :key="product.id">
-                <th scope="row" class="font-medium">
-                  {{ product.name }}
-                  <span class="mt-1 block text-xs font-normal text-muted-foreground">{{ product.category }}</span>
-                </th>
-                <td>{{ t(product.type) }}</td>
-                <td>
-                  {{ t(product.status) }}
-                  <span
-                    v-if="!product.skus.some((sku) => sku.is_active)"
-                    class="mt-1 block whitespace-normal text-xs text-muted-foreground"
-                  >
-                    {{ t('noActiveVariants') }}
-                  </span>
-                </td>
-                <td class="tabular-nums">{{ money(product.price) }}</td>
-                <td class="tabular-nums">
-                  {{ product.skus.filter((sku) => sku.is_active).length }} / {{ product.selection_group_count }}
-                </td>
-                <td>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    :aria-label="`${t('configure')} ${product.name}`"
-                    @click="navigate({ ...state, productId: product.id })"
-                  >
-                    {{ t('configure') }}
-                  </Button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <Table container-class="hidden md:block" tabindex="0" :aria-label="t('title')" class="border-collapse text-start">
+          <thead>
+            <tr>
+              <th>{{ t('product') }}</th>
+              <th>{{ t('type') }}</th>
+              <th>{{ t('status') }}</th>
+              <th>{{ t('price') }}</th>
+              <th>{{ t('variantsCount') }} / {{ t('groupsCount') }}</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="product in products" :key="product.id">
+              <th scope="row" class="font-medium">
+                {{ product.name }}
+                <span class="mt-1 block text-xs font-normal text-muted-foreground">{{ product.category }}</span>
+              </th>
+              <td>{{ t(product.type) }}</td>
+              <td>
+                {{ t(product.status) }}
+                <span
+                  v-if="!product.skus.some((sku) => sku.is_active)"
+                  class="mt-1 block whitespace-normal text-xs text-muted-foreground"
+                >
+                  {{ t('noActiveVariants') }}
+                </span>
+              </td>
+              <td class="tabular-nums">{{ money(product.price) }}</td>
+              <td class="tabular-nums">
+                {{ product.skus.filter((sku) => sku.is_active).length }} / {{ product.selection_group_count }}
+              </td>
+              <td>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  :aria-label="`${t('configure')} ${product.name}`"
+                  @click="navigate({ ...state, productId: product.id })"
+                >
+                  {{ t('configure') }}
+                </Button>
+              </td>
+            </tr>
+          </tbody>
+        </Table>
         <ul class="divide-y md:hidden">
           <li v-for="product in products" :key="product.id" class="grid gap-3 p-4 text-sm">
             <div class="flex justify-between gap-3">
@@ -318,14 +324,13 @@ onBeforeUnmount(() => {
         <span>{{ total }} {{ t('records') }} · {{ t('page') }} {{ state.page }} / {{ pageCount }}</span>
         <label>
           {{ t('pageSize') }}
-          <select
-            :value="state.pageSize"
+          <SelectField
+            :model-value="state.pageSize"
             :aria-label="t('pageSize')"
             :disabled="loading || dirty"
-            @change="navigate({ ...state, page: 1, pageSize: Number(($event.target as HTMLSelectElement).value) })"
-          >
-            <option v-for="size in [20, 50, 100]" :key="size" :value="size">{{ size }}</option>
-          </select>
+            @update:model-value="navigate({ ...state, page: 1, pageSize: $event })"
+            :options="[20, 50, 100].map((size) => ({ value: size, label: String(size) }))"
+          />
         </label>
         <div class="flex gap-2">
           <Button
@@ -346,7 +351,7 @@ onBeforeUnmount(() => {
           </Button>
         </div>
       </div>
-    </div>
+    </Card>
     <footer class="text-xs leading-5 text-muted-foreground">
       <p>{{ t('stockHint') }}</p>
       <p>{{ ct('imagesHint') }}</p>
@@ -378,29 +383,6 @@ label {
   gap: 0.375rem;
   font-size: 0.75rem;
   color: var(--ld-text-muted);
-}
-input,
-select {
-  min-width: 0;
-  max-width: 100%;
-  min-height: 2.25rem;
-  border: 1px solid var(--ld-border-default);
-  border-radius: 0.375rem;
-  padding: 0.5rem 0.625rem;
-  background: var(--ld-bg-elevated);
-  color: var(--ld-text-heading);
-  font-size: 0.875rem;
-}
-input:focus-visible,
-select:focus-visible {
-  outline: 2px solid var(--ld-color-primary);
-  outline-offset: 2px;
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: start;
-  font-size: 0.875rem;
 }
 th,
 td {

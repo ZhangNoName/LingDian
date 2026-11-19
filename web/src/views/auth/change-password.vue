@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Input } from '@lingdian/console-ui/input'
+import { Button } from '@lingdian/console-ui/button'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AccountPanel from '@/components/account/AccountPanel.vue'
@@ -58,19 +60,19 @@ async function changePassword() {
         <div>
           <label for="change-code" class="account-label">{{ t('code') }}</label>
           <div class="mt-2 flex min-w-0 gap-2">
-            <input
+            <Input
               id="change-code"
               v-model.trim="code"
-              class="account-input grow"
+              class="h-10 grow"
               inputmode="numeric"
               autocomplete="one-time-code"
               pattern="[0-9]{6}"
               maxlength="6"
               required
             />
-            <button class="account-action shrink-0" type="button" :disabled="sending" @click="requestCode">
+            <Button variant="outline" size="lg" class="h-10" type="button" :disabled="sending" @click="requestCode">
               {{ t(sending ? 'sending' : 'sendCode') }}
-            </button>
+            </Button>
           </div>
         </div>
         <div>
@@ -92,15 +94,15 @@ async function changePassword() {
       >
         {{ t(message) }}
       </p>
-      <button
-        class="account-action account-primary"
+      <Button
+        size="lg" class="h-10"
         type="submit"
         :disabled="
           submitting || sending || !/^\d{6}$/.test(code) || password.length < merchantPasswordReplacementMinimum
         "
       >
         {{ t(submitting ? 'submitting' : 'changePassword') }}
-      </button>
+      </Button>
     </form>
   </AccountPanel>
 </template>

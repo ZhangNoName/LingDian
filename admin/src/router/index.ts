@@ -1,4 +1,4 @@
-import { ElMessage } from 'element-plus'
+import { notifications } from '../components/ui/notifications'
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { firstAccessibleRoute, hasPermission, type AdminPermission } from '../auth/permissions'
 import { adminSession } from '../auth/session'
@@ -30,6 +30,6 @@ router.beforeEach(async (to) => {
   if (passwordRoute) return passwordRoute
   const roles = adminSession.currentUser.value?.roles ?? []
   if (to.path === '/') return firstAccessibleRoute(roles)
-  if (to.meta.permission && !hasPermission(roles, to.meta.permission)) { ElMessage.warning('你没有访问该模块的权限'); return firstAccessibleRoute(roles) }
+  if (to.meta.permission && !hasPermission(roles, to.meta.permission)) { notifications.warning('你没有访问该模块的权限'); return firstAccessibleRoute(roles) }
   return true
 })

@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { Button } from '@lingdian/console-ui/button'
+import { DropdownMenu } from '@lingdian/console-ui/dropdown'
 import { Fold, User } from '@lingdian/icons/admin'
 import { computed } from 'vue'
-import { ElMessage } from 'element-plus'
+import { notifications } from '../ui/notifications'
 import { useRoute, useRouter } from 'vue-router'
 import { adminSession } from '../../auth/session'
 import ThemeSwitcher from './ThemeSwitcher.vue'
@@ -17,7 +19,7 @@ async function command(value: string) {
   try {
     await adminSession.logout()
   } catch {
-    ElMessage.error('服务端退出失败，本机登录状态已清除，请稍后重试。')
+    notifications.error('服务端退出失败，本机登录状态已清除，请稍后重试。')
   } finally {
     await router.replace('/login')
   }
@@ -26,7 +28,25 @@ async function command(value: string) {
 
 <template>
   <header class="admin-header">
-    <div class="header-leading"><el-button text circle aria-label="收起侧栏" @click="$emit('toggle')"><el-icon><Fold /></el-icon></el-button><el-breadcrumb separator="/"><el-breadcrumb-item>零点平台</el-breadcrumb-item><el-breadcrumb-item>{{ title }}</el-breadcrumb-item></el-breadcrumb></div>
-    <div class="header-actions"><ThemeSwitcher /><el-divider direction="vertical" /><el-dropdown @command="command"><button class="user-trigger"><span class="avatar"><el-icon><User /></el-icon></span><span class="user-copy"><strong>管理员</strong><small>{{ adminSession.currentUser.value?.roles.join(' / ') }}</small></span></button><template #dropdown><el-dropdown-menu><el-dropdown-item command="/profile">个人设置</el-dropdown-item><el-dropdown-item divided command="logout">退出登录</el-dropdown-item></el-dropdown-menu></template></el-dropdown></div>
+    <div class="header-leading">
+      <Button type="button" variant="ghost" size="icon" aria-label="切换侧栏" @click="$emit('toggle')"><Fold /></Button>
+      <nav class="header-breadcrumb" aria-label="当前位置">
+        <span>零点平台</span>
+        <span aria-hidden="true">/</span>
+        <span aria-current="page">{{ title }}</span>
+      </nav>
+    </div>
+    <div class="header-actions">
+      <ThemeSwitcher />
+      <span class="h-5 border-l" aria-hidden="true" />
+      <DropdownMenu :items="[{ value: '/profile', label: '个人设置' }, { value: 'logout', label: '退出登录', divided: true }]" @select="command">
+        <Button type="button" variant="ghost" class="user-trigger" aria-label="管理员菜单">
+          <span class="avatar"><User /></span>
+          <span class="user-copy">
+            <strong>管理员</strong><small>{{ adminSession.currentUser.value?.roles.join(' / ') }}</small>
+          </span>
+        </Button>
+      </DropdownMenu>
+    </div>
   </header>
 </template>

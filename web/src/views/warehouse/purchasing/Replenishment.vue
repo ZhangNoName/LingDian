@@ -2,7 +2,9 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { ReplenishmentSnapshot, ReplenishmentRow } from '@lingdian/contracts'
-import { Button } from '@/baseComponents/button'
+import { Button } from '@lingdian/console-ui/button'
+import { Input } from '@lingdian/console-ui/input'
+import { SelectField } from '@lingdian/console-ui/select'
 import { replenishmentSnapshot } from '@/services/purchasing'
 import { downloadCsv } from '../report'
 import AnalysisTable from './AnalysisTable.vue'
@@ -154,15 +156,19 @@ onBeforeUnmount(() => {
     >
       <label class="grow">
         {{ t('materialSearch') }}
-        <input v-model="keyword" type="search" maxlength="120" />
+        <Input v-model="keyword" type="search" maxlength="120" />
       </label>
       <label>
         {{ t('status') }}
-        <select v-model="subset" :aria-label="t('status')">
-          <option value="NEEDED">{{ t('needed') }}</option>
-          <option value="COVERED">{{ t('covered') }}</option>
-          <option value="ALL">{{ t('allMaterials') }}</option>
-        </select>
+        <SelectField
+          v-model="subset"
+          :aria-label="t('status')"
+          :options="[
+            { value: 'NEEDED', label: t('needed') },
+            { value: 'COVERED', label: t('covered') },
+            { value: 'ALL', label: t('allMaterials') },
+          ]"
+        />
       </label>
       <Button type="submit" variant="outline" :disabled="loading">{{ t('find') }}</Button>
     </form>

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref, watch } from 'vue'
 import type { InventoryMaterialChangeKind, InventoryMaterialChangePage } from '@lingdian/contracts'
-import { Button } from '@/baseComponents/button'
+import { Button } from '@lingdian/console-ui/button'
+import { SelectField } from '@lingdian/console-ui/select'
 import { useLocale } from '@/i18n/locale'
 import { inventoryMaterialChanges } from '@/services/inventory'
 import { downloadCsv } from '../report'
@@ -85,21 +86,13 @@ onBeforeUnmount(() => {
     <div class="flex flex-wrap items-center justify-between gap-2">
       <label class="grid gap-1 text-xs text-muted-foreground"
         >{{ t('filter')
-        }}<select
-          :value="kind"
+        }}<SelectField
+          :model-value="kind"
           :aria-label="t('filter')"
           :disabled="loading"
-          class="rounded-md border bg-card px-3 py-2 text-sm text-foreground"
-          @change="
-            $emit(
-              'change',
-              ($event.target as HTMLSelectElement).value as InventoryMaterialChangeKind | 'ALL',
-              1,
-            )
-          "
-        >
-          <option v-for="value in kinds" :key="value" :value="value">{{ t(value) }}</option>
-        </select></label
+          @update:model-value="$emit('change', $event, 1)"
+          :options="kinds.map((value) => ({ value, label: t(value) }))"
+        /></label
       ><Button
         type="button"
         variant="ghost"

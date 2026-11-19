@@ -1,6 +1,6 @@
 # 零点商家工作台
 
-Vue 3、TypeScript、Vite、Element Plus 与 Tailwind CSS 构建的商家端。当前已经接入门店、商品、订单、账号安全和外部集成能力。
+Vue 3、TypeScript、Vite、shadcn-vue 与 Tailwind CSS 构建的商家端。当前已经接入门店、商品、订单、账号安全和外部集成能力。
 
 ## 本地开发
 
@@ -40,7 +40,7 @@ lib/api ─► auth/api-client ─► auth/session ─► backend /api
 - `src/services`：按业务域封装接口、查询参数和 URL 编码。
 - `src/auth`：内存访问令牌、HttpOnly 刷新会话、单飞刷新、鉴权请求重试和安全回跳。
 - `src/config`：API 根地址、生产功能开关、导航与快捷操作。
-- `src/baseComponents`：无业务依赖的基础 UI。组件实现不应反向导入自己的 barrel 文件。
+- `@lingdian/console-ui`：商家端和平台后台共用的 shadcn-vue 基础组件，源码位于 `packages/console-ui/src`。
 - `@lingdian/contracts`：前后端共享的订单、认证和集成类型。
 
 页面只负责状态编排和交互；可测试的查询序列化、展示映射、草稿归一化与行内编辑状态放在 service 或同域 helper 中。异步列表与详情加载使用请求序号，避免旧响应覆盖新筛选结果。

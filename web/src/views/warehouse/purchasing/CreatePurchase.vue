@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref, watch } from 'vue'
 import type { InventoryItemContract, SupplierRecord, ReplenishmentRow } from '@lingdian/contracts'
-import { Button } from '@/baseComponents/button'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/baseComponents/dialog'
+import { Button } from '@lingdian/console-ui/button'
+import { Input } from '@lingdian/console-ui/input'
+import { SelectField } from '@lingdian/console-ui/select'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@lingdian/console-ui/dialog'
 import { supplierList, createPurchase, replenishmentSnapshot } from '@/services/purchasing'
 import { listInventory } from '@/services/inventory'
 import { errorKey, usePurchasingLocale, type Key } from './locale'
@@ -150,7 +152,7 @@ onBeforeUnmount(() => {
           <div class="flex items-end gap-2">
             <label class="grow">
               {{ t('supplierSearch') }}
-              <input
+              <Input
                 v-model="supplierKeyword"
                 @keydown.enter.prevent="lookup('supplier')"
                 type="search"
@@ -163,28 +165,31 @@ onBeforeUnmount(() => {
           </div>
           <label>
             {{ t('supplier') }}
-            <select v-model="supplier" :aria-label="t('supplier')" required>
-              <option value="">{{ t('choose') }}</option>
-              <option v-for="record in suppliers" :key="record.id" :value="record.id">
-                {{ record.code }} · {{ record.name }}
-              </option>
-            </select>
+            <SelectField
+              v-model="supplier"
+              :aria-label="t('supplier')"
+              required
+              :options="[
+                { value: '', label: t('choose') },
+                ...suppliers.map((record) => ({ value: record.id, label: `${record.code} · ${record.name}` })),
+              ]"
+            />
           </label>
           <div class="grid gap-3 sm:grid-cols-2">
             <label>
               {{ t('expectedAt') }}
-              <input v-model="expectedAt" type="date" />
+              <Input v-model="expectedAt" type="date" />
             </label>
             <label>
               {{ t('note') }}
-              <input v-model="note" maxlength="240" />
+              <Input v-model="note" maxlength="240" />
             </label>
           </div>
           <hr />
           <div class="flex items-end gap-2">
             <label class="grow">
               {{ t('materialSearch') }}
-              <input
+              <Input
                 v-model="materialKeyword"
                 @keydown.enter.prevent="lookup('material')"
                 type="search"
@@ -198,17 +203,14 @@ onBeforeUnmount(() => {
           <div class="flex gap-2">
             <label class="grow">
               <span class="sr-only">{{ t('material') }}</span>
-              <select v-model="selectedItem" :aria-label="t('material')">
-                <option value="">{{ t('choose') }}</option>
-                <option
-                  v-for="item in items"
-                  :key="item.id"
-                  :value="item.id"
-                  :disabled="lines.some((line) => line.item.id === item.id)"
-                >
-                  {{ item.code }} · {{ item.name }} ({{ item.unit }})
-                </option>
-              </select>
+              <SelectField
+                v-model="selectedItem"
+                :aria-label="t('material')"
+                :options="[
+                  { value: '', label: t('choose') },
+                  ...items.map((item) => ({ value: item.id, label: `${item.code} · ${item.name} (${item.unit})`, disabled: lines.some((line) => line.item.id === item.id) })),
+                ]"
+              />
             </label>
             <Button
               type="button"
@@ -241,7 +243,7 @@ onBeforeUnmount(() => {
             </p>
             <label>
               {{ t('quantity') }}
-              <input
+              <Input
                 v-model.number="line.quantity"
                 :aria-label="`${t('quantity')} ${line.item.name}`"
                 type="number"
@@ -253,7 +255,7 @@ onBeforeUnmount(() => {
             </label>
             <label>
               {{ t('unitPrice') }}
-              <input
+              <Input
                 v-model.number="line.unitPrice"
                 :aria-label="`${t('unitPrice')} ${line.item.name}`"
                 type="number"

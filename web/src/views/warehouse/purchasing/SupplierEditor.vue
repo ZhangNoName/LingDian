@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue'
 import type { SupplierRecord } from '@lingdian/contracts'
-import { Button } from '@/baseComponents/button'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/baseComponents/dialog'
+import { Button } from '@lingdian/console-ui/button'
+import { Checkbox } from '@lingdian/console-ui/input'
+import { Input } from '@lingdian/console-ui/input'
+import { Textarea } from '@lingdian/console-ui/textarea'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@lingdian/console-ui/dialog'
 import { saveSupplier } from '@/services/purchasing'
 import { errorKey, usePurchasingLocale, type Key } from './locale'
 const props = defineProps<{ open: boolean; storeId: string; supplier?: SupplierRecord }>(),
@@ -65,22 +68,22 @@ async function submit() {
         <fieldset :disabled="saving" class="grid min-w-0 gap-4">
           <label>
             {{ t('code') }}
-            <input v-model="form.code" pattern="[A-Za-z0-9_-]{1,64}" maxlength="64" required />
+            <Input v-model="form.code" pattern="[A-Za-z0-9_-]{1,64}" maxlength="64" required />
           </label>
           <label>
             {{ t('name') }}
-            <input v-model="form.name" maxlength="120" required />
+            <Input v-model="form.name" maxlength="120" required />
           </label>
           <label>
             {{ t('contact') }}
-            <input v-model="form.contact" maxlength="191" />
+            <Input v-model="form.contact" maxlength="191" />
           </label>
           <label>
             {{ t('note') }}
-            <textarea v-model="form.note" maxlength="240" rows="2" />
+            <Textarea v-model="form.note" maxlength="240" rows="2" />
           </label>
           <label class="check">
-            <input v-model="form.isActive" type="checkbox" />
+            <Checkbox v-model="form.isActive" class="accent-primary" />
             {{ t('enabled') }}
           </label>
         </fieldset>

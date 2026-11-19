@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Button } from '@/baseComponents/button'
+import { Button } from '@lingdian/console-ui/button'
+import { Card } from '@lingdian/console-ui/card'
 import { useLocale } from '@/i18n/locale'
 import { merchantStore } from '@/auth/merchant-store'
 import Purchasing from './purchasing/index.vue'
@@ -76,7 +77,7 @@ function stockFromAlert(itemId: string, lifecycle: 'ACTIVE' | 'ARCHIVED') {
       <p class="text-sm text-muted-foreground">{{ t('subtitle') }}</p>
       <p v-if="storeName" class="mt-1 text-sm font-medium">{{ storeName }}</p>
     </div>
-    <div class="panel">
+    <Card class="min-w-0 gap-0 p-0">
       <div class="flex flex-wrap items-center justify-between gap-3 border-b p-4">
         <div
           class="flex max-w-full flex-nowrap gap-1 overflow-x-auto [&>button]:shrink-0"
@@ -151,7 +152,7 @@ function stockFromAlert(itemId: string, lifecycle: 'ACTIVE' | 'ARCHIVED') {
         :mode="view"
       />
       <StockList v-else :store-id="storeId" :store-name="storeName" @replenish="replenish" />
-    </div>
+    </Card>
     <p class="text-xs leading-5 text-muted-foreground">
       {{ t('scopeHint') }}<template v-if="view !== 'report'"><br />{{ t('reportHint') }}</template>
     </p>
@@ -162,12 +163,5 @@ function stockFromAlert(itemId: string, lifecycle: 'ACTIVE' | 'ARCHIVED') {
   display: grid;
   min-width: 0;
   gap: 1.25rem;
-}
-.panel {
-  min-width: 0;
-  overflow: hidden;
-  border: 1px solid var(--ld-border-default);
-  border-radius: 0.5rem;
-  background: var(--ld-bg-elevated);
 }
 </style>

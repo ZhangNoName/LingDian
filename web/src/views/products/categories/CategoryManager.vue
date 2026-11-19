@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { CategoryContract, MerchantCategoryPage, MerchantCategoryRecord } from '@lingdian/contracts'
-import { Button } from '@/baseComponents/button'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/baseComponents/dialog'
+import { Button } from '@lingdian/console-ui/button'
+import { Input } from '@lingdian/console-ui/input'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@lingdian/console-ui/dialog'
 import { merchantCategories } from '@/services/products'
 import CategoryEditor from './CategoryEditor.vue'
 import { useCategoryLocale } from './locale'
@@ -130,11 +131,10 @@ onBeforeUnmount(() => {
         <form class="flex items-end gap-2" @submit.prevent="search">
           <label class="grid min-w-0 grow gap-1 text-xs text-muted-foreground"
             >{{ t('search')
-            }}<input
+            }}<Input
               v-model="keyword"
               type="search"
-              maxlength="120"
-              class="rounded-md border bg-background p-2 text-sm" /></label
+              maxlength="120" /></label
           ><Button type="submit" variant="outline" :disabled="loading">{{ t('find') }}</Button>
         </form>
         <p v-if="dirty" role="status" class="text-sm text-amber-800">{{ t('dirty') }}</p>

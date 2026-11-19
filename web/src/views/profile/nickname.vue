@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Input } from '@lingdian/console-ui/input'
+import { Button } from '@lingdian/console-ui/button'
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import AccountPanel from '@/components/account/AccountPanel.vue'
 import { merchantSession } from '@/auth/session'
@@ -51,14 +53,14 @@ async function save() {
     <p v-if="loading" role="status" class="account-help">{{ t('loading') }}</p>
     <div v-else-if="loadFailed" role="alert">
       <p class="text-sm text-destructive">{{ t('profileFailed') }}</p>
-      <button type="button" class="account-action mt-3" @click="load">{{ t('retry') }}</button>
+      <Button type="button" variant="outline" class="mt-3" @click="load">{{ t('retry') }}</Button>
     </div>
     <form v-else class="account-form" @submit.prevent="save">
       <label class="account-label">
         {{ t('nickname') }}
-        <input
+        <Input
           v-model="nickname"
-          class="account-input"
+          class="h-10"
           autocomplete="nickname"
           maxlength="32"
           required
@@ -73,13 +75,13 @@ async function save() {
       >
         {{ t(message) }}
       </p>
-      <button
-        class="account-action account-primary justify-self-start"
+      <Button
+        size="lg" class="h-10 justify-self-start"
         type="submit"
         :disabled="saving || !nickname.trim() || nickname.trim().length > 32"
       >
         {{ t(saving ? 'saving' : 'saveNickname') }}
-      </button>
+      </Button>
     </form>
   </AccountPanel>
 </template>

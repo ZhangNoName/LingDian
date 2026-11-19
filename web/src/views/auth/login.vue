@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Input } from '@lingdian/console-ui/input'
+import { Button } from '@lingdian/console-ui/button'
 import { computed, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import AccountPanel from '@/components/account/AccountPanel.vue'
@@ -45,9 +47,9 @@ async function login() {
       <fieldset :disabled="loggingIn" class="grid min-w-0 gap-5">
         <label class="account-label">
           {{ t('username') }}
-          <input
+          <Input
             v-model.trim="username"
-            class="account-input"
+            class="h-10"
             type="text"
             autocomplete="username"
             minlength="3"
@@ -74,13 +76,13 @@ async function login() {
       >
         {{ t(error ?? notice!) }}
       </p>
-      <button
-        class="account-action account-primary"
+      <Button
+        size="lg" class="h-10"
         type="submit"
         :disabled="loggingIn || username.length < 3 || password.length < merchantLoginPasswordMinimum"
       >
         {{ t(loggingIn ? 'loggingIn' : 'login') }}
-      </button>
+      </Button>
     </form>
     <RouterLink class="mt-5 inline-block text-sm font-medium text-primary" :to="{ name: 'forgot-password' }">
       {{ t('forgotLink') }}

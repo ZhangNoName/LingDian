@@ -76,8 +76,8 @@ import { computed } from 'vue'
 import LanguageSelect from '@/components/LanguageSelect.vue'
 import { useLocale } from '@/i18n/locale'
 import { PanelLeft } from '@lingdian/icons/web'
-import { Badge } from '@/baseComponents/badge'
-import { Button } from '@/baseComponents/button'
+import { Badge } from '@lingdian/console-ui/badge'
+import { Button } from '@lingdian/console-ui/button'
 
 const { locale } = useLocale()
 const english = computed(() => locale.value === 'en-US')

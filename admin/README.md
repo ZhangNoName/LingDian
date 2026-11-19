@@ -1,6 +1,6 @@
 # 零点平台管理后台
 
-Vue 3、TypeScript、Vite 与 Element Plus 构建的经典后台管理系统。
+Vue 3、TypeScript、Vite 与共享的 shadcn-vue 组件 构建的经典后台管理系统。
 
 ## 本地开发
 
@@ -55,7 +55,7 @@ views ─► services ─► auth/api-client ─► auth/session ─► backend 
 
 ## Schema 列表页
 
-用户管理和系统日志使用 `src/components/schema-table` 中的通用列表组件。列表路由占满应用剩余高度，页面本身不滚动；纵向与横向滚动均由 Element Plus 表格内部处理，分页固定在列表底部，操作列固定在右侧。
+用户管理和系统日志使用 `src/components/schema-table` 中的通用列表组件。列表路由占满应用剩余高度，页面本身不滚动；纵向与横向滚动均由共享 Table 的滚动容器处理，分页固定在列表底部，操作列固定在右侧。
 
 最小用法：
 

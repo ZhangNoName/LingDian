@@ -2,7 +2,9 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { InventoryMovementKind, InventoryPeriodReport } from '@lingdian/contracts'
-import { Button } from '@/baseComponents/button'
+import { Button } from '@lingdian/console-ui/button'
+import { SelectField } from '@lingdian/console-ui/select'
+import { Table } from '@lingdian/console-ui/table'
 import { inventoryNavigationContext } from '../materials/state'
 import { activityQuery, type ActivityState } from '../activity-state'
 import { downloadCsv } from '../report'
@@ -167,17 +169,23 @@ function exportSnapshot() {
       <div class="flex flex-wrap items-end gap-3">
         <label class="grid min-w-0 gap-1 text-xs text-muted-foreground"
           >{{ t('filter')
-          }}<select v-model="subset" :disabled="dirty" class="analysis-control" :aria-label="t('filter')">
-            <option v-for="value in ['ALL', 'LOSS', 'COUNT'] as const" :key="value" :value="value">
-              {{ t(value) }}
-            </option>
-          </select></label
+          }}<SelectField
+            v-model="subset"
+            :disabled="dirty"
+            :aria-label="t('filter')"
+            :options="(['ALL', 'LOSS', 'COUNT'] as const).map((value) => ({ value, label: t(value) }))"
+          /></label
         ><label class="grid min-w-0 gap-1 text-xs text-muted-foreground"
           >{{ t('order')
-          }}<select v-model="order" :disabled="dirty" class="analysis-control" :aria-label="t('order')">
-            <option value="CODE">{{ t('CODE') }}</option>
-            <option value="LOSS_RATE">{{ t('LOSS_RATE') }}</option>
-          </select></label
+          }}<SelectField
+            v-model="order"
+            :disabled="dirty"
+            :aria-label="t('order')"
+            :options="[
+              { value: 'CODE', label: t('CODE') },
+              { value: 'LOSS_RATE', label: t('LOSS_RATE') },
+            ]"
+          /></label
         ><Button
           size="sm"
           variant="outline"
@@ -213,54 +221,52 @@ function exportSnapshot() {
         <Button size="sm" variant="ghost" :disabled="dirty" @click="focus('')">{{ t('clear') }}</Button>
       </div>
       <p v-if="!rows.length" class="py-6 text-center text-sm text-muted-foreground">{{ t('empty') }}</p>
-      <template v-else
-        ><div class="hidden overflow-x-auto md:block" tabindex="0" :aria-label="t('title')">
-          <table class="w-full border-collapse text-left text-sm">
-            <thead>
-              <tr>
-                <th scope="col">{{ t('material') }}</th>
-                <th scope="col">{{ t('outflow') }}</th>
-                <th scope="col">{{ t('lost') }}</th>
-                <th scope="col">{{ t('lossRate') }}</th>
-                <th scope="col">{{ t('countGain') }}</th>
-                <th scope="col">{{ t('countLoss') }}</th>
-                <th scope="col">{{ t('countDifference') }}</th>
-                <th scope="col">{{ t('actions') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="row in visible"
-                :key="row.itemId"
-                :class="{ 'bg-muted/40': row.itemId === state.itemId }"
-              >
-                <th scope="row" class="max-w-60 font-medium">
-                  <span class="break-words">{{ row.name }}</span
-                  ><span class="mt-1 block break-all text-xs font-normal text-muted-foreground"
-                    >{{ row.code }} · {{ row.unit }}</span
-                  >
-                </th>
-                <td>{{ number(row.outflow) }} {{ row.unit }}</td>
-                <td>{{ number(row.lost) }} {{ row.unit }}</td>
-                <td>{{ percent(row.lossRate) }}</td>
-                <td>{{ number(row.countGain) }} {{ row.unit }}</td>
-                <td>{{ number(row.countLoss) }} {{ row.unit }}</td>
-                <td>{{ number(row.countDifference) }} {{ row.unit }}</td>
-                <td>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    :disabled="dirty"
-                    :aria-label="`${t('focus')} ${row.name}`"
-                    :data-analysis-item="row.itemId"
-                    @click="focus(row.itemId)"
-                    >{{ t('focus') }}</Button
-                  >
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+      <template v-else>
+        <Table container-class="hidden md:block" tabindex="0" :aria-label="t('title')" class="border-collapse text-left">
+          <thead>
+            <tr>
+              <th scope="col">{{ t('material') }}</th>
+              <th scope="col">{{ t('outflow') }}</th>
+              <th scope="col">{{ t('lost') }}</th>
+              <th scope="col">{{ t('lossRate') }}</th>
+              <th scope="col">{{ t('countGain') }}</th>
+              <th scope="col">{{ t('countLoss') }}</th>
+              <th scope="col">{{ t('countDifference') }}</th>
+              <th scope="col">{{ t('actions') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="row in visible"
+              :key="row.itemId"
+              :class="{ 'bg-muted/40': row.itemId === state.itemId }"
+            >
+              <th scope="row" class="max-w-60 font-medium">
+                <span class="break-words">{{ row.name }}</span
+                ><span class="mt-1 block break-all text-xs font-normal text-muted-foreground"
+                  >{{ row.code }} · {{ row.unit }}</span
+                >
+              </th>
+              <td>{{ number(row.outflow) }} {{ row.unit }}</td>
+              <td>{{ number(row.lost) }} {{ row.unit }}</td>
+              <td>{{ percent(row.lossRate) }}</td>
+              <td>{{ number(row.countGain) }} {{ row.unit }}</td>
+              <td>{{ number(row.countLoss) }} {{ row.unit }}</td>
+              <td>{{ number(row.countDifference) }} {{ row.unit }}</td>
+              <td>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  :disabled="dirty"
+                  :aria-label="`${t('focus')} ${row.name}`"
+                  :data-analysis-item="row.itemId"
+                  @click="focus(row.itemId)"
+                  >{{ t('focus') }}</Button
+                >
+              </td>
+            </tr>
+          </tbody>
+        </Table>
         <ul class="grid gap-3 md:hidden">
           <li
             v-for="row in visible"
@@ -329,21 +335,6 @@ function exportSnapshot() {
   </section>
 </template>
 <style scoped>
-.analysis-control {
-  min-height: 2.25rem;
-  min-width: 0;
-  max-width: 100%;
-  border: 1px solid var(--ld-border-default);
-  border-radius: 0.375rem;
-  padding: 0.5rem 0.625rem;
-  background: var(--ld-bg-elevated);
-  color: var(--ld-text-heading);
-  font-size: 0.875rem;
-}
-.analysis-control:focus-visible {
-  outline: 2px solid var(--ld-color-primary);
-  outline-offset: 2px;
-}
 th,
 td {
   border-bottom: 1px solid var(--ld-border-default);

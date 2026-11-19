@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { Badge } from '@lingdian/console-ui/badge'
+import { Button } from '@lingdian/console-ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@lingdian/console-ui/dialog'
 import type {
   AuthRole,
   CreatePlatformUserRequest,
@@ -9,7 +12,7 @@ import type {
   UpdatePlatformUserRequest,
 } from '@lingdian/contracts'
 import { CircleCheck, CircleClose, Edit, Key } from '@lingdian/icons/admin'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { notifications } from '../../components/ui/notifications'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { adminSession } from '../../auth/session'
@@ -40,6 +43,8 @@ const saving = ref(false)
 const error = ref('')
 const editorOpen = ref(false)
 const passwordOpen = ref(false)
+const statusTarget = ref<PlatformUserSummary>()
+const savingStatus = ref(false)
 const selected = ref<PlatformUserSummary>()
 let loadSequence = 0
 const rank: Record<AuthRole, number> = { USER: 0, MERCHANT: 1, ADMIN: 2, SUPER_ADMIN: 3 }
@@ -130,7 +135,7 @@ function rowActions(row: PlatformUserSummary): SchemaAction<PlatformUserSummary>
       icon: row.status === 'ACTIVE' ? CircleClose : CircleCheck,
       type: row.status === 'ACTIVE' ? 'danger' : 'success',
       disabled: !canOperate(row),
-      onClick: toggleStatus,
+      onClick: () => { statusTarget.value = row },
     },
   ]
 }
@@ -140,11 +145,11 @@ async function submitUser(payload: CreatePlatformUserRequest | UpdatePlatformUse
   try {
     if (selected.value) await updateUser(selected.value.userId, payload)
     else await createUser(payload as CreatePlatformUserRequest)
-    ElMessage.success(selected.value ? '用户信息已更新' : '用户已创建')
+    notifications.success(selected.value ? '用户信息已更新' : '用户已创建')
     editorOpen.value = false
     await load()
   } catch (cause) {
-    ElMessage.error(cause instanceof Error ? cause.message : '操作失败')
+    notifications.error(cause instanceof Error ? cause.message : '操作失败')
   } finally {
     saving.value = false
   }
@@ -155,28 +160,29 @@ async function submitPassword(password: string) {
   saving.value = true
   try {
     await resetUserPassword(selected.value.userId, password)
-    ElMessage.success('密码已重置')
+    notifications.success('密码已重置')
     passwordOpen.value = false
   } catch (cause) {
-    ElMessage.error(cause instanceof Error ? cause.message : '密码重置失败')
+    notifications.error(cause instanceof Error ? cause.message : '密码重置失败')
   } finally {
     saving.value = false
   }
 }
 
-async function toggleStatus(user: PlatformUserSummary) {
+async function toggleStatus() {
+  const user = statusTarget.value
+  if (!user || savingStatus.value) return
   const status: PlatformUserStatus = user.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE'
+  savingStatus.value = true
   try {
-    await ElMessageBox.confirm(
-      status === 'DISABLED' ? '停用后该用户的现有会话将立即失效，确认继续？' : '确认重新启用该账号？',
-      status === 'DISABLED' ? '停用账号' : '启用账号',
-      { type: 'warning' },
-    )
     await setUserStatus(user.userId, status)
-    ElMessage.success(status === 'DISABLED' ? '账号已停用' : '账号已启用')
+    notifications.success(status === 'DISABLED' ? '账号已停用' : '账号已启用')
+    statusTarget.value = undefined
     await load()
   } catch (cause) {
-    if (cause !== 'cancel' && cause !== 'close') ElMessage.error(cause instanceof Error ? cause.message : '状态更新失败')
+    notifications.error(cause instanceof Error ? cause.message : '状态更新失败')
+  } finally {
+    savingStatus.value = false
   }
 }
 
@@ -195,6 +201,7 @@ onMounted(async () => {
 watch(accountType, (value) => {
   editorOpen.value = false
   passwordOpen.value = false
+  statusTarget.value = undefined
   selected.value = undefined
   Object.assign(query, { keyword: undefined, role: undefined, status: undefined, storeId: undefined, page: 1, accountType: value })
   void load()
@@ -219,23 +226,23 @@ watch(accountType, (value) => {
       @page-size-change="changePageSize"
     >
       <template #toolbar-actions>
-        <el-button type="primary" @click="openCreate">{{ pageConfig.createLabel }}</el-button>
+        <Button type="button" @click="openCreate">{{ pageConfig.createLabel }}</Button>
       </template>
       <template #cell-identity="{ row }">
         <div class="identity-cell">
-          <el-avatar>{{ (row.nickname || row.username || '用').slice(0, 1) }}</el-avatar>
+          <span class="avatar identity-avatar" aria-hidden="true">{{ (row.nickname || row.username || '用').slice(0, 1) }}</span>
           <div><strong>{{ row.nickname || '未设置昵称' }}</strong><small>{{ row.username || '无账号' }}</small></div>
         </div>
       </template>
       <template #cell-roles="{ row }">
-        <el-tag v-for="role in row.roles" :key="role" class="role-tag" effect="plain">
+        <Badge v-for="role in row.roles" :key="role" class="role-tag" variant="outline">
           {{ label(roleOptions, role) }}
-        </el-tag>
+        </Badge>
       </template>
       <template #cell-status="{ row }">
-        <el-tag :type="row.status === 'ACTIVE' ? 'success' : 'info'">
+        <Badge variant="outline" :class="row.status === 'ACTIVE' ? 'text-emerald-700 dark:text-emerald-300' : 'text-muted-foreground'">
           {{ label(statusOptions, row.status) }}
-        </el-tag>
+        </Badge>
       </template>
       <template #cell-actions="{ row }">
         <SchemaTableActions :row="row" :actions="rowActions(row)" />
@@ -244,5 +251,21 @@ watch(accountType, (value) => {
 
     <UserEditorDrawer v-model="editorOpen" :user="selected" :stores="stores" :saving="saving" :account-type="accountType" @submit="submitUser" />
     <UserPasswordResetDialog v-model="passwordOpen" :user="selected" :saving="saving" @submit="submitPassword" />
+    <Dialog :open="Boolean(statusTarget)" @update:open="!$event && !savingStatus && (statusTarget = undefined)">
+      <DialogContent class="w-[min(460px,92vw)]" :close-disabled="savingStatus">
+        <DialogHeader>
+          <DialogTitle>{{ statusTarget?.status === 'ACTIVE' ? '停用账号' : '启用账号' }}</DialogTitle>
+          <DialogDescription>
+            {{ statusTarget?.status === 'ACTIVE' ? '停用后该用户的现有会话将立即失效，确认继续？' : '确认重新启用该账号？' }}
+          </DialogDescription>
+        </DialogHeader>
+        <div class="admin-dialog-actions">
+          <Button type="button" variant="outline" :disabled="savingStatus" @click="statusTarget = undefined">取消</Button>
+          <Button type="button" :variant="statusTarget?.status === 'ACTIVE' ? 'destructive' : 'default'" :disabled="savingStatus" @click="toggleStatus">
+            {{ savingStatus ? '正在保存…' : '确认' }}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>

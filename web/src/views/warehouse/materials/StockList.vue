@@ -2,7 +2,9 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { InventoryItemContract, InventoryPage, InventoryStatus } from '@lingdian/contracts'
-import { Button } from '@/baseComponents/button'
+import { Button } from '@lingdian/console-ui/button'
+import { Input } from '@lingdian/console-ui/input'
+import { SelectField } from '@lingdian/console-ui/select'
 import { useLocale } from '@/i18n/locale'
 import { listInventory } from '@/services/inventory'
 import InventoryEditor from '../InventoryEditor.vue'
@@ -205,14 +207,16 @@ onBeforeUnmount(() => {
 <template>
   <section class="min-w-0">
     <div class="grid grid-cols-3 gap-3 border-b p-4" :aria-label="mt('summary')">
-      <button
+      <Button
+        type="button"
+        variant="ghost"
         v-for="metric in [
           { key: 'all' as const, value: inventory?.summary.total, status: '' as const },
           { key: 'low' as const, value: inventory?.summary.low, status: 'LOW' as const },
           { key: 'out' as const, value: inventory?.summary.out, status: 'OUT' as const },
         ]"
         :key="metric.key"
-        class="min-w-0 rounded-md p-2 text-left hover:bg-muted"
+        class="block h-auto min-w-0 whitespace-normal rounded-md p-2 text-left"
         :class="state.lifecycle === 'ACTIVE' && state.status === metric.status ? 'bg-muted' : ''"
         :aria-pressed="state.lifecycle === 'ACTIVE' && state.status === metric.status"
         :disabled="loading"
@@ -224,7 +228,7 @@ onBeforeUnmount(() => {
         ><strong class="mt-2 block text-2xl font-semibold tabular-nums">{{
           loading || failed ? '—' : number(metric.value ?? 0)
         }}</strong>
-      </button>
+      </Button>
     </div>
     <p class="px-4 pt-2 text-xs text-muted-foreground">{{ mt('summary') }}</p>
     <p v-if="notice" role="status" class="px-4 pt-3 text-sm text-emerald-700">{{ t('saved') }}</p>
@@ -246,22 +250,32 @@ onBeforeUnmount(() => {
       :class="filtersOpen ? 'flex' : 'hidden'"
       @submit.prevent="apply"
     >
-      <label>{{ t('search') }}<input v-model="keyword" type="search" maxlength="120" /></label
+      <label>{{ t('search') }}<Input v-model="keyword" type="search" maxlength="120" /></label
       ><label
         >{{ lt('scope')
-        }}<select v-model="scope" :aria-label="lt('scope')" :disabled="loading">
-          <option value="ACTIVE">{{ lt('ACTIVE') }}</option>
-          <option value="ARCHIVED">{{ lt('ARCHIVED') }} ({{ inventory?.summary.archived ?? 0 }})</option>
-          <option value="ALL">{{ lt('ALL') }}</option>
-        </select></label
+        }}<SelectField
+          v-model="scope"
+          :aria-label="lt('scope')"
+          :disabled="loading"
+          :options="[
+            { value: 'ACTIVE', label: lt('ACTIVE') },
+            { value: 'ARCHIVED', label: `${lt('ARCHIVED')} (${inventory?.summary.archived ?? 0})` },
+            { value: 'ALL', label: lt('ALL') },
+          ]"
+        /></label
       ><label v-if="scope !== 'ARCHIVED'"
         >{{ t('status')
-        }}<select v-model="status" :aria-label="t('status')" :disabled="loading">
-          <option value="">{{ t('all') }}</option>
-          <option value="HEALTHY">{{ t('healthy') }}</option>
-          <option value="LOW">{{ t('low') }}</option>
-          <option value="OUT">{{ t('out') }}</option>
-        </select></label
+        }}<SelectField
+          v-model="status"
+          :aria-label="t('status')"
+          :disabled="loading"
+          :options="[
+            { value: '', label: t('all') },
+            { value: 'HEALTHY', label: t('healthy') },
+            { value: 'LOW', label: t('low') },
+            { value: 'OUT', label: t('out') },
+          ]"
+        /></label
       ><Button type="submit" variant="outline" :disabled="loading">{{ t('searchButton') }}</Button
       ><Button type="button" variant="ghost" :disabled="loading" @click="clear">{{ t('clear') }}</Button
       ><Button
@@ -377,22 +391,5 @@ label {
   gap: 0.375rem;
   font-size: 0.75rem;
   color: var(--ld-text-muted);
-}
-input,
-select {
-  min-width: 0;
-  max-width: 100%;
-  min-height: 2.25rem;
-  border: 1px solid var(--ld-border-default);
-  border-radius: 0.375rem;
-  padding: 0.5rem 0.625rem;
-  background: var(--ld-bg-elevated);
-  color: var(--ld-text-heading);
-  font-size: 0.875rem;
-}
-input:focus-visible,
-select:focus-visible {
-  outline: 2px solid var(--ld-color-primary);
-  outline-offset: 2px;
 }
 </style>

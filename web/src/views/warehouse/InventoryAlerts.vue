@@ -2,7 +2,10 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { InventoryAlertPage, InventoryAlertRecord } from '@lingdian/contracts'
-import { Button } from '@/baseComponents/button'
+import { Button } from '@lingdian/console-ui/button'
+import { Input } from '@lingdian/console-ui/input'
+import { SelectField } from '@lingdian/console-ui/select'
+import { Table } from '@lingdian/console-ui/table'
 import { useLocale } from '@/i18n/locale'
 import { listInventoryAlerts } from '@/services/inventory'
 import { useLifecycleLocale } from './lifecycle/locale'
@@ -254,21 +257,27 @@ onBeforeUnmount(() => {
       @submit.prevent="apply"
     >
       <label class="grow sm:grow-0"
-        >{{ t('search') }}<input v-model="keyword" type="search" maxlength="120" /></label
+        >{{ t('search') }}<Input v-model="keyword" type="search" maxlength="120" /></label
       ><label
         >{{ t('status')
-        }}<select v-model="status" :aria-label="t('status')" :disabled="loading">
-          <option v-for="option in statuses" :key="option.value" :value="option.value">
-            {{ t(option.key) }}
-          </option>
-        </select></label
+        }}<SelectField
+          v-model="status"
+          :aria-label="t('status')"
+          :disabled="loading"
+          :options="statuses.map((option) => ({ value: option.value, label: t(option.key) }))"
+        /></label
       ><label
         >{{ t('severity')
-        }}<select v-model="severity" :aria-label="t('severity')" :disabled="loading">
-          <option value="">{{ t('allSeverities') }}</option>
-          <option value="OUT">{{ t('out') }}</option>
-          <option value="LOW">{{ t('low') }}</option>
-        </select></label
+        }}<SelectField
+          v-model="severity"
+          :aria-label="t('severity')"
+          :disabled="loading"
+          :options="[
+            { value: '', label: t('allSeverities') },
+            { value: 'OUT', label: t('out') },
+            { value: 'LOW', label: t('low') },
+          ]"
+        /></label
       ><Button type="submit" variant="outline" :disabled="loading">{{ t('apply') }}</Button
       ><Button type="button" variant="ghost" class="hidden md:inline-flex" :disabled="loading || dirty" @click="load">{{
         t('refresh')
@@ -304,60 +313,58 @@ onBeforeUnmount(() => {
       <p class="mt-2">{{ t('emptyHint') }}</p>
     </div>
     <template v-else>
-      <div class="hidden overflow-x-auto md:block" tabindex="0" :aria-label="t('title')">
-        <table>
-          <thead>
-            <tr>
-              <th>{{ t('material') }}</th>
-              <th>{{ t('severity') }}</th>
-              <th>{{ t('status') }}</th>
-              <th>{{ t('balance') }}</th>
-              <th>{{ t('detected') }}</th>
-              <th>{{ t('followup') }}</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in result?.items" :key="row.id">
-              <th scope="row" class="font-medium">
-                {{ row.name
-                }}<span class="mt-1 block font-mono text-xs font-normal text-muted-foreground">{{
-                  row.code
-                }}</span>
-              </th>
-              <td>
-                <span
-                  :class="
-                    row.status === 'RESOLVED'
-                      ? 'text-muted-foreground'
-                      : row.severity === 'OUT'
-                        ? 'text-red-700'
-                        : 'text-amber-800'
-                  "
-                  >{{ t(row.severity === 'OUT' ? 'out' : 'low') }}</span
-                >
-              </td>
-              <td>{{ t(stateKey[row.status]) }}</td>
-              <td class="tabular-nums">
-                {{ number(row.availableLatest) }} / {{ number(row.thresholdLatest) }} {{ row.unit }}
-              </td>
-              <td class="text-xs">{{ date(row.detectedAt) }}</td>
-              <td class="min-w-40 max-w-72 whitespace-normal break-words text-muted-foreground">
-                {{ row.note ?? '—' }}
-              </td>
-              <td>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  :aria-label="`${t('detail')} ${row.name}`"
-                  @click="view(row)"
-                  >{{ t(row.status === 'OPEN' ? 'acknowledge' : 'detail') }}</Button
-                >
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <Table container-class="hidden md:block" tabindex="0" :aria-label="t('title')" class="border-collapse text-start">
+        <thead>
+          <tr>
+            <th>{{ t('material') }}</th>
+            <th>{{ t('severity') }}</th>
+            <th>{{ t('status') }}</th>
+            <th>{{ t('balance') }}</th>
+            <th>{{ t('detected') }}</th>
+            <th>{{ t('followup') }}</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="row in result?.items" :key="row.id">
+            <th scope="row" class="font-medium">
+              {{ row.name
+              }}<span class="mt-1 block font-mono text-xs font-normal text-muted-foreground">{{
+                row.code
+              }}</span>
+            </th>
+            <td>
+              <span
+                :class="
+                  row.status === 'RESOLVED'
+                    ? 'text-muted-foreground'
+                    : row.severity === 'OUT'
+                      ? 'text-red-700'
+                      : 'text-amber-800'
+                "
+                >{{ t(row.severity === 'OUT' ? 'out' : 'low') }}</span
+              >
+            </td>
+            <td>{{ t(stateKey[row.status]) }}</td>
+            <td class="tabular-nums">
+              {{ number(row.availableLatest) }} / {{ number(row.thresholdLatest) }} {{ row.unit }}
+            </td>
+            <td class="text-xs">{{ date(row.detectedAt) }}</td>
+            <td class="min-w-40 max-w-72 whitespace-normal break-words text-muted-foreground">
+              {{ row.note ?? '—' }}
+            </td>
+            <td>
+              <Button
+                size="sm"
+                variant="outline"
+                :aria-label="`${t('detail')} ${row.name}`"
+                @click="view(row)"
+                >{{ t(row.status === 'OPEN' ? 'acknowledge' : 'detail') }}</Button
+              >
+            </td>
+          </tr>
+        </tbody>
+      </Table>
 
       <ul class="grid gap-3 p-4 md:hidden">
         <li
@@ -442,29 +449,6 @@ label {
   gap: 0.375rem;
   font-size: 0.75rem;
   color: var(--ld-text-muted);
-}
-input,
-select {
-  min-width: 0;
-  max-width: 100%;
-  min-height: 2.25rem;
-  border: 1px solid var(--ld-border-default);
-  border-radius: 0.375rem;
-  padding: 0.5rem 0.625rem;
-  background: var(--ld-bg-elevated);
-  color: var(--ld-text-heading);
-  font-size: 0.875rem;
-}
-input:focus-visible,
-select:focus-visible {
-  outline: 2px solid var(--ld-color-primary);
-  outline-offset: 2px;
-}
-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: start;
-  font-size: 0.875rem;
 }
 th,
 td {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { InventoryTrendDay } from '@lingdian/contracts'
-import { Button } from '@/baseComponents/button'
+import { Button } from '@lingdian/console-ui/button'
+import { Table } from '@lingdian/console-ui/table'
 import { useTrendLocale } from './locale'
 defineProps<{ days: InventoryTrendDay[]; unit: string; selectedDate: string; disabled: boolean }>()
 defineEmits<{ select: [day: InventoryTrendDay]; history: [day: InventoryTrendDay] }>()
@@ -17,47 +18,47 @@ const columns = [
 ] as const
 </script>
 <template>
-  <div class="hidden overflow-x-auto md:block" tabindex="0" :aria-label="t('table')">
-    <table>
-      <thead>
-        <tr>
-          <th>{{ t('date') }}</th>
-          <th v-for="key in columns" :key="key" class="text-right">{{ t(key) }}</th>
-          <th>{{ t('movementCount') }}</th>
-          <th />
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="row in days" :key="row.date" :class="row.date === selectedDate ? 'bg-muted' : ''">
-          <th scope="row">
-            <button
-              class="text-primary underline-offset-4 hover:underline"
-              :disabled="disabled"
-              @click="$emit('select', row)"
-            >
-              {{ row.date }}</button
-            ><span class="mt-1 block text-xs font-normal text-muted-foreground">{{
-              t(row.state === 'RECORDED' ? (row.partial ? 'partial' : 'full') : row.state)
-            }}</span>
-          </th>
-          <td v-for="key in columns" :key="key" class="text-right tabular-nums">
-            {{ row.state === 'RECORDED' ? number(row[key]) : '—' }}
-          </td>
-          <td class="tabular-nums">{{ row.state === 'RECORDED' ? row.movementCount : '—' }}</td>
-          <td>
-            <Button
-              size="sm"
-              variant="ghost"
-              :aria-label="t('history') + ' ' + row.date"
-              :disabled="disabled || row.state !== 'RECORDED' || !row.movementCount"
-              @click="$emit('history', row)"
-              >{{ t('history') }}</Button
-            >
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+  <Table container-class="hidden md:block" tabindex="0" :aria-label="t('table')" class="border-collapse text-start">
+    <thead>
+      <tr>
+        <th>{{ t('date') }}</th>
+        <th v-for="key in columns" :key="key" class="text-right">{{ t(key) }}</th>
+        <th>{{ t('movementCount') }}</th>
+        <th />
+      </tr>
+    </thead>
+    <tbody>
+      <tr v-for="row in days" :key="row.date" :class="row.date === selectedDate ? 'bg-muted' : ''">
+        <th scope="row">
+          <Button
+            type="button"
+            variant="link"
+            class="h-auto p-0"
+            :disabled="disabled"
+            @click="$emit('select', row)"
+          >
+            {{ row.date }}</Button
+          ><span class="mt-1 block text-xs font-normal text-muted-foreground">{{
+            t(row.state === 'RECORDED' ? (row.partial ? 'partial' : 'full') : row.state)
+          }}</span>
+        </th>
+        <td v-for="key in columns" :key="key" class="text-right tabular-nums">
+          {{ row.state === 'RECORDED' ? number(row[key]) : '—' }}
+        </td>
+        <td class="tabular-nums">{{ row.state === 'RECORDED' ? row.movementCount : '—' }}</td>
+        <td>
+          <Button
+            size="sm"
+            variant="ghost"
+            :aria-label="t('history') + ' ' + row.date"
+            :disabled="disabled || row.state !== 'RECORDED' || !row.movementCount"
+            @click="$emit('history', row)"
+            >{{ t('history') }}</Button
+          >
+        </td>
+      </tr>
+    </tbody>
+  </Table>
   <ul class="grid gap-3 md:hidden">
     <li
       v-for="row in days"
@@ -66,8 +67,8 @@ const columns = [
       :class="row.date === selectedDate ? 'bg-muted' : ''"
     >
       <div class="flex flex-wrap items-center justify-between gap-2">
-        <button class="font-medium text-primary" :disabled="disabled" @click="$emit('select', row)">
-          {{ row.date }}</button
+        <Button type="button" variant="link" class="h-auto p-0" :disabled="disabled" @click="$emit('select', row)">
+          {{ row.date }}</Button
         ><span class="text-xs text-muted-foreground">{{
           t(row.state === 'RECORDED' ? (row.partial ? 'partial' : 'full') : row.state)
         }}</span>
@@ -101,12 +102,6 @@ const columns = [
   </ul>
 </template>
 <style scoped>
-table {
-  width: 100%;
-  border-collapse: collapse;
-  text-align: start;
-  font-size: 0.875rem;
-}
 th,
 td {
   padding: 0.75rem;

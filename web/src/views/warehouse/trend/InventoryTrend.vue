@@ -3,7 +3,9 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { InventoryDailyTrend, InventoryTrendDay, InventoryTrendFilter } from '@lingdian/contracts'
 import type { ActivityState } from '../activity-state'
-import { Button } from '@/baseComponents/button'
+import { Button } from '@lingdian/console-ui/button'
+import { Input } from '@lingdian/console-ui/input'
+import { SelectField } from '@lingdian/console-ui/select'
 import { inventoryDailyTrend } from '@/services/inventory'
 import { useLocale } from '@/i18n/locale'
 import { downloadCsv } from '../report'
@@ -277,13 +279,17 @@ onBeforeUnmount(() => {
         class="flex flex-wrap items-end gap-3 rounded-md border p-3"
         @submit.prevent="apply"
       >
-        <label>{{ t('from') }}<input v-model="from" type="date" required /></label
-        ><label>{{ t('to') }}<input v-model="to" type="date" required :min="from" /></label
+        <label>{{ t('from') }}<Input v-model="from" type="date" required /></label
+        ><label>{{ t('to') }}<Input v-model="to" type="date" required :min="from" /></label
         ><label class="min-w-0 grow"
           >{{ t('zone')
-          }}<select v-model="timeZone" :aria-label="t('zone')" class="max-w-full" :disabled="loading">
-            <option v-for="zone in zones" :key="zone" :value="zone">{{ zone }}</option>
-          </select></label
+          }}<SelectField
+            v-model="timeZone"
+            :aria-label="t('zone')"
+            class="max-w-full"
+            :disabled="loading"
+            :options="zones.map((zone) => ({ value: zone, label: zone }))"
+          /></label
         ><Button type="submit" :disabled="loading">{{ t('apply') }}</Button
         ><Button type="button" variant="ghost" :disabled="loading" @click="resetDraft">{{
           t('reset')
@@ -385,22 +391,5 @@ label {
   gap: 0.375rem;
   font-size: 0.75rem;
   color: var(--ld-text-muted);
-}
-input,
-select {
-  min-width: 0;
-  max-width: 100%;
-  min-height: 2.25rem;
-  border: 1px solid var(--ld-border-default);
-  border-radius: 0.375rem;
-  padding: 0.5rem 0.625rem;
-  background: var(--ld-bg-elevated);
-  color: var(--ld-text-heading);
-  font-size: 0.875rem;
-}
-input:focus-visible,
-select:focus-visible {
-  outline: 2px solid var(--ld-color-primary);
-  outline-offset: 2px;
 }
 </style>

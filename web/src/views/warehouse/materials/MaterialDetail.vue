@@ -6,8 +6,8 @@ import type {
   InventoryUsageView,
   InventoryMaterialChangeKind,
 } from '@lingdian/contracts'
-import { Button } from '@/baseComponents/button'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/baseComponents/dialog'
+import { Button } from '@lingdian/console-ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@lingdian/console-ui/dialog'
 import { useLocale } from '@/i18n/locale'
 import { inventoryItemDetail } from '@/services/inventory'
 import InventoryEditor from '../InventoryEditor.vue'

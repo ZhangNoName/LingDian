@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { InventoryItemContract, InventoryUsageRow, InventoryUsageView } from '@lingdian/contracts'
-import { Button } from '@/baseComponents/button'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/baseComponents/dialog'
+import { Button } from '@lingdian/console-ui/button'
+import { Textarea } from '@lingdian/console-ui/textarea'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@lingdian/console-ui/dialog'
 import { changeInventoryLifecycle, inventoryItemDetail } from '@/services/inventory'
 import MaterialUsage from './MaterialUsage.vue'
 import RelatedRecordDialog from './RelatedRecordDialog.vue'
@@ -177,7 +178,7 @@ onBeforeUnmount(() => {
       <form v-else class="grid gap-4" @submit.prevent="submit">
         <label class="grid gap-2 text-sm"
           >{{ t('reason')
-          }}<textarea
+          }}<Textarea
             v-model="reason"
             required
             maxlength="240"

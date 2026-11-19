@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { ProductRecordContract } from '@lingdian/contracts'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/baseComponents/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@lingdian/console-ui/dialog'
 import ProductDetailsForm from './ProductDetailsForm.vue'
 import { useCatalogLocale } from '../catalog-management-locale'
 defineProps<{ open: boolean; storeId: string }>()

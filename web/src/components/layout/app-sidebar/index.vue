@@ -77,7 +77,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
-import { Separator } from '@/baseComponents/separator'
+import { Separator } from '@lingdian/console-ui/separator'
 import { navigationItems as configuredNavigation } from '@/config/navigation'
 import { useLocale } from '@/i18n/locale'
 

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { StocktakeRecord } from '@lingdian/contracts'
-import { Button } from '@/baseComponents/button'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/baseComponents/dialog'
+import { Button } from '@lingdian/console-ui/button'
+import { Input } from '@lingdian/console-ui/input'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@lingdian/console-ui/dialog'
 import { getStocktake, saveStocktake, stocktakeAction } from '@/services/stocktakes'
 import { downloadCsv } from '../report'
 import { countDraft, countValue, countsChanged, validCount, type CountInput } from './counts'
@@ -215,7 +216,7 @@ onBeforeUnmount(() => {
               </div>
               <div class="grid content-start gap-2">
                 <label
-                  >{{ t('counted') }} ({{ line.unit }})<input
+                  >{{ t('counted') }} ({{ line.unit }})<Input
                     v-model="counts[line.id]"
                     type="number"
                     min="0"

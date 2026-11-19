@@ -15,16 +15,39 @@ async function sourceFiles(directory) {
   return nested.flat();
 }
 
-test('merchant pages import Element Plus through the local UI boundary', async () => {
+test('both consoles use the shared shadcn-vue component source', async () => {
+  const violations = [];
+  const config = JSON.parse(await readFile(join(projectRoot, 'packages', 'console-ui', 'components.json'), 'utf8'));
+  assert.equal(config.style, 'new-york-v4');
+
+  for (const workspace of ['admin', 'web', 'packages/console-ui']) {
+    const root = join(projectRoot, workspace);
+    const isApp = workspace === 'admin' || workspace === 'web';
+    const manifest = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
+    if (isApp) assert.equal(manifest.dependencies['@lingdian/console-ui'], 'workspace:*');
+    assert.equal(manifest.dependencies?.['element-plus'] ?? manifest.devDependencies?.['element-plus'], undefined);
+
+    for (const file of await sourceFiles(join(root, 'src'))) {
+      const source = await readFile(file, 'utf8');
+      const legacyControl = /['"]element-plus(?:\/|['"])|<\/?(?:el-[\w-]+|NativeSelect|select)(?=[\s/>])/.test(source);
+      const directPrimitive = isApp && /['"]reka-ui(?:\/|['"])/.test(source);
+      if (legacyControl || directPrimitive) violations.push(relative(projectRoot, file));
+    }
+  }
+
+  assert.deepEqual(violations, []);
+});
+
+test('merchant screens render common controls through shared components', async () => {
   const sourceRoot = join(projectRoot, 'web', 'src');
-  const boundary = join(sourceRoot, 'components', 'ui', 'element-plus.ts');
   const violations = [];
 
-  for (const file of await sourceFiles(sourceRoot)) {
-    if (file === boundary || file.includes(`${join('src', 'styles')}/`)) continue;
-    const source = await readFile(file, 'utf8');
-    if (/from\s+['"]element-plus['"]/.test(source)) {
-      violations.push(relative(projectRoot, file));
+  for (const area of ['components', 'layouts', 'views']) {
+    for (const file of await sourceFiles(join(sourceRoot, area))) {
+      if (!file.endsWith('.vue')) continue;
+      const source = await readFile(file, 'utf8');
+      const directControl = source.match(/<(button|input|select|textarea|table|dialog)(?=[\s/>])/);
+      if (directControl) violations.push(`${relative(projectRoot, file)} uses <${directControl[1]}>`);
     }
   }
 

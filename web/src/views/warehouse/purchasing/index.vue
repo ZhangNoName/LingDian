@@ -2,7 +2,10 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { PurchaseDeliveryFilter, PurchaseRecord, SupplierRecord, ReplenishmentRow } from '@lingdian/contracts'
-import { Button } from '@/baseComponents/button'
+import { Button } from '@lingdian/console-ui/button'
+import { Input } from '@lingdian/console-ui/input'
+import { SelectField } from '@lingdian/console-ui/select'
+import { Table } from '@lingdian/console-ui/table'
 import { purchaseList, supplierList } from '@/services/purchasing'
 import { downloadCsv } from '../report'
 import { dateInput } from '../activity-state'
@@ -368,28 +371,36 @@ onBeforeUnmount(() => {
       >
         <label class="grow sm:max-w-sm">
           {{ t('search') }}
-          <input v-model="keyword" type="search" maxlength="120" />
+          <Input v-model="keyword" type="search" maxlength="120" />
         </label>
         <label v-if="view === 'orders' && !pendingItemId">
           <span>{{ t('status') }}</span>
-          <select v-model="status" :aria-label="t('status')" :disabled="loading || delivery !== 'ALL'">
-            <option value="ACTIVE">{{ t('active') }}</option>
-            <option value="ALL">{{ t('all') }}</option>
-            <option v-for="value in ['OPEN', 'PARTIAL', 'RECEIVED', 'CANCELLED'] as const" :key="value" :value="value">
-              {{ t(value) }}
-            </option>
-          </select>
+          <SelectField
+            v-model="status"
+            :aria-label="t('status')"
+            :disabled="loading || delivery !== 'ALL'"
+            :options="[
+              { value: 'ACTIVE', label: t('active') },
+              { value: 'ALL', label: t('all') },
+              ...(['OPEN', 'PARTIAL', 'RECEIVED', 'CANCELLED'] as const).map((value) => ({ value, label: t(value) })),
+            ]"
+          />
         </label>
         <label v-if="view === 'orders'"
           >{{ t('deliveryFilter')
-          }}<select v-model="delivery" :aria-label="t('deliveryFilter')" :disabled="loading">
-            <option value="ALL">{{ t('allDelivery') }}</option>
-            <option value="BEFORE">{{ t('beforeDelivery') }}</option>
-            <option value="UNDATED">{{ t('undatedDelivery') }}</option>
-          </select></label
+          }}<SelectField
+            v-model="delivery"
+            :aria-label="t('deliveryFilter')"
+            :disabled="loading"
+            :options="[
+              { value: 'ALL', label: t('allDelivery') },
+              { value: 'BEFORE', label: t('beforeDelivery') },
+              { value: 'UNDATED', label: t('undatedDelivery') },
+            ]"
+          /></label
         >
         <label v-if="view === 'orders' && delivery === 'BEFORE'"
-          >{{ t('exclusiveBefore') }}<input v-model="before" type="date" required
+          >{{ t('exclusiveBefore') }}<Input v-model="before" type="date" required
         /></label>
         <Button type="submit" variant="outline" :disabled="loading">{{ t('find') }}</Button
         ><Button type="button" variant="ghost" :disabled="loading" @click="resetFilters">{{ t('reset') }}</Button>
@@ -418,46 +429,44 @@ onBeforeUnmount(() => {
       </div>
       <p v-else-if="!total" class="help py-8 text-center">{{ t('empty') }}</p>
       <template v-else-if="view === 'orders'">
-        <div class="hidden overflow-x-auto md:block">
-          <table>
-            <thead>
-              <tr>
-                <th>{{ t('orderNo') }}</th>
-                <th>{{ t('supplier') }}</th>
-                <th>{{ t('status') }}</th>
-                <th>{{ t('orderedCost') }}</th>
-                <th>{{ t('receivedCost') }}</th>
-                <th>{{ t('createdAt') }}</th>
-                <th>{{ t('expectedAt') }}</th>
-                <th v-if="pendingItemId">{{ t('pending') }}</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="order in orders" :key="order.id">
-                <td class="font-medium">{{ order.orderNo }}</td>
-                <td class="break-words">{{ order.supplierName }}</td>
-                <td class="whitespace-nowrap">{{ t(order.status) }}</td>
-                <td class="tabular-nums">{{ money(order.totalCostCents) }}</td>
-                <td class="tabular-nums">{{ money(order.receivedCostCents) }}</td>
-                <td>{{ date(order.createdAt) }}</td>
-                <td>{{ date(order.expectedAt) }}</td>
-                <td v-if="pendingItemId">{{ outstanding(order) }}</td>
-                <td>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    :disabled="dirty || loading"
-                    :aria-label="`${t('details')} ${order.orderNo}`"
-                    @click="open(order.id)"
-                  >
-                    {{ t('details') }}
-                  </Button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <Table container-class="hidden md:block" class="border-collapse text-start">
+          <thead>
+            <tr>
+              <th>{{ t('orderNo') }}</th>
+              <th>{{ t('supplier') }}</th>
+              <th>{{ t('status') }}</th>
+              <th>{{ t('orderedCost') }}</th>
+              <th>{{ t('receivedCost') }}</th>
+              <th>{{ t('createdAt') }}</th>
+              <th>{{ t('expectedAt') }}</th>
+              <th v-if="pendingItemId">{{ t('pending') }}</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="order in orders" :key="order.id">
+              <td class="font-medium">{{ order.orderNo }}</td>
+              <td class="break-words">{{ order.supplierName }}</td>
+              <td class="whitespace-nowrap">{{ t(order.status) }}</td>
+              <td class="tabular-nums">{{ money(order.totalCostCents) }}</td>
+              <td class="tabular-nums">{{ money(order.receivedCostCents) }}</td>
+              <td>{{ date(order.createdAt) }}</td>
+              <td>{{ date(order.expectedAt) }}</td>
+              <td v-if="pendingItemId">{{ outstanding(order) }}</td>
+              <td>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  :disabled="dirty || loading"
+                  :aria-label="`${t('details')} ${order.orderNo}`"
+                  @click="open(order.id)"
+                >
+                  {{ t('details') }}
+                </Button>
+              </td>
+            </tr>
+          </tbody>
+        </Table>
         <ul class="grid gap-3 md:hidden">
           <li v-for="order in orders" :key="order.id" class="grid gap-3 rounded-md border p-3 text-sm">
             <div class="flex justify-between gap-3">

@@ -2,7 +2,10 @@
 import { computed, defineAsyncComponent, onBeforeUnmount, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import type { InventoryMovementKind, InventoryMovementPage, InventoryPeriodReport, InventoryReportRow } from '@lingdian/contracts'
-import { Button } from '@/baseComponents/button'
+import { Button } from '@lingdian/console-ui/button'
+import { Input } from '@lingdian/console-ui/input'
+import { SelectField } from '@lingdian/console-ui/select'
+import { Table } from '@lingdian/console-ui/table'
 import { useLocale } from '@/i18n/locale'
 import { getInventoryReport, listInventoryMovements } from '@/services/inventory'
 import { activityQuery, dateInput, defaultActivityState, movementKinds, parseActivityState, editedActivityPeriod, sameActivityQuery, type ActivityState } from './activity-state'
@@ -122,10 +125,17 @@ onBeforeUnmount(() => { sequence++ })
     <InventoryTrend v-if="trendMode" :key="storeId" :store-id="storeId" :store-name="storeName" :state="state" />
     <template v-else>
     <form class="flex flex-wrap items-end gap-3 border-b p-4" @submit.prevent="apply">
-      <label>{{ t('from') }}<input v-model="from" type="date" required /></label>
-      <label>{{ t('to') }}<input v-model="to" type="date" required :min="from" /></label>
-      <label v-if="mode === 'history'">{{ t('operation') }}<select v-model="kind" :aria-label="t('operation')"><option value="">{{ t('allOperations') }}</option><option v-for="value in movementKinds" :key="value" :value="value">{{ t(kindKey[value]) }}</option></select></label>
-      <label class="grow sm:grow-0">{{ t('search') }}<input v-model="keyword" type="search" maxlength="120" /></label>
+      <label>{{ t('from') }}<Input v-model="from" type="date" required /></label>
+      <label>{{ t('to') }}<Input v-model="to" type="date" required :min="from" /></label>
+      <label v-if="mode === 'history'">{{ t('operation') }}<SelectField
+          v-model="kind"
+          :aria-label="t('operation')"
+          :options="[
+            { value: '', label: t('allOperations') },
+            ...movementKinds.map((value) => ({ value, label: t(kindKey[value]) })),
+          ]"
+        /></label>
+      <label class="grow sm:grow-0">{{ t('search') }}<Input v-model="keyword" type="search" maxlength="120" /></label>
       <Button type="submit" variant="outline" :disabled="loading">{{ t('apply') }}</Button>
       <Button type="button" variant="ghost" :disabled="loading" @click="reset">{{ t('reset') }}</Button>
     </form>
@@ -142,16 +152,16 @@ onBeforeUnmount(() => { sequence++ })
     <div v-else-if="errorKey" class="empty" role="alert"><p>{{ t(errorKey) }}</p><Button class="mt-3" variant="outline" @click="load(true)">{{ t('refresh') }}</Button></div>
     <p v-else-if="!total" class="empty">{{ t(mode === 'report' ? 'reportEmpty' : 'noHistory') }}</p>
     <InventoryAnalysis v-else-if="analysisMode && report" :report="report" :state="state" :store-name="storeName" :dirty="dirty" />
-    <div v-else class="overflow-x-auto" tabindex="0" :aria-label="t(mode === 'report' ? 'report' : 'history')">
-      <table v-if="mode === 'report'">
+    <template v-else>
+      <Table v-if="mode === 'report'" tabindex="0" :aria-label="t('report')" class="border-collapse text-start">
         <thead><tr><th>{{ t('name') }}</th><th>{{ t('unit') }}</th><th v-for="key in columns" :key="key" class="number" :class="{ closing: key === 'closing' }">{{ t(key) }}</th><th class="number">{{ t('movementCount') }}</th><th>{{ t('actions') }}</th></tr></thead>
         <tbody><tr v-for="row in reportRows" :key="row.itemId"><th scope="row" class="material">{{ row.name }}<span class="mt-1 block font-mono text-xs font-normal text-muted-foreground">{{ row.code }}</span></th><td>{{ row.unit }}</td><td v-for="key in columns" :key="key" class="number" :class="{ 'font-semibold': key === 'closing', closing: key === 'closing' }">{{ format(row[key]) }}</td><td class="number">{{ format(row.movementCount) }}</td><td><Button variant="ghost" size="sm" @click="drillDown(row)">{{ t('records') }}</Button><Button variant="ghost" size="sm" @click="openTrend(row.itemId)">{{ tt('open') }}</Button></td></tr></tbody>
-      </table>
-      <table v-else>
+      </Table>
+      <Table v-else tabindex="0" :aria-label="t('history')" class="border-collapse text-start">
         <thead><tr><th>{{ t('time') }}</th><th>{{ t('name') }}</th><th>{{ t('operation') }}</th><th class="number">{{ t('before') }} → {{ t('after') }}</th><th>{{ t('reason') }}</th><th>{{ t('actor') }}</th></tr></thead>
         <tbody><tr v-for="row in history?.items" :key="row.id"><td class="whitespace-nowrap text-xs">{{ date(row.createdAt) }}</td><th scope="row" class="material">{{ row.itemName }}<span class="mt-1 block font-mono text-xs font-normal text-muted-foreground">{{ row.itemCode }}</span></th><td class="whitespace-nowrap">{{ t(kindKey[row.kind]) }}</td><td class="number">{{ row.kind === 'THRESHOLD' ? `${format(row.reorderPointBefore)} → ${format(row.reorderPointAfter)}` : row.kind === 'RESERVE' || row.kind === 'RELEASE' ? `${format(row.reservedBefore ?? 0)} → ${format(row.reservedAfter ?? 0)}` : `${format(row.quantityBefore)} → ${format(row.quantityAfter)}` }} {{ row.unit }}<span v-if="['THRESHOLD', 'RESERVE', 'RELEASE'].includes(row.kind)" class="block text-xs text-muted-foreground">{{ t(row.kind === 'THRESHOLD' ? 'threshold' : 'reserved') }}</span></td><td class="min-w-48 max-w-80 break-words">{{ row.reason }}<RouterLink v-if="row.purchaseOrderId" class="mt-1 block text-primary" :to="{path:'/warehouse',query:{view:'purchases',purchaseId:row.purchaseOrderId}}">{{ t('purchaseOrder') }}</RouterLink><RouterLink v-if="row.stocktakeId" class="mt-1 block text-primary" :to="{path:'/warehouse',query:{view:'stocktakes',stocktakeId:row.stocktakeId}}">{{ locale === 'en-US' ? 'Stocktake' : '盘点单' }}</RouterLink></td><td class="max-w-48 break-all font-mono text-xs text-muted-foreground">{{ row.actorId }}</td></tr></tbody>
-      </table>
-    </div>
+      </Table>
+    </template>
     <div v-if="!analysisMode && !loading && !errorKey" class="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm text-muted-foreground">
       <p>{{ format(total) }} {{ t('total') }} · {{ t('page') }} {{ state.page }} / {{ pageCount }}</p>
       <div class="flex gap-2"><Button size="sm" variant="outline" :disabled="loading || dirty || state.page <= 1" @click="navigate({ ...state, page: state.page - 1 })">{{ t('previous') }}</Button><Button size="sm" variant="outline" :disabled="loading || dirty || state.page >= pageCount" @click="navigate({ ...state, page: state.page + 1 })">{{ t('next') }}</Button></div>
@@ -163,10 +173,7 @@ onBeforeUnmount(() => { sequence++ })
 
 <style scoped>
 label { display: grid; gap: .375rem; font-size: .75rem; color: var(--ld-text-muted); }
-input, select { min-height: 2.25rem; min-width: 0; max-width: 100%; border: 1px solid var(--ld-border-default); border-radius: .375rem; padding: .5rem .625rem; background: var(--ld-bg-elevated); color: var(--ld-text-heading); font-size: .875rem; }
-input:focus-visible, select:focus-visible { outline: 2px solid var(--ld-color-primary); outline-offset: 2px; }
 .empty { padding: 3rem 1.5rem; text-align: center; color: var(--ld-text-muted); font-size: .875rem; }
-table { width: 100%; border-collapse: collapse; text-align: start; font-size: .875rem; }
 th, td { padding: .875rem 1rem; border-bottom: 1px solid var(--ld-border-default); }
 thead th { font-size: .75rem; font-weight: 500; color: var(--ld-text-muted); white-space: nowrap; background: var(--ld-bg-muted); }
 .material { min-width: 9rem; font-weight: 500; text-align: start; }

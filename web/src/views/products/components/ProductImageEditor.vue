@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { ProductRecordContract } from '@lingdian/contracts'
-import { Button } from '@/baseComponents/button'
+import { Button } from '@lingdian/console-ui/button'
+import { FileInput } from '@lingdian/console-ui/input'
 import { apiUrl } from '@/config/api'
 import { uploadMerchantImage, removeMerchantImage, productImageSource } from '@/services/product-images'
 import { useImageLocale, imageError, type ImageKey } from '../image-locale'
@@ -16,7 +17,7 @@ const file = ref<File>(),
   error = ref<ImageKey>(),
   notice = ref(false),
   broken = ref(false),
-  input = ref<HTMLInputElement>()
+  input = ref<InstanceType<typeof FileInput>>()
 const current = computed(() => productImageSource(props.product.image_url, apiUrl('/'), window.location.href)),
   source = computed(() => preview.value || current.value),
   dirty = computed(() => !!file.value || removing.value || reloadConfirm.value)
@@ -34,22 +35,22 @@ function resetSelection(resetInput: boolean) {
   removing.value = false
   reloadConfirm.value = false
   error.value = undefined
-  if (resetInput && input.value) input.value.value = ''
+  if (resetInput) input.value?.clear()
 }
 function clear() { resetSelection(true) }
-function choose(event: Event) {
-  const selected = (event.target as HTMLInputElement).files?.[0]
+function choose(files: FileList) {
+  const selected = files[0]
   if (!selected) return
   resetSelection(false)
   notice.value = false
   if (selected.size > 3 * 1024 * 1024) {
     error.value = 'imageTooLarge'
-    if (input.value) input.value.value = ''
+    input.value?.clear()
     return
   }
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(selected.type)) {
     error.value = 'imageType'
-    if (input.value) input.value.value = ''
+    input.value?.clear()
     return
   }
   file.value = selected
@@ -122,13 +123,11 @@ onBeforeUnmount(() => {
       <div class="grid min-w-0 content-start gap-3">
         <label class="grid min-w-0 gap-2 text-sm"
           >{{ t('choose')
-          }}<input
+          }}<FileInput
             ref="input"
-            type="file"
             accept="image/jpeg,image/png,image/webp"
             :disabled="saving || disabled || removing || reloadConfirm || product.configuration_version === undefined"
-            class="block w-full min-w-0 text-xs"
-            @change="choose"
+            @select="choose"
         /></label>
         <p v-if="file" class="break-words text-xs text-muted-foreground">
           {{ t('selected') }}: {{ file.name }} · {{ Math.ceil(file.size / 1024) }} KB

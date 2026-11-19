@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { Button } from '@/baseComponents/button'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/baseComponents/dialog'
+import { Button } from '@lingdian/console-ui/button'
+import { SelectField } from '@lingdian/console-ui/select'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@lingdian/console-ui/dialog'
 import ProductVariantsEditor from './ProductVariantsEditor.vue'
 import ProductSelectionGroupsEditor from './ProductSelectionGroupsEditor.vue'
 import ProductDetailsForm from './ProductDetailsForm.vue'
@@ -205,10 +206,14 @@ function submit() {
           <fieldset :disabled="busy" class="grid min-w-0 gap-4">
             <label class="grid gap-1 text-xs text-muted-foreground">
               {{ t('type') }}
-              <select v-model="draft.type" class="rounded-md border bg-background p-2 text-sm">
-                <option value="SINGLE">{{ t('SINGLE') }}</option>
-                <option value="PACKAGE">{{ t('PACKAGE') }}</option>
-              </select>
+              <SelectField
+                v-model="draft.type"
+                :aria-label="t('type')"
+                :options="[
+                  { value: 'SINGLE', label: t('SINGLE') },
+                  { value: 'PACKAGE', label: t('PACKAGE') },
+                ]"
+              />
             </label>
             <ProductVariantsEditor
               v-if="tab === 'variants'"

@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref, watch } from 'vue'
 import type { InventoryItemContract, InventoryPage } from '@lingdian/contracts'
-import { Button } from '@/baseComponents/button'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/baseComponents/dialog'
+import { Button } from '@lingdian/console-ui/button'
+import { Input } from '@lingdian/console-ui/input'
+import { Textarea } from '@lingdian/console-ui/textarea'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@lingdian/console-ui/dialog'
 import { listInventory } from '@/services/inventory'
 import { createStocktake } from '@/services/stocktakes'
 import { useStocktakeLocale, errorKey, type Key } from './locale'
@@ -100,12 +102,12 @@ onBeforeUnmount(() => {
       >
       <form class="grid min-w-0 gap-4" @submit.prevent="submit">
         <fieldset class="grid min-w-0 gap-4" :disabled="saving">
-          <label>{{ t('name') }}<input v-model="title" required maxlength="120" /></label
-          ><label>{{ t('reason') }}<textarea v-model="note" required maxlength="240" rows="2" /></label>
+          <label>{{ t('name') }}<Input v-model="title" required maxlength="120" /></label
+          ><label>{{ t('reason') }}<Textarea v-model="note" required maxlength="240" rows="2" /></label>
           <div class="flex items-end gap-2">
             <label class="grow"
               >{{ t('search')
-              }}<input v-model="keyword" type="search" maxlength="120" @keydown.enter.prevent="search" /></label
+              }}<Input v-model="keyword" type="search" maxlength="120" @keydown.enter.prevent="search" /></label
             ><Button type="button" variant="outline" :disabled="loading" @click="search">{{ t('find') }}</Button>
           </div>
           <p v-if="loading" role="status" class="help">{{ t('loading') }}</p>

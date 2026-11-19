@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { CategoryContract, MerchantCategoryRecord } from '@lingdian/contracts'
-import { Button } from '@/baseComponents/button'
+import { Button } from '@lingdian/console-ui/button'
+import { Checkbox, Input } from '@lingdian/console-ui/input'
 import { createMerchantCategory, updateMerchantCategory } from '@/services/products'
 import { useCategoryLocale, categoryError, type Key } from './locale'
 const props = defineProps<{ storeId: string; category?: MerchantCategoryRecord }>(),
@@ -63,13 +64,13 @@ onBeforeUnmount(() => {
 <template>
   <form class="catalog-form" @submit.prevent="submit">
     <fieldset class="grid min-w-0 gap-4" :disabled="saving || confirming">
-      <label>{{ t('name') }}<input v-model="name" required maxlength="120" /></label
+      <label>{{ t('name') }}<Input v-model="name" required maxlength="120" /></label
       ><template v-if="category"
         ><label
-          >{{ t('sort') }}<input v-model.number="sort" type="number" min="0" max="1000000" step="1" required
+          >{{ t('sort') }}<Input v-model.number="sort" type="number" min="0" max="1000000" step="1" required
         /></label>
         <p class="help">{{ t('sortHint') }}</p>
-        <label class="check"><input v-model="visible" type="checkbox" />{{ t('visible') }}</label>
+        <label class="check"><Checkbox v-model="visible" />{{ t('visible') }}</label>
         <dl class="grid grid-cols-2 gap-3 text-sm">
           <div>
             <dt class="help">{{ t('products') }}</dt>

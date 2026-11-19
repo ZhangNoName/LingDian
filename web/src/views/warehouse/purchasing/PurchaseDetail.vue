@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { PurchaseRecord, PurchaseReceiptRecord, PurchasingPage } from '@lingdian/contracts'
-import { Button } from '@/baseComponents/button'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/baseComponents/dialog'
+import { Button } from '@lingdian/console-ui/button'
+import { Input } from '@lingdian/console-ui/input'
+import { Textarea } from '@lingdian/console-ui/textarea'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@lingdian/console-ui/dialog'
 import { purchaseDetail, purchaseReceipts, receivePurchase, cancelPurchase } from '@/services/purchasing'
 import { errorKey, usePurchasingLocale, type Key } from './locale'
 const props = defineProps<{ id: string; storeId: string }>(),
@@ -173,7 +175,7 @@ onBeforeUnmount(() => {
                 </p>
                 <label v-if="mode === 'receive' && line.quantity > line.receivedQuantity">
                   {{ t('receiptQuantity') }} ({{ line.unit }})
-                  <input
+                  <Input
                     v-model.number="amounts[line.id]"
                     :aria-label="`${t('receiptQuantity')} ${line.itemName}`"
                     type="number"
@@ -190,7 +192,7 @@ onBeforeUnmount(() => {
               </p>
               <label>
                 {{ t(mode === 'receive' ? 'receiptNote' : 'cancelReason') }}
-                <textarea v-model="note" required maxlength="240" rows="2" />
+                <Textarea v-model="note" required maxlength="240" rows="2" />
               </label>
             </template>
           </fieldset>

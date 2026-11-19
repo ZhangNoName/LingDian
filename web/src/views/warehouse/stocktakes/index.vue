@@ -2,7 +2,9 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { StocktakePage, StocktakeStatus } from '@lingdian/contracts'
-import { Button } from '@/baseComponents/button'
+import { Button } from '@lingdian/console-ui/button'
+import { Input } from '@lingdian/console-ui/input'
+import { SelectField } from '@lingdian/console-ui/select'
 import { listStocktakes } from '@/services/stocktakes'
 import { useStocktakeLocale } from './locale'
 import CreateStocktake from './CreateStocktake.vue'
@@ -86,14 +88,14 @@ onBeforeUnmount(() => {
       ><Button @click="creating = true">{{ t('new') }}</Button>
     </div>
     <form class="flex flex-wrap items-end gap-3" @submit.prevent="search">
-      <label class="grow">{{ t('filter') }}<input v-model="keyword" type="search" maxlength="120" /></label
+      <label class="grow">{{ t('filter') }}<Input v-model="keyword" type="search" maxlength="120" /></label
       ><label
         >{{ t('status')
-        }}<select v-model="status" :aria-label="t('status')">
-          <option v-for="value in ['ALL', 'DRAFT', 'POSTED', 'CANCELLED'] as const" :key="value" :value="value">
-            {{ t(value) }}
-          </option>
-        </select></label
+        }}<SelectField
+          v-model="status"
+          :aria-label="t('status')"
+          :options="(['ALL', 'DRAFT', 'POSTED', 'CANCELLED'] as const).map((value) => ({ value, label: t(value) }))"
+        /></label
       ><Button type="submit" variant="outline" :disabled="loading">{{ t('apply') }}</Button>
     </form>
     <p v-if="loading" role="status" class="help py-8 text-center">{{ t('loading') }}</p>

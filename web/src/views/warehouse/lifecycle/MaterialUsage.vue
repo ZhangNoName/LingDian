@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref, watch } from 'vue'
 import type { InventoryUsagePage, InventoryUsageRow, InventoryUsageView } from '@lingdian/contracts'
-import { Button } from '@/baseComponents/button'
+import { Button } from '@lingdian/console-ui/button'
 import { getInventoryUsage } from '@/services/inventory'
 import { downloadCsv } from '../report'
 import { useUsageLocale } from './usage-locale'

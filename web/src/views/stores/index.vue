@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
-import { Button } from '@/baseComponents/button'
+import { Badge } from '@lingdian/console-ui/badge'
+import { Button } from '@lingdian/console-ui/button'
+import { Card } from '@lingdian/console-ui/card'
 import { merchantStore } from '@/auth/merchant-store'
 import { useLocale } from '@/i18n/locale'
 import { getStoreStatusPresentation } from './store-view'
@@ -13,13 +15,13 @@ const { locale } = useLocale(),
   status = computed(() => (store.value ? getStoreStatusPresentation(store.value.status, locale.value).label : ''))
 </script>
 <template>
-  <section v-if="store" class="min-w-0 rounded-lg border bg-card p-5" :lang="locale">
+  <Card v-if="store" class="min-w-0 gap-0 p-5" :lang="locale">
     <div class="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
       <div class="min-w-0">
         <h2 class="break-words text-xl font-semibold">{{ store.name }}</h2>
         <p class="mt-1 text-sm text-muted-foreground">{{ english ? 'Selected store' : '当前门店' }}</p>
       </div>
-      <span class="rounded-md border px-3 py-1 text-sm">{{ status }}</span>
+      <Badge variant="outline" class="h-6 px-3">{{ status }}</Badge>
     </div>
     <dl class="mt-5 grid gap-5 sm:grid-cols-2">
       <div>
@@ -53,5 +55,5 @@ const { locale } = useLocale(),
         <RouterLink to="/warehouse">{{ english ? 'Inventory' : '库存管理' }}</RouterLink>
       </Button>
     </div>
-  </section>
+  </Card>
 </template>
