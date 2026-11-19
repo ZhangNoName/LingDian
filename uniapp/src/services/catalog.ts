@@ -116,7 +116,7 @@ export async function fetchMenu(options: { force?: boolean } = {}): Promise<Menu
   try {
     return await requestPromise;
   } catch (error) {
-    if (cachedMenu) return cachedMenu;
+    if (cachedMenu && !options.force) return cachedMenu;
     throw error;
   } finally {
     if (pendingMenuRequest === requestPromise) pendingMenuRequest = null;

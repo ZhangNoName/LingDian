@@ -3,7 +3,7 @@ import DataActionButton from '@/components/DataActionButton.vue'
 import TablePagination from '@/components/table/TablePagination.vue'
 import TableAction from '@/components/table/TableAction.vue'
 import { EyeIcon } from '@lingdian/icons/web'
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watchEffect } from 'vue'
 import { RouterLink } from 'vue-router'
 import type { StockHoldPage, StockHoldDetail } from '@lingdian/contracts'
 import { Button } from '@lingdian/console-ui/button'
@@ -18,7 +18,16 @@ const { locale } = useLocale()
 const t = (key: HoldKey) => (locale.value === 'en-US' ? holdEn : holdZh)[key]
 const result = ref<StockHoldPage>(), state = ref<'EXPIRED' | 'ALL'>('EXPIRED'), keyword = ref(''), appliedKeyword = ref(''), page = ref(1), pageSize = ref(20), loading = ref(true), error = ref(false)
 const selectedId = ref(''), detail = ref<StockHoldDetail>(), detailPage = ref(1), detailPageSize = ref(20), detailLoading = ref(false), detailError = ref(false), checking = ref(false), notice = ref<HoldKey>()
-const expired = computed(() => !!detail.value?.order.expiresAt && Date.parse(detail.value.order.expiresAt) <= Date.now())
+const expired = ref(false)
+watchEffect((onCleanup) => {
+  const deadline = selectedId.value && detail.value?.order.expiresAt
+  const remaining = deadline ? Date.parse(deadline) - Date.now() : NaN
+  expired.value = remaining <= 0
+  if (remaining > 0) {
+    const timer = window.setTimeout(() => { expired.value = true }, remaining)
+    onCleanup(() => window.clearTimeout(timer))
+  }
+})
 const dirty = computed(() => keyword.value.trim() !== appliedKeyword.value)
 const date = (value: string | null) => value ? new Intl.DateTimeFormat(locale.value, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value)) : '—'
 const number = (value: number) => value.toLocaleString(locale.value, { maximumFractionDigits: 3 })

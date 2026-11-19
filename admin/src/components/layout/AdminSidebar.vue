@@ -2,7 +2,7 @@
 import { Button } from '@lingdian/console-ui/button'
 import { Collapsible } from '@lingdian/console-ui/collapsible'
 import { DropdownMenu } from '@lingdian/console-ui/dropdown'
-import { ArrowDown, Document, User, UserFilled } from '@lingdian/icons/admin'
+import { ArrowDown, Document, UserFilled } from '@lingdian/icons/admin'
 import { computed, reactive, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { adminSession } from '../../auth/session'
@@ -13,7 +13,7 @@ const emit = defineEmits<{ navigate: [] }>()
 const route = useRoute()
 const router = useRouter()
 const items = computed(() => visibleNavigationItems(adminSession.currentUser.value?.roles ?? []))
-const icons = { users: UserFilled, logs: Document, profile: User }
+const icons = { users: UserFilled, logs: Document }
 const expanded = reactive<Record<string, boolean>>({})
 
 watch(() => route.path, (path) => {
@@ -32,9 +32,8 @@ function select(path: string) {
   <div class="admin-sidebar">
     <div class="brand" :class="{ compact: collapsed }">
       <span class="brand-mark">零</span>
-      <div v-if="!collapsed"><strong>零点平台</strong><small>ADMIN CONSOLE</small></div>
+      <strong v-if="!collapsed">零点平台</strong>
     </div>
-    <div v-if="!collapsed" class="nav-label">工作台</div>
     <nav class="sidebar-menu" :class="{ 'is-collapsed': collapsed }" aria-label="工作台">
       <template v-for="item in items" :key="item.path">
         <DropdownMenu

@@ -5,27 +5,26 @@
       <text class="distance">{{ store.distanceText }}</text>
     </view>
     <view class="dine-tag">
-      <StoreLocationIcon class="tag-icon" aria-hidden="true" />
+      <AppIcon name="location" :size="28" />
       <text>{{ serviceLabel }}</text>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { StoreLocationIcon } from "@lingdian/icons/miniapp";
+import AppIcon from "@/components/app/AppIcon.vue";
 import { computed } from "vue";
-import type { StoreSummary } from "@/types/store";
+import type { ServiceMode, StoreSummary } from "@/types/store";
 
 const props = defineProps<{
   store: StoreSummary;
+  serviceMode: ServiceMode;
 }>();
 
 const serviceLabel = computed(() => {
   if (props.store.businessStatus !== "open") return "暂停营业";
-  if (props.store.supportModes.includes("dineIn")) return "堂食";
-  if (props.store.supportModes.includes("takeaway")) return "自取";
-  if (props.store.supportModes.includes("delivery")) return "配送";
-  return "暂停服务";
+  if (!props.store.supportModes.includes(props.serviceMode)) return "暂停服务";
+  return { dineIn: "堂食", takeaway: "自取", delivery: "配送" }[props.serviceMode];
 });
 </script>
 
@@ -76,11 +75,4 @@ const serviceLabel = computed(() => {
   font-weight: 800;
 }
 
-.tag-icon {
-  display: block;
-  width: 28rpx;
-  height: 28rpx;
-  font-size: 28rpx;
-  line-height: 28rpx;
-}
 </style>

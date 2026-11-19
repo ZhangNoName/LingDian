@@ -19,37 +19,54 @@ const storeContext = {
   },
 };
 
-test('createIntent selects the receiving account from the order store and validates the connector echo', async () => {
-  let gatewayInput: any;
-  const now = new Date();
-  const account = { id: 'account-1', storeId: 'store-1', provider: 'WECHAT_PAY', channel: 'WECHAT', externalAccountId: 'mch-1', connectorConfigKey: 'STORE_1', status: 'ACTIVE' };
-  const created = { id: 'intent-1', paymentNo: 'PAY1', orderId: 'order-1', accountId: account.id, provider: 'WECHAT_PAY', channel: 'WECHAT', status: 'CREATED', reconciliationStatus: 'PENDING', amountMinor: 1880n, currency: 'CNY', clientRequestId: 'request-1', providerIntentId: null, clientAction: null, expiresAt: now, paidAt: null };
-  const prisma = {
-    paymentIntent: {
-      findUnique: async () => null,
-      findFirst: async () => null,
-      create: async ({ data }: any) => ({ ...created, ...data }),
-      update: async ({ data }: any) => ({ ...created, ...data }),
-      updateMany: async () => ({ count: 0 }),
-    },
-    order: { findFirst: async () => ({ id: 'order-1', orderNo: 'LD1', storeId: 'store-1', status: 'PENDING_PAYMENT', paymentChannel: 'CASH', payableAmount: 18.8 }), updateMany: async () => ({ count: 1 }) },
-    paymentAccount: { findUnique: async ({ where }: any) => {
-      assert.deepEqual(where.storeId_provider_channel, { storeId: 'store-1', provider: 'WECHAT_PAY', channel: 'WECHAT' });
-      return account;
-    } },
-  };
-  (prisma as any).$transaction = async (operation: (tx: typeof prisma) => Promise<unknown>) => operation(prisma);
-  const gateways = { create: () => ({ createIntent: async (input: any) => {
-    gatewayInput = input;
-    return { providerIntentId: 'wx-1', status: 'SUCCEEDED', accountExternalId: 'mch-1', amountMinor: 1880, currency: 'CNY', clientAction: { token: 'client-only' } };
-  } }) };
-  const service = testPaymentsService(prisma as never, gateways as never, storeContext as never);
-  const result = await service.createIntent('order-1', 'user-1', { provider: 'WECHAT_PAY', channel: 'WECHAT', clientRequestId: 'request-1' });
-  assert.equal(gatewayInput.amountMinor, 1880);
-  assert.equal(result.amount_minor, 1880);
-  assert.equal(result.payment_no, 'PAY1');
-  assert.equal(result.status, 'PROCESSING', 'unsigned synchronous success must wait for the verified webhook');
-});
+for (const callbackStatus of [undefined, 'SUCCEEDED', 'FAILED', 'PROCESSING'] as const) {
+  test(`createIntent preserves payment state when the connector returns after ${callbackStatus ?? 'no callback'}`, async () => {
+    let gatewayInput: any;
+    const now = new Date(Date.now() + 60_000);
+    const account = { id: 'account-1', storeId: 'store-1', provider: 'WECHAT_PAY', channel: 'WECHAT', externalAccountId: 'mch-1', connectorConfigKey: 'STORE_1', status: 'ACTIVE' };
+    const created = { id: 'intent-1', paymentNo: 'PAY1', orderId: 'order-1', accountId: account.id, provider: 'WECHAT_PAY', channel: 'WECHAT', status: 'CREATED', reconciliationStatus: 'PENDING', amountMinor: 1880n, currency: 'CNY', clientRequestId: 'request-1', providerIntentId: null, clientAction: null, expiresAt: now, paidAt: null };
+    let current: any;
+    const prisma = {
+      paymentIntent: {
+        findUnique: async () => null,
+        findFirst: async () => null,
+        create: async ({ data }: any) => {
+          current = { ...data, ...created };
+          return { ...current };
+        },
+        findUniqueOrThrow: async () => ({ ...current, order: { status: 'PENDING_PAYMENT' } }),
+        updateMany: async ({ where, data }: any) => {
+          if (where.status !== current.status || where.activeOrderKey !== current.activeOrderKey) return { count: 0 };
+          Object.assign(current, data);
+          return { count: 1 };
+        },
+      },
+      order: { findFirst: async () => ({ id: 'order-1', orderNo: 'LD1', storeId: 'store-1', status: 'PENDING_PAYMENT', paymentChannel: 'CASH', payableAmount: 18.8 }), updateMany: async () => ({ count: 1 }) },
+      paymentAccount: { findUnique: async ({ where }: any) => {
+        assert.deepEqual(where.storeId_provider_channel, { storeId: 'store-1', provider: 'WECHAT_PAY', channel: 'WECHAT' });
+        return account;
+      } },
+    };
+    (prisma as any).$transaction = async (operation: (tx: typeof prisma) => Promise<unknown>) => operation(prisma);
+    const gateways = { create: () => ({ createIntent: async (input: any) => {
+      gatewayInput = input;
+      if (callbackStatus) Object.assign(current, {
+        status: callbackStatus,
+        activeOrderKey: callbackStatus === 'PROCESSING' ? current.orderId : null,
+        providerIntentId: 'wx-1',
+      });
+      return { providerIntentId: 'wx-1', status: callbackStatus ? 'PENDING' : 'SUCCEEDED', accountExternalId: 'mch-1', amountMinor: 1880, currency: 'CNY', clientAction: { token: 'client-only' } };
+    } }) };
+    const service = testPaymentsService(prisma as never, gateways as never, storeContext as never);
+    const result = await service.createIntent('order-1', 'user-1', { provider: 'WECHAT_PAY', channel: 'WECHAT', clientRequestId: 'request-1' });
+    assert.equal(gatewayInput.amountMinor, 1880);
+    assert.equal(result.amount_minor, 1880);
+    assert.equal(result.payment_no, 'PAY1');
+    assert.equal(result.status, callbackStatus ?? 'PROCESSING');
+    assert.deepEqual(result.client_action, result.status === 'PROCESSING' ? { token: 'client-only' } : null);
+    assert.equal(current.activeOrderKey, ['SUCCEEDED', 'FAILED'].includes(current.status) ? null : current.orderId);
+  });
+}
 
 test('createIntent rejects a connector response that redirects funds to another recipient', async () => {
   const account = { id: 'account-1', storeId: 'store-1', provider: 'ALIPAY', channel: 'ALIPAY', externalAccountId: 'merchant-correct', connectorConfigKey: 'STORE_1', status: 'ACTIVE' };
@@ -138,6 +155,7 @@ test('idempotency lookup never discloses an intent before order ownership and st
 
 test('an authorized retry returns its existing payment intent without creating another provider attempt', async () => {
   const existing = {
+    order: { status: 'PENDING_PAYMENT' },
     id: 'intent-existing',
     paymentNo: 'PAY-EXISTING',
     orderId: 'order-1',
@@ -191,6 +209,7 @@ test('an authorized retry returns its existing payment intent without creating a
 
 test('a unique-create race recovers the authorized duplicate without calling the provider twice', async () => {
   const duplicate = {
+    order: { status: 'PENDING_PAYMENT' },
     id: 'intent-race-winner',
     paymentNo: 'PAY-RACE-WINNER',
     orderId: 'order-1',
@@ -316,6 +335,7 @@ test('different idempotency keys cannot concurrently create two active payment a
     },
     paymentAccount: { findUnique: async () => account },
     paymentIntent: {
+      findUniqueOrThrow: async ({ where }: any) => ({ ...intents.find((row) => row.id === where.id), order }),
       findUnique: async ({ where }: any) => {
         const key = where.orderId_clientRequestId;
         return key
@@ -336,12 +356,12 @@ test('different idempotency keys cannot concurrently create two active payment a
         intents.push(intent);
         return intent;
       },
-      update: async ({ where, data }: any) => {
-        const intent = intents.find((candidate) => candidate.id === where.id);
-        Object.assign(intent, data);
-        return intent;
+      updateMany: async ({ where, data }: any) => {
+        const row = intents.find((candidate) => candidate.id === where.id && candidate.status === where.status);
+        if (!row) return { count: 0 };
+        Object.assign(row, data);
+        return { count: 1 };
       },
-      updateMany: async () => ({ count: 0 }),
     },
   };
   let transactionTail = Promise.resolve();
@@ -413,6 +433,7 @@ test('an expired attempt with no provider id is replaced only after durable conn
     },
     paymentAccount: { findUnique: async () => account },
     paymentIntent: {
+      findUniqueOrThrow: async ({ where }: any) => ({ ...intents.find((row) => row.id === where.id), order }),
       findUnique: async ({ where }: any) => {
         if (where.id) return intents.find((intent) => intent.id === where.id) ?? null;
         const key = where.orderId_clientRequestId;
@@ -605,6 +626,7 @@ test('a verified success webhook repairs a previously succeeded intent whose ord
       updateMany: async () => ({ count: 0 }),
     },
     paymentTransaction: {
+      findFirst: async () => null,
       upsert: async () => {
         transactionWritten = true;
         return {
@@ -672,6 +694,7 @@ test('a late success webhook overrides local expiry and records cancelled order 
       update: async ({ data }: any) => { Object.assign(intent, data); return intent; },
     },
     paymentTransaction: {
+      findFirst: async () => null,
       upsert: async () => {
         transactionWritten = true;
         return {
@@ -710,7 +733,7 @@ test('a success fact remains matched when the order is already in a paid termina
   const order = { id: 'order-1', status: 'COMPLETED', storeId: 'store-1' };
   const intent: any = {
     id: 'intent-1', paymentNo: 'PAY1', orderId: order.id, accountId: 'account-1', status: 'SUCCEEDED',
-    providerIntentId: 'provider-1',
+    providerIntentId: 'provider-1', reconciliationStatus: 'MATCHED',
     amountMinor: 1880n, currency: 'CNY', paidAt: new Date('2026-08-30T09:59:00.000Z'),
     order,
   };
@@ -726,6 +749,7 @@ test('a success fact remains matched when the order is already in a paid termina
       update: async ({ data }: any) => { Object.assign(intent, data); return intent; },
     },
     paymentTransaction: {
+      findFirst: async () => null,
       upsert: async () => {
         transactionWritten = true;
         return {
@@ -773,6 +797,7 @@ test('one provider transaction cannot credit a second payment intent', async () 
       update: async () => intent,
     },
     paymentTransaction: {
+      findFirst: async () => null,
       upsert: async () => ({
         paymentIntentId: 'intent-already-credited',
         type: 'PAYMENT',
@@ -830,6 +855,7 @@ test('an out-of-order processing webhook cannot reactivate a failed intent', asy
     },
     paymentIntent: {
       findUnique: async () => intent,
+      findUniqueOrThrow: async () => intent,
       updateMany: async ({ where }: any) => {
         updateWhere = where;
         return { count: where.status.in.includes(intent.status) ? 1 : 0 };
@@ -850,4 +876,17 @@ test('an out-of-order processing webhook cannot reactivate a failed intent', asy
   assert.equal(intent.status, 'FAILED');
   assert.equal(intent.activeOrderKey, null);
   assert.equal(eventProcessed, true);
+});
+
+test('malformed signed event fields are rejected before an event or payment fact is written', async () => {
+  const valid = {
+    event_type: 'PAYMENT_SUCCEEDED', event_id: 'event', payment_no: 'PAY', provider_intent_id: 'wx',
+    account_external_id: 'account', provider_transaction_id: 'receipt', amount_minor: 100, currency: 'CNY',
+    occurred_at: '2026-11-19T00:00:00Z',
+  };
+  for (const invalid of [{ occurred_at: null }, { event_id: 123 }, { provider_transaction_id: ' ' }, { failure_code: 'a'.repeat(65) }]) {
+    const service = testPaymentsService({ paymentAccount: { findFirst: async () => ({ id: 'account' }) } },
+      { create: () => ({ verifyWebhook: () => ({ ...valid, ...invalid }) }) }, storeContext);
+    await assert.rejects(service.handleWebhook('WECHAT_PAY', 'account', Buffer.from('{}'), {}), /Invalid payment webhook payload/);
+  }
 });

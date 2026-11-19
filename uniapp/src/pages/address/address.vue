@@ -20,14 +20,14 @@
           </view>
           <text class="address-text">{{ formatAddress(item) }}</text>
           <view class="address-actions">
-            <button v-if="!item.isDefault" class="action-button" :disabled="busyId === item.id" @tap="setDefault(item.id)">设为默认</button>
-            <button class="action-button danger" :disabled="busyId === item.id" @tap="removeAddress(item.id)">删除</button>
+            <AppActionButton v-if="!item.isDefault" size="small" variant="outline" :disabled="busyId === item.id" @activate="setDefault(item.id)">设为默认</AppActionButton>
+            <AppActionButton size="small" variant="danger" :disabled="busyId === item.id" @activate="removeAddress(item.id)">删除</AppActionButton>
           </view>
         </view>
       </view>
 
       <view class="bottom-action">
-        <button v-if="wechatImportSupported" class="import-button" :loading="importing" :disabled="importing" @tap="importFromWechat">从微信导入地址</button>
+        <AppActionButton v-if="wechatImportSupported" size="large" :loading="importing" :disabled="importing" @activate="importFromWechat">从微信导入地址</AppActionButton>
         <text v-else class="unsupported-hint">当前平台不支持微信地址导入</text>
       </view>
     </view>
@@ -35,20 +35,22 @@
 </template>
 
 <script setup lang="ts">
+import AppActionButton from "@/components/app/AppActionButton.vue";
 import type { UserAddress } from "@lingdian/contracts";
 import { onShow } from "@dcloudio/uni-app";
 import { computed, ref } from "vue";
 import AppNavBar from "@/components/app/AppNavBar.vue";
 import Layout from "@/layout/layout.vue";
 import { addresses } from "@/services/addresses";
-import { requireCustomerAuth } from "@/services/auth-navigation";
+import { navigateBackOrRedirect, requireCustomerAuth } from "@/services/auth-navigation";
+import { miniProgramAuthProvider } from "@/config/platform";
 import { chooseWechatAddress } from "@/services/wechat-capabilities";
 
 const addressList = ref<UserAddress[]>([]);
 const loading = ref(true);
 const importing = ref(false);
 const busyId = ref("");
-const wechatImportSupported = computed(() => typeof uni.chooseAddress === "function");
+const wechatImportSupported = computed(() => miniProgramAuthProvider() === "WECHAT" && typeof uni.chooseAddress === "function");
 
 onShow(async () => {
   if (!(await requireCustomerAuth("/pages/address/address"))) return;
@@ -125,7 +127,7 @@ function formatAddress(address: UserAddress): string {
 }
 
 function goBack() {
-  uni.navigateBack();
+  navigateBackOrRedirect("/pages/user/user");
 }
 </script>
 
@@ -220,26 +222,6 @@ function goBack() {
   border-top: 1rpx solid #eeeeee;
 }
 
-.action-button {
-  height: 56rpx;
-  margin: 0;
-  padding: 0 20rpx;
-  border-radius: 28rpx;
-  background: #f4f4f4;
-  color: #444444;
-  font-size: 22rpx;
-  line-height: 56rpx;
-}
-
-.action-button.danger {
-  color: #c62828;
-}
-
-.action-button::after,
-.import-button::after {
-  border: 0;
-}
-
 .bottom-action {
   position: fixed;
   right: 0;
@@ -248,18 +230,6 @@ function goBack() {
   padding: 18rpx var(--ld-page-padding, 24rpx) calc(18rpx + env(safe-area-inset-bottom));
   background: #ffffff;
   box-shadow: 0 -8rpx 24rpx rgba(0, 0, 0, 0.06);
-}
-
-.import-button {
-  width: 100%;
-  height: 84rpx;
-  margin: 0;
-  border-radius: 42rpx;
-  background: #07c160;
-  color: #ffffff;
-  font-size: 28rpx;
-  font-weight: 900;
-  line-height: 84rpx;
 }
 
 .unsupported-hint {

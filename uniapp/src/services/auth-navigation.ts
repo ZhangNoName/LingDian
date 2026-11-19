@@ -60,3 +60,8 @@ export async function requireCustomerAuth(
   uni.navigateTo({ url: buildCustomerLoginUrl(returnUrl) })
   return false
 }
+
+export function navigateBackOrRedirect(fallbackUrl: string): void {
+  if (getCurrentPages().length > 1) uni.navigateBack()
+  else uni.redirectTo({ url: fallbackUrl })
+}

@@ -1,9 +1,15 @@
 <template>
   <view class="header">
+    <!-- #ifdef MP-WEIXIN -->
     <button class="avatar-button" open-type="chooseAvatar" aria-label="选择头像" @chooseavatar="$emit('choose-avatar', $event)">
       <image v-if="avatarUrl" class="avatar-image" :src="avatarUrl" mode="aspectFill" />
       <SkeletonBox v-else class="avatar" radius="round" />
     </button>
+    <!-- #endif -->
+    <!-- #ifndef MP-WEIXIN -->
+    <image v-if="avatarUrl" class="avatar-image" :src="avatarUrl" mode="aspectFill" aria-label="头像" />
+    <SkeletonBox v-else class="avatar" radius="round" />
+    <!-- #endif -->
     <view>
       <text class="level">{{ presentation.displayName }}</text>
       <text class="phone">{{ presentation.secondaryText }}</text>

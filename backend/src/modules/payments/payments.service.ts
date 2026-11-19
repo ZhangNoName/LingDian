@@ -17,6 +17,9 @@ const providerChannels: Record<PaymentProvider, PaymentChannel> = {
   WECHAT_PAY: 'WECHAT', ALIPAY: 'ALIPAY', UNIONPAY: 'UNIONPAY', STRIPE: 'STRIPE', PAYPAL: 'PAYPAL',
 };
 
+const intentOrder = { order: { select: { status: true } } } as const;
+type CustomerIntent = Prisma.PaymentIntentGetPayload<{ include: typeof intentOrder }>;
+
 type PaymentAccountView = {
   id: string; storeId: string; provider: PaymentProvider; channel: PaymentChannel;
   externalAccountId: string; connectorConfigKey: string; status: 'ACTIVE' | 'DISABLED'; updatedAt: Date;
@@ -65,18 +68,21 @@ export class PaymentsService {
     }
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, customerUserId, ...(this.stores.mode === 'multi' ? {} : { storeId: this.stores.primaryStoreId() }), isDeleted: false },
-      select: { id: true, orderNo: true, storeId: true, status: true, paymentChannel: true, payableAmount: true },
+      select: { id: true, orderNo: true, storeId: true, status: true, paymentChannel: true, payableAmount: true, stockExpiresAt: true },
     });
     if (!order) throw new NotFoundException('Order not found');
     const storeId = this.stores.resolveRequestedStoreId(order.storeId);
     let existing = await this.prisma.paymentIntent.findUnique({
       where: { orderId_clientRequestId: { orderId, clientRequestId: body.clientRequestId } },
+      include: intentOrder,
     });
     if (existing) {
+      this.assertRequestedMethod(existing, body);
       if (this.expiry.isExpiredActiveIntent(existing)) {
         await this.expiry.recoverExpiredAttempt(orderId, storeId);
         existing = await this.prisma.paymentIntent.findUnique({
           where: { orderId_clientRequestId: { orderId, clientRequestId: body.clientRequestId } },
+          include: intentOrder,
         });
       }
       if (existing) return this.mapIntent(existing);
@@ -91,7 +97,9 @@ export class PaymentsService {
     if (!account || account.status !== 'ACTIVE') {
       throw new BadRequestException('The store has no active receiving account for this payment method');
     }
-    const expiresAt = new Date(Date.now() + 15 * 60_000);
+    const now = Date.now();
+    const expiresAt = new Date(Math.min(now + 15 * 60_000, order.stockExpiresAt?.getTime() ?? Infinity));
+    if (expiresAt.getTime() <= now) throw new ConflictException('The ingredient reservation has expired');
     const reservation = await this.reserveIntent({
       orderId,
       customerUserId,
@@ -103,8 +111,11 @@ export class PaymentsService {
       clientRequestId: body.clientRequestId,
       expiresAt,
     });
-    if (!reservation.created) return this.mapIntent(reservation.intent);
-    let intent = reservation.intent;
+    if (!reservation.created) {
+      this.assertRequestedMethod(reservation.intent, body);
+      return this.mapIntent(reservation.intent);
+    }
+    const intent = reservation.intent;
 
     let result;
     try {
@@ -112,10 +123,14 @@ export class PaymentsService {
         paymentNo: intent.paymentNo, orderNo: order.orderNo, amountMinor, currency: 'CNY', expiresAt,
       });
     } catch (error) {
-      await this.prisma.paymentIntent.updateMany({ where: { id: intent.id, status: 'CREATED' }, data: {
+      const markedUnknown = await this.prisma.paymentIntent.updateMany({ where: { id: intent.id, status: 'CREATED' }, data: {
         reconciliationStatus: 'MANUAL_REVIEW', failureCode: 'CONNECTOR_OUTCOME_UNKNOWN',
         failureMessage: 'Payment connector outcome is unknown; the attempt remains blocked until verified closure',
       } });
+      if (markedUnknown.count === 0) {
+        const current = await this.prisma.paymentIntent.findUniqueOrThrow({ where: { id: intent.id }, include: intentOrder });
+        if (current.status === 'SUCCEEDED' || current.status === 'FAILED') return this.mapIntent(current);
+      }
       throw error;
     }
     if (result.accountExternalId !== account.externalAccountId || result.amountMinor !== amountMinor || result.currency !== 'CNY') {
@@ -130,21 +145,33 @@ export class PaymentsService {
     // it reports success, keep the attempt in progress until a signed webhook
     // supplies the provider transaction id and occurrence time.
     const acknowledgedStatus = result.status === 'SUCCEEDED' ? 'PROCESSING' : result.status;
-    intent = await this.prisma.paymentIntent.update({ where: { id: intent.id }, data: {
-      providerIntentId: result.providerIntentId,
-      status: acknowledgedStatus,
-      activeOrderKey: acknowledgedStatus === 'PENDING' || acknowledgedStatus === 'PROCESSING'
-        ? intent.orderId
-        : null,
-      clientAction: result.clientAction as Prisma.InputJsonValue | undefined,
-    } });
-    return this.mapIntent(intent);
+    const acknowledged = await this.prisma.paymentIntent.updateMany({
+      where: { id: intent.id, status: 'CREATED', activeOrderKey: orderId },
+      data: {
+        providerIntentId: result.providerIntentId,
+        status: acknowledgedStatus,
+        activeOrderKey: acknowledgedStatus === 'PENDING' || acknowledgedStatus === 'PROCESSING'
+          ? orderId
+          : null,
+        clientAction: result.clientAction as Prisma.InputJsonValue | undefined,
+      },
+    });
+    if (!acknowledged.count && result.clientAction && ['PENDING', 'PROCESSING'].includes(acknowledgedStatus)) {
+      await this.prisma.paymentIntent.updateMany({
+        where: { id: intent.id, status: 'PROCESSING', activeOrderKey: orderId, providerIntentId: result.providerIntentId },
+        data: { clientAction: result.clientAction as Prisma.InputJsonValue },
+      });
+    }
+    // A webhook may have settled the intent while the connector request was in flight.
+    const current = await this.prisma.paymentIntent.findUniqueOrThrow({ where: { id: intent.id }, include: intentOrder });
+    return this.mapIntent(current);
   }
 
   async getCustomerIntent(paymentNo: string, customerUserId: string) {
     const storeScope = this.stores.mode === 'multi' ? {} : { storeId: this.stores.primaryStoreId() };
     const intent = await this.prisma.paymentIntent.findFirst({
       where: { paymentNo, order: { customerUserId, ...storeScope } },
+      include: intentOrder,
     });
     if (!intent) throw new NotFoundException('Payment not found');
     return this.mapIntent(intent);
@@ -207,25 +234,27 @@ export class PaymentsService {
           providerTransactionId: payload.provider_transaction_id as string,
           occurredAt,
         });
-      } else if (payload.event_type === 'PAYMENT_PROCESSING') {
-        await tx.paymentIntent.updateMany({
-          where: { id: intent.id, status: { in: ['CREATED', 'PENDING', 'PROCESSING'] } },
-          data: {
-            providerIntentId: payload.provider_intent_id,
-            status: 'PROCESSING',
-            activeOrderKey: intent.orderId,
-          },
-        });
       } else {
-        await tx.paymentIntent.updateMany({
-          where: { id: intent.id, status: { in: ['CREATED', 'PENDING', 'PROCESSING'] } },
+        const processing = payload.event_type === 'PAYMENT_PROCESSING';
+        const changed = await tx.paymentIntent.updateMany({
+          where: {
+            id: intent.id,
+            status: { in: ['CREATED', 'PENDING', 'PROCESSING'] },
+            OR: [{ providerIntentId: null }, { providerIntentId: payload.provider_intent_id }],
+          },
           data: {
             providerIntentId: payload.provider_intent_id,
-            status: 'FAILED',
-            activeOrderKey: null,
-            failureCode: payload.failure_code,
+            status: processing ? 'PROCESSING' : 'FAILED',
+            activeOrderKey: processing ? intent.orderId : null,
+            ...(processing ? {} : { failureCode: payload.failure_code }),
           },
         });
+        if (!changed.count) {
+          const current = await tx.paymentIntent.findUniqueOrThrow({ where: { id: intent.id }, select: { providerIntentId: true } });
+          if (current.providerIntentId && current.providerIntentId !== payload.provider_intent_id) {
+            throw new ConflictException('Webhook provider intent does not match the reserved payment');
+          }
+        }
       }
       await tx.paymentWebhookEvent.update({
         where: { provider_accountId_eventId: { provider, accountId, eventId: payload.event_id } },
@@ -244,7 +273,7 @@ export class PaymentsService {
     // instead of a repeatable-read snapshot captured before a lock wait.
     const changed = await tx.order.updateMany({
       where: { id: input.orderId, storeId: input.storeId, status: 'PENDING_PAYMENT' },
-      data: { status: 'PAID', paidAt: input.occurredAt },
+      data: { status: 'PAID', paidAt: input.occurredAt, paymentChannel: providerChannels[input.provider] },
     });
     const currentOrderStatus = changed.count === 1
       ? 'PAID'
@@ -252,32 +281,16 @@ export class PaymentsService {
           where: { id: input.orderId },
           select: { status: true },
         }))?.status;
-    const intent = await tx.paymentIntent.findUnique({
-      where: { id: input.intentId },
-      include: { order: { select: { storeId: true } } },
-    });
-    if (
-      !intent ||
-      intent.orderId !== input.orderId ||
-      intent.order.storeId !== input.storeId ||
-      (intent.providerIntentId !== null && intent.providerIntentId !== input.providerIntentId)
-    ) {
-      throw new ConflictException('Payment intent changed while processing the webhook');
-    }
-    const matchedOrderStatuses = [
-      'PAID', 'PREPARING', 'READY', 'COMPLETED', 'REFUNDING', 'REFUNDED',
-    ];
-    await tx.paymentIntent.update({
-      where: { id: intent.id },
-      data: {
-        providerIntentId: input.providerIntentId,
-        status: 'SUCCEEDED',
-        activeOrderKey: null,
-        paidAt: intent.paidAt ?? input.occurredAt,
-        reconciliationStatus: currentOrderStatus && matchedOrderStatuses.includes(currentOrderStatus)
-          ? 'MATCHED'
-          : 'LATE_PAYMENT',
+    // Bind the provider reference under the intent lock before classifying this receipt.
+    const intent = await tx.paymentIntent.update({
+      where: {
+        id: input.intentId, orderId: input.orderId, order: { storeId: input.storeId },
+        OR: [{ providerIntentId: null }, { providerIntentId: input.providerIntentId }],
       },
+      data: { providerIntentId: input.providerIntentId },
+    }).catch((error: unknown) => {
+      if (this.isPrismaError(error, 'P2025')) throw new ConflictException('Payment intent changed while processing the webhook');
+      throw error;
     });
     const transaction = await tx.paymentTransaction.upsert({
       where: {
@@ -313,6 +326,25 @@ export class PaymentsService {
         'Provider transaction is already assigned to a different payment fact',
       );
     }
+    const otherReceipt = await tx.paymentTransaction.findFirst({
+      where: { paymentIntentId: intent.id, type: 'PAYMENT', status: 'SUCCEEDED', NOT: { providerTransactionId: input.providerTransactionId } },
+      select: { id: true },
+    });
+    const alreadyPaid = currentOrderStatus && ['PAID', 'PREPARING', 'READY', 'COMPLETED', 'REFUNDING', 'REFUNDED'].includes(currentOrderStatus);
+    const duplicatePayment = otherReceipt || intent.failureCode === 'DUPLICATE_PAYMENT' ||
+      (changed.count === 0 && alreadyPaid && intent.reconciliationStatus !== 'MATCHED');
+    const matched = changed.count === 1 || intent.reconciliationStatus === 'MATCHED';
+    await tx.paymentIntent.update({
+      where: { id: intent.id },
+      data: {
+        status: 'SUCCEEDED',
+        activeOrderKey: null,
+        paidAt: intent.paidAt ?? input.occurredAt,
+        reconciliationStatus: duplicatePayment ? 'MANUAL_REVIEW' : matched ? 'MATCHED' : 'LATE_PAYMENT',
+        failureCode: duplicatePayment ? 'DUPLICATE_PAYMENT' : null,
+        failureMessage: null,
+      },
+    });
     if (changed.count === 1) {
       await this.stock.commit(tx, { id: input.orderId, storeId: input.storeId, orderNo: input.orderNo }, `payment:${input.provider}`);
       await tx.orderStatusLog.create({
@@ -353,6 +385,7 @@ export class PaymentsService {
       try {
         return await this.prisma.$transaction(async (tx) => {
           const duplicate = await tx.paymentIntent.findUnique({
+            include: intentOrder,
             where: {
               orderId_clientRequestId: {
                 orderId: input.orderId,
@@ -371,6 +404,7 @@ export class PaymentsService {
               storeId: input.storeId,
               isDeleted: false,
               status: 'PENDING_PAYMENT',
+              OR: [{ stockExpiresAt: null }, { stockExpiresAt: { gt: new Date() } }],
             },
             data: { paymentChannel: input.channel },
           });
@@ -378,6 +412,7 @@ export class PaymentsService {
             throw new ConflictException('Order is no longer awaiting payment');
           }
 
+          if (input.expiresAt.getTime() <= Date.now()) throw new ConflictException('The payment window has expired');
           const activeAttempt = await tx.paymentIntent.findFirst({
             where: {
               orderId: input.orderId,
@@ -411,6 +446,7 @@ export class PaymentsService {
         }
 
         const duplicate = await this.prisma.paymentIntent.findUnique({
+          include: intentOrder,
           where: {
             orderId_clientRequestId: {
               orderId: input.orderId,
@@ -437,13 +473,21 @@ export class PaymentsService {
     throw new ConflictException('Payment reservation retry limit reached');
   }
 
-  private mapIntent(intent: { paymentNo: string; orderId: string; provider: PaymentProvider; channel: PaymentChannel; status: string; amountMinor: bigint; currency: string; clientAction: unknown; expiresAt: Date; paidAt: Date | null }): PaymentIntentContract {
+  private assertRequestedMethod(intent: CustomerIntent, request: CreatePaymentIntentDto): void {
+    if (intent.channel !== request.channel || intent.provider !== request.provider) {
+      throw new ConflictException('Payment request id was already used for a different payment method');
+    }
+  }
+
+  private mapIntent(intent: CustomerIntent): PaymentIntentContract {
+    const canPay = intent.order.status === 'PENDING_PAYMENT' && intent.expiresAt > new Date() &&
+      intent.reconciliationStatus !== 'MANUAL_REVIEW' && (intent.status === 'PENDING' || intent.status === 'PROCESSING');
     const amount = Number(intent.amountMinor);
     if (!Number.isSafeInteger(amount)) throw new ConflictException('Payment amount exceeds API numeric range');
     return {
       payment_no: intent.paymentNo, order_id: intent.orderId, provider: intent.provider,
       channel: intent.channel as PaymentIntentContract['channel'], status: intent.status as PaymentIntentContract['status'],
-      amount_minor: amount, currency: intent.currency, client_action: intent.clientAction as Record<string, unknown> | null,
+      amount_minor: amount, currency: intent.currency, client_action: canPay ? intent.clientAction as Record<string, unknown> | null : null,
       expires_at: intent.expiresAt.toISOString(), paid_at: intent.paidAt?.toISOString() ?? null,
     };
   }
@@ -454,10 +498,13 @@ export class PaymentsService {
     return amount;
   }
   private validatePayload(payload: PaymentWebhookPayload) {
-    if (!payload?.event_id || !payload.payment_no || !payload.provider_intent_id || !payload.account_external_id ||
+    if (!payload || !validReference(payload.event_id, 191) || !validReference(payload.payment_no, 64) ||
+        !validReference(payload.provider_intent_id, 191) || !validReference(payload.account_external_id, 191) ||
+        typeof payload.occurred_at !== 'string' || !payload.occurred_at.trim() ||
         !Number.isSafeInteger(payload.amount_minor) || payload.amount_minor <= 0 ||
         !['PAYMENT_SUCCEEDED', 'PAYMENT_PROCESSING', 'PAYMENT_FAILED'].includes(payload.event_type) ||
-        (payload.event_type === 'PAYMENT_SUCCEEDED' && !payload.provider_transaction_id)) {
+        (payload.event_type === 'PAYMENT_SUCCEEDED' && !validReference(payload.provider_transaction_id, 191)) ||
+        (payload.failure_code != null && (typeof payload.failure_code !== 'string' || payload.failure_code.length > 64))) {
       throw new BadRequestException('Invalid payment webhook payload');
     }
   }
@@ -469,7 +516,11 @@ export class PaymentsService {
   private isUniqueError(error: unknown): boolean {
     return this.isPrismaError(error, 'P2002');
   }
-  private isPrismaError(error: unknown, code: 'P2002' | 'P2034'): boolean {
+  private isPrismaError(error: unknown, code: 'P2002' | 'P2034' | 'P2025'): boolean {
     return typeof error === 'object' && error !== null && 'code' in error && error.code === code;
   }
+}
+
+function validReference(value: unknown, maxLength: number): boolean {
+  return typeof value === 'string' && value.trim().length > 0 && value.length <= maxLength;
 }

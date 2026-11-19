@@ -2,10 +2,7 @@
   <view class="nav">
     <view class="nav-left">
       <view v-if="showBack" class="icon-button" role="button" tabindex="0" aria-label="返回" @keydown.enter="$emit('back')" @keydown.space.prevent="$emit('back')" @tap="$emit('back')">
-        <BackIcon class="back-icon" aria-hidden="true" />
-      </view>
-      <view v-if="showSearch" class="icon-button">
-        <SearchIcon class="icon" />
+        <AppIcon name="back" :size="48" />
       </view>
       <slot name="left" />
     </view>
@@ -14,18 +11,16 @@
 </template>
 
 <script setup lang="ts">
-import { BackIcon, SearchIcon } from "@lingdian/icons/miniapp";
+import AppIcon from "@/components/app/AppIcon.vue";
 
 withDefaults(
   defineProps<{
     title?: string;
     showBack?: boolean;
-    showSearch?: boolean;
   }>(),
   {
     title: "",
     showBack: false,
-    showSearch: false,
   },
 );
 
@@ -63,20 +58,7 @@ defineEmits<{
   color: var(--ld-mini-text);
 }
 
-.back-icon {
-  display: block;
-  width: 48rpx;
-  height: 48rpx;
-  color: #1f2937;
-}
 
-.icon {
-  display: block;
-  width: 36rpx;
-  height: 36rpx;
-  font-size: 36rpx;
-  line-height: 36rpx;
-}
 
 .title {
   position: absolute;

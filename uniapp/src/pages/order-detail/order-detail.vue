@@ -3,9 +3,14 @@
     <view class="page">
       <AppNavBar title="订单详情" show-back @back="goBack" />
 
-      <view v-if="detail" class="content">
+      <view v-if="loadError" class="empty">
+        <text>{{ loadError }}</text>
+        <AppActionButton size="small" variant="outline" @activate="loadDetail">重试</AppActionButton>
+      </view>
+      <view v-else-if="detail" class="content">
         <view class="status-block">
           <text class="status-title">{{ statusTitle }}</text>
+          <AppActionButton v-if="['pendingPay', 'paid', 'making', 'ready', 'refunding', 'unknown'].includes(detail.status)" size="small" variant="outline" :loading="loading" @activate="loadDetail">刷新状态</AppActionButton>
           <view v-if="detail.rewardPoints != null" class="reward">本单获得{{ detail.rewardPoints }}积分</view>
         </view>
 
@@ -13,23 +18,24 @@
         <OrderInfoCard :rows="detail.infoRows" />
       </view>
 
-      <view v-else class="empty">未找到订单详情</view>
-      <view v-if="detail?.status === 'finished'" class="bottom">
-        <button class="again" @tap="goMenu">再来一单</button>
+      <view v-else class="empty">正在加载订单…</view>
+      <view v-if="!loadError && detail?.status === 'finished'" class="bottom">
+        <AppActionButton variant="outline" @activate="goMenu">再来一单</AppActionButton>
       </view>
     </view>
   </Layout>
 </template>
 
 <script setup lang="ts">
+import AppActionButton from "@/components/app/AppActionButton.vue";
 import { computed, ref } from "vue";
-import { onLoad } from "@dcloudio/uni-app";
+import { onLoad, onShow, onHide } from "@dcloudio/uni-app";
 import AppNavBar from "@/components/app/AppNavBar.vue";
 import Layout from "@/layout/layout.vue";
 import OrderDetailGoodsCard from "@/components/orders/OrderDetailGoodsCard.vue";
 import OrderInfoCard from "@/components/orders/OrderInfoCard.vue";
 import { fetchOrderDetail } from "@/services/orders";
-import { requireCustomerAuth } from "@/services/auth-navigation";
+import { navigateBackOrRedirect, requireCustomerAuth } from "@/services/auth-navigation";
 import type { OrderDetail } from "@/types/order";
 
 const detail = ref<OrderDetail | null>(null);
@@ -43,6 +49,8 @@ const statusTitle = computed(() => {
     ready: "订单待取餐",
     finished: "订单已完成",
     cancelled: "订单已取消",
+    failed: "订单失败",
+    timedOut: "订单已超时",
     refunding: "订单退款中",
     refunded: "订单已退款",
     unknown: "订单状态待刷新",
@@ -50,19 +58,35 @@ const statusTitle = computed(() => {
   return labels[detail.value.status];
 });
 
-onLoad(async (query) => {
-  const id = typeof query?.id === "string" ? query.id : "";
-  const returnUrl = id ? `/pages/order-detail/order-detail?id=${encodeURIComponent(id)}` : "/pages/his/his";
-  if (!(await requireCustomerAuth(returnUrl))) return;
+const orderId = ref("");
+const loadError = ref("");
+const loading = ref(false);
+let sequence = 0;
+
+onLoad((query) => { orderId.value = typeof query?.id === "string" ? query.id : ""; });
+onShow(() => { void loadDetail(); });
+onHide(() => { sequence++; loading.value = false; detail.value = null; });
+
+async function loadDetail() {
+  if (loading.value) return;
+  const current = ++sequence;
+  loading.value = true;
+  loadError.value = "";
   try {
-    detail.value = await fetchOrderDetail(id);
+    if (!orderId.value) throw new Error("缺少订单编号");
+    const returnUrl = `/pages/order-detail/order-detail?id=${encodeURIComponent(orderId.value)}`;
+    if (!(await requireCustomerAuth(returnUrl)) || current !== sequence) return;
+    const result = await fetchOrderDetail(orderId.value);
+    if (current === sequence) detail.value = result;
   } catch (error) {
-    uni.showToast({ title: error instanceof Error ? error.message : "订单加载失败", icon: "none" });
+    if (current === sequence) loadError.value = error instanceof Error ? error.message : "订单加载失败";
+  } finally {
+    if (current === sequence) loading.value = false;
   }
-});
+}
 
 function goBack() {
-  uni.navigateBack();
+  navigateBackOrRedirect("/pages/his/his");
 }
 
 function goMenu() {
@@ -121,21 +145,5 @@ function goMenu() {
   justify-content: flex-end;
   padding: 14rpx var(--ld-page-padding, 24rpx) calc(14rpx + env(safe-area-inset-bottom));
   background: #ffffff;
-}
-
-.again {
-  width: 160rpx;
-  height: 64rpx;
-  margin: 0;
-  border: 1rpx solid #dddddd;
-  border-radius: 12rpx;
-  background: #ffffff;
-  color: #555555;
-  font-size: var(--ld-font-base, 26rpx);
-  line-height: 64rpx;
-}
-
-.again::after {
-  border: 0;
 }
 </style>

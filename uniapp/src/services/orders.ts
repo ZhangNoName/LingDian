@@ -3,9 +3,11 @@ import type { CartSummary } from "@/types/cart";
 import type { OrderDetail, OrderSource, OrderSummary, OrderStatus } from "@/types/order";
 import type { ServiceMode } from "@/types/store";
 import { formatOrderSource, resolvePickupCode } from "@/utils/order-presentation";
+import { usesBrowserCookieTransport } from "@/config/platform";
 import { getCurrentStoreId } from "./catalog";
-import { clearCart } from "./cart";
-import { request } from "./request";
+import { customerAuth } from "./auth";
+import { cartLineId, removeOrderedItems } from "./cart";
+import { request, RequestError } from "./request";
 
 type ApiChannelFields = {
   order_source?: OrderSource | string | null;
@@ -28,8 +30,8 @@ const statusMap: Record<string, Exclude<OrderStatus, "unknown">> = {
   CANCELLED: "cancelled",
   REFUNDING: "refunding",
   REFUNDED: "refunded",
-  FAILED: "cancelled",
-  TIMED_OUT: "cancelled",
+  FAILED: "failed",
+  TIMED_OUT: "timedOut",
   DELETED: "cancelled",
 };
 
@@ -57,6 +59,19 @@ function paymentChannelLabel(channel: string | undefined): string {
   return channel ? labels[channel] ?? channel : "未记录";
 }
 
+type CheckoutAttempt = {
+  key: string;
+  scope: string;
+  clientRequestId: string;
+  pending?: Promise<ApiOrder>;
+};
+let checkoutAttempt: CheckoutAttempt | undefined;
+
+function checkoutStorage() {
+  if (usesBrowserCookieTransport() && typeof sessionStorage !== "undefined") return sessionStorage;
+  return { getItem: uni.getStorageSync, setItem: uni.setStorageSync, removeItem: uni.removeStorageSync };
+}
+
 export async function createOrderFromCart(
   cart: CartSummary,
   options: { serviceMode: ServiceMode; addressId?: string; clientRequestId?: string } = { serviceMode: "takeaway" },
@@ -68,35 +83,76 @@ export async function createOrderFromCart(
     throw new Error("配送订单必须选择收货地址");
   }
 
+  const session = customerAuth.getSessionVersion();
   const storeId = await getCurrentStoreId();
-  const order = await request<ApiOrder>("/order/create", {
-    method: "POST",
-    data: {
-      clientRequestId: options.clientRequestId ?? createOrderRequestId(),
-      storeId,
-      orderType: options.serviceMode === "delivery"
-        ? "takeout"
-        : options.serviceMode === "dineIn"
-          ? "dine_in"
-          : "pickup",
-      ...(options.serviceMode === "delivery" ? { addressId: options.addressId } : {}),
-      paymentChannel: "cash",
-      items: cart.items.map((item) => ({
-        sku_id: item.skuId,
-        quantity: item.quantity,
-        selections: item.selectedOptions.map((option) => ({
-          selectionGroupId: option.groupId,
-          selectionOptionId: option.optionId,
-          quantity: 1,
-        })),
+  if (session !== customerAuth.getSessionVersion()) throw new Error("登录账号已变更，请重新提交");
+  const data = {
+    storeId,
+    orderType: options.serviceMode === "delivery"
+      ? "takeout"
+      : options.serviceMode === "dineIn"
+        ? "dine_in"
+        : "pickup",
+    ...(options.serviceMode === "delivery" ? { addressId: options.addressId } : {}),
+    paymentChannel: "cash",
+    items: cart.items.map((item) => ({
+      sku_id: item.skuId,
+      quantity: item.quantity,
+      selections: item.selectedOptions.map((option) => ({
+        selectionGroupId: option.groupId,
+        selectionOptionId: option.optionId,
+        quantity: 1,
       })),
-    },
+    })),
+  };
+  const userId = customerAuth.getUser()?.userId;
+  const scope = JSON.stringify([userId, storeId, options.clientRequestId]);
+  const storageKey = userId && !options.clientRequestId ? `lingdian:checkout:${scope}` : undefined;
+  const key = JSON.stringify([scope, options.clientRequestId, data]);
+  if (checkoutAttempt?.pending) {
+    if (checkoutAttempt.key === key) return checkoutAttempt.pending;
+    throw new Error("上一笔订单正在提交，请稍后再试");
+  }
+  // Only the request id survives a restart. The server returns the order that actually committed.
+  const storage = checkoutStorage();
+  const savedId = storageKey ? storage.getItem(storageKey) : undefined;
+  const previous = checkoutAttempt?.scope === scope ? checkoutAttempt : undefined;
+  const recoveredId = typeof savedId === "string" && savedId ? savedId : previous?.clientRequestId;
+  const clientRequestId = options.clientRequestId ?? recoveredId ?? createOrderRequestId();
+  const attempt: CheckoutAttempt = { key, scope, clientRequestId };
+  if (storageKey) storage.setItem(storageKey, clientRequestId);
+  checkoutAttempt = attempt;
+  attempt.pending = request<ApiOrder>("/order/create", {
+    method: "POST",
+    data: { ...data, clientRequestId: attempt.clientRequestId },
   });
-  clearCart();
-  return order;
+  try {
+    const order = await attempt.pending;
+    if (!order?.id) throw new Error("下单结果尚未确认，请重试");
+    if (storageKey) storage.removeItem(storageKey);
+    if (Array.isArray(order.items)) {
+      removeOrderedItems(order.items.map((item) => ({
+        id: cartLineId(item.product_id, item.sku_id, item.selections.map((option) => ({
+          groupId: option.selection_group_id, optionId: option.selection_option_id,
+        }))),
+        quantity: item.quantity,
+      })));
+    } else if ((!savedId && !previous) || previous?.key === key) {
+      removeOrderedItems(cart.items);
+    }
+    checkoutAttempt = undefined;
+    return order;
+  } catch (error) {
+    if (error instanceof RequestError && (error.statusCode ?? 0) >= 500) {
+      throw new Error("下单结果待确认，请重试或查看我的订单");
+    }
+    throw error;
+  } finally {
+    attempt.pending = undefined;
+  }
 }
 
-export function createOrderRequestId(): string {
+function createOrderRequestId(): string {
   return `checkout-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}`;
 }
 
@@ -159,7 +215,7 @@ export async function fetchOrderDetail(orderId: string) {
       name: item.product_name,
       imageUrl: null,
       quantity: item.quantity,
-      price: item.unit_price,
+      subtotal: item.subtotal,
       specs: [
         ...(item.sku_name ? [item.sku_name] : []),
         ...item.selections.map((selection) => `${selection.quantity} x ${selection.option_name}`),

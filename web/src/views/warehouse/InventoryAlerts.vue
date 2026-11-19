@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FilterToggle from '@/components/FilterToggle.vue'
 import DataActionButton from '@/components/DataActionButton.vue'
 import TablePagination from '@/components/table/TablePagination.vue'
 import TableAction from '@/components/table/TableAction.vue'
@@ -231,16 +232,12 @@ onBeforeUnmount(() => {
       </div>
     </div>
     <div class="flex flex-wrap gap-2 border-b px-4 py-3 md:hidden">
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        :aria-expanded="filtersOpen"
-        aria-controls="alert-filters"
-        @click="filtersOpen = !filtersOpen"
-        >{{ t(filtersOpen ? 'hideFilters' : 'filters')
-        }}<span v-if="filterCount" class="ml-1">({{ filterCount }})</span></Button
-      ><DataActionButton action="refresh" :label="t('refresh')" size="icon-sm" variant="ghost" :disabled="loading || dirty" @click="load" /><DataActionButton
+      <FilterToggle v-model="filtersOpen" controls="alert-filters" size="sm">
+        {{ t(filtersOpen ? 'hideFilters' : 'filters') }}
+        <span v-if="filterCount" class="ml-1">({{ filterCount }})</span>
+      </FilterToggle>
+      <DataActionButton action="refresh" :label="t('refresh')" size="icon-sm" variant="ghost" :disabled="loading || dirty" @click="load" />
+      <DataActionButton
         action="export"
         :label="t('export')"
         size="icon-sm"

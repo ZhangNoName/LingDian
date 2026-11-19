@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FilterToggle from '@/components/FilterToggle.vue'
 import MerchantDatePicker from '@/components/MerchantDatePicker.vue'
 import DataActionButton from '@/components/DataActionButton.vue'
 import TablePagination from '@/components/table/TablePagination.vue'
@@ -100,8 +101,8 @@ onBeforeUnmount(() => { disposed = true; listSequence++; detailSequence++ })
 <template>
   <section class="grid min-w-0 gap-4" :lang="locale">
     <SummaryMetrics :metrics="metrics" :more-label="t('moreSummary')" desktop-columns="xl:grid-cols-6" />
-    <Card class="gap-0 p-0"><div class="flex flex-wrap items-center justify-between gap-3 border-b p-4"><Button class="sm:hidden" variant="outline" aria-controls="order-filters" :aria-expanded="filtersOpen" @click="filtersOpen = !filtersOpen">{{ t('filters') }}</Button><h2 class="hidden font-semibold sm:block">{{ t('filters') }}</h2><div class="flex gap-2"><DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" /><Button variant="ghost" :title="t('queryLinkHint')" @click="copyLink">{{ t('copyLink') }}</Button></div></div>
-      <form id="order-filters" :data-open="filtersOpen" class="order-filters flex flex-wrap items-end gap-3 p-4" @submit.prevent="apply">
+    <Card class="gap-0 p-0"><div class="flex flex-wrap items-center justify-between gap-3 border-b p-4"><FilterToggle v-model="filtersOpen" controls="order-filters" class="sm:hidden">{{ t('filters') }}</FilterToggle><h2 class="hidden font-semibold sm:block">{{ t('filters') }}</h2><div class="flex gap-2"><DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" /><Button variant="ghost" :title="t('queryLinkHint')" @click="copyLink">{{ t('copyLink') }}</Button></div></div>
+      <form id="order-filters" :data-filter-open="filtersOpen" class="order-filters flex flex-wrap items-end gap-3 p-4" @submit.prevent="apply">
         <label class="grow sm:grow-0">
           {{ t('search') }}
           <Input v-model="filters.keyword" type="search" maxlength="120" :placeholder="t('searchHint')" />
@@ -169,5 +170,5 @@ onBeforeUnmount(() => { disposed = true; listSequence++; detailSequence++ })
   </section>
 </template>
 <style scoped>
-.order-filters label { display: grid; min-width: 0; gap: .375rem; font-size: .75rem; color: var(--ld-text-muted); } @media (max-width: 639px) { .order-filters:not([data-open="true"]) { display: none; } }
+.order-filters label { display: grid; min-width: 0; gap: .375rem; font-size: .75rem; color: var(--ld-text-muted); }
 </style>

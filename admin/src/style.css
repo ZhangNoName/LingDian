@@ -7,7 +7,6 @@
 :root {
   --sidebar: #182230;
   --sidebar-hover: #243246;
-  --sidebar-label: #9aa8b8;
 }
 
 html, body, #app { width: 100%; height: 100%; min-height: 0; overflow: hidden; }
@@ -22,12 +21,8 @@ html, body, #app { width: 100%; height: 100%; min-height: 0; overflow: hidden; }
 .admin-sidebar { height: 100%; overflow: auto; background: var(--sidebar); color: white; }
 .brand { display: flex; height: 72px; align-items: center; gap: 12px; padding: 0 20px; border-bottom: 1px solid rgb(255 255 255 / .08); }
 .brand.compact { padding: 0 16px; }
-.brand-mark { display: grid; flex: 0 0 36px; width: 36px; height: 36px; place-items: center; border-radius: 10px; background: linear-gradient(145deg,var(--ld-color-secondary),var(--ld-color-primary)); color: #fff; font-size: 18px; font-weight: 800; box-shadow: 0 8px 22px var(--ld-accent-border); }
-.brand-mark.large { width: 52px; height: 52px; border-radius: 14px; font-size: 24px; }
-.brand strong, .brand small { display: block; white-space: nowrap; }
-.brand strong { font-size: 16px; }
-.brand small { margin-top: 3px; color: var(--sidebar-label); font-size: 9px; letter-spacing: 1.3px; }
-.nav-label { padding: 24px 20px 8px; color: var(--sidebar-label); font-size: 11px; font-weight: 700; letter-spacing: 1.2px; }
+.brand-mark { display: grid; flex: 0 0 36px; width: 36px; height: 36px; place-items: center; border-radius: var(--console-radius-control); background: var(--ld-color-primary); color: #fff; font-size: 18px; font-weight: 800; }
+.brand strong { display: block; white-space: nowrap; font-size: 16px; }
 .sidebar-menu { display: grid; gap: 4px; padding: 4px 12px; background: var(--sidebar); }
 .sidebar-menu__children { display: grid; gap: 4px; margin: 4px 0 0 16px; }
 .sidebar-menu__item { display: flex; width: 100%; height: 44px; justify-content: flex-start; gap: 10px; padding: 0 10px; color: #d0dae5; }
@@ -61,19 +56,11 @@ html, body, #app { width: 100%; height: 100%; min-height: 0; overflow: hidden; }
 .log-details dt { font-weight: 500; }
 .log-details pre { white-space: pre-wrap; }
 
-.login-view { position: relative; display: grid; min-height: 100dvh; height: 100%; grid-template-columns: minmax(420px,1.05fr) minmax(480px,.95fr); overflow-y: auto; background: var(--ld-bg-elevated); }
-.login-brand { position: relative; display: flex; align-items: center; overflow: hidden; padding: 10%; color: #fff; background: linear-gradient(145deg,#182230,#1f2c3d); }
-.login-brand::after { position: absolute; right: -170px; bottom: -170px; width: 430px; height: 430px; border: 1px solid rgb(255 255 255 / .08); border-radius: 50%; box-shadow: 0 0 0 70px rgb(255 255 255 / .025),0 0 0 140px rgb(255 255 255 / .018); content: ""; }
-.login-brand-content { z-index: 1; max-width: 520px; }
-.login-brand .eyebrow { margin: 36px 0 14px; color: #adcfff; font-size: 12px; font-weight: 700; letter-spacing: 2px; }
-.login-brand h1 { font-size: 46px; font-weight: 700; line-height: 1.28; letter-spacing: -1px; }
-.login-brand p:last-child { margin-top: 24px; color: #aeb8c7; font-size: 16px; }
+.login-view { position: relative; display: grid; min-height: 100dvh; height: 100%; overflow-y: auto; background: var(--ld-bg-page); }
 .login-form-side { display: grid; place-items: center; padding: 48px; }
 .login-card { width: min(100%,430px); gap: 16px; padding: 36px; }
-.login-heading h2 { font-size: 28px; font-weight: 600; }
-.login-heading p { margin-top: 8px; color: var(--ld-text-muted); }
+.login-heading h1 { font-size: 28px; font-weight: 600; }
 .login-submit { width: 100%; margin-top: 8px; }
-.login-footnote { color: var(--ld-text-muted); text-align: center; font-size: 12px; }
 .login-theme { position: absolute; z-index: 2; top: 18px; right: 22px; }
 .password-change-view { position: relative; display: grid; min-height: 100dvh; height: 100%; place-items: center; overflow-y: auto; padding: 62px 24px 24px; }
 .password-change-card { width: min(100%,460px); padding: 36px; }
@@ -108,8 +95,6 @@ html, body, #app { width: 100%; height: 100%; min-height: 0; overflow: hidden; }
 
 @media (max-width: 1200px) { .schema-search__form { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 @media (max-width: 900px) {
-  .login-view { grid-template-columns: 1fr; }
-  .login-brand { display: none; }
   .login-form-side { padding: 52px 16px 16px; }
   .admin-shell__main > main { padding: 16px; }
   .schema-search__form { grid-template-columns: 1fr; }

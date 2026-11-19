@@ -52,31 +52,42 @@ function requestOnce<T>(path: string, options: RequestConfig): Promise<T> {
 }
 
 export async function request<T>(path: string, options: RequestConfig = {}): Promise<T> {
+  const sessionVersion = customerAuth.getSessionVersion();
   const sentAccessToken = options.requiresAuth === false ? undefined : customerAuth.getAccessToken();
+  async function send(): Promise<T> {
+    const response = await requestOnce<T>(path, options);
+    if (options.requiresAuth !== false && sessionVersion !== customerAuth.getSessionVersion()) {
+      throw new RequestError("登录账号已变更，请刷新后重试。");
+    }
+    return response;
+  }
   try {
-    return await requestOnce<T>(path, options);
+    return await send();
   } catch (error) {
     if (!(error instanceof RequestError) || error.statusCode !== 401) throw error;
-    if (options.requiresAuth === false) {
+    if (options.requiresAuth === false || sessionVersion !== customerAuth.getSessionVersion()) {
       throw error;
     }
 
     // A native 401 received for a token that was locally still valid is a
     // server-side rejection, not ordinary expiry. Do not silently undo logout,
     // revoke-all, or a security intervention with provider reauthentication.
-    if (sentAccessToken && !usesBrowserCookieTransport()) {
+    const currentToken = customerAuth.getAccessToken();
+    const alreadyRefreshed = currentToken && currentToken !== sentAccessToken;
+    if (!alreadyRefreshed && sentAccessToken && !usesBrowserCookieTransport()) {
       customerAuth.blockAutomaticRecovery();
     }
 
-    if (!(await customerAuth.refresh())) {
-      redirectToLogin();
+    if (!alreadyRefreshed && !(await customerAuth.refresh())) {
+      if (!customerAuth.isSignedIn()) redirectToLogin();
       throw error;
     }
+    if (sessionVersion !== customerAuth.getSessionVersion()) throw error;
 
     try {
-      return await requestOnce<T>(path, options);
+      return await send();
     } catch (retryError) {
-      if (retryError instanceof RequestError && retryError.statusCode === 401) {
+      if (retryError instanceof RequestError && retryError.statusCode === 401 && sessionVersion === customerAuth.getSessionVersion()) {
         if (usesBrowserCookieTransport()) customerAuth.clear();
         else customerAuth.blockAutomaticRecovery();
         redirectToLogin();

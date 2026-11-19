@@ -5,7 +5,7 @@
       <text class="store">{{ order.storeName }}</text>
       <view class="status-wrap">
         <text class="status">{{ statusLabel }}</text>
-        <ChevronRightIcon class="status-icon" aria-hidden="true" />
+        <AppIcon name="next" :size="26" tone="muted" />
       </view>
     </view>
     <view class="meta-row">
@@ -18,17 +18,19 @@
         <view v-if="order.productThumbs.length === 0" class="thumb-empty">商品图片未记录</view>
       </view>
       <view class="summary">
-        <text class="price">¥{{ order.totalAmount.toFixed(1) }}</text>
+        <text class="price">¥{{ formatAmount(order.totalAmount) }}</text>
         <text class="count">共{{ order.itemCount }}件</text>
-        <button class="again" @tap.stop="emitAction">{{ actionLabel }}</button>
+        <AppActionButton size="small" @activate="emitAction">{{ actionLabel }}</AppActionButton>
       </view>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
+import { formatAmount } from "@/utils/money";
+import AppActionButton from "@/components/app/AppActionButton.vue";
 import { computed } from "vue";
-import { ChevronRightIcon } from "@lingdian/icons/miniapp";
+import AppIcon from "@/components/app/AppIcon.vue";
 import type { OrderSummary } from "@/types/order";
 import { formatOrderSource } from "@/utils/order-presentation";
 
@@ -57,6 +59,8 @@ const statusLabel = computed(() => {
     ready: "待取餐",
     finished: "已完成",
     cancelled: "已取消",
+    failed: "失败",
+    timedOut: "已超时",
     refunding: "退款中",
     refunded: "已退款",
     unknown: "状态待刷新",
@@ -136,14 +140,6 @@ function formatOrderTime(value: string) {
   gap: 2rpx;
 }
 
-.status-icon {
-  display: block;
-  width: 26rpx;
-  height: 26rpx;
-  color: #999999;
-  font-size: 26rpx;
-  line-height: 26rpx;
-}
 
 .time {
   flex: none;
@@ -215,22 +211,5 @@ function formatOrderTime(value: string) {
 .count {
   display: block;
   margin: 4rpx 0 10rpx;
-}
-
-.again {
-  width: 148rpx;
-  height: 52rpx;
-  margin: 0;
-  padding: 0;
-  border-radius: 8rpx;
-  background: var(--ld-mini-primary);
-  color: #ffffff;
-  font-size: var(--ld-font-sm, 24rpx);
-  font-weight: 800;
-  line-height: 52rpx;
-}
-
-.again::after {
-  border: 0;
 }
 </style>

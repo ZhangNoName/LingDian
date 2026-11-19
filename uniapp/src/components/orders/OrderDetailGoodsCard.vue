@@ -2,10 +2,6 @@
   <view class="card">
     <view class="store-row">
       <text class="store">{{ detail.storeName }}</text>
-      <view class="actions">
-        <PhoneIcon class="action-icon" />
-        <MessageIcon class="action-icon" />
-      </view>
     </view>
 
     <view v-for="item in detail.items" :key="item.id" class="item">
@@ -18,7 +14,7 @@
       </view>
       <view class="amount">
         <text class="qty">{{ item.quantity }}份</text>
-        <text class="price">¥{{ formatAmount(item.price) }}</text>
+        <text class="price">小计 ¥{{ formatAmount(item.subtotal) }}</text>
       </view>
     </view>
 
@@ -30,16 +26,13 @@
 </template>
 
 <script setup lang="ts">
-import { MessageIcon, PhoneIcon } from "@lingdian/icons/miniapp";
+import { formatAmount } from "@/utils/money";
 import type { OrderDetail } from "@/types/order";
 
 defineProps<{
   detail: OrderDetail;
 }>();
 
-function formatAmount(value: number) {
-  return Number.isInteger(value) ? String(value) : value.toFixed(1);
-}
 </script>
 
 <style scoped>
@@ -64,19 +57,7 @@ function formatAmount(value: number) {
   font-weight: 900;
 }
 
-.actions {
-  display: flex;
-  gap: 22rpx;
-  color: #b7b7b7;
-}
 
-.action-icon {
-  display: block;
-  width: 32rpx;
-  height: 32rpx;
-  font-size: 32rpx;
-  line-height: 32rpx;
-}
 
 .item {
   display: grid;

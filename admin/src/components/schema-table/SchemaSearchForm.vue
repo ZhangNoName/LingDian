@@ -4,7 +4,8 @@ import { Input } from '@lingdian/console-ui/input'
 import { SelectField } from '@lingdian/console-ui/select'
 import { ArrowDown, ArrowUp } from '@lingdian/icons/admin'
 import { computed, onMounted, ref, watch } from 'vue'
-import AppIconButton from '../common/AppIconButton.vue'
+import { Button } from '@lingdian/console-ui/button'
+import { DatePicker } from '@lingdian/console-ui/date-picker'
 import { dictionaryRegistry, type DictionaryOption } from '../../dictionaries'
 import { columnKey } from './schema'
 import type { QueryRecord, SchemaColumn } from './types'
@@ -12,6 +13,7 @@ import type { QueryRecord, SchemaColumn } from './types'
 const props = withDefaults(defineProps<{
   columns: readonly SchemaColumn<Row>[]
   query: QueryRecord
+  formId?: string
   defaultExpanded?: boolean
 }>(), { defaultExpanded: true })
 const emit = defineEmits<{
@@ -92,19 +94,20 @@ watch(() => props.columns, loadOptions)
   <section class="schema-search" :class="{ 'is-collapsed': !expanded }">
     <div class="schema-search__heading">
       <strong>筛选条件</strong>
-      <AppIconButton
-        :icon="expanded ? ArrowUp : ArrowDown"
+      <Button
+        type="button"
         variant="ghost"
         data-testid="schema-search-collapse"
         :aria-expanded="expanded"
         @click="expanded = !expanded"
       >
+        <component :is="expanded ? ArrowUp : ArrowDown" aria-hidden="true" />
         {{ expanded ? '收起' : '展开' }}
-      </AppIconButton>
+      </Button>
     </div>
-    <form v-show="expanded" class="schema-search__form" @submit.prevent="emit('search')">
+    <form :id="formId" v-show="expanded" class="schema-search__form" @invalid.capture="expanded = true" @submit.prevent="emit('search')">
       <div v-for="column in searchColumns" :key="columnKey(column)" class="grid min-w-0 gap-1.5">
-        <span :id="`schema-label-${columnKey(column)}`" class="text-sm">{{ column.label }}</span>
+        <span v-if="column.searchType !== 'date'" :id="`schema-label-${columnKey(column)}`" class="text-sm">{{ column.label }}</span>
         <slot
           :name="`search-${columnKey(column)}`"
           :column="column"
@@ -131,14 +134,20 @@ watch(() => props.columns, loadOptions)
             ]"
             @update:model-value="updateChoice(column, $event)"
           />
-          <div v-else-if="column.searchType === 'dateRange'" class="flex min-w-0 gap-1">
-            <Input type="date" aria-label="开始日期" :model-value="dateRange(column)[0]" :max="dateRange(column)[1] || undefined" @update:model-value="updateDateRange(column, 0, $event)" />
-            <Input type="date" aria-label="结束日期" :model-value="dateRange(column)[1]" :min="dateRange(column)[0] || undefined" @update:model-value="updateDateRange(column, 1, $event)" />
+          <div v-else-if="column.searchType === 'dateRange'" class="flex min-w-0 flex-wrap gap-2" role="group" :aria-labelledby="`schema-label-${columnKey(column)}`">
+            <DatePicker label="开始日期" :model-value="dateRange(column)[0]" :max="dateRange(column)[1] || undefined" @update:model-value="updateDateRange(column, 0, $event)" />
+            <DatePicker label="结束日期" :model-value="dateRange(column)[1]" :min="dateRange(column)[0] || undefined" @update:model-value="updateDateRange(column, 1, $event)" />
           </div>
+          <DatePicker
+            v-else-if="column.searchType === 'date'"
+            :label="column.label"
+            :model-value="dateValue(query[queryKey(column)])"
+            @update:model-value="updateField(column, $event || undefined)"
+          />
           <Input
             v-else
-            :type="column.searchType === 'date' ? 'date' : column.clearable === false ? 'text' : 'search'"
-            :model-value="column.searchType === 'date' ? dateValue(query[queryKey(column)]) : inputValue(query[queryKey(column)])"
+            :type="column.clearable === false ? 'text' : 'search'"
+            :model-value="inputValue(query[queryKey(column)])"
             :aria-labelledby="`schema-label-${columnKey(column)}`"
             :placeholder="column.placeholder ?? `请输入${column.label}`"
             @update:model-value="updateField(column, $event || undefined)"

@@ -10,24 +10,22 @@
       <view class="nickname-card">
         <view>
           <text class="nickname-label">昵称</text>
-          <text class="nickname-hint">昵称可重复，用于向商家展示</text>
         </view>
         <input v-model="nickname" class="nickname-input" type="nickname" maxlength="32" placeholder="设置昵称" aria-label="昵称" />
-        <button class="nickname-save" role="button" tabindex="0" :loading="savingNickname" :disabled="savingNickname" @keydown.enter="saveNickname" @tap="saveNickname">保存</button>
+        <AppActionButton size="small" :loading="savingNickname" @activate="saveNickname">保存</AppActionButton>
       </view>
-      <MemberBenefitCard :presentation="customerPresentation" />
       <ManageGrid :entries="manageEntries" @select="handleManageEntry" />
     </view>
   </Layout>
 </template>
 
 <script setup lang="ts">
+import AppActionButton from "@/components/app/AppActionButton.vue";
 import type { AuthenticatedUser, CustomerProfile } from "@lingdian/contracts";
 import { onShow } from "@dcloudio/uni-app";
 import { computed, ref } from "vue";
 import AppNavBar from "@/components/app/AppNavBar.vue";
 import ManageGrid from "@/components/profile/ManageGrid.vue";
-import MemberBenefitCard from "@/components/profile/MemberBenefitCard.vue";
 import ProfileHeader from "@/components/profile/ProfileHeader.vue";
 import Layout from "@/layout/layout.vue";
 import { customerAuth } from "@/services/auth";
@@ -43,10 +41,8 @@ const currentUser = ref<AuthenticatedUser | undefined>(customerAuth.getUser());
 const customerProfile = ref<CustomerProfile>();
 const customerPresentation = computed(() => buildCustomerPresentation(currentUser.value, customerProfile.value));
 const manageEntries: ManageEntry[] = [
-  { key: "orders", label: "我的订单", available: true, route: "/pages/his/his" },
-  { key: "address", label: "地址管理", available: true, route: "/pages/address/address" },
-  { key: "favorites", label: "我的收藏", available: false },
-  { key: "transactions", label: "交易记录", available: false },
+  { key: "orders", label: "我的订单", route: "/pages/his/his" },
+  { key: "address", label: "地址管理", route: "/pages/address/address" },
 ];
 
 onShow(async () => {
@@ -61,7 +57,8 @@ onShow(async () => {
 });
 
 function handleManageEntry(entry: ManageEntry) {
-  if (entry.route) uni.redirectTo({ url: entry.route });
+  if (entry.key === "address") uni.navigateTo({ url: entry.route });
+  else uni.redirectTo({ url: entry.route });
 }
 
 async function saveNickname() {
@@ -119,8 +116,7 @@ async function chooseAvatar(event: unknown) {
   box-shadow: var(--ld-mini-shadow-card);
 }
 
-.nickname-label,
-.nickname-hint {
+.nickname-label {
   display: block;
 }
 
@@ -128,12 +124,6 @@ async function chooseAvatar(event: unknown) {
   color: var(--ld-mini-text);
   font-size: var(--ld-font-base, 26rpx);
   font-weight: 800;
-}
-
-.nickname-hint {
-  margin-top: 6rpx;
-  color: #666666;
-  font-size: 22rpx;
 }
 
 .nickname-input {
@@ -144,19 +134,5 @@ async function chooseAvatar(event: unknown) {
   background: #f7f7f7;
   color: var(--ld-mini-text);
   font-size: 24rpx;
-}
-
-.nickname-save {
-  margin: 0;
-  padding: 0 18rpx;
-  border-radius: 28rpx;
-  background: var(--ld-mini-primary, #ff6b35);
-  color: #ffffff;
-  font-size: 22rpx;
-  line-height: 56rpx;
-}
-
-.nickname-save::after {
-  border: 0;
 }
 </style>

@@ -9,8 +9,9 @@ import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '../popov
 
 const props = defineProps<{
   label: string
-  locale: string
-  labels: { calendar: string; previousMonth: string; nextMonth: string; invalidDate: string; tooEarly: string }
+  locale?: string
+  labels?: { calendar: string; previousMonth: string; nextMonth: string; invalidDate: string; tooEarly: string; tooLate?: string }
+  max?: string
   min?: string
   required?: boolean
   disabled?: boolean
@@ -18,7 +19,9 @@ const props = defineProps<{
 const value = defineModel<string>({ required: true })
 const id = useId()
 const input = ref<InstanceType<typeof Input>>()
+const trigger = ref<InstanceType<typeof IconButton>>()
 const open = ref(false)
+const returnFocus = ref(false)
 const touched = ref(false)
 
 function fromIso(text: string | undefined) {
@@ -31,16 +34,38 @@ function fromIso(text: string | undefined) {
   }
 }
 
+const labels = computed(() => {
+  const defaults = props.locale?.startsWith('en') ? {
+    calendar: `Open calendar · ${props.label}`,
+    previousMonth: 'Previous month',
+    nextMonth: 'Next month',
+    invalidDate: 'Enter a valid date in YYYY-MM-DD format.',
+    tooEarly: `Enter a date on or after ${props.min}.`,
+    tooLate: `Enter a date on or before ${props.max}.`,
+  } : {
+    calendar: `打开日历 · ${props.label}`,
+    previousMonth: '上个月',
+    nextMonth: '下个月',
+    invalidDate: '请输入有效日期，格式为 YYYY-MM-DD。',
+    tooEarly: `请输入 ${props.min} 或之后的日期。`,
+    tooLate: `请输入 ${props.max} 或之前的日期。`,
+  }
+  return { ...defaults, ...props.labels }
+})
+const maximum = computed(() => fromIso(props.max))
 const date = computed(() => fromIso(value.value))
 const minimum = computed(() => fromIso(props.min))
 const openingDate = computed(() => {
   const initial = date.value ?? today(getLocalTimeZone())
-  return minimum.value && initial.compare(minimum.value) < 0 ? minimum.value : initial
+  if (minimum.value && initial.compare(minimum.value) < 0) return minimum.value
+  if (maximum.value && initial.compare(maximum.value) > 0) return maximum.value
+  return initial
 })
 const message = computed(() => {
   if (!value.value) return ''
-  if (!date.value) return props.labels.invalidDate
-  if (minimum.value && date.value.compare(minimum.value) < 0) return props.labels.tooEarly
+  if (!date.value) return labels.value.invalidDate
+  if (minimum.value && date.value.compare(minimum.value) < 0) return labels.value.tooEarly
+  if (maximum.value && date.value.compare(maximum.value) > 0) return labels.value.tooLate
   return ''
 })
 
@@ -54,7 +79,15 @@ watchEffect(() => {
 function selectDate(selection: DateValue | DateValue[] | undefined) {
   if (!selection || Array.isArray(selection)) return
   value.value = selection.toString()
+  returnFocus.value = true
   open.value = false
+}
+
+function restoreTriggerFocus(event: Event) {
+  if (!returnFocus.value) return
+  returnFocus.value = false
+  event.preventDefault()
+  trigger.value?.$el.focus({ preventScroll: true })
 }
 </script>
 
@@ -81,6 +114,7 @@ function selectDate(selection: DateValue | DateValue[] | undefined) {
           />
           <PopoverTrigger as-child>
             <IconButton
+              ref="trigger"
               :icon="CalendarDays"
               :label="labels.calendar"
               class="absolute inset-y-1 right-1 size-7"
@@ -89,12 +123,20 @@ function selectDate(selection: DateValue | DateValue[] | undefined) {
           </PopoverTrigger>
         </div>
       </PopoverAnchor>
-      <PopoverContent align="start" class="w-auto p-0" :portal-to="portalTo" :aria-label="labels.calendar">
+      <PopoverContent
+        align="start"
+        class="w-auto p-0"
+        :portal-to="portalTo"
+        :aria-label="labels.calendar"
+        @escape-key-down="returnFocus = true"
+        @close-auto-focus="restoreTriggerFocus"
+      >
         <Calendar
           :model-value="date"
           :default-placeholder="openingDate"
           :min-value="minimum"
-          :locale="locale"
+          :max-value="maximum"
+          :locale="locale ?? 'zh-CN'"
           :calendar-label="label"
           :previous-label="labels.previousMonth"
           :next-label="labels.nextMonth"

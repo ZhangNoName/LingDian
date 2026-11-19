@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FilterToggle from '@/components/FilterToggle.vue'
 import MerchantDatePicker from '@/components/MerchantDatePicker.vue'
 import DataActionButton from '@/components/DataActionButton.vue'
 import TablePagination from '@/components/table/TablePagination.vue'
@@ -195,15 +196,7 @@ onBeforeUnmount(() => {
 <template>
   <section class="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
     <div class="flex flex-wrap justify-between gap-2">
-      <Button
-        class="sm:hidden"
-        variant="outline"
-        :aria-expanded="filtersOpen"
-        aria-controls="receipt-filters"
-        @click="filtersOpen = !filtersOpen"
-      >
-        {{ t('filters') }}
-      </Button>
+      <FilterToggle v-model="filtersOpen" controls="receipt-filters" class="sm:hidden">{{ t('filters') }}</FilterToggle>
       <div class="ml-auto flex gap-2">
         <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" />
         <DataActionButton
@@ -216,7 +209,7 @@ onBeforeUnmount(() => {
     </div>
     <form
       id="receipt-filters"
-      :data-open="filtersOpen"
+      :data-filter-open="filtersOpen"
       class="analysis-filters flex flex-wrap items-end gap-3"
       @submit.prevent="apply"
     >
@@ -292,9 +285,4 @@ onBeforeUnmount(() => {
 </template>
 <style scoped src="./purchasing.css"></style>
 <style scoped>
-@media (max-width: 639px) {
-  .analysis-filters:not([data-open='true']) {
-    display: none;
-  }
-}
 </style>

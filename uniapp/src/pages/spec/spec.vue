@@ -27,13 +27,14 @@
 </template>
 
 <script setup lang="ts">
+import { navigateBackOrRedirect } from "@/services/auth-navigation";
 import { computed, reactive, ref } from "vue";
 import { onLoad } from "@dcloudio/uni-app";
 import AppNavBar from "@/components/app/AppNavBar.vue";
 import Layout from "@/layout/layout.vue";
 import OptionGroup from "@/components/spec/OptionGroup.vue";
 import ProductHero from "@/components/spec/ProductHero.vue";
-import QuantityStepper from "@/components/spec/QuantityStepper.vue";
+import QuantityStepper from "@/components/app/QuantityStepper.vue";
 import SpecActionBar from "@/components/spec/SpecActionBar.vue";
 import { addCartItem } from "@/services/cart";
 import { getProductDetail } from "@/services/catalog";
@@ -95,7 +96,12 @@ function addToCart() {
     uni.showToast({ title: selectionError, icon: "none" });
     return false;
   }
-  addCartItem(productDetail.value, quantity.value, selectedOptions.value);
+  try {
+    addCartItem(productDetail.value, quantity.value, selectedOptions.value);
+  } catch (error) {
+    uni.showToast({ title: error instanceof Error ? error.message : "无法加入购物车", icon: "none" });
+    return false;
+  }
   uni.showToast({ title: "已加入购物车", icon: "success" });
   return true;
 }
@@ -115,7 +121,7 @@ function addOnly() {
 }
 
 function goBack() {
-  uni.navigateBack();
+  navigateBackOrRedirect(buildServiceModeUrl("/pages/order/order", serviceMode.value));
 }
 </script>
 

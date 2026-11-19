@@ -31,6 +31,19 @@ describe('schema table components', () => {
     expect(collapse.attributes('aria-expanded')).toBe('false')
   })
 
+  it('validates typed date ranges against both ends and clears the validation after correction', async () => {
+    const columns: SchemaColumn<Row>[] = [{ key: 'period', label: '统计期间', isSearch: true, searchType: 'dateRange' }]
+    const wrapper = mount(SchemaSearchForm<Row>, {
+      props: { columns, query: { period: ['2026-11-18', '2026-11-17'] } },
+    })
+    const [start, end] = wrapper.findAll<HTMLInputElement>('input[type="text"]')
+    expect(start!.element.validationMessage).toContain('或之前')
+    expect(end!.element.validationMessage).toContain('或之后')
+    await wrapper.setProps({ query: { period: ['2026-11-17', '2026-11-18'] } })
+    expect(start!.element.checkValidity()).toBe(true)
+    expect(end!.element.checkValidity()).toBe(true)
+  })
+
   it('renders business actions on the left and search controls on the right', async () => {
     const wrapper = mount(SchemaTablePage<Row>, {
       props: { columns, query: { keyword: 'zero' }, data: [], pagination: { page: 1, pageSize: 20, total: 0 } },
@@ -39,7 +52,8 @@ describe('schema table components', () => {
 
     expect(wrapper.get('.schema-table-page__toolbar-left').find('[data-testid="create-account"]').exists()).toBe(true)
     expect(wrapper.get('.schema-table-page__toolbar-right').find('[data-testid="schema-search-submit"]').exists()).toBe(true)
-    await wrapper.get('[data-testid="schema-search-submit"]').trigger('click')
+    expect(wrapper.get('[data-testid="schema-search-submit"]').attributes('form')).toBe(wrapper.get('form').attributes('id'))
+    await wrapper.get('form').trigger('submit')
     await wrapper.get('[data-testid="schema-search-reset"]').trigger('click')
     expect(wrapper.emitted('search')).toHaveLength(1)
     expect(wrapper.emitted('reset')).toHaveLength(1)
@@ -88,6 +102,8 @@ describe('schema table components', () => {
     })
 
     expect(wrapper.get('.schema-table-page__table').attributes('data-scroll-owner')).toBe('table')
+    expect(wrapper.get('table').element.style.minWidth).toBe('450px')
+    expect(wrapper.get<HTMLElement>('[data-slot="table-container"]').element.style.minWidth).toBe('')
     expect(wrapper.find('[data-testid="custom-name"]').exists()).toBe(true)
     expect(wrapper.get('th[data-fixed="right"]').text()).toBe('操作')
     expect(wrapper.find('td[data-fixed="right"]').exists()).toBe(true)

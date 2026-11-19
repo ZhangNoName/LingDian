@@ -12,6 +12,7 @@ type SendCodePurpose = "PHONE_LOGIN" | "PHONE_LINK";
 let accessToken: string | undefined;
 let accessTokenExpiresAt = 0;
 let currentUser: AuthenticatedUser | undefined;
+let sessionVersion = 0;
 let refreshPromise: Promise<boolean> | undefined;
 
 const supportedThirdPartyProviders: ThirdPartyProvider[] = [];
@@ -84,17 +85,31 @@ export async function beginMiniProgramThirdPartyLogin(provider: ThirdPartyProvid
   });
 }
 
+function invalidateSessionRequests() {
+  sessionVersion++;
+  refreshPromise = undefined;
+}
+
+function storeTokens(tokens: AuthTokens) {
+  if (tokens.user.audience !== "user-api" || !tokens.user.roles.includes("USER")) {
+    customerAuth.clear();
+    throw new Error("登录响应不属于顾客端，已拒绝建立会话。");
+  }
+  forgetDemoToken();
+  uni.removeStorageSync(AUTO_RECOVERY_BLOCKED_KEY);
+  accessToken = tokens.access_token;
+  accessTokenExpiresAt = Date.now() + tokens.expires_in * 1000;
+  currentUser = tokens.user;
+}
+
 export const customerAuth = {
   acceptLogin(tokens: AuthTokens): void {
-    if (tokens.user.audience !== "user-api" || !tokens.user.roles.includes("USER")) {
-      this.clear();
-      throw new Error("登录响应不属于顾客端，已拒绝建立会话。");
-    }
-    forgetDemoToken();
-    uni.removeStorageSync(AUTO_RECOVERY_BLOCKED_KEY);
-    accessToken = tokens.access_token;
-    accessTokenExpiresAt = Date.now() + tokens.expires_in * 1000;
-    currentUser = tokens.user;
+    invalidateSessionRequests();
+    storeTokens(tokens);
+  },
+
+  getSessionVersion(): number {
+    return sessionVersion;
   },
 
   getAccessToken(): string | undefined {
@@ -111,6 +126,7 @@ export const customerAuth = {
   },
 
   clear(): void {
+    invalidateSessionRequests();
     forgetDemoToken();
     accessToken = undefined;
     accessTokenExpiresAt = 0;
@@ -170,10 +186,11 @@ export const customerAuth = {
   async refresh(): Promise<boolean> {
     if (uni.getStorageSync(AUTO_RECOVERY_BLOCKED_KEY) === true) return false;
     if (refreshPromise) return refreshPromise;
-    refreshPromise = refreshCustomerSession().finally(() => {
-      refreshPromise = undefined;
+    const pending = refreshCustomerSession(sessionVersion).finally(() => {
+      if (refreshPromise === pending) refreshPromise = undefined;
     });
-    return refreshPromise;
+    refreshPromise = pending;
+    return pending;
   },
 
   async logout(): Promise<void> {
@@ -193,9 +210,7 @@ export const customerAuth = {
   },
 
   async recoverAfterRelaunch(): Promise<boolean> {
-    accessToken = undefined;
-    accessTokenExpiresAt = 0;
-    currentUser = undefined;
+    this.clear();
     return this.refresh();
   },
 
@@ -204,7 +219,7 @@ export const customerAuth = {
   },
 };
 
-async function refreshCustomerSession(): Promise<boolean> {
+async function refreshCustomerSession(version: number): Promise<boolean> {
   try {
     let tokens: AuthTokens;
     if (usesBrowserCookieTransport()) {
@@ -216,16 +231,19 @@ async function refreshCustomerSession(): Promise<boolean> {
         return false;
       }
       const code = await loginWithProvider(provider);
+      if (version !== sessionVersion) return false;
       tokens = await authRequest<AuthTokens>(`/auth/oauth/${provider.toLowerCase()}/miniapp/session`, {
         method: "POST",
         data: { code, audience: "user-api" },
       });
     }
-    customerAuth.acceptLogin(tokens);
+    if (version !== sessionVersion) return false;
+    if (currentUser && tokens.user.userId !== currentUser.userId) invalidateSessionRequests();
+    storeTokens(tokens);
     return true;
   } catch {
-      customerAuth.clear();
-      return false;
+    if (version === sessionVersion) customerAuth.clear();
+    return false;
   }
 }
 

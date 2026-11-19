@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FilterToggle from '@/components/FilterToggle.vue'
 import MerchantDatePicker from '@/components/MerchantDatePicker.vue'
 import DataActionButton from '@/components/DataActionButton.vue'
 import TablePagination from '@/components/table/TablePagination.vue'
@@ -310,18 +311,10 @@ onBeforeUnmount(() => {
           >
         </div>
       </div>
-      <Button
-        class="justify-self-start sm:hidden"
-        variant="outline"
-        :aria-expanded="filtersOpen"
-        aria-controls="purchase-filters"
-        @click="filtersOpen = !filtersOpen"
-      >
-        {{ t('filters') }}
-      </Button>
+      <FilterToggle v-model="filtersOpen" controls="purchase-filters" class="justify-self-start sm:hidden">{{ t('filters') }}</FilterToggle>
       <form
         id="purchase-filters"
-        :data-open="filtersOpen"
+        :data-filter-open="filtersOpen"
         class="purchase-filters flex flex-wrap items-end gap-2"
         @submit.prevent="search"
       >
@@ -466,9 +459,4 @@ onBeforeUnmount(() => {
 </template>
 <style scoped src="./purchasing.css"></style>
 <style scoped>
-@media (max-width: 639px) {
-  .purchase-filters:not([data-open='true']) {
-    display: none;
-  }
-}
 </style>

@@ -1,20 +1,23 @@
 <template>
   <view class="pay-bar">
-    <view><text class="label">合计：</text><text class="amount">¥{{ amount.payableAmount.toFixed(1) }}</text></view>
-    <button :class="['pay', { disabled }]" role="button" tabindex="0" :disabled="disabled" @keydown.enter="$emit('pay')" @tap="$emit('pay')">去支付</button>
+    <view><text class="label">合计：</text><text class="amount">¥{{ formatAmount(amount.payableAmount) }}</text></view>
+    <AppActionButton size="large" :disabled="disabled" :loading="loading" @activate="$emit('submit')">提交订单</AppActionButton>
   </view>
 </template>
 
 <script setup lang="ts">
+import { formatAmount } from "@/utils/money";
+import AppActionButton from "@/components/app/AppActionButton.vue";
 import type { OrderAmount } from "@/types/order";
 
 defineProps<{
   amount: OrderAmount;
   disabled?: boolean;
+  loading?: boolean;
 }>();
 
 defineEmits<{
-  (event: "pay"): void;
+  (event: "submit"): void;
 }>();
 </script>
 
@@ -41,25 +44,5 @@ defineEmits<{
   color: var(--ld-mini-text);
   font-size: var(--ld-font-price-lg, 40rpx);
   font-weight: 900;
-}
-
-.pay {
-  height: 78rpx;
-  margin: 0;
-  border-radius: 12rpx;
-  background: var(--ld-mini-primary);
-  color: #ffffff;
-  font-size: var(--ld-font-title, 32rpx);
-  font-weight: 900;
-  line-height: 78rpx;
-}
-
-.pay::after {
-  border: 0;
-}
-
-.pay.disabled {
-  background: #c9c9c9;
-  color: #ffffff;
 }
 </style>

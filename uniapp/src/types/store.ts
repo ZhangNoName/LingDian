@@ -12,5 +12,4 @@ export type StoreSummary = {
 export type HomeServiceMode = {
   key: ServiceMode;
   title: string;
-  subtitle: string;
 };

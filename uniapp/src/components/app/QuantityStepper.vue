@@ -1,26 +1,28 @@
 <template>
   <view class="stepper">
-    <button class="round" :disabled="modelValue <= min" aria-label="减少数量" @tap="emitValue(modelValue - 1)">
-      <MinusIcon class="stepper-icon" aria-hidden="true" />
+    <button class="round" :disabled="disabled || modelValue <= min" aria-label="减少数量" @tap="emitValue(modelValue - 1)">
+      <AppIcon name="minus" :size="28" tone="muted" />
     </button>
     <text class="count">{{ modelValue }}</text>
-    <button class="round plus" :disabled="modelValue >= max" aria-label="增加数量" @tap="emitValue(modelValue + 1)">
-      <PlusIcon class="stepper-icon" aria-hidden="true" />
+    <button class="round plus" :disabled="disabled || modelValue >= max" aria-label="增加数量" @tap="emitValue(modelValue + 1)">
+      <AppIcon name="plus" :size="28" tone="white" />
     </button>
   </view>
 </template>
 
 <script setup lang="ts">
-import { MinusIcon, PlusIcon } from "@lingdian/icons/miniapp";
+import AppIcon from "@/components/app/AppIcon.vue";
+import { MAX_LINE_QUANTITY } from "@/services/cart";
 const props = withDefaults(
   defineProps<{
     modelValue: number;
     min?: number;
     max?: number;
+    disabled?: boolean;
   }>(),
   {
     min: 1,
-    max: 99,
+    max: MAX_LINE_QUANTITY,
   },
 );
 
@@ -54,14 +56,6 @@ function emitValue(value: number) {
   color: #999999;
 }
 
-.stepper-icon {
-  display: block;
-  width: 28rpx;
-  height: 28rpx;
-  font-size: 28rpx;
-  font-weight: 800;
-  line-height: 28rpx;
-}
 
 .round::after {
   border: 0;

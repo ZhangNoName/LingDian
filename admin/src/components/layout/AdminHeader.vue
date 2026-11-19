@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Button } from '@lingdian/console-ui/button'
+import { Button, IconButton } from '@lingdian/console-ui/button'
+import { DialogTrigger } from '@lingdian/console-ui/dialog'
 import { DropdownMenu } from '@lingdian/console-ui/dropdown'
 import { Fold, User } from '@lingdian/icons/admin'
 import { computed } from 'vue'
@@ -7,6 +8,7 @@ import { notifications } from '../ui/notifications'
 import { useRoute, useRouter } from 'vue-router'
 import { adminSession } from '../../auth/session'
 import ThemeSwitcher from './ThemeSwitcher.vue'
+defineProps<{ mobile: boolean; collapsed: boolean }>()
 defineEmits<{ toggle: [] }>()
 const route = useRoute(); const router = useRouter()
 const title = computed(() => String(route.meta.title ?? '管理后台'))
@@ -29,7 +31,10 @@ async function command(value: string) {
 <template>
   <header class="admin-header">
     <div class="header-leading">
-      <Button type="button" variant="ghost" size="icon" aria-label="切换侧栏" @click="$emit('toggle')"><Fold /></Button>
+      <DialogTrigger v-if="mobile" as-child>
+        <IconButton :icon="Fold" size="icon" label="打开工作台导航" />
+      </DialogTrigger>
+      <IconButton v-else :aria-expanded="!collapsed" :icon="Fold" size="icon" label="切换侧栏" @click="$emit('toggle')" />
       <nav class="header-breadcrumb" aria-label="当前位置">
         <span>零点平台</span>
         <span aria-hidden="true">/</span>

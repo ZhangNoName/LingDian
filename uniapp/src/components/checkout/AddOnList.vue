@@ -1,18 +1,19 @@
 <template>
   <view class="card">
-    <text class="title">超值换购，单件最多可省¥4.2元</text>
+    <text class="title">加购商品</text>
     <scroll-view class="list" scroll-x>
       <view v-for="item in items" :key="item.id" class="addon">
         <text class="save">{{ item.saveText }}</text>
         <image class="image" :src="item.imageUrl" mode="aspectFill" />
         <PriceText :price="item.price" :original-price="item.originalPrice" size="small" />
-        <button class="add" @tap="$emit('add', item.id)">+</button>
+        <button class="add" :aria-label="`添加${item.name}`" @tap="$emit('add', item.id)"><AppIcon name="plus" :size="26" tone="white" /></button>
       </view>
     </scroll-view>
   </view>
 </template>
 
 <script setup lang="ts">
+import AppIcon from "@/components/app/AppIcon.vue";
 import PriceText from "@/components/app/PriceText.vue";
 import type { AddOnProduct } from "@/types/order";
 
@@ -77,7 +78,10 @@ defineEmits<{
   background: #ffffff;
 }
 
+
 .add {
+  display: grid;
+  place-items: center;
   position: absolute;
   right: 16rpx;
   bottom: 16rpx;

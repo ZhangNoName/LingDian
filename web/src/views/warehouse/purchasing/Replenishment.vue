@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FilterToggle from '@/components/FilterToggle.vue'
 import DataActionButton from '@/components/DataActionButton.vue'
 import TablePagination from '@/components/table/TablePagination.vue'
 import { PackagePlus } from '@lingdian/icons/web'
@@ -139,15 +140,7 @@ onBeforeUnmount(() => {
 <template>
   <section class="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
     <div class="flex flex-wrap justify-end gap-2">
-      <Button
-        class="mr-auto sm:hidden"
-        variant="outline"
-        :aria-expanded="filtersOpen"
-        aria-controls="replenishment-filters"
-        @click="filtersOpen = !filtersOpen"
-      >
-        {{ t('filters') }}
-      </Button>
+      <FilterToggle v-model="filtersOpen" controls="replenishment-filters" class="mr-auto sm:hidden">{{ t('filters') }}</FilterToggle>
       <DataActionButton
         action="refresh"
         :label="t('refresh')"
@@ -163,7 +156,7 @@ onBeforeUnmount(() => {
     </div>
     <form
       id="replenishment-filters"
-      :data-open="filtersOpen"
+      :data-filter-open="filtersOpen"
       class="replenishment-filters flex flex-wrap items-end gap-3"
       @submit.prevent="apply"
     >
@@ -241,9 +234,4 @@ onBeforeUnmount(() => {
 </template>
 <style scoped src="./purchasing.css"></style>
 <style scoped>
-@media (max-width: 639px) {
-  .replenishment-filters:not([data-open='true']) {
-    display: none;
-  }
-}
 </style>

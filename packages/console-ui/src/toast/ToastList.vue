@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ToastClose, ToastProvider, ToastRoot, ToastTitle, ToastViewport } from 'reka-ui'
 import { X } from '@lingdian/icons/web'
-import { Button } from '../button'
+import { IconButton } from '../button'
 
 defineProps<{ items: readonly { id: number; text: string; tone: 'success' | 'warning' | 'error' }[] }>()
 const emit = defineEmits<{ dismiss: [id: number] }>()
@@ -25,7 +25,7 @@ const emit = defineEmits<{ dismiss: [id: number] }>()
     >
       <ToastTitle>{{ item.text }}</ToastTitle>
       <ToastClose as-child>
-        <Button type="button" variant="ghost" size="icon-sm" class="pointer-events-auto" aria-label="关闭通知"><X /></Button>
+        <IconButton :icon="X" class="pointer-events-auto" label="关闭通知" />
       </ToastClose>
     </ToastRoot>
     <ToastViewport class="pointer-events-none fixed top-18 left-1/2 z-[60] flex w-96 max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-col gap-2 sm:top-4" />

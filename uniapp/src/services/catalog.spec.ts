@@ -1,4 +1,4 @@
-import { afterEach, assert, test, vi } from "vitest";
+import { afterEach, assert, expect, test, vi } from "vitest";
 import { fetchMenu, invalidateMenuCache } from "./catalog";
 
 const menu = {
@@ -49,6 +49,21 @@ test("force refresh bypasses a fresh menu cache", async () => {
   await fetchMenu({ force: true });
 
   assert.equal(request.mock.calls.length, 2);
+});
+
+test("a failed forced refresh cannot confirm checkout using a cached open store", async () => {
+  const request = vi.fn((options: UniApp.RequestOptions) => {
+    if (request.mock.calls.length === 1) {
+      options.success?.({ statusCode: 200, data: { code: 0, data: menu } } as unknown as UniApp.RequestSuccessCallbackResult);
+    } else {
+      options.fail?.({ errMsg: "request:fail timeout" });
+    }
+    return { abort() {} } as UniApp.RequestTask;
+  });
+  Object.assign(uni, { request });
+
+  await fetchMenu();
+  await expect(fetchMenu({ force: true })).rejects.toThrow();
 });
 
 test("maps store fulfilment flags instead of advertising unavailable modes", async () => {

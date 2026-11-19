@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Button } from '@lingdian/console-ui/button'
+import { IconButton } from '@lingdian/console-ui/button'
 import { DropdownMenu } from '@lingdian/console-ui/dropdown'
 import { Moon, Sunny } from '@lingdian/icons/admin'
 import { useTheme } from '../../theme/theme'
@@ -19,9 +19,6 @@ function selectTheme(value: string) {
 
 <template>
   <DropdownMenu :items="themes" @select="selectTheme">
-    <Button type="button" variant="ghost" size="icon" aria-label="切换主题">
-      <Moon v-if="theme.resolvedTheme.value === 'dark'" />
-      <Sunny v-else />
-    </Button>
+    <IconButton :icon="theme.resolvedTheme.value === 'dark' ? Moon : Sunny" label="切换主题" size="icon" />
   </DropdownMenu>
 </template>

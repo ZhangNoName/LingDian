@@ -414,6 +414,11 @@ export class OrdersService {
         },
       });
       if (updated.count !== 1) {
+        const current = await tx.order.findFirst({
+          where: { id: orderId, isDeleted: false, ...this.queries.scopeWhere(scope) },
+          select: { status: true },
+        });
+        if (current?.status === targetStatus) return;
         throw new ConflictException('Order changed concurrently. Reload and try again.');
       }
       if (isPendingPaymentTermination(order.status, targetStatus)) {

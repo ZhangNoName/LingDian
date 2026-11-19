@@ -1,12 +1,12 @@
 <template>
   <view class="cart-bar" :class="{ 'is-disabled': disabled }">
     <view class="bag">
-      <CartIcon class="cart-icon" aria-hidden="true" />
+      <AppIcon name="cart" :size="40" :tone="disabled ? 'muted' : 'primary'" />
       <text v-if="cart.itemCount" class="badge">{{ cart.itemCount }}</text>
     </view>
     <view class="summary">
-      <text class="amount">¥{{ cart.totalAmount.toFixed(1) }}</text>
-      <text class="discount">预估到手 共优惠¥{{ cart.discountAmount.toFixed(1) }}</text>
+      <text class="amount">¥{{ formatAmount(cart.totalAmount) }}</text>
+      <text v-if="cart.discountAmount > 0" class="discount">已优惠 ¥{{ formatAmount(cart.discountAmount) }}</text>
     </view>
     <button class="checkout" role="button" tabindex="0" :disabled="disabled" :aria-label="disabled ? '购物车为空，请先选择餐品' : '去结算'" @keydown.enter="handleCheckout" @tap="handleCheckout">
       {{ disabled ? "请选择餐品" : "去结算" }}
@@ -15,7 +15,8 @@
 </template>
 
 <script setup lang="ts">
-import { CartIcon } from "@lingdian/icons/miniapp";
+import { formatAmount } from "@/utils/money";
+import AppIcon from "@/components/app/AppIcon.vue";
 import { computed } from "vue";
 import type { CartSummary } from "@/types/cart";
 import { canCheckout } from "@/services/checkout-state";
@@ -47,15 +48,14 @@ function handleCheckout() {
   align-items: center;
   min-height: 112rpx;
   padding: 0;
-  border-radius: 999rpx;
+  border-radius: var(--ld-radius-8);
   background: var(--ld-mini-primary);
   color: #ffffff;
-  box-shadow: 0 28rpx 56rpx rgba(237, 28, 36, 0.22);
+  box-shadow: var(--ld-mini-shadow-card);
 }
 
 .cart-bar.is-disabled {
   background: #5f5f5f;
-  box-shadow: 0 20rpx 40rpx rgba(0, 0, 0, 0.14);
 }
 
 .cart-bar.is-disabled .bag {
@@ -76,13 +76,6 @@ function handleCheckout() {
   text-align: center;
 }
 
-.cart-icon {
-  display: block;
-  width: 40rpx;
-  height: 40rpx;
-  font-size: 40rpx;
-  line-height: 40rpx;
-}
 
 .badge {
   position: absolute;

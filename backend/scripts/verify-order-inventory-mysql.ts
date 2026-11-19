@@ -1,3 +1,4 @@
+import { verifyCheckoutPayment } from './verify-checkout-payment-mysql';
 import { verifyRuntimeDriver } from './verify-runtime-driver-mysql';
 import { verifyInventoryTrend } from './verify-inventory-trend-mysql';
 import { verifyInventoryMaterial } from './verify-inventory-material-mysql';
@@ -189,6 +190,7 @@ async function main() {
     await verifyStocktakes(prisma);
     await verifyMerchantCategories(prisma);
     await verifyProductImages(prisma);
+    await verifyCheckoutPayment(prisma, stores);
     console.log('Synthetic fixtures retained in the disposable test database for inspection.');
   } finally { await db.$disconnect(); }
 }

@@ -63,3 +63,7 @@
     background: color-mix(in oklab, var(--muted) 60%, var(--card));
   }
 }
+
+@media (width < 40rem) {
+  [data-filter-open="false"] { display: none; }
+}

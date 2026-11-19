@@ -1,9 +1,9 @@
 <template>
-  <view class="card" role="button" tabindex="0" @tap="$emit('manage')">
+  <view class="card" role="button" tabindex="0" @keydown.enter="$emit('manage')" @keydown.space.prevent="$emit('manage')" @tap="$emit('manage')">
     <view v-if="address" class="address-content">
       <view class="title-row">
         <text class="title">配送至</text>
-        <text class="manage">更换 ›</text>
+        <view class="manage"><text>更换</text><AppIcon name="next" :size="26" tone="primary" /></view>
       </view>
       <text class="address">{{ fullAddress }}</text>
       <text class="recipient">{{ address.recipientName }}　{{ address.phoneNumber }}</text>
@@ -13,13 +13,14 @@
         <text class="title">请选择收货地址</text>
         <text class="hint">配送订单需要一个有效地址</text>
       </view>
-      <text class="manage">去添加 ›</text>
+      <view class="manage"><text>去添加</text><AppIcon name="next" :size="26" tone="primary" /></view>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
 import type { UserAddress } from "@lingdian/contracts";
+import AppIcon from "@/components/app/AppIcon.vue";
 import { computed } from "vue";
 
 const props = defineProps<{
@@ -65,7 +66,10 @@ const fullAddress = computed(() => props.address
   font-weight: 900;
 }
 
+
 .manage {
+  display: flex;
+  align-items: center;
   color: var(--ld-mini-primary);
   font-size: 24rpx;
   font-weight: 800;

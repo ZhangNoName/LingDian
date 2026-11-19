@@ -33,6 +33,7 @@ function bundleSizeBudget(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig({
+  publicDir: path.resolve(__dirname, "../packages/icons/public"),
   plugins: [
     vue(),
     tailwindcss(),

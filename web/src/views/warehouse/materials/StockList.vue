@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FilterToggle from '@/components/FilterToggle.vue'
 import DataActionButton from '@/components/DataActionButton.vue'
 import TablePagination from '@/components/table/TablePagination.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
@@ -235,14 +236,9 @@ onBeforeUnmount(() => {
     </div>
     <p v-if="notice" role="status" class="px-4 pt-3 text-sm text-emerald-700">{{ t('saved') }}</p>
     <div class="flex flex-wrap gap-2 px-4 py-3 md:hidden">
-      <Button
-        size="sm"
-        variant="outline"
-        :aria-expanded="filtersOpen"
-        aria-controls="stock-list-filters"
-        @click="filtersOpen = !filtersOpen"
-        >{{ mt(filtersOpen ? 'hideFilters' : 'showFilters') }}</Button
-      ><DataActionButton action="refresh" :label="t('refresh')" size="icon-sm" variant="ghost" :disabled="loading || dirty" @click="load" /><Button size="sm" :disabled="loading || failed" @click="edit()">{{ t('newItem') }}</Button>
+      <FilterToggle v-model="filtersOpen" controls="stock-list-filters" size="sm">{{ mt(filtersOpen ? 'hideFilters' : 'showFilters') }}</FilterToggle>
+      <DataActionButton action="refresh" :label="t('refresh')" size="icon-sm" variant="ghost" :disabled="loading || dirty" @click="load" />
+      <Button size="sm" :disabled="loading || failed" @click="edit()">{{ t('newItem') }}</Button>
       <p v-if="filterSummary" class="w-full break-words text-xs text-muted-foreground">{{ filterSummary }}</p>
     </div>
     <form

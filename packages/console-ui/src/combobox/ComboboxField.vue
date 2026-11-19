@@ -13,7 +13,7 @@ import {
   ComboboxTrigger,
   ComboboxViewport,
 } from 'reka-ui'
-import { Button } from '../button'
+import { Button, IconButton } from '../button'
 import { Input } from '../input'
 
 const props = defineProps<{
@@ -54,13 +54,9 @@ function clear() {
           <ComboboxInput as-child :display-value="displayValue" :placeholder="placeholder" :aria-label="label">
             <Input class="min-w-0 rounded-none border-0 shadow-none focus-visible:ring-0 dark:bg-transparent" />
           </ComboboxInput>
-          <Button v-if="clearable && (multiple ? selected.length : model)" type="button" variant="ghost" size="icon-sm" :disabled="disabled" aria-label="清除" @click="clear">
-            <X />
-          </Button>
+          <IconButton v-if="clearable && (multiple ? selected.length : model)" :icon="X" :disabled="disabled" label="清除" @click="clear" />
           <ComboboxTrigger as-child>
-            <Button type="button" variant="ghost" size="icon-sm" :disabled="disabled" :aria-label="`展开${label}`">
-              <ChevronDownIcon />
-            </Button>
+            <IconButton :icon="ChevronDownIcon" :disabled="disabled" :label="`展开${label}`" />
           </ComboboxTrigger>
         </div>
         <div v-if="selected.length" class="flex flex-wrap gap-1">

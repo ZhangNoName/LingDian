@@ -467,6 +467,7 @@ test('status update rejects a concurrent payment-channel change and does not wri
   const persistedPaymentChannel = 'WECHAT';
   const tx = {
     order: {
+      findFirst: async () => ({ status: 'PENDING_PAYMENT' }),
       updateMany: async ({ where }: any) => {
         updateWhere = where;
         return { count: where.paymentChannel === persistedPaymentChannel ? 1 : 0 };

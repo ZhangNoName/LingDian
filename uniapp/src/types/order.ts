@@ -8,6 +8,8 @@ export type OrderStatus =
   | "ready"
   | "finished"
   | "cancelled"
+  | "failed"
+  | "timedOut"
   | "refunding"
   | "refunded"
   | "unknown";
@@ -39,7 +41,7 @@ export type OrderDetailItem = {
   name: string;
   imageUrl: string | null;
   quantity: number;
-  price: number;
+  subtotal: number;
   tag?: string;
   specs?: string[];
 };

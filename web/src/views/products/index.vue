@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FilterToggle from '@/components/FilterToggle.vue'
 import DataActionButton from '@/components/DataActionButton.vue'
 import TablePagination from '@/components/table/TablePagination.vue'
 import { extendedTablePageSizes } from '@/components/table/page-size'
@@ -204,21 +205,13 @@ onBeforeUnmount(() => {
     <SummaryMetrics :metrics="metrics" :more-label="t('moreMetrics')" desktop-columns="lg:grid-cols-5" />
     <Card class="gap-0 p-0">
       <div class="flex items-center justify-between gap-3 border-b p-4">
-        <Button
-          class="sm:hidden"
-          variant="outline"
-          aria-controls="product-filters"
-          :aria-expanded="filtersOpen"
-          @click="filtersOpen = !filtersOpen"
-        >
-          {{ t('filters') }}
-        </Button>
+        <FilterToggle v-model="filtersOpen" controls="product-filters" class="sm:hidden">{{ t('filters') }}</FilterToggle>
         <h2 class="hidden text-sm font-semibold sm:block">{{ t('title') }}</h2>
         <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" />
       </div>
       <form
         id="product-filters"
-        :data-open="filtersOpen"
+        :data-filter-open="filtersOpen"
         class="product-filters flex flex-wrap items-end gap-3 p-4"
         @submit.prevent="apply"
       >
@@ -359,10 +352,5 @@ onBeforeUnmount(() => {
   gap: 0.375rem;
   font-size: 0.75rem;
   color: var(--ld-text-muted);
-}
-@media (max-width: 639px) {
-  .product-filters:not([data-open='true']) {
-    display: none;
-  }
 }
 </style>

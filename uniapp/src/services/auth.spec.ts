@@ -22,6 +22,20 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
+test("a delayed session refresh cannot sign the customer back in after logout", async () => {
+  let respond!: NonNullable<UniApp.RequestOptions["success"]>;
+  Object.assign(uni, { request(options: UniApp.RequestOptions) { respond = options.success!; } });
+  const refresh = customerAuth.refresh();
+  await customerAuth.logout();
+  respond({
+    statusCode: 200,
+    data: { code: 0, data: { access_token: "stale", expires_in: 900, user: userProfile } },
+  } as unknown as UniApp.RequestSuccessCallbackResult);
+  assert.equal(await refresh, false);
+  assert.equal(customerAuth.getAccessToken(), undefined);
+  assert.equal(uni.getStorageSync("lingdian_customer_auto_recovery_blocked"), true);
+});
+
 test("recovers a linked WeChat mini-program session with a fresh platform login code", async () => {
   vi.spyOn(uni, "getSystemInfoSync").mockReturnValue({
     uniPlatform: "mp-weixin",

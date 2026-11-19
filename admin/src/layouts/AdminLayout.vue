@@ -17,11 +17,6 @@ function resize() {
   else drawer.value = false
 }
 
-function toggle() {
-  if (mobile.value) drawer.value = true
-  else collapsed.value = !collapsed.value
-}
-
 onMounted(() => {
   resize()
   window.addEventListener('resize', resize)
@@ -40,10 +35,10 @@ onBeforeUnmount(() => window.removeEventListener('resize', resize))
         <DialogDescription class="sr-only">选择管理页面</DialogDescription>
         <AdminSidebar @navigate="drawer = false" />
       </DialogContent>
+      <div class="admin-shell__main">
+        <AdminHeader :mobile="mobile" :collapsed="collapsed" @toggle="collapsed = !collapsed" />
+        <main><div class="route-content" :class="contentClass"><RouterView /></div></main>
+      </div>
     </Dialog>
-    <div class="admin-shell__main">
-      <AdminHeader @toggle="toggle" />
-      <main><div class="route-content" :class="contentClass"><RouterView /></div></main>
-    </div>
   </div>
 </template>

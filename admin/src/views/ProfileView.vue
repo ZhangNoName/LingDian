@@ -12,12 +12,11 @@ async function save() { if (saving.value) return; error.value = ''; saving.value
 </script>
 <template>
   <div class="page-stack">
-    <PageHeader title="个人设置" description="管理你的后台展示信息与偏好。" />
+    <PageHeader title="个人设置" />
     <PageError v-if="error" :message="error" @retry="save" />
     <Card class="settings-card">
       <CardHeader>
         <CardTitle>基本信息</CardTitle>
-        <p>昵称仅用于平台内展示，可随时修改。</p>
       </CardHeader>
       <CardContent>
         <form class="admin-form settings-form" @submit.prevent="save">

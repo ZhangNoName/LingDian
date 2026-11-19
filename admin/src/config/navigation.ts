@@ -2,7 +2,7 @@ import type { AuthRole } from '@lingdian/contracts'
 import type { AdminPermission } from '../auth/permissions'
 import { hasPermission } from '../auth/permissions'
 
-export type NavigationIcon = 'users' | 'logs' | 'profile'
+export type NavigationIcon = 'users' | 'logs'
 export type NavigationItem = {
   path: string
   label: string
@@ -20,7 +20,6 @@ export const navigationItems: NavigationItem[] = [
     ],
   },
   { path: '/system/logs', label: '系统日志', icon: 'logs', permission: 'logs:read' },
-  { path: '/profile', label: '个人设置', icon: 'profile', permission: 'profile:write' },
 ]
 
 export function visibleNavigationItems(roles: AuthRole[]): NavigationItem[] {

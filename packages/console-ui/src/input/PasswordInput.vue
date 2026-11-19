@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { EyeIcon, EyeOffIcon } from '@lingdian/icons/web'
 import { ref, useId } from 'vue'
-import { Button } from '../button'
+import { IconButton } from '../button'
 import Input from './Input.vue'
 
 defineOptions({ inheritAttrs: false })
@@ -21,20 +21,17 @@ const visible = ref(false)
       :type="visible ? 'text' : 'password'"
       :disabled="disabled"
     />
-    <Button
-      type="button"
+    <IconButton
+      :icon="visible ? EyeIcon : EyeOffIcon"
       variant="ghost"
       size="icon"
       class="absolute inset-y-0.5 right-0.5 h-auto w-9 text-muted-foreground"
-      :aria-label="visible ? (hideLabel ?? '隐藏密码') : (showLabel ?? '显示密码')"
+      :label="visible ? (hideLabel ?? '隐藏密码') : (showLabel ?? '显示密码')"
       :aria-controls="id ?? fallbackId"
       :disabled="disabled"
       @mousedown.prevent
       @click="visible = !visible"
-    >
-      <EyeIcon v-if="visible" aria-hidden="true" />
-      <EyeOffIcon v-else aria-hidden="true" />
-    </Button>
+    />
   </div>
 </template>
 

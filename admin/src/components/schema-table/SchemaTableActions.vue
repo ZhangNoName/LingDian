@@ -1,5 +1,5 @@
 <script setup lang="ts" generic="Row extends object">
-import { Button } from '@lingdian/console-ui/button'
+import { IconButton } from '@lingdian/console-ui/button'
 import { computed } from 'vue'
 import type { SchemaAction } from './types'
 
@@ -19,7 +19,7 @@ function invoke(action: SchemaAction<Row>): void {
 
 <template>
   <div class="schema-actions">
-    <Button
+    <IconButton
       v-for="action in visibleActions"
       :key="action.key"
       type="button"
@@ -32,11 +32,9 @@ function invoke(action: SchemaAction<Row>): void {
         'text-muted-foreground': action.type === 'info',
       }"
       :disabled="disabled(action)"
-      :aria-label="action.label"
-      :title="action.label"
+      :label="action.label"
+      :icon="action.icon"
       @click="invoke(action)"
-    >
-      <component :is="action.icon" />
-    </Button>
+    />
   </div>
 </template>

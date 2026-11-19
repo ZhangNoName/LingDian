@@ -88,7 +88,7 @@ test('checkout checks availability of the requested store rather than the defaul
 
 test('non-default store payment retry verifies customer ownership before returning the intent', async () => {
   let where: unknown;
-  const intent = { id: 'i', paymentNo: 'p', orderId: 'o', accountId: 'a', provider: 'WECHAT_PAY', channel: 'WECHAT', status: 'PENDING', reconciliationStatus: 'PENDING', amountMinor: 100n, currency: 'CNY', expiresAt: new Date(), paidAt: null };
+  const intent = { id: 'i', paymentNo: 'p', orderId: 'o', order: { status: 'PENDING_PAYMENT' }, accountId: 'a', provider: 'WECHAT_PAY', channel: 'WECHAT', status: 'PENDING', reconciliationStatus: 'PENDING', amountMinor: 100n, currency: 'CNY', expiresAt: new Date(), paidAt: null };
   const service = new PaymentsService({
     order: { findFirst: async (input: any) => { where = input.where; return { id: 'o', storeId: 'store-b' }; } },
     paymentIntent: { findUnique: async () => intent },

@@ -45,12 +45,12 @@ test("every page is rendered inside Layout", async () => {
   }
 });
 
-test("navigation uses static Lucide back and search icons", async () => {
+test("navigation uses the shared SVG image renderer", async () => {
   const navBar = await readProjectFile("src/components/app/AppNavBar.vue");
-
-  assert.match(navBar, /import \{ BackIcon, SearchIcon \} from/);
-  assert.match(navBar, /<BackIcon/);
-  assert.match(navBar, /<SearchIcon/);
+  const renderer = await readProjectFile("src/components/app/AppIcon.vue");
+  assert.match(navBar, /<AppIcon name="back"/);
+  assert.match(renderer, /<image/);
+  assert.match(renderer, /:src="images\[name\]\[tone\]"/);
 });
 
 test("order page uses uni-app lifecycle hooks", async () => {
@@ -76,7 +76,6 @@ test("home and profile components avoid unsupported WXSS selectors", async () =>
     "src/components/home/MemberStrip.vue",
     "src/components/home/RecommendSection.vue",
     "src/components/profile/ManageGrid.vue",
-    "src/components/profile/MemberBenefitCard.vue",
   ];
 
   const contents = await Promise.all(files.map(readProjectFile));
@@ -86,10 +85,9 @@ test("home and profile components avoid unsupported WXSS selectors", async () =>
 });
 
 test("service entry cards use static Lucide icons", async () => {
-  const cards = await readProjectFile("src/components/home/ServiceModeCards.vue");
+  const cards = await readProjectFile("src/components/app/ServiceModeCards.vue");
 
-  assert.match(cards, /<HomeDineInIcon/);
-  assert.match(cards, /<HomeDeliveryIcon/);
+  assert.match(cards, /<AppIcon :name="mode.key"/);
 });
 
 test("menu page uses the shared tab layout and a safe scrolling area", async () => {
@@ -126,21 +124,23 @@ test("home and menu product images have a static failure state", async () => {
   ]);
 
   for (const component of [recommend, productItem]) {
-    assert.match(component, /图片待更新/);
-    assert.match(component, /@error=/);
-    assert.match(component, /class="image-placeholder"/);
+    assert.match(component, /<ProductThumbnail :src="product.imageUrl"/);
   }
+  const thumbnail = await readProjectFile("src/components/app/ProductThumbnail.vue");
+  assert.match(thumbnail, /图片待更新/);
+  assert.match(thumbnail, /@error=/);
+  assert.match(thumbnail, /class="image-placeholder"/);
 });
 
 test("menu and specification controls use static Lucide icons", async () => {
   const [cartBar, stepper] = await Promise.all([
     readProjectFile("src/components/menu/CartCheckoutBar.vue"),
-    readProjectFile("src/components/spec/QuantityStepper.vue"),
+    readProjectFile("src/components/app/QuantityStepper.vue"),
   ]);
 
-  assert.match(cartBar, /<CartIcon/);
-  assert.match(stepper, /<MinusIcon/);
-  assert.match(stepper, /<PlusIcon/);
+  assert.match(cartBar, /<AppIcon name="cart"/);
+  assert.match(stepper, /<AppIcon name="minus"/);
+  assert.match(stepper, /<AppIcon name="plus"/);
 });
 
 test("checkout reserves room for a safe fixed payment action", async () => {
@@ -159,13 +159,13 @@ test("order history formats time and limits thumbnail density", async () => {
 
   assert.match(historyCard, /function formatOrderTime/);
   assert.match(historyCard, /order\.productThumbs\.slice\(0, 3\)/);
-  assert.match(historyCard, /<ChevronRightIcon/);
+  assert.match(historyCard, /<AppIcon name="next"/);
 });
 
 test("checkout product card keeps WXSS rules class-only", async () => {
   const productCard = await readProjectFile("src/components/checkout/CheckoutProductCard.vue");
 
   assert.doesNotMatch(productCard, /\.amount\s+text/);
-  assert.match(productCard, /class="amount-quantity"/);
+  assert.match(productCard, /<QuantityStepper :model-value="item.quantity"/);
   assert.match(productCard, /class="amount-price"/);
 });

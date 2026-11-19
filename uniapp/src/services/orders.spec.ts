@@ -99,6 +99,74 @@ test("failed order submission keeps the real cart intact", async () => {
   assert.equal(getCartSummary().itemCount, 1);
 });
 
+test("a retry after a lost response reuses the order key and preserves later cart additions", async () => {
+  const product = { id: "product-1", skuId: "sku-1", categoryId: "coffee", name: "拿铁", description: "",
+    imageUrl: "", price: 18, tags: [], hasSpec: false, comboImages: [], optionGroups: [] };
+  const cart = addCartItem(product, 1, []);
+  const keys: string[] = [];
+  let finish!: NonNullable<UniApp.RequestOptions["success"]>;
+  const send = vi.fn((options: UniApp.RequestOptions) => {
+    if (String(options.url).endsWith("/menu/current")) {
+      options.success?.({ statusCode: 200, data: { code: 0, data: { store: { id: "store-1", status: "open" }, categories: [] } } } as unknown as UniApp.RequestSuccessCallbackResult);
+    } else {
+      keys.push((options.data as { clientRequestId: string }).clientRequestId);
+      if (keys.length === 1) options.fail?.({ errMsg: "timeout" });
+      else finish = options.success!;
+    }
+    return { abort() {} } as UniApp.RequestTask;
+  });
+  Object.assign(uni, { request: send });
+  await expect(createOrderFromCart(cart)).rejects.toThrow();
+  const retries = Promise.all([createOrderFromCart(cart), createOrderFromCart(cart)]);
+  await vi.waitFor(() => expect(finish).toBeDefined());
+  addCartItem(product, 2, []);
+  finish({ statusCode: 201, data: { code: 0, data: { id: "o" } } } as unknown as UniApp.RequestSuccessCallbackResult);
+  await retries;
+  expect(keys).toHaveLength(2);
+  expect(keys[1]).toBe(keys[0]);
+  expect(getCartSummary().itemCount).toBe(2);
+});
+
+test("a restarted mini program reconciles the original receipt after the cart changes", async () => {
+  const profile = { userId: "restarted", sessionId: "s", audience: "user-api", roles: ["USER"] } as const;
+  let acceptedKey: string | undefined;
+  let lost = true;
+  Object.assign(uni, { request(options: UniApp.RequestOptions) {
+    const ok = (data: unknown) => options.success?.({ statusCode: 200, data: { code: 0, data } } as unknown as UniApp.RequestSuccessCallbackResult);
+    if (String(options.url).endsWith("/menu/current")) return ok({ store: { id: "s", status: "OPEN" }, categories: [] });
+    const key = (options.data as { clientRequestId: string }).clientRequestId;
+    if (lost) {
+      lost = false;
+      acceptedKey = key;
+      options.fail?.({ errMsg: "request:fail timeout" });
+    } else {
+      expect(key).toBe(acceptedKey);
+      ok({ id: "original", items: [{ product_id: "a", sku_id: "sku-a", quantity: 1, selections: [] }] });
+    }
+  } });
+  const login = async () => {
+    const { customerAuth } = await import("./auth");
+    customerAuth.acceptLogin({ access_token: "session", expires_in: 900, user: { ...profile, roles: ["USER"] } });
+  };
+  const product = { id: "a", skuId: "sku-a", name: "餐品", price: 10, categoryId: "c", description: "", imageUrl: "", tags: [], hasSpec: false, comboImages: [], optionGroups: [] };
+  vi.spyOn(uni, "getSystemInfoSync").mockReturnValue({ uniPlatform: "mp-weixin" } as ReturnType<typeof uni.getSystemInfoSync>);
+  (await import("./catalog")).invalidateMenuCache();
+  const originalAuth = (await import("./auth")).customerAuth;
+  await login();
+  await expect(createOrderFromCart(addCartItem(product, 1, []))).rejects.toThrow();
+  vi.resetModules();
+  await login();
+  const cart = await import("./cart");
+  const restarted = await import("./orders");
+  cart.addCartItem(product, 2, []);
+  cart.addCartItem({ ...product, id: "b", skuId: "sku-b" }, 1, []);
+  expect((await restarted.createOrderFromCart(cart.getCartSummary())).id).toBe("original");
+  expect(cart.getCartSummary().items.map(item => item.quantity)).toEqual([1, 1]);
+  cart.clearCart();
+  originalAuth.clear();
+  (await import("./auth")).customerAuth.clear();
+});
+
 test("order history sends pagination parameters and maps the page contract", async () => {
   const request = vi.fn((options: UniApp.RequestOptions) => {
     options.success?.({
@@ -191,7 +259,10 @@ test("order detail shows its source and falls back to the complete order number 
             id: "log-ready", from_status: "PREPARING", to_status: "READY",
             operator_name: null, note: null, created_at: "2026-08-23T00:10:00.000Z",
           }],
-          items: [],
+          items: [{
+            id: "item", product_name: "拿铁", quantity: 2, unit_price: 8, subtotal: 18.06,
+            selections: [{ option_name: "加料", quantity: 1, price_delta: 1.03 }],
+          }],
         },
       },
     } as unknown as UniApp.RequestSuccessCallbackResult);
@@ -202,6 +273,8 @@ test("order detail shows its source and falls back to the complete order number 
   const result = await fetchOrderDetail("order-old/with?query");
   const rows = new Map(result.infoRows.map((row) => [row.label, row.value]));
 
+  assert.equal(result.items[0].subtotal, 18.06);
+  assert.equal(result.goodsAmount, 18.06);
   assert.equal(result.orderNo, "LD20260823000021");
   assert.equal(result.pickupCode, "LD20260823000021");
   assert.equal(rows.get("订单来源"), "京东到家");

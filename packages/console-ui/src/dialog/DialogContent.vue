@@ -10,7 +10,7 @@ import {
 } from 'reka-ui'
 import { X } from '@lingdian/icons/web'
 import { cn } from '../utils'
-import { Button } from '../button'
+import { IconButton } from '../button'
 import DialogOverlay from './DialogOverlay.vue'
 
 defineOptions({ inheritAttrs: false })
@@ -49,16 +49,13 @@ const forwarded = useForwardPropsEmits(computed(() => {
       <slot />
 
       <DialogClose as-child>
-        <Button
-          type="button"
-          variant="ghost"
+        <IconButton
+          :icon="X"
+          :label="props.closeLabel ?? '关闭'"
           size="icon"
           :disabled="props.closeDisabled"
           class="absolute right-4 top-4 size-9 rounded-xs text-muted-foreground opacity-70 hover:opacity-100"
-        >
-          <X class="size-4" />
-          <span class="sr-only">{{ props.closeLabel ?? '关闭' }}</span>
-        </Button>
+        />
       </DialogClose>
     </DialogContent>
   </DialogPortal>

@@ -38,6 +38,19 @@ test("retries a rejected request once with a refreshed bearer token", async () =
   assert.equal(requestMock.mock.calls[2][0].header?.Authorization, "Bearer fresh-jwt");
 });
 
+test("a delayed 401 cannot replay a submission under a newly signed-in customer", async () => {
+  customerAuth.acceptLogin({ access_token: "first", expires_in: 900, user: userProfile });
+  let respond!: NonNullable<UniApp.RequestOptions["success"]>;
+  const transport = vi.fn((options: UniApp.RequestOptions) => { respond = options.success!; });
+  Object.assign(uni, { request: transport });
+  const pending = request("/order/create", { method: "POST" });
+  customerAuth.acceptLogin({ access_token: "second", expires_in: 900, user: { ...userProfile, userId: "another" } });
+  respond({ statusCode: 401, data: { code: 401 } } as unknown as UniApp.RequestSuccessCallbackResult);
+  await expect(pending).rejects.toThrow();
+  assert.equal(transport.mock.calls.length, 1);
+  assert.equal(customerAuth.getAccessToken(), "second");
+});
+
 test("clears the session and directs the customer to login when refresh fails", async () => {
   customerAuth.acceptLogin({ access_token: "expired-jwt", expires_in: 900, user: userProfile });
   const reLaunch = vi.fn();

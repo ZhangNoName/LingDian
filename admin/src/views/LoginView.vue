@@ -18,19 +18,10 @@ async function submit() { if (loading.value) return; error.value = ''; loading.v
 <template>
   <main class="login-view">
     <div class="login-theme"><ThemeSwitcher /></div>
-    <section class="login-brand">
-      <div class="login-brand-content">
-        <span class="brand-mark large">零</span>
-        <p class="eyebrow">LINGDIAN PLATFORM</p>
-        <h1>让每一次管理<br />都更清晰高效</h1>
-        <p>统一管理平台用户、权限与系统运行状态。</p>
-      </div>
-    </section>
     <section class="login-form-side">
       <Card class="login-card">
         <div class="login-heading">
-          <h2>欢迎回来</h2>
-          <p>请使用管理员账号登录零点管理后台</p>
+          <h1>零点平台登录</h1>
         </div>
         <Alert v-if="error">{{ error }}</Alert>
         <form class="admin-form" @submit.prevent="submit">
@@ -42,7 +33,6 @@ async function submit() { if (loading.value) return; error.value = ''; loading.v
             {{ loading ? '登录中…' : '登录' }}
           </Button>
         </form>
-        <p class="login-footnote">登录即代表你同意平台安全规范</p>
       </Card>
     </section>
   </main>

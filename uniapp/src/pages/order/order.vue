@@ -2,7 +2,7 @@
   <Layout active="menu">
     <view class="page">
       <AppNavBar title="点单" />
-      <StoreHeader :store="store" />
+      <StoreHeader v-if="menu" :store="menu.store" :service-mode="serviceMode" />
       <view class="menu-layout">
         <CategorySidebar :categories="menuCategories" :active-id="activeCategoryId" @select="handleCategorySelect" />
         <scroll-view
@@ -19,7 +19,7 @@
           <view v-else-if="menuState === 'error'" class="menu-state">
             <text class="state-title">菜单加载失败</text>
             <text class="state-copy">暂时无法加载菜单，请检查网络后重试</text>
-            <button class="retry-button" role="button" tabindex="0" aria-label="重新加载菜单" @keydown.enter="retryLoadMenu" @tap="retryLoadMenu">重新加载</button>
+            <AppActionButton @activate="retryLoadMenu">重新加载</AppActionButton>
           </view>
           <view v-else-if="menuState === 'empty'" class="menu-state menu-state--empty">
             <image class="empty-logo" src="/static/logo-xsf-red-yellow.png" mode="aspectFit" lazy-load aria-label="零食坊品牌标志" />
@@ -42,6 +42,7 @@
 </template>
 
 <script setup lang="ts">
+import AppActionButton from "@/components/app/AppActionButton.vue";
 import { computed, getCurrentInstance, nextTick, ref } from "vue";
 import { onLoad, onShow, onUnload } from "@dcloudio/uni-app";
 import AppNavBar from "@/components/app/AppNavBar.vue";
@@ -58,7 +59,7 @@ import { canCheckout } from "@/services/checkout-state";
 import { resolveMenuViewState, type MenuViewState } from "@/services/menu-view-state";
 import { buildServiceModeUrl, parseServiceMode } from "@/services/service-mode";
 import type { CartSummary } from "@/types/cart";
-import type { ServiceMode, StoreSummary } from "@/types/store";
+import type { ServiceMode } from "@/types/store";
 
 const menu = ref<MenuViewModel | null>(null);
 const loading = ref(false);
@@ -74,16 +75,6 @@ const instance = getCurrentInstance();
 let initialMeasureTimer: ReturnType<typeof setTimeout> | undefined;
 let categoryJumpTimer: ReturnType<typeof setTimeout> | undefined;
 
-const fallbackStore: StoreSummary = {
-  id: "",
-  name: "零点点餐",
-  businessText: "正在加载营业信息",
-  distanceText: "当前门店",
-  businessStatus: "open",
-  supportModes: ["dineIn", "takeaway"],
-};
-
-const store = computed(() => menu.value?.store ?? fallbackStore);
 const menuCategories = computed(() => menu.value?.categories ?? []);
 const products = computed(() => menu.value?.products ?? []);
 
@@ -311,22 +302,6 @@ async function goCheckout() {
   font-size: var(--ld-font-sm, 24rpx);
 }
 
-.retry-button {
-  height: 68rpx;
-  margin: 12rpx 0 0;
-  padding: 0 32rpx;
-  border-radius: 999rpx;
-  background: var(--ld-mini-primary);
-  color: #ffffff;
-  font-size: var(--ld-font-sm, 24rpx);
-  font-weight: 800;
-  line-height: 68rpx;
-}
-
-.retry-button::after {
-  border: 0;
-}
-
 .product-section {
   min-height: 100rpx;
 }
@@ -339,5 +314,4 @@ async function goCheckout() {
   font-size: 24rpx;
   font-weight: 700;
 }
-
 </style>

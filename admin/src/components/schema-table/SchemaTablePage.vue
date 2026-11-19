@@ -3,8 +3,7 @@ import { Alert } from '@lingdian/console-ui/alert'
 import { Button } from '@lingdian/console-ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@lingdian/console-ui/table'
 import { Refresh, Search } from '@lingdian/icons/admin'
-import { computed, ref, useSlots, watch } from 'vue'
-import AppIconButton from '../common/AppIconButton.vue'
+import { computed, ref, useId, useSlots, watch } from 'vue'
 import { columnKey, createResetPatch, formatCellValue, getByDataIndex } from './schema'
 import SchemaPaginationControls from './SchemaPagination.vue'
 import SchemaSearchForm from './SchemaSearchForm.vue'
@@ -39,6 +38,7 @@ const emit = defineEmits<{
 
 const formatted = ref<Record<string, string>>({})
 const slots = useSlots()
+const filterFormId = useId()
 let formattingSequence = 0
 const visibleColumns = computed(() => props.columns.filter((column) => !column.hidden))
 const minimumTableWidth = computed(() => visibleColumns.value.reduce((width, column) => width + columnWidth(column), 0))
@@ -95,6 +95,7 @@ watch([() => props.data, () => props.columns], refreshFormattedValues, { immedia
   <div class="schema-table-page">
     <SchemaSearchForm
       v-if="hasSearchColumns"
+      :form-id="filterFormId"
       :columns="columns"
       :query="query"
       @update:query="emit('update:query', $event)"
@@ -115,8 +116,8 @@ watch([() => props.data, () => props.columns], refreshFormattedValues, { immedia
         <slot v-else name="toolbar" />
       </div>
       <div v-if="hasSearchColumns" class="schema-table-page__toolbar-right">
-        <AppIconButton :icon="Search" data-testid="schema-search-submit" @click="emit('search')">搜索</AppIconButton>
-        <AppIconButton :icon="Refresh" variant="outline" data-testid="schema-search-reset" @click="resetSearch">重置</AppIconButton>
+        <Button type="submit" :form="filterFormId" data-testid="schema-search-submit"><Search aria-hidden="true" />搜索</Button>
+        <Button type="button" variant="outline" data-testid="schema-search-reset" @click="resetSearch"><Refresh aria-hidden="true" />重置</Button>
       </div>
     </div>
 
@@ -129,7 +130,7 @@ watch([() => props.data, () => props.columns], refreshFormattedValues, { immedia
       <Table
         class="schema-data-table"
         container-class="schema-data-table__scroll"
-        :style="{ minWidth: `${minimumTableWidth}px` }"
+        :table-style="{ minWidth: `${minimumTableWidth}px` }"
       >
         <colgroup>
           <col v-for="column in visibleColumns" :key="columnKey(column)" :style="{ width: column.width ? `${columnWidth(column)}px` : undefined }" />

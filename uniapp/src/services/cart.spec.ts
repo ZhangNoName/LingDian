@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "vitest";
 import type { ProductDetail, SelectedOption } from "@/types/menu";
-import { addCartItem, clearCart, getCartSummary } from "./cart";
+import { addCartItem, clearCart, getCartSummary, setCartQuantity } from "./cart";
 
 const product: ProductDetail = {
   id: "product-1",
@@ -45,4 +45,12 @@ test("does not expose mutable cart state to callers", () => {
 
 test.each([0, -1, 1.5, Number.NaN])("rejects an invalid quantity: %s", (quantity) => {
   expect(() => addCartItem(product, quantity, options)).toThrow(/数量/);
+});
+
+test("a merged line respects the order limit and can be reduced or removed after a stock rejection", () => {
+  const line = addCartItem(product, 99, options).items[0];
+  expect(() => addCartItem(product, 1, options)).toThrow(/99/);
+  expect(getCartSummary().itemCount).toBe(99);
+  expect(setCartQuantity(line.id, 2).totalAmount).toBe(36.8);
+  expect(setCartQuantity(line.id, 0).items).toEqual([]);
 });

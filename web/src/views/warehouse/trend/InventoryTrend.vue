@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import FilterToggle from '@/components/FilterToggle.vue'
 import MerchantDatePicker from '@/components/MerchantDatePicker.vue'
 import DataActionButton from '@/components/DataActionButton.vue'
 import TablePagination from '@/components/table/TablePagination.vue'
@@ -254,13 +255,8 @@ onBeforeUnmount(() => {
           </p>
         </div>
         <div class="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            :aria-expanded="filtersOpen"
-            @click="filtersOpen = !filtersOpen"
-            >{{ t(filtersOpen ? 'hideFilters' : 'filters') }}</Button
-          ><DataActionButton action="refresh" :label="t('refresh')" size="icon-sm" variant="ghost" :disabled="loading || dirty" @click="load" /><DataActionButton
+          <FilterToggle v-model="filtersOpen" controls="trend-filters" size="sm">{{ t(filtersOpen ? 'hideFilters' : 'filters') }}</FilterToggle>
+          <DataActionButton action="refresh" :label="t('refresh')" size="icon-sm" variant="ghost" :disabled="loading || dirty" @click="load" /><DataActionButton
             action="export"
             :label="t('export')"
             size="icon-sm"
@@ -270,7 +266,8 @@ onBeforeUnmount(() => {
         </div>
       </div>
       <form
-        v-if="filtersOpen"
+        id="trend-filters"
+        v-show="filtersOpen"
         class="flex flex-wrap items-end gap-3 border p-3"
         @submit.prevent="apply"
       >

@@ -3,9 +3,9 @@ import { navigationItems, visibleNavigationItems } from './navigation'
 
 describe('admin navigation', () => {
   it('derives visible modules from roles', () => {
-    expect(visibleNavigationItems(['SUPER_ADMIN']).map((item) => item.path)).toEqual(['/accounts', '/system/logs', '/profile'])
-    expect(visibleNavigationItems(['ADMIN']).map((item) => item.path)).toEqual(['/accounts', '/profile'])
-    expect(visibleNavigationItems(['MERCHANT']).map((item) => item.path)).toEqual(['/profile'])
+    expect(visibleNavigationItems(['SUPER_ADMIN']).map((item) => item.path)).toEqual(['/accounts', '/system/logs'])
+    expect(visibleNavigationItems(['ADMIN']).map((item) => item.path)).toEqual(['/accounts'])
+    expect(visibleNavigationItems(['MERCHANT']).map((item) => item.path)).toEqual([])
   })
 
   it('groups the three account tables under account management', () => {

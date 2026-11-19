@@ -91,9 +91,10 @@ test("does not install the blocker on non-Windows platforms", () => {
 });
 
 test("requires an explicit HTTPS API only for production mini-program builds", async () => {
-  const source = await readFile(configUrl, "utf8");
-
-  assert.match(source, /mode\s*!==\s*["']production["']/);
-  assert.match(source, /platform\?\.startsWith\(["']mp-["']\)/);
-  assert.match(source, /new URL\(apiBase\)\.protocol\s*!==\s*["']https:["']/);
+  const { normalizeApiBase } = await import("../api-base.ts");
+  assert.throws(() => normalizeApiBase(undefined, true, "mp-weixin"), /HTTPS/);
+  assert.throws(() => normalizeApiBase("http://example.test/api", true, "mp-weixin"), /HTTPS/);
+  assert.equal(normalizeApiBase("https://example.test/api/", true, "mp-weixin"), "https://example.test/api");
+  assert.equal(normalizeApiBase(undefined, true, "h5"), "/api");
+  assert.equal(normalizeApiBase(undefined, false, "mp-weixin"), "http://localhost:9000/api");
 });
