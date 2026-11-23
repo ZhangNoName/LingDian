@@ -1,0 +1,56 @@
+import { useLocale } from '@/i18n/locale'
+const zh = {
+  notAvailable: '未接入',
+  account: '账号与偏好',
+  nickname: '设置昵称',
+  password: '修改密码',
+  integrations: '外部系统集成',
+  refresh: '刷新',
+  loading: '正在读取集成配置…',
+  failed: '集成配置读取失败，请重试。',
+  saveFailed: '配置保存未确认，请刷新核对后再试。',
+  saved: '配置已保存',
+  empty: '当前门店暂无集成配置。',
+  noStore: '请先选择已授权门店。',
+  disabled: '停用',
+  enabled: '启用',
+  unavailable: '暂不可用，请联系管理员。',
+  deploymentDisabled: '平台尚未开放此连接，请联系管理员。',
+  notConfigured: '连接尚未配置完成，请联系管理员。',
+  saving: '正在保存…',
+  storeMismatch: '配置与当前门店不匹配，请刷新或联系管理员。',
+  CASHIER: '收银系统',
+  RECEIPT_PRINTER: '小票打印',
+  MEITUAN_WAIMAI: '美团外卖',
+  JD_DAOJIA: '京东到家',
+} as const
+export type SettingsKey = keyof typeof zh
+const en: Record<SettingsKey, string> = {
+  notAvailable: 'Not set up',
+  account: 'Account & preferences',
+  nickname: 'Nickname',
+  password: 'Change password',
+  integrations: 'External integrations',
+  refresh: 'Refresh',
+  loading: 'Loading integration settings…',
+  failed: 'Could not load integrations. Please retry.',
+  saveFailed: 'The save was not confirmed. Refresh and check before retrying.',
+  saved: 'Settings saved',
+  empty: 'No integrations configured for this store.',
+  noStore: 'Select an authorized store first.',
+  disabled: 'Disabled',
+  enabled: 'Enabled',
+  unavailable: 'Unavailable. Contact your administrator.',
+  deploymentDisabled: 'This connection has not been enabled by the platform. Contact your administrator.',
+  notConfigured: 'Setup is incomplete. Contact your administrator.',
+  saving: 'Saving…',
+  storeMismatch: 'These settings do not match the selected store. Refresh or contact your administrator.',
+  CASHIER: 'Point of sale',
+  RECEIPT_PRINTER: 'Receipt printer',
+  MEITUAN_WAIMAI: 'Meituan delivery',
+  JD_DAOJIA: 'JD Daojia',
+}
+export function useSettingsLocale() {
+  const { locale } = useLocale()
+  return { locale, t: (key: SettingsKey) => (locale.value === 'en-US' ? en : zh)[key] }
+}

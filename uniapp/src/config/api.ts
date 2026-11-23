@@ -1,30 +1,4 @@
-const DEVELOPMENT_API_BASE = "http://localhost:9000/api";
 const DEFAULT_TIMEOUT_MS = 15_000;
-
-/**
- * Normalizes the only public API endpoint accepted by the mini program.
- * Keeping this rule here prevents every service from inventing its own URL
- * concatenation and makes a future gateway/protocol replacement local.
- */
-export function normalizeApiBase(value?: string): string {
-  const candidate = value?.trim() || DEVELOPMENT_API_BASE;
-  let url: URL;
-  try {
-    url = new URL(candidate);
-  } catch {
-    throw new Error("VITE_API_BASE 必须是完整的 HTTP(S) 地址。");
-  }
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error("VITE_API_BASE 只支持 HTTP(S) 协议。");
-  }
-  if (import.meta.env.PROD && url.protocol !== "https:") {
-    throw new Error("生产环境 VITE_API_BASE 必须使用 HTTPS。");
-  }
-  url.pathname = url.pathname.replace(/\/+$/, "") || "/api";
-  url.search = "";
-  url.hash = "";
-  return url.toString().replace(/\/$/, "");
-}
 
 function readTimeout(value?: string): number {
   if (!value) return DEFAULT_TIMEOUT_MS;
@@ -35,7 +9,7 @@ function readTimeout(value?: string): number {
   return timeout;
 }
 
-export const API_BASE = normalizeApiBase(import.meta.env.VITE_API_BASE);
+export const API_BASE = __LINGDIAN_API_BASE__;
 export const API_TIMEOUT_MS = readTimeout(import.meta.env.VITE_API_TIMEOUT_MS);
 export const ASSET_BASE = API_BASE.replace(/\/api(?:\/v\d+)?$/, "");
 

@@ -31,6 +31,13 @@ export function resolveSingleStoreView(stores: readonly MerchantStoreSummary[]):
   return { kind: 'conflict', storeCount: stores.length }
 }
 
-export function getStoreStatusPresentation(status: MerchantStoreSummary['status']): StoreStatusPresentation {
-  return statusPresentations[status]
+export function getStoreStatusPresentation(
+  status: MerchantStoreSummary['status'],
+  locale: 'zh-CN' | 'en-US' = 'zh-CN',
+): StoreStatusPresentation {
+  const presentation = statusPresentations[status]
+  return {
+    ...presentation,
+    label: locale === 'en-US' ? { OPEN: 'Open', CLOSED: 'Closed', RESTING: 'Resting' }[status] : presentation.label,
+  }
 }

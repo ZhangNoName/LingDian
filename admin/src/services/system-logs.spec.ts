@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildSystemLogPath } from './api'
+import { buildSystemLogPath } from './system-logs'
 
 describe('system log query', () => {
   it('serializes filters and offset pagination', () => {

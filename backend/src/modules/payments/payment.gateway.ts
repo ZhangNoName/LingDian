@@ -24,6 +24,20 @@ export type GatewayIntentResult = {
   clientAction: Record<string, unknown> | null;
 };
 
+export type CloseGatewayIntent = {
+  paymentNo: string;
+  providerIntentId: string | null;
+  reason: 'EXPIRED';
+};
+
+export type GatewayCloseResult = {
+  paymentNo: string;
+  providerIntentId: string | null;
+  accountExternalId: string;
+  status: 'CLOSED' | 'PROCESSING' | 'SUCCEEDED' | 'UNKNOWN';
+  closureId: string | null;
+};
+
 export type PaymentWebhookPayload = {
   event_id: string;
   event_type: 'PAYMENT_SUCCEEDED' | 'PAYMENT_PROCESSING' | 'PAYMENT_FAILED';
@@ -68,6 +82,50 @@ export class SignedPaymentGateway {
     const result = await response.json() as GatewayIntentResult;
     if (!result?.providerIntentId || !['PENDING', 'PROCESSING', 'SUCCEEDED'].includes(result.status)) {
       throw new BadGatewayException('Payment connector returned an invalid response');
+    }
+    return result;
+  }
+
+  /**
+   * Connector contract for fail-safe expiry recovery:
+   *
+   * - the operation is idempotent and serialized with create by payment_no;
+   * - provider_intent_id may be null when create reached the connector but its
+   *   response never reached this service;
+   * - CLOSED means the connector has durably tombstoned payment_no and proved
+   *   that no provider success exists or can occur later;
+   * - every other status is non-terminal and must keep the local intent active.
+   */
+  async closeIntent(input: CloseGatewayIntent): Promise<GatewayCloseResult> {
+    const body = JSON.stringify({
+      payment_no: input.paymentNo,
+      provider_intent_id: input.providerIntentId,
+      provider: this.account.provider,
+      account_external_id: this.account.externalAccountId,
+      reason: input.reason,
+    });
+    const headers = this.sign(body);
+    const response = await this.fetcher(new URL('/v1/payment-intents/close', this.endpoint), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body,
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) throw new BadGatewayException(`Payment connector returned HTTP ${response.status}`);
+    const result = await response.json() as GatewayCloseResult;
+    const validProviderIntentId = result?.providerIntentId === null ||
+      (typeof result?.providerIntentId === 'string' && result.providerIntentId.length > 0);
+    const validClosureId = result?.closureId === null ||
+      (typeof result?.closureId === 'string' && result.closureId.length > 0);
+    if (
+      typeof result?.paymentNo !== 'string' || !result.paymentNo ||
+      typeof result.accountExternalId !== 'string' || !result.accountExternalId ||
+      !validProviderIntentId ||
+      !validClosureId ||
+      !['CLOSED', 'PROCESSING', 'SUCCEEDED', 'UNKNOWN'].includes(result.status) ||
+      (result.status === 'CLOSED' && typeof result.closureId !== 'string')
+    ) {
+      throw new BadGatewayException('Payment connector returned an invalid close response');
     }
     return result;
   }

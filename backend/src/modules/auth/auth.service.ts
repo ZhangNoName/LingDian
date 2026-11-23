@@ -8,11 +8,7 @@ import { SessionService, SessionTokens } from './session.service';
 import { VerificationService } from './verification.service';
 import { AuditService } from './audit.service';
 import { LegalConsentService } from './legal-consent.service';
-
-export type AuthRequestContext = {
-  deviceId: string;
-  ip?: string;
-};
+import type { AuthRequestContext } from './auth-request-context';
 
 type AuthUser = {
   id: string;
@@ -127,7 +123,7 @@ export class AuthService {
         } : {}),
       },
     }, tx);
-    return tokens;
+    return existingUser ? tokens : { ...tokens, isNewUser: true };
   }
 
   private async findPhoneUser(

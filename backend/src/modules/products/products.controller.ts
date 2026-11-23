@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Param,
   Patch,
   Post,
@@ -33,6 +34,7 @@ import { UpdateProductStatusDto } from './dto/update-product-status.dto';
 import { UpdateSkuPriceDto } from './dto/update-sku-price.dto';
 import { UpdateSkuStockDto } from './dto/update-sku-stock.dto';
 import { optimizeProductImage } from './product-image-optimizer';
+import { requireCatalogVersion } from './product-write-policy';
 import { ProductsService } from './products.service';
 import { MerchantStoreScope } from '../merchant/merchant-store-scope';
 
@@ -70,8 +72,8 @@ export class ProductsController {
   @ApiOperation({ summary: 'Get category list' })
   @UseGuards(AccessTokenGuard, AdminGuard)
   @Get('categories')
-  getCategories() {
-    return this.productsService.getCategories();
+  getCategories(@Query('storeId') storeId?: string) {
+    return this.productsService.getCategories(storeId);
   }
 
   @ApiOperation({ summary: 'Create category' })
@@ -112,29 +114,29 @@ export class ProductsController {
   @ApiOperation({ summary: 'Get merchant product list' })
   @UseGuards(AccessTokenGuard, MerchantGuard)
   @Get('merchant/products')
-  getMerchantProducts(@CurrentUser() user: AuthenticatedUser, @Query() query: QueryProductsDto) {
-    return this.productsService.getProducts(query, this.merchantStores.storeIds(user));
+  getMerchantProducts(@CurrentUser() user: AuthenticatedUser, @Query() query: QueryProductsDto, @Headers('x-store-id') storeId?: string) {
+    return this.productsService.getProducts(query, this.merchantStores.forRequest(user, storeId));
   }
 
   @ApiOperation({ summary: 'Get merchant product summary metrics' })
   @UseGuards(AccessTokenGuard, MerchantGuard)
   @Get('merchant/products/stats')
-  getMerchantProductStats(@CurrentUser() user: AuthenticatedUser) {
-    return this.productsService.getProductStats(this.merchantStores.storeIds(user));
+  getMerchantProductStats(@CurrentUser() user: AuthenticatedUser, @Headers('x-store-id') storeId?: string) {
+    return this.productsService.getProductStats(this.merchantStores.forRequest(user, storeId));
   }
 
   @ApiOperation({ summary: 'Get lightweight merchant SKU reference options' })
   @UseGuards(AccessTokenGuard, MerchantGuard)
   @Get('merchant/products/sku-options')
-  getMerchantProductSkuOptions(@CurrentUser() user: AuthenticatedUser) {
-    return this.productsService.getProductSkuOptions(this.merchantStores.storeIds(user));
+  getMerchantProductSkuOptions(@CurrentUser() user: AuthenticatedUser, @Headers('x-store-id') storeId?: string) {
+    return this.productsService.getProductSkuOptions(this.merchantStores.forRequest(user, storeId));
   }
 
   @ApiOperation({ summary: 'Get merchant product detail' })
   @UseGuards(AccessTokenGuard, MerchantGuard)
   @Get('merchant/products/:id')
-  getMerchantProductDetail(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser) {
-    return this.productsService.getProductDetail(id, this.merchantStores.storeIds(user));
+  getMerchantProductDetail(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @Headers('x-store-id') storeId?: string) {
+    return this.productsService.getProductDetail(id, this.merchantStores.forRequest(user, storeId));
   }
 
   @ApiOperation({ summary: 'Sync merchant product configuration' })
@@ -144,22 +146,29 @@ export class ProductsController {
     @Param('id') id: string,
     @Body() body: SyncProductConfigDto,
     @CurrentUser() user: AuthenticatedUser,
+    @Headers('x-store-id') storeId?: string,
   ) {
-    return this.productsService.syncProductConfiguration(id, body, this.merchantStores.storeIds(user));
+    const scope = this.merchantStores.forRequest(user, storeId);
+    requireCatalogVersion(body.expected_version);
+    return this.productsService.syncProductConfiguration(id, body, scope, user);
   }
 
   @ApiOperation({ summary: 'Update merchant SKU stock' })
   @UseGuards(AccessTokenGuard, MerchantGuard)
   @Post('merchant/sku/update-stock')
-  updateMerchantSkuStock(@Body() body: UpdateSkuStockDto, @CurrentUser() user: AuthenticatedUser) {
-    return this.productsService.updateSkuStock(String(body.sku_id), body.stock_count, this.merchantStores.storeIds(user));
+  updateMerchantSkuStock(@Body() body: UpdateSkuStockDto, @CurrentUser() user: AuthenticatedUser, @Headers('x-store-id') storeId?: string) {
+    const scope = this.merchantStores.forRequest(user, storeId);
+    requireCatalogVersion(body.expected_version);
+    return this.productsService.updateSkuStock(String(body.sku_id), body.stock_count, scope, body.expected_version, user);
   }
 
   @ApiOperation({ summary: 'Update merchant SKU price' })
   @UseGuards(AccessTokenGuard, MerchantGuard)
   @Post('merchant/sku/update-price')
-  updateMerchantSkuPrice(@Body() body: UpdateSkuPriceDto, @CurrentUser() user: AuthenticatedUser) {
-    return this.productsService.updateSkuPrice(String(body.sku_id), body.price, this.merchantStores.storeIds(user));
+  updateMerchantSkuPrice(@Body() body: UpdateSkuPriceDto, @CurrentUser() user: AuthenticatedUser, @Headers('x-store-id') storeId?: string) {
+    const scope = this.merchantStores.forRequest(user, storeId);
+    requireCatalogVersion(body.expected_version);
+    return this.productsService.updateSkuPrice(String(body.sku_id), body.price, scope, body.expected_version, user);
   }
 
   @ApiOperation({ summary: 'Update product base information' })
@@ -193,14 +202,14 @@ export class ProductsController {
   @UseGuards(AccessTokenGuard, AdminGuard)
   @Post('sku/update-stock')
   updateSkuStock(@Body() body: UpdateSkuStockDto) {
-    return this.productsService.updateSkuStock(String(body.sku_id), body.stock_count);
+    return this.productsService.updateSkuStock(String(body.sku_id), body.stock_count, undefined, body.expected_version);
   }
 
   @ApiOperation({ summary: 'Update SKU price' })
   @UseGuards(AccessTokenGuard, AdminGuard)
   @Post('sku/update-price')
   updateSkuPrice(@Body() body: UpdateSkuPriceDto) {
-    return this.productsService.updateSkuPrice(String(body.sku_id), body.price);
+    return this.productsService.updateSkuPrice(String(body.sku_id), body.price, undefined, body.expected_version);
   }
 
   @ApiOperation({ summary: 'Upload product image' })

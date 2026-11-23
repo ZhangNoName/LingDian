@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@lingdian/console-ui/dialog'
 import type { SystemLogRecord } from '@lingdian/contracts'
 
 defineProps<{ modelValue: boolean; log?: SystemLogRecord }>()
@@ -6,19 +7,20 @@ const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>()
 </script>
 
 <template>
-  <el-drawer
-    :model-value="modelValue"
-    title="日志详情"
-    size="min(520px, 100%)"
-    @update:model-value="emit('update:modelValue', $event)"
-  >
-    <el-descriptions v-if="log" :column="1" border>
-      <el-descriptions-item label="事件">{{ log.event }}</el-descriptions-item>
-      <el-descriptions-item label="消息">{{ log.message }}</el-descriptions-item>
-      <el-descriptions-item label="请求">{{ log.method || '—' }} {{ log.path || '' }}</el-descriptions-item>
-      <el-descriptions-item label="请求 ID">{{ log.requestId || '—' }}</el-descriptions-item>
-      <el-descriptions-item label="用户 ID">{{ log.userId || '—' }}</el-descriptions-item>
-      <el-descriptions-item label="详情"><pre>{{ JSON.stringify(log.details, null, 2) }}</pre></el-descriptions-item>
-    </el-descriptions>
-  </el-drawer>
+  <Dialog :open="modelValue" @update:open="emit('update:modelValue', $event)">
+    <DialogContent side="right">
+      <DialogHeader>
+        <DialogTitle>日志详情</DialogTitle>
+        <DialogDescription class="sr-only">查看系统日志的事件、请求和附加信息</DialogDescription>
+      </DialogHeader>
+      <dl v-if="log" class="log-details">
+        <dt>事件</dt><dd>{{ log.event }}</dd>
+        <dt>消息</dt><dd>{{ log.message }}</dd>
+        <dt>请求</dt><dd>{{ log.method || '—' }} {{ log.path || '' }}</dd>
+        <dt>请求 ID</dt><dd>{{ log.requestId || '—' }}</dd>
+        <dt>用户 ID</dt><dd>{{ log.userId || '—' }}</dd>
+        <dt>详情</dt><dd><pre>{{ JSON.stringify(log.details, null, 2) }}</pre></dd>
+      </dl>
+    </DialogContent>
+  </Dialog>
 </template>

@@ -1,0 +1,21 @@
+{
+  "name": "@lingdian/console-ui",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    "./*": "./src/*/index.ts"
+  },
+  "dependencies": {
+    "@internationalized/date": "3.12.2",
+    "@lingdian/icons": "workspace:*",
+    "@vueuse/core": "^14.2.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "reka-ui": "^2.9.6",
+    "tailwind-merge": "^3.5.0"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.0"
+  }
+}

@@ -1,0 +1,20 @@
+.account-form {
+  display: grid;
+  gap: 1.25rem;
+  min-width: 0;
+}
+.account-label {
+  display: grid;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.account-help {
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--ld-text-muted);
+}
+.account-status {
+  font-size: 0.875rem;
+  line-height: 1.6;
+}

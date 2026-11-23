@@ -491,6 +491,113 @@ test('authoritative release state repairs a missing current pointer and rejects 
   assert.match(unsafe.stderr, /must be absent or a symbolic link/);
 });
 
+test('application rollback compatibility requires exact readable Prisma migration trees', async (t) => {
+  const fixture = await createDeploymentFixture(t, 'lingdian-migration-compatibility-test-');
+  const left = join(fixture.releases, 'left');
+  const right = join(fixture.releases, 'right');
+  const leftMigrations = join(left, 'packages', 'db', 'prisma', 'migrations');
+  const rightMigrations = join(right, 'packages', 'db', 'prisma', 'migrations');
+  await Promise.all([leftMigrations, rightMigrations].map((path) => mkdir(path, { recursive: true })));
+  await Promise.all([
+    join(leftMigrations, '20260710_baseline'),
+    join(rightMigrations, '20260710_baseline'),
+  ].map((path) => mkdir(path)));
+  await Promise.all([
+    join(leftMigrations, '20260710_baseline', 'migration.sql'),
+    join(rightMigrations, '20260710_baseline', 'migration.sql'),
+  ].map((path) => writeFile(path, 'CREATE TABLE baseline (id INT PRIMARY KEY);\n')));
+  await Promise.all([
+    join(leftMigrations, 'migration_lock.toml'),
+    join(rightMigrations, 'migration_lock.toml'),
+  ].map((path) => writeFile(path, 'provider = "mysql"\n')));
+
+  const command = [
+    'set -Eeuo pipefail',
+    'source "$TEST_ROOT/deploy/scripts/lib.sh"',
+    'prisma_migration_sets_match "$TEST_LEFT_RELEASE" "$TEST_RIGHT_RELEASE"',
+  ].join('\n');
+  const commandEnv = {
+    ...process.env,
+    TEST_ROOT: root,
+    TEST_LEFT_RELEASE: left,
+    TEST_RIGHT_RELEASE: right,
+  };
+
+  const matching = run('bash', ['-c', command], { env: commandEnv });
+  assert.equal(matching.status, 0, `${matching.stdout}\n${matching.stderr}`);
+
+  await writeFile(
+    join(rightMigrations, '20260710_baseline', 'migration.sql'),
+    'CREATE TABLE baseline (id BIGINT PRIMARY KEY);\n',
+  );
+  const changedContents = run('bash', ['-c', command], { env: commandEnv });
+  assert.notEqual(changedContents.status, 0,
+    'same-named migrations with different SQL must not allow application-only rollback');
+  await writeFile(
+    join(rightMigrations, '20260710_baseline', 'migration.sql'),
+    'CREATE TABLE baseline (id INT PRIMARY KEY);\n',
+  );
+
+  await symlink(
+    join(rightMigrations, '20260710_baseline', 'migration.sql'),
+    join(rightMigrations, '20260710_baseline', 'linked.sql'),
+  );
+  const symlinked = run('bash', ['-c', command], { env: commandEnv });
+  assert.notEqual(symlinked.status, 0, 'a symlink anywhere in the migration tree must fail closed');
+  await rm(join(rightMigrations, '20260710_baseline', 'linked.sql'));
+
+  await mkdir(join(rightMigrations, '20260830_new_invariant'));
+  await writeFile(join(rightMigrations, '20260830_new_invariant', 'migration.sql'), 'SELECT 1;\n');
+  const different = run('bash', ['-c', command], { env: commandEnv });
+  assert.notEqual(different.status, 0, 'a release with an additional migration must not roll back application-only');
+
+  await rm(rightMigrations, { recursive: true });
+  const missing = run('bash', ['-c', command], { env: commandEnv });
+  assert.notEqual(missing.status, 0, 'a missing migration directory must fail closed');
+});
+
+test('an incompatible rollback target is rejected without stopping the current release', async (t) => {
+  const fixture = await createDeploymentFixture(t, 'lingdian-rollback-refusal-test-');
+  const currentSha = '1'.repeat(40);
+  const targetSha = '2'.repeat(40);
+  const currentRelease = await createMarkedRelease(fixture.releases, currentSha);
+  await createMarkedRelease(fixture.releases, targetSha);
+  const currentMigrations = join(currentRelease, 'packages', 'db', 'prisma', 'migrations');
+  await mkdir(join(currentMigrations, '20260710_baseline'), { recursive: true });
+  await writeFile(
+    join(currentMigrations, '20260710_baseline', 'migration.sql'),
+    'CREATE TABLE baseline (id INT PRIMARY KEY);\n',
+  );
+  await writeFile(join(fixture.state, 'current'), `${currentSha}\n`);
+  await writeFile(join(fixture.state, 'previous'), `${targetSha}\n`);
+  await symlink(currentRelease, join(fixture.fixture, 'current'));
+
+  const dockerLog = join(fixture.fixture, 'docker.log');
+  await writeExecutable(join(fixture.bin, 'docker'), [
+    '#!/bin/sh',
+    'printf "%s\\n" "$*" >> "$TEST_DOCKER_LOG"',
+    'if [ "${1:-}" = info ]; then exit 0; fi',
+    'if [ "${1:-}" = compose ] && [ "${2:-}" = version ]; then echo "2.30.0"; exit 0; fi',
+    'exit 0',
+    '',
+  ].join('\n'));
+  await writeExecutable(join(fixture.bin, 'flock'), '#!/bin/sh\nexit 0\n');
+
+  const result = run('/bin/bash', [join(deploy, 'scripts', 'rollback.sh'),
+    '--env', fixture.envFile, '--sha', targetSha, '--skip-backup'], {
+    env: {
+      ...process.env,
+      PATH: `${fixture.bin}:${process.env.PATH}`,
+      TEST_DOCKER_LOG: dockerLog,
+    },
+  });
+  assert.notEqual(result.status, 0, 'an incompatible application-only rollback must be refused');
+  assert.match(result.stderr, /current release and its services remain unchanged/);
+  assert.doesNotMatch(await readFile(dockerLog, 'utf8'), /compose .* stop/,
+    'rejecting a target before activation must not stop the healthy current release');
+  assert.equal((await readFile(join(fixture.state, 'current'), 'utf8')).trim(), currentSha);
+});
+
 test('production template and compose resolve the release root correctly', async (t) => {
   const template = await readFile(join(deploy, 'production.env.example'), 'utf8');
   assert.match(template, /TRUST_PROXY_HOPS=1/);
@@ -579,6 +686,16 @@ test('production template and compose resolve the release root correctly', async
   const coreDeployScript = await readFile(join(deploy, 'scripts', 'deploy.sh'), 'utf8');
   assert.match(coreDeployScript,
     /exec 7>"\$STATE_DIR\/backup\.lock"[\s\S]*flock -n 7[\s\S]*Applying database migrations/);
+  assert.match(coreDeployScript,
+    /flock -n 7[\s\S]*compose stop api[\s\S]*run --rm --no-deps migrate/);
+  assert.match(coreDeployScript,
+    /Database migration failed after the API was stopped[\s\S]*compose stop api app merchant admin[\s\S]*core remains stopped/);
+  const migrationFailureBlock = coreDeployScript.slice(
+    coreDeployScript.indexOf('if ! compose --profile operations run --rm --no-deps migrate; then'),
+    coreDeployScript.indexOf('if [[ ! -r "$STATE_DIR/bootstrap-complete" ]]'),
+  );
+  assert.doesNotMatch(migrationFailureBlock, /compose (?:up|start)/,
+    'an uncertain migration failure must never restart the old API');
   assert.ok(coreDeployScript.indexOf('if [[ "$old_sha" == "$RELEASE_SHA" ]]') <
     coreDeployScript.indexOf("compose build --pull"),
   'same-revision retries must not overwrite rollback image tags');
@@ -593,7 +710,11 @@ test('production template and compose resolve the release root correctly', async
   assert.match(coreDeployScript,
     /if ! compose up -d api app merchant admin; then[\s\S]*activation_failed=true/);
   assert.match(coreDeployScript,
-    /no previous release was available[\s\S]*compose stop api app merchant admin/);
+    /prisma_migration_sets_match "\$PREPARED_RELEASE" "\$RELEASES_DIR\/\$old_sha"[\s\S]*rollback_schema_compatible=true/);
+  assert.match(coreDeployScript,
+    /Prisma migration histories differ or are unavailable[\s\S]*compose stop api app merchant admin/);
+  assert.match(coreDeployScript,
+    /no schema-compatible automatic rollback was available[\s\S]*compose stop api app merchant admin/);
   assert.doesNotMatch(coreDeployScript, /install-nginx\.sh" --env "\$ENV_FILE" --mode http/);
   assert.match(coreDeployScript, /atomic_update_current_release_pointer "\$PREPARED_RELEASE"/);
   assert.match(coreDeployScript, /reconcile_current_release_pointer/);
@@ -607,6 +728,14 @@ test('production template and compose resolve the release root correctly', async
   assert.match(rollbackScript,
     /exec 7>"\$STATE_DIR\/backup\.lock"[\s\S]*flock -n 7[\s\S]*use_release "\$target_release"/);
   assert.match(rollbackScript,
+    /prisma_migration_sets_match "\$current_release" "\$target_release"[\s\S]*Rollback refused before activation; the current release and its services remain unchanged/);
+  const rollbackCompatibilityBlock = rollbackScript.slice(
+    rollbackScript.indexOf('if ! prisma_migration_sets_match "$current_release" "$target_release"; then'),
+    rollbackScript.indexOf('use_release "$target_release" "$TARGET_SHA"'),
+  );
+  assert.doesNotMatch(rollbackCompatibilityBlock, /compose (?:stop|down|rm)/,
+    'pre-activation compatibility refusal must not mutate the running release');
+  assert.match(rollbackScript,
     /if ! compose up -d api app merchant admin; then[\s\S]*use_release "\$current_release"/);
   assert.doesNotMatch(rollbackScript, /observability\.sh" upgrade/);
   const restoreEntrypoint = await readFile(join(deploy, 'scripts', 'restore.sh'), 'utf8');
@@ -617,6 +746,8 @@ test('production template and compose resolve the release root correctly', async
   const deploymentLib = await readFile(join(deploy, 'scripts', 'lib.sh'), 'utf8');
   assert.match(deploymentLib, /mv -Tf -- "\$temp_link" "\$pointer"/);
   assert.match(deploymentLib, /Release pointer must be absent or a symbolic link/);
+  assert.match(deploymentLib,
+    /prisma_migration_manifest\(\)[\s\S]*sha256sum[\s\S]*prisma_migration_sets_match\(\)[\s\S]*left_manifest=\$\(prisma_migration_manifest[\s\S]*right_manifest=\$\(prisma_migration_manifest/);
   const nginxInstaller = await readFile(join(deploy, 'scripts', 'install-nginx.sh'), 'utf8');
   assert.match(nginxInstaller, /proxy_backup=.*mktemp/);
   assert.match(nginxInstaller, /tls_backup=.*mktemp/);

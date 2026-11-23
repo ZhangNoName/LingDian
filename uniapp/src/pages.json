@@ -7,12 +7,6 @@
       }
     },
     {
-      "path": "pages/auth/login",
-      "style": {
-        "navigationBarTitleText": "登录"
-      }
-    },
-    {
       "path": "pages/order/order",
       "style": {
         "navigationBarTitleText": "点餐"

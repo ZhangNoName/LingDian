@@ -12,8 +12,8 @@ describe("requireLegalConsent", () => {
 
   it("returns both current versions after explicit consent", () => {
     expect(requireLegalConsent(true)).toEqual({
-      userAgreementVersion: "2026-08-17",
-      privacyPolicyVersion: "2026-08-17",
+      userAgreementVersion: "2026-11-23",
+      privacyPolicyVersion: "2026-11-23",
     });
   });
 });
@@ -50,8 +50,8 @@ describe("login action consent guard", () => {
     const received = await actions.submit(async (legalConsent) => legalConsent);
 
     expect(received).toEqual({
-      userAgreementVersion: "2026-08-17",
-      privacyPolicyVersion: "2026-08-17",
+      userAgreementVersion: "2026-11-23",
+      privacyPolicyVersion: "2026-11-23",
     });
     expect(messages).toEqual([]);
   });

@@ -1,611 +1,356 @@
-<template>
-  <div class="products-page">
-    <ProductMetricsGrid :metrics="metrics" />
-
-    <AppFormTable title="商品管理" description="统一维护 SPU、SKU 与可扩展配置项结构">
-      <template #headerActions>
-        <el-button :icon="RefreshCw" :loading="loading" @click="refreshProducts">刷新</el-button>
-      </template>
-
-      <template #form>
-        <AppForm :model="filters" :columns="2">
-          <el-form-item label="搜索">
-            <el-input
-              v-model="filters.keyword"
-              clearable
-              placeholder="搜索商品 / 分类 / SKU"
-              @keyup.enter="applyFilters"
-            />
-          </el-form-item>
-          <el-form-item label="商品类型">
-            <el-select v-model="filters.type" clearable placeholder="全部类型">
-              <el-option label="普通商品" value="SINGLE" />
-              <el-option label="套餐商品" value="PACKAGE" />
-            </el-select>
-          </el-form-item>
-          <template #actions>
-            <el-button type="primary" @click="applyFilters">查询</el-button>
-            <el-button @click="resetFilters">重置</el-button>
-          </template>
-        </AppForm>
-      </template>
-
-      <AppTable>
-        <el-table
-          v-loading="loading"
-          :data="products"
-          row-key="id"
-          class="products-table"
-          empty-text="暂无商品数据"
-          @expand-change="handleExpandChange"
-        >
-          <el-table-column type="expand" width="52">
-            <template #default="{ row }">
-              <div class="expand-grid">
-                <section>
-                  <div class="expand-title">规格列表</div>
-                  <el-table :data="asProduct(row).skus" row-key="id" border empty-text="暂无 SKU">
-                    <el-table-column prop="sku_name" label="规格名称" min-width="180" />
-                    <el-table-column label="售价" width="160">
-                      <template #default="{ row: sku }">
-                        <el-input-number
-                          :model-value="asSku(sku).price"
-                          :min="0"
-                          :precision="2"
-                          :step="1"
-                          controls-position="right"
-                          @update:model-value="(value) => updateSkuDraftValue(asSku(sku), 'price', value)"
-                          @focus="captureOriginalValue(asSku(sku), 'price')"
-                          @change="queueSkuChange(asSku(sku), 'price')"
-                        />
-                      </template>
-                    </el-table-column>
-                    <el-table-column label="库存" width="160">
-                      <template #default="{ row: sku }">
-                        <el-input-number
-                          :model-value="asSku(sku).stock_count"
-                          :min="0"
-                          :precision="0"
-                          :step="1"
-                          controls-position="right"
-                          @update:model-value="(value) => updateSkuDraftValue(asSku(sku), 'stock_count', value)"
-                          @focus="captureOriginalValue(asSku(sku), 'stock_count')"
-                          @change="queueSkuChange(asSku(sku), 'stock_count')"
-                        />
-                      </template>
-                    </el-table-column>
-                    <el-table-column label="默认" width="90">
-                      <template #default="{ row: sku }">
-                        <el-tag v-if="sku.is_default" type="success" effect="light">默认</el-tag>
-                      </template>
-                    </el-table-column>
-                    <el-table-column label="状态" width="100">
-                      <template #default="{ row: sku }">
-                        <el-tag :type="sku.is_active ? 'success' : 'info'" effect="light">
-                          {{ sku.is_active ? '启用' : '停用' }}
-                        </el-tag>
-                      </template>
-                    </el-table-column>
-                  </el-table>
-                </section>
-
-                <section>
-                  <div class="expand-title">配置项结构</div>
-                  <div v-if="getSelectionGroups(asProduct(row)).length === 0" class="empty-config">
-                    暂无选择组配置
-                  </div>
-                  <div v-else class="selection-group-list">
-                    <el-card
-                      v-for="binding in getSelectionGroups(asProduct(row))"
-                      :key="binding.binding_id"
-                      shadow="never"
-                      class="selection-card"
-                    >
-                      <div class="selection-card__header">
-                        <div>
-                          <strong>{{ binding.group.name }}</strong>
-                          <p>
-                            {{ binding.group.group_type === 'COMPONENT' ? '套餐组件' : '附加项' }}
-                            ·
-                            {{ binding.group.selection_mode === 'SINGLE' ? '单选' : '多选' }}
-                            ·
-                            {{ binding.scope === 'PRODUCT' ? '商品级' : '规格级' }}
-                          </p>
-                        </div>
-                        <el-tag :type="binding.group.is_required ? 'warning' : 'info'" effect="light">
-                          {{ binding.group.is_required ? '必选' : '可选' }}
-                        </el-tag>
-                      </div>
-                      <div class="selection-card__meta">
-                        最少 {{ binding.group.min_select }} 项 / 最多 {{ binding.group.max_select }} 项
-                      </div>
-                      <ul class="option-list">
-                        <li v-for="option in binding.group.options" :key="option.id">
-                          <span>{{ option.name }}</span>
-                          <span class="option-meta">
-                            <template v-if="option.option_type === 'VARIANT'">
-                              引用 {{ option.referenced_product_name }} / {{ option.referenced_sku_name }}
-                            </template>
-                            <template v-else>普通值</template>
-                            <template v-if="option.price_delta > 0"> · +¥{{ option.price_delta.toFixed(2) }}</template>
-                          </span>
-                        </li>
-                      </ul>
-                    </el-card>
-                  </div>
-                </section>
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column prop="name" label="商品名称" min-width="180" />
-          <el-table-column prop="category" label="分类" width="160" />
-          <el-table-column label="商品类型" width="120">
-            <template #default="{ row }">
-              <el-tag :type="row.type === 'PACKAGE' ? 'warning' : 'success'" effect="light">
-                {{ row.type === 'PACKAGE' ? '套餐' : '普通商品' }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="上架状态" width="120">
-            <template #default="{ row }">
-              <el-tag :type="row.is_active ? 'success' : 'info'" effect="light">
-                {{ row.is_active ? '上架中' : '未上架' }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="SKU 数" width="90">
-            <template #default="{ row }">{{ row.skus.length }}</template>
-          </el-table-column>
-          <el-table-column label="选择组" width="90">
-            <template #default="{ row }">{{ asProduct(row).selection_group_count }}</template>
-          </el-table-column>
-          <el-table-column label="总库存" width="110">
-            <template #default="{ row }">{{ getTotalStock(asProduct(row)) }}</template>
-          </el-table-column>
-          <el-table-column prop="description" label="描述" min-width="260" show-overflow-tooltip />
-          <el-table-column label="操作" width="120" fixed="right">
-            <template #default="{ row }">
-              <el-button link type="primary" @click="openConfigDialog(asProduct(row).id)">配置</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </AppTable>
-      <el-pagination
-        v-model:current-page="page"
-        v-model:page-size="pageSize"
-        :total="total"
-        :page-sizes="[20, 50, 100]"
-        layout="total, sizes, prev, pager, next"
-        class="products-pagination"
-        @current-change="fetchProducts"
-        @size-change="handlePageSizeChange"
-      />
-    </AppFormTable>
-
-    <ProductConfigDialog
-      :open="configDialogOpen"
-      :product="activeProduct"
-      :saving="savingConfig"
-      :external-sku-choices="externalSkuChoices"
-      @save="saveProductConfig"
-      @update:open="configDialogOpen = $event"
-    />
-
-    <el-dialog v-model="confirmVisible" title="确认修改 SKU" width="420px" @close="revertPendingChange">
-      <p v-if="pendingChange" class="confirm-copy">
-        将 {{ pendingChange.sku.sku_name }} 的{{ pendingChange.label }}从
-        <strong>{{ formatValue(pendingChange.field, pendingChange.oldValue) }}</strong>
-        修改为
-        <strong>{{ formatValue(pendingChange.field, pendingChange.newValue) }}</strong>
-      </p>
-      <template #footer>
-        <el-button @click="cancelPendingChange">取消</el-button>
-        <el-button type="primary" :loading="savingInline" @click="confirmPendingChange">确认修改</el-button>
-      </template>
-    </el-dialog>
-  </div>
-</template>
-
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import FilterToggle from '@/components/FilterToggle.vue'
+import DataActionButton from '@/components/DataActionButton.vue'
+import TablePagination from '@/components/table/TablePagination.vue'
+import { extendedTablePageSizes } from '@/components/table/page-size'
+import TableAction from '@/components/table/TableAction.vue'
+import { Settings } from '@lingdian/icons/web'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { Badge } from '@lingdian/console-ui/badge'
+import { Button } from '@lingdian/console-ui/button'
+import { Card } from '@lingdian/console-ui/card'
+import { Input } from '@lingdian/console-ui/input'
+import { SelectField } from '@lingdian/console-ui/select'
+import { Table } from '@lingdian/console-ui/table'
 import {
-  ElButton,
-  ElCard,
-  ElDialog,
-  ElFormItem,
-  ElInput,
-  ElInputNumber,
-  ElMessage,
-  ElOption,
-  ElPagination,
-  ElSelect,
-  ElTable,
-  ElTableColumn,
-  ElTag,
-  vLoading,
-} from '@/components/ui/element-plus'
-import '@/styles/element-plus-management'
-import { RefreshCw } from '@lingdian/icons/web'
-import AppForm from '@/components/form/AppForm.vue'
-import AppFormTable from '@/components/form-table/AppFormTable.vue'
-import AppTable from '@/components/table/AppTable.vue'
-import { requestData } from '@/lib/api'
+  getMerchantProduct,
+  getMerchantProductStats,
+  listMerchantProducts,
+  listMerchantSkuOptions,
+  saveMerchantProductConfig,
+} from '@/services/products'
+import { merchantStore } from '@/auth/merchant-store'
+import NewProductDialog from './components/NewProductDialog.vue'
+import CategoryManager from './categories/CategoryManager.vue'
+import { useCatalogLocale } from './catalog-management-locale'
 import ProductConfigDialog from './components/ProductConfigDialog.vue'
-import ProductMetricsGrid from './components/ProductMetricsGrid.vue'
-import type {
-  ProductConfigForm,
-  ProductListRecord,
-  ProductPage,
-  ProductRecord,
-  ProductSku,
-  ProductSkuOption,
-  ProductStats,
-  ProductType,
-} from './types'
-
-type SkuField = 'price' | 'stock_count'
-
-interface PendingChange {
-  sku: ProductSku
-  field: SkuField
-  label: string
-  oldValue: number
-  newValue: number
+import SummaryMetrics from '@/components/SummaryMetrics.vue'
+import { useProductLocale } from './use-product-locale'
+import { parseProductState, productListKey, productStateQuery, type ProductFilterState } from './filter-state'
+import type { ProductConfigForm, ProductListRecord, ProductRecord, ProductStats } from './types'
+import type { ProductMessageKey } from './messages'
+const { locale, t, money } = useProductLocale(),
+  route = useRoute(),
+  router = useRouter()
+const { t: ct } = useCatalogLocale(),
+  newProductOpen = ref(false),
+  categoriesOpen = ref(false)
+const state = ref(parseProductState(route.query)),
+  filters = reactive({ keyword: '', type: '' as ProductFilterState['type'] })
+const products = ref<ProductListRecord[]>([]),
+  total = ref(0),
+  stats = ref<ProductStats>(),
+  loading = ref(true),
+  loadError = ref(false),
+  filtersOpen = ref(false),
+  saved = ref(false)
+const active = ref<ProductRecord | null>(null),
+  configOpen = ref(false),
+  configLoading = ref(false),
+  configError = ref<ProductMessageKey>(),
+  saving = ref(false),
+  choices = ref<Array<{ value: string; label: string }>>([])
+const dirty = computed(() => filters.keyword.trim() !== state.value.keyword || filters.type !== state.value.type)
+const pageCount = computed(() => Math.max(1, Math.ceil(total.value / state.value.pageSize)))
+const metrics = computed(() =>
+  [
+    { key: 'total' as const, value: stats.value?.total_count },
+    { key: 'active' as const, value: stats.value?.active_count },
+    { key: 'packages' as const, value: stats.value?.package_count },
+    { key: 'variantsCount' as const, value: stats.value?.sku_count },
+    { key: 'groupsCount' as const, value: stats.value?.selection_group_count },
+  ].map((metric) => ({ label: t(metric.key), value: loading.value || loadError.value ? '—' : (metric.value ?? 0) })),
+)
+let listSequence = 0,
+  configSequence = 0,
+  lastList = '',
+  selectedId = '',
+  disposed = false
+function navigate(next: ProductFilterState) {
+  return router.push({ query: productStateQuery(next) })
 }
-
-const products = ref<ProductListRecord[]>([])
-const total = ref(0)
-const page = ref(1)
-const pageSize = ref(20)
-const productStats = ref<ProductStats>({
-  total_count: 0,
-  active_count: 0,
-  package_count: 0,
-  sku_count: 0,
-  selection_group_count: 0,
-})
-const externalSkuChoices = ref<ProductSkuOption[]>([])
-const skuOptionsLoaded = ref(false)
-const filters = reactive<{
-  keyword: string
-  type: ProductType | ''
-}>({
-  keyword: '',
-  type: '',
-})
-const loading = ref(false)
-const savingInline = ref(false)
-const savingConfig = ref(false)
-const confirmVisible = ref(false)
-const pendingChange = ref<PendingChange | null>(null)
-const configDialogOpen = ref(false)
-const activeProductId = ref<string | null>(null)
-const activeProduct = ref<ProductRecord | null>(null)
-const loadingDetailIds = new Set<string>()
-
-const metrics = computed(() => {
-  return [
-    { label: '在售商品', value: productStats.value.active_count, note: `共 ${productStats.value.total_count} 个商品` },
-    { label: '套餐商品', value: productStats.value.package_count, note: '可配置组件选择' },
-    { label: 'SKU 规格', value: productStats.value.sku_count, note: '负责价格与库存' },
-    { label: '选择组', value: productStats.value.selection_group_count, note: '支持辣度、去料、套餐选项' },
-  ]
-})
-
-function asProduct(row: unknown) {
-  return row as ProductListRecord
-}
-
-function asSku(row: unknown) {
-  return row as ProductSku
-}
-
-function updateSkuDraftValue(sku: ProductSku, field: SkuField, value: number | undefined) {
-  sku[field] = Number(value ?? 0)
-}
-
-function getTotalStock(product: ProductListRecord) {
-  return product.skus
-    .filter((sku) => sku.is_active)
-    .reduce((sum, sku) => sum + sku.stock_count, 0)
-}
-
-function getSelectionGroups(product: ProductListRecord) {
-  return product.selection_groups ?? []
-}
-
-async function fetchProducts() {
+async function load() {
+  const current = ++listSequence
   loading.value = true
-
+  loadError.value = false
   try {
-    const params = new URLSearchParams({ page: String(page.value), pageSize: String(pageSize.value) })
-    if (filters.keyword.trim()) params.set('keyword', filters.keyword.trim())
-    if (filters.type) params.set('type', filters.type)
-    const result = await requestData<ProductPage>(`/api/merchant/products?${params.toString()}`)
-    products.value = result.items
-    total.value = result.total
-  } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : 'Product list load failed')
-  } finally {
-    loading.value = false
-  }
-}
-
-async function fetchProductStats() {
-  productStats.value = await requestData<ProductStats>('/api/merchant/products/stats')
-}
-
-async function fetchSkuOptions(force = false) {
-  if (skuOptionsLoaded.value && !force) return
-  externalSkuChoices.value = await requestData<ProductSkuOption[]>('/api/merchant/products/sku-options')
-  skuOptionsLoaded.value = true
-}
-
-async function refreshProducts() {
-  try {
-    await Promise.all([fetchProducts(), fetchProductStats()])
-  } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : 'Product metadata load failed')
-  }
-}
-
-async function loadProductDetail(productId: string) {
-  const product = await requestData<ProductRecord>(`/api/merchant/products/${productId}`)
-  const index = products.value.findIndex((item) => item.id === productId)
-  if (index >= 0) {
-    products.value[index] = {
-      ...products.value[index],
-      ...product,
-      selection_group_count: product.selection_groups.length,
+    const [data, counts] = await Promise.all([listMerchantProducts(state.value), getMerchantProductStats()])
+    if (current === listSequence) {
+      const last = Math.max(1, Math.ceil(data.total / state.value.pageSize))
+      if (state.value.page > last) {
+        await navigate({ ...state.value, page: last })
+        return
+      }
+      products.value = data.items
+      total.value = data.total
+      stats.value = counts
     }
-  }
-  return product
-}
-
-async function handleExpandChange(row: ProductListRecord, expanded: boolean | ProductListRecord[]) {
-  const isExpanded = Array.isArray(expanded)
-    ? expanded.some((item) => item.id === row.id)
-    : expanded
-  if (!isExpanded || row.selection_groups || loadingDetailIds.has(row.id)) return
-  loadingDetailIds.add(row.id)
-  try {
-    await loadProductDetail(row.id)
-  } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : 'Product detail load failed')
+  } catch {
+    if (current === listSequence) loadError.value = true
   } finally {
-    loadingDetailIds.delete(row.id)
+    if (current === listSequence) loading.value = false
   }
 }
-
-function applyFilters() {
-  page.value = 1
-  void fetchProducts()
+async function loadConfig() {
+  const current = ++configSequence
+  configLoading.value = true
+  configError.value = undefined
+  active.value = null
+  saved.value = false
+  try {
+    const [product, skuOptions] = await Promise.all([getMerchantProduct(selectedId), listMerchantSkuOptions()])
+    if (current === configSequence) {
+      active.value = product
+      choices.value = skuOptions
+    }
+  } catch {
+    if (current === configSequence) configError.value = 'loadFailed'
+  } finally {
+    if (current === configSequence) configLoading.value = false
+  }
 }
-
-function resetFilters() {
+async function save(payload: ProductConfigForm) {
+  if (!active.value || saving.value) return
+  const id = active.value.id
+  saving.value = true
+  configError.value = undefined
+  try {
+    await saveMerchantProductConfig(id, payload)
+    if (disposed) return
+    saved.value = true
+    await navigate({ ...state.value, productId: '' })
+    await load()
+  } catch (value) {
+    if (!disposed) {
+      const key = value instanceof Error ? value.message : ''
+      configError.value =
+        key === 'catalog.stale'
+          ? 'stale'
+          : key === 'catalog.versionRequired'
+            ? 'versionRequired'
+            : key === 'catalog.variantUnavailable'
+              ? 'unavailable'
+              : 'saveFailed'
+    }
+  } finally {
+    saving.value = false
+  }
+}
+function updated(record: ProductRecord) {
+  active.value = record
+  saved.value = true
+  void load()
+}
+async function created(record: ProductRecord) {
+  newProductOpen.value = false
   filters.keyword = ''
   filters.type = ''
-  page.value = 1
-  void fetchProducts()
+  await navigate({ ...state.value, keyword: '', type: '', page: 1, productId: record.id })
+  await load()
 }
-
-function handlePageSizeChange() {
-  page.value = 1
-  void fetchProducts()
+async function apply() {
+  const next = { ...state.value, keyword: filters.keyword.trim(), type: filters.type, page: 1 }
+  if (productListKey(next) === productListKey(state.value)) await load()
+  else await navigate(next)
+  filtersOpen.value = false
 }
-
-async function openConfigDialog(productId: string) {
-  savingConfig.value = false
-
-  try {
-    const [product] = await Promise.all([loadProductDetail(productId), fetchSkuOptions()])
-    activeProductId.value = productId
-    activeProduct.value = product
-    configDialogOpen.value = true
-  } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : 'Product detail load failed')
-  }
+function reset() {
+  filters.keyword = ''
+  filters.type = ''
+  void apply()
 }
-
-async function saveProductConfig(payload: ProductConfigForm) {
-  if (!activeProductId.value) {
-    return
-  }
-
-  savingConfig.value = true
-
-  try {
-    const product = await requestData<ProductRecord>(`/api/merchant/products/${activeProductId.value}/config`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    })
-    const index = products.value.findIndex((item) => item.id === product.id)
-    if (index >= 0) {
-      products.value[index] = {
-        ...products.value[index],
-        ...product,
-        selection_group_count: product.selection_groups.length,
-      }
+function close(open: boolean) {
+  if (!open && !saving.value) void navigate({ ...state.value, productId: '' })
+}
+watch(
+  () => route.fullPath,
+  () => {
+    const next = parseProductState(route.query),
+      canonical = productStateQuery(next)
+    if (JSON.stringify(Object.entries(route.query).sort()) !== JSON.stringify(Object.entries(canonical).sort())) {
+      void router.replace({ query: canonical })
+      return
     }
-    activeProduct.value = product
-    await Promise.allSettled([fetchProductStats(), fetchSkuOptions(true)])
-
-    ElMessage.success('Product config saved')
-    configDialogOpen.value = false
-  } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : 'Product config save failed')
-  } finally {
-    savingConfig.value = false
-  }
-}
-
-function captureOriginalValue(sku: ProductSku, field: SkuField) {
-  if (field === 'price') {
-    sku._originalPrice = sku.price
-    return
-  }
-
-  sku._originalStock = sku.stock_count
-}
-
-function queueSkuChange(sku: ProductSku, field: SkuField) {
-  if (pendingChange.value) {
-    return
-  }
-
-  const oldValue = field === 'price' ? sku._originalPrice : sku._originalStock
-  const newValue = sku[field]
-
-  if (oldValue === undefined || Number(oldValue) === Number(newValue)) {
-    return
-  }
-
-  pendingChange.value = {
-    sku,
-    field,
-    label: field === 'price' ? '售价' : '库存',
-    oldValue: Number(oldValue),
-    newValue: Number(newValue),
-  }
-  confirmVisible.value = true
-}
-
-async function confirmPendingChange() {
-  if (!pendingChange.value) {
-    return
-  }
-
-  const change = pendingChange.value
-  const endpoint = change.field === 'price' ? '/api/merchant/sku/update-price' : '/api/merchant/sku/update-stock'
-  const payload =
-    change.field === 'price'
-      ? { sku_id: change.sku.id, price: change.newValue }
-      : { sku_id: change.sku.id, stock_count: change.newValue }
-
-  savingInline.value = true
-
-  try {
-    await requestData<unknown>(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    })
-
-    ElMessage.success('SKU updated')
-    clearPendingChange()
-    await fetchProducts()
-  } catch (error) {
-    revertPendingChange()
-    ElMessage.error(error instanceof Error ? error.message : 'SKU update failed')
-  } finally {
-    savingInline.value = false
-  }
-}
-
-function cancelPendingChange() {
-  revertPendingChange()
-  confirmVisible.value = false
-}
-
-function revertPendingChange() {
-  if (!pendingChange.value || savingInline.value) {
-    return
-  }
-
-  pendingChange.value.sku[pendingChange.value.field] = pendingChange.value.oldValue
-  clearPendingChange()
-}
-
-function clearPendingChange() {
-  pendingChange.value = null
-  confirmVisible.value = false
-}
-
-function formatValue(field: SkuField, value: number) {
-  return field === 'price' ? `¥${value.toFixed(2)}` : `${value}`
-}
-
-onMounted(refreshProducts)
+    state.value = next
+    const key = productListKey(next)
+    if (key !== lastList) {
+      lastList = key
+      filters.keyword = next.keyword
+      filters.type = next.type
+      void load()
+    }
+    if (next.productId !== selectedId) {
+      selectedId = next.productId
+      configSequence++
+      active.value = null
+      configOpen.value = !!selectedId
+      if (selectedId) void loadConfig()
+    }
+  },
+  { immediate: true },
+)
+onBeforeUnmount(() => {
+  disposed = true
+  listSequence++
+  configSequence++
+})
 </script>
-
+<template>
+  <section class="grid min-w-0 gap-4" :lang="locale">
+    <div class="flex flex-wrap justify-end gap-2">
+      <Button variant="outline" @click="categoriesOpen = true">{{ locale === 'en-US' ? 'Categories' : '分类管理' }}</Button>
+      <Button @click="newProductOpen = true">{{ ct('newProduct') }}</Button>
+    </div>
+    <SummaryMetrics :metrics="metrics" :more-label="t('moreMetrics')" desktop-columns="lg:grid-cols-5" />
+    <Card class="gap-0 p-0">
+      <div class="flex items-center justify-between gap-3 border-b p-4">
+        <FilterToggle v-model="filtersOpen" controls="product-filters" class="sm:hidden">{{ t('filters') }}</FilterToggle>
+        <h2 class="hidden text-sm font-semibold sm:block">{{ t('title') }}</h2>
+        <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" />
+      </div>
+      <form
+        id="product-filters"
+        :data-filter-open="filtersOpen"
+        class="product-filters flex flex-wrap items-end gap-3 p-4"
+        @submit.prevent="apply"
+      >
+        <label class="grow sm:grow-0">
+          {{ t('search') }}
+          <Input v-model="filters.keyword" type="search" maxlength="120" />
+        </label>
+        <label>
+          {{ t('type') }}
+          <SelectField
+            v-model="filters.type"
+            :aria-label="t('type')"
+            :options="[
+              { value: '', label: t('all') },
+              { value: 'SINGLE', label: t('SINGLE') },
+              { value: 'PACKAGE', label: t('PACKAGE') },
+            ]"
+          />
+        </label>
+        <Button type="button" variant="outline" :disabled="loading" @click="reset">{{ t('reset') }}</Button>
+        <Button type="submit" :disabled="loading">{{ t('apply') }}</Button>
+      </form>
+    </Card>
+    <p v-if="saved" role="status" class="text-sm text-emerald-700">{{ t('saved') }}</p>
+    <p v-if="dirty" role="status" class="text-sm text-amber-800">{{ t('dirty') }}</p>
+    <Card class="min-w-0 gap-0 p-0">
+      <p v-if="loading" role="status" class="p-8 text-center text-sm text-muted-foreground">{{ t('loading') }}</p>
+      <div v-else-if="loadError" role="alert" class="p-8 text-sm">
+        <p>{{ t('loadFailed') }}</p>
+        <DataActionButton action="refresh" :label="t('refresh')" class="mt-3" @click="load" />
+      </div>
+      <p v-else-if="!products.length" class="p-8 text-center text-sm text-muted-foreground">{{ t('empty') }}</p>
+      <div v-else>
+        <Table framed container-class="mx-4 mt-4 hidden md:block" tabindex="0" :aria-label="t('title')" class="border-collapse text-start">
+          <thead>
+            <tr>
+              <th>{{ t('product') }}</th>
+              <th>{{ t('type') }}</th>
+              <th>{{ t('status') }}</th>
+              <th>{{ t('price') }}</th>
+              <th>{{ t('variantsCount') }} / {{ t('groupsCount') }}</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="product in products" :key="product.id">
+              <th scope="row" class="font-medium">
+                {{ product.name }}
+                <span class="mt-1 block text-xs font-normal text-muted-foreground">{{ product.category }}</span>
+              </th>
+              <td><Badge variant="outline">{{ t(product.type) }}</Badge></td>
+              <td>
+                {{ t(product.status) }}
+                <span
+                  v-if="!product.skus.some((sku) => sku.is_active)"
+                  class="mt-1 block whitespace-normal text-xs text-muted-foreground"
+                >
+                  {{ t('noActiveVariants') }}
+                </span>
+              </td>
+              <td class="tabular-nums">{{ money(product.price) }}</td>
+              <td class="tabular-nums">
+                {{ product.skus.filter((sku) => sku.is_active).length }} / {{ product.selection_group_count }}
+              </td>
+              <td>
+                <TableAction :icon="Settings" :label="t('configure')"
+                  :aria-label="`${t('configure')} ${product.name}`"
+                  @click="navigate({ ...state, productId: product.id })" />
+              </td>
+            </tr>
+          </tbody>
+        </Table>
+        <ul class="table-scroll divide-y md:hidden">
+          <li v-for="product in products" :key="product.id" class="grid gap-3 p-4 text-sm">
+            <div class="flex justify-between gap-3">
+              <div class="min-w-0">
+                <h3 class="break-words font-medium">{{ product.name }}</h3>
+                <p class="mt-1 text-xs text-muted-foreground">{{ product.category }} · {{ t(product.type) }}</p>
+                <p v-if="!product.skus.some((sku) => sku.is_active)" class="mt-1 text-xs text-muted-foreground">
+                  {{ t('noActiveVariants') }}
+                </p>
+              </div>
+              <span class="shrink-0">{{ t(product.status) }}</span>
+            </div>
+            <div class="flex items-center justify-between gap-3">
+              <strong class="tabular-nums">{{ money(product.price) }}</strong>
+              <TableAction :icon="Settings" :label="t('configure')"
+                :aria-label="`${t('configure')} ${product.name}`"
+                @click="navigate({ ...state, productId: product.id })" />
+            </div>
+          </li>
+        </ul>
+      </div>
+      <div
+        v-if="!loadError"
+        class="flex flex-wrap items-center justify-between gap-3 border-t p-4 text-sm text-muted-foreground md:border-t-0"
+      >
+        <span>{{ total }} {{ t('records') }}</span>
+        <div class="flex gap-2">
+          <TablePagination
+            :page-size="state.pageSize"
+            @update:page-size="navigate({ ...state, page: 1, pageSize: $event })"
+            :page-sizes="extendedTablePageSizes"
+            :page="state.page"
+            :pages="pageCount"
+            :disabled="loading || dirty"
+            @update:page="navigate({ ...state, page: $event })"
+          />
+        </div>
+      </div>
+    </Card>
+    <footer>
+      <RouterLink class="inline-block text-sm text-primary" to="/warehouse?view=recipes">
+        {{ t('recipeLink') }}
+      </RouterLink>
+    </footer>
+    <CategoryManager v-model:open="categoriesOpen" :store-id="merchantStore.selectedId.value" @changed="load" />
+    <NewProductDialog v-model:open="newProductOpen" :store-id="merchantStore.selectedId.value" @saved="created" />
+    <ProductConfigDialog
+      :open="configOpen"
+      :store-id="merchantStore.selectedId.value"
+      :product="active"
+      :saving="saving"
+      :loading="configLoading"
+      :error="configError"
+      :external-sku-choices="choices"
+      @update:open="close"
+      @save="save"
+      @retry="loadConfig"
+      @updated="updated"
+    />
+  </section>
+</template>
 <style scoped>
-.products-page {
+.product-filters label {
   display: grid;
-  gap: 20px;
-}
-
-.products-table {
-  width: 100%;
-}
-
-.products-pagination {
-  justify-content: flex-end;
-  padding-top: 16px;
-}
-
-.expand-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
-  gap: 16px;
-  padding: 12px 20px 18px;
-  background: #f8fbff;
-}
-
-.expand-title {
-  margin-bottom: 10px;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.selection-group-list {
-  display: grid;
-  gap: 10px;
-}
-
-.selection-card {
-  border-radius: 8px;
-}
-
-.selection-card__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.selection-card__header p,
-.selection-card__meta {
-  margin: 4px 0 0;
-  color: var(--muted-foreground);
-  font-size: 13px;
-}
-
-.option-list {
-  display: grid;
-  gap: 6px;
-  margin: 10px 0 0;
-  padding-left: 18px;
-}
-
-.option-meta {
-  color: var(--muted-foreground);
-  font-size: 12px;
-}
-
-.empty-config,
-.confirm-copy {
-  color: var(--muted-foreground);
-  line-height: 1.8;
-}
-
-@media (max-width: 1024px) {
-  .expand-grid {
-    grid-template-columns: 1fr;
-  }
+  min-width: 0;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  color: var(--ld-text-muted);
 }
 </style>

@@ -1,14 +1,20 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { ProductType } from '@lingdian/db';
 
 export class QueryProductsDto {
+  @ApiPropertyOptional({ description: 'Store context for platform operations' })
+  @IsOptional()
+  @IsString()
+  storeId?: string;
+
   @ApiPropertyOptional({ description: 'Page number', default: 1 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(1000000)
   page = 1;
 
   @ApiPropertyOptional({ description: 'Rows per page', default: 20, maximum: 100 })
@@ -22,6 +28,7 @@ export class QueryProductsDto {
   @ApiPropertyOptional({ description: 'Product, category, or SKU keyword' })
   @IsOptional()
   @IsString()
+  @MaxLength(120)
   keyword?: string;
 
   @ApiPropertyOptional({ description: 'Product type', enum: ProductType })

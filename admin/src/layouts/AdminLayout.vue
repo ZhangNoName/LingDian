@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@lingdian/console-ui/dialog'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import AdminHeader from '../components/layout/AdminHeader.vue'
@@ -13,11 +14,7 @@ const contentClass = computed(() => route.meta.layout === 'list' ? 'route-conten
 function resize() {
   mobile.value = window.innerWidth < 768
   if (mobile.value) collapsed.value = false
-}
-
-function toggle() {
-  if (mobile.value) drawer.value = true
-  else collapsed.value = !collapsed.value
+  else drawer.value = false
 }
 
 onMounted(() => {
@@ -28,12 +25,20 @@ onBeforeUnmount(() => window.removeEventListener('resize', resize))
 </script>
 
 <template>
-  <el-container class="admin-shell">
-    <el-aside v-if="!mobile" :width="collapsed ? '72px' : '240px'"><AdminSidebar :collapsed="collapsed" /></el-aside>
-    <el-drawer v-model="drawer" direction="ltr" size="240px" :with-header="false"><AdminSidebar @navigate="drawer = false" /></el-drawer>
-    <el-container class="admin-shell__main">
-      <el-header><AdminHeader @toggle="toggle" /></el-header>
-      <el-main><div class="route-content" :class="contentClass"><router-view /></div></el-main>
-    </el-container>
-  </el-container>
+  <div class="admin-shell">
+    <aside v-if="!mobile" class="admin-shell__sidebar" :style="{ width: collapsed ? '72px' : '240px' }">
+      <AdminSidebar :collapsed="collapsed" />
+    </aside>
+    <Dialog v-model:open="drawer">
+      <DialogContent side="left" class="w-60 border-0 p-0 [&>button]:right-1 [&>button]:top-4 [&>button]:text-white">
+        <DialogTitle class="sr-only">工作台导航</DialogTitle>
+        <DialogDescription class="sr-only">选择管理页面</DialogDescription>
+        <AdminSidebar @navigate="drawer = false" />
+      </DialogContent>
+      <div class="admin-shell__main">
+        <AdminHeader :mobile="mobile" :collapsed="collapsed" @toggle="collapsed = !collapsed" />
+        <main><div class="route-content" :class="contentClass"><RouterView /></div></main>
+      </div>
+    </Dialog>
+  </div>
 </template>

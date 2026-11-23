@@ -9,8 +9,8 @@ LingDian 是面向餐饮门店的多端点餐与经营系统，当前由消费�
 | 层级 | 工程 | 技术与职责 |
 | --- | --- | --- |
 | 消费者端 | `uniapp/` | Vue 3 + uni-app；微信/QQ 小程序与 H5，共用 API 传输和协议层 |
-| 商家端 | `web/` | Vue 3 + Vite + Element Plus/shadcn-vue；商品、订单、门店经营 |
-| 平台端 | `admin/` | Vue 3 + Vite + Element Plus；平台账号、权限与系统日志 |
+| 商家端 | `web/` | Vue 3 + Vite + shadcn-vue；商品、订单、门店经营 |
+| 平台端 | `admin/` | Vue 3 + Vite + shadcn-vue；平台账号、权限与系统日志 |
 | API | `backend/` | NestJS + Prisma + MariaDB；鉴权、业务规则、持久化、集成 outbox |
 | 契约 | `packages/contracts/` | 前后端共享且版本稳定的 DTO/事件类型 |
 | 数据库 | `packages/db/` | Prisma schema、迁移与 Client 导出 |

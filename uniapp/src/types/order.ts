@@ -8,8 +8,11 @@ export type OrderStatus =
   | "ready"
   | "finished"
   | "cancelled"
+  | "failed"
+  | "timedOut"
   | "refunding"
-  | "refunded";
+  | "refunded"
+  | "unknown";
 
 export type OrderSource =
   | "MINIAPP"
@@ -23,6 +26,8 @@ export type OrderSummary = {
   orderNo: string;
   orderSource: OrderSource | string | null;
   pickupCode: string;
+  pickupCodeLabel: "取餐码" | "订单码";
+  pickupCardCode?: string;
   pickupBusinessDate: string | null;
   storeName: string;
   serviceMode: ServiceMode;
@@ -36,9 +41,9 @@ export type OrderSummary = {
 export type OrderDetailItem = {
   id: string;
   name: string;
-  imageUrl: string;
+  imageUrl: string | null;
   quantity: number;
-  price: number;
+  subtotal: number;
   tag?: string;
   specs?: string[];
 };
@@ -50,14 +55,15 @@ export type OrderInfoRow = {
 };
 
 export type OrderDetail = OrderSummary & {
-  storeAddress: string;
-  rewardPoints: number;
+  storeAddress: string | null;
+  rewardPoints?: number;
   goodsAmount: number;
   discountTitle: string;
   discountAmount: number;
-  expectedTime: string;
-  servedAt: string;
+  expectedTime: string | null;
+  servedAt: string | null;
   paymentMethod: string;
+  paymentChannel?: string;
   remark: string;
   items: OrderDetailItem[];
   infoRows: OrderInfoRow[];

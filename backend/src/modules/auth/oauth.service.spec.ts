@@ -25,6 +25,16 @@ function serviceWithProvider(options: {
   miniAppId?: string;
   exchange?: () => Promise<{ openId: string; unionId?: string }>;
   pending?: any[];
+  identity?: {
+    provider: 'WECHAT' | 'QQ';
+    subject: string;
+    user: {
+      id: string;
+      status: 'ACTIVE' | 'DISABLED';
+      sessionVersion: number;
+      roles: Array<{ role: 'USER' | 'ADMIN' | 'SUPER_ADMIN' | 'MERCHANT'; status: 'ACTIVE' | 'DISABLED' }>;
+    };
+  };
 } = {}) {
   const pending = options.pending ?? [];
   const audits: any[] = [];
@@ -45,6 +55,15 @@ function serviceWithProvider(options: {
         if (!record) return { count: 0 };
         Object.assign(record, data);
         return { count: 1 };
+      },
+    },
+    authIdentity: {
+      findUnique: async ({ where }: any) => {
+        const key = where.provider_subject;
+        if (!options.identity || key.provider !== options.identity.provider || key.subject !== options.identity.subject) {
+          return null;
+        }
+        return { userId: options.identity.user.id, user: options.identity.user };
       },
     },
   };
@@ -526,6 +545,46 @@ test('namespaces a mini-program openid with its mini-program app id when UnionID
   assert.equal(pending.find((record) => record.id === result.pendingOauthId)?.subject, 'mini-wechat:mini-openid-1');
 });
 
+test('recovers a linked mini-program customer through a freshly exchanged platform code', async () => {
+  const { audits, service } = serviceWithProvider({
+    identity: {
+      provider: 'WECHAT',
+      subject: 'mini-unionid-1',
+      user: {
+        id: 'customer-1',
+        status: 'ACTIVE',
+        sessionVersion: 3,
+        roles: [{ role: 'USER', status: 'ACTIVE' }],
+      },
+    },
+  });
+
+  const result = await service.miniProgramSession({
+    provider: 'WECHAT',
+    code: 'fresh-uni-login-code',
+    audience: 'user-api',
+    ip: '127.0.0.1',
+    device: 'mini-device',
+  });
+
+  assert.equal(result.accessToken, 'access');
+  assert.equal(result.user.userId, 'customer-1');
+  assert.equal(result.user.audience, 'user-api');
+  assert.ok(audits.some((entry) => entry.event === 'OAUTH_MINIAPP_SESSION_SUCCEEDED'));
+});
+
+test('does not issue a mini-program session for an unlinked platform identity', async () => {
+  const { audits, service } = serviceWithProvider();
+
+  await assert.rejects(
+    () => service.miniProgramSession({
+      provider: 'WECHAT', code: 'fresh-uni-login-code', audience: 'user-api', device: 'mini-device',
+    }),
+    /identity is not linked/i,
+  );
+  assert.ok(audits.some((entry) => entry.event === 'OAUTH_MINIAPP_SESSION_REJECTED'));
+});
+
 test('uses the application-qualified openid when a WeChat unionid is unavailable', async () => {
   const { pending, service } = serviceWithProvider({ exchange: async () => ({ openId: 'openid-1' }) });
   const state = new URL((await service.start({ provider: 'WECHAT', audience: 'user-api' })).authorizationUrl).searchParams.get('state')!;
@@ -811,6 +870,7 @@ test('mini-program phone login creates one phone user and binds the WeChat ident
   });
 
   assert.equal(result.user.userId, 'user-1');
+  assert.equal(result.isNewUser, true);
   assert.deepEqual(createdIdentities, [{
     userId: 'user-1',
     provider: 'WECHAT',
@@ -856,6 +916,7 @@ test('mini-program phone login reuses the verified phone user', async () => {
 
   assert.equal(result.user.userId, user.id);
   assert.equal(userCreates, 0);
+  assert.equal(result.isNewUser, undefined);
 });
 
 test('mini-program phone login rejects a WeChat identity owned by another user', async () => {

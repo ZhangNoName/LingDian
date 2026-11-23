@@ -41,7 +41,7 @@ export class PasswordService {
       await tx.user.update({ where: { id: userId }, data: { sessionVersion: { increment: 1 } } });
       await tx.authSession.updateMany({
         where: { userId, status: 'ACTIVE' },
-        data: { status: 'REVOKED', revokedAt: now },
+        data: { status: 'REVOKED', activeDeviceKey: null, revokedAt: now },
       });
       await this.audit.record({ event: 'PASSWORD_CHANGED', userId, ip: context.ip, device: context.device }, tx);
     });

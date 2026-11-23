@@ -108,7 +108,7 @@ export class MerchantAdminService {
       });
       if (sessionInvalidated) {
         await tx.authSession.updateMany({
-          where: { userId, status: 'ACTIVE' }, data: { status: 'REVOKED', revokedAt: new Date() },
+          where: { userId, status: 'ACTIVE' }, data: { status: 'REVOKED', activeDeviceKey: null, revokedAt: new Date() },
         });
       }
       await this.audit.record({

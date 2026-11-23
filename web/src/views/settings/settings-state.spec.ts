@@ -54,3 +54,8 @@ describe('single-store integration settings', () => {
     expect(loader).not.toHaveBeenCalled()
   })
 })
+
+it('rejects capability responses from another store or duplicate providers',async()=>{
+ await expect(loadSingleStoreCapabilities([primaryStore],async()=>[{...cashierCapability,store_id:'foreign'}])).rejects.toThrow('settings.storeMismatch')
+ await expect(loadSingleStoreCapabilities([primaryStore],async()=>[cashierCapability,cashierCapability])).rejects.toThrow('settings.storeMismatch')
+})

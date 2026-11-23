@@ -225,8 +225,162 @@ model Store {
   integrationEvents   IntegrationOutbox[]
   paymentAccounts     PaymentAccount[]
   pickupCodeSequences PickupCodeSequence[]
+  stocktakes          InventoryStocktake[]
+  productImageRequests ProductImageRequest[]
+  inventoryItems      InventoryItem[]
+  suppliers           Supplier[]
 
   @@map("stores")
+}
+
+// Quantities use thousandths of the item's fixed unit to avoid floating point drift.
+model InventoryItem {
+  isActive Boolean @default(true)
+  lifecycleVersion Int?
+  lifecycleActorId String?
+  lifecycleReason String? @db.VarChar(240)
+  lifecycleChangedAt DateTime?
+  id           String              @id @default(cuid())
+  storeId      String
+  code         String              @db.VarChar(64)
+  name         String              @db.VarChar(120)
+  unit         String              @db.VarChar(16)
+  quantity     Int                 @default(0)
+  reservedQuantity Int             @default(0)
+  availableQuantity Int            @default(0)
+  reorderPoint Int                 @default(0)
+  version      Int                 @default(0)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  store        Store               @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  movements    InventoryMovement[]
+  recipes      InventoryRecipe[]
+  reservations InventoryReservation[]
+  alerts       InventoryAlert[]
+  purchaseLines PurchaseOrderLine[]
+  stocktakeLines InventoryStocktakeLine[]
+  materialChanges InventoryMaterialChange[]
+
+  @@unique([storeId, code])
+  @@unique([id, storeId])
+  @@index([storeId, updatedAt])
+  @@index([storeId, isActive, updatedAt])
+  @@map("inventory_items")
+}
+
+model InventoryMaterialChange {
+  id String @id @default(cuid())
+  storeId String
+  itemId String
+  kind String @db.VarChar(16)
+  nameBefore String? @db.VarChar(120)
+  nameAfter String? @db.VarChar(120)
+  isActiveBefore Boolean?
+  isActiveAfter Boolean?
+  reason String @db.VarChar(240)
+  actorId String?
+  versionBefore Int?
+  createdAt DateTime @default(now())
+  item InventoryItem @relation(fields: [itemId, storeId], references: [id, storeId], onDelete: Restrict, onUpdate: Restrict, map: "inventory_material_changes_item_store_fkey")
+
+  @@index([itemId, storeId], map: "inventory_material_changes_item_store_fkey")
+  @@index([storeId, itemId, createdAt, id], map: "inventory_material_changes_history_idx")
+  @@index([storeId, itemId, versionBefore], map: "inventory_material_changes_version_idx")
+  @@map("inventory_material_changes")
+}
+
+model InventoryMovement {
+  id                 String        @id @default(cuid())
+  storeId            String
+  itemId             String
+  requestId          String        @db.VarChar(64)
+  stocktakeId        String?
+  stocktake          InventoryStocktake? @relation(fields: [stocktakeId, storeId], references: [id, storeId], onDelete: Restrict, onUpdate: Restrict)
+  purchaseReceiptId  String?
+  purchaseReceipt    PurchaseReceipt? @relation(fields: [purchaseReceiptId, storeId], references: [id, storeId], onDelete: Restrict, onUpdate: Restrict)
+  kind               String        @db.VarChar(16)
+  amount             Int
+  quantityBefore     Int
+  quantityAfter      Int
+  reservedBefore     Int           @default(0)
+  reservedAfter      Int           @default(0)
+  reorderPointBefore Int
+  reorderPointAfter  Int
+  versionBefore      Int
+  actorId            String
+  reason             String        @db.VarChar(240)
+  createdAt          DateTime      @default(now())
+  item               InventoryItem @relation(fields: [itemId, storeId], references: [id, storeId], onDelete: Restrict)
+
+  @@unique([storeId, requestId])
+  @@index([stocktakeId, storeId])
+  @@index([purchaseReceiptId, storeId])
+  @@index([itemId, storeId], map: "inventory_movements_itemId_storeId_fkey")
+  @@index([storeId, itemId, createdAt])
+  @@index([storeId, createdAt])
+  @@map("inventory_movements")
+}
+
+// One active episode per material. Acknowledgement never implies replenishment.
+model InventoryAlert {
+  resolutionReason String? @db.VarChar(16)
+  id                 String        @id @default(cuid())
+  storeId            String
+  itemId             String
+  activeItemKey      String?       @unique
+  status             String        @default("OPEN") @db.VarChar(16)
+  severity           String        @db.VarChar(8)
+  availableAtTrigger Int
+  thresholdAtTrigger Int
+  availableLatest    Int
+  thresholdLatest    Int
+  version            Int           @default(0)
+  detectedAt         DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  acknowledgedAt     DateTime?
+  acknowledgedBy     String?
+  note               String?       @db.VarChar(240)
+  resolvedAt         DateTime?
+  item               InventoryItem @relation(fields: [itemId, storeId], references: [id, storeId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([id, storeId])
+  @@index([itemId, storeId], map: "inventory_alerts_itemId_storeId_fkey")
+  @@index([storeId, status, detectedAt])
+  @@map("inventory_alerts")
+}
+
+model InventoryRecipe {
+  id        String        @id @default(cuid())
+  storeId   String
+  skuId     String
+  itemId    String
+  quantity  Int
+  sku       ProductSKU    @relation(fields: [skuId], references: [id], onDelete: Restrict)
+  item      InventoryItem @relation(fields: [itemId, storeId], references: [id, storeId], onDelete: Restrict)
+
+  @@unique([skuId, itemId])
+  @@index([itemId, storeId], map: "inventory_recipes_itemId_storeId_fkey")
+  @@index([storeId, skuId])
+  @@map("inventory_recipes")
+}
+
+model InventoryReservation {
+  id        String        @id @default(cuid())
+  storeId   String
+  orderId   String
+  itemId    String
+  quantity  Int
+  status    String        @default("RESERVED") @db.VarChar(16)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  order     Order         @relation(fields: [orderId, storeId], references: [id, storeId], onDelete: Restrict)
+  item      InventoryItem @relation(fields: [itemId, storeId], references: [id, storeId], onDelete: Restrict)
+
+  @@unique([orderId, itemId])
+  @@index([itemId, storeId], map: "inventory_reservations_itemId_storeId_fkey")
+  @@index([orderId, storeId], map: "inventory_reservations_orderId_storeId_fkey")
+  @@index([storeId, orderId, status])
+  @@map("inventory_reservations")
 }
 
 model StoreIntegration {
@@ -273,6 +427,7 @@ model Category {
   id        String    @id @default(cuid())
   storeId   String
   name      String
+  version   Int       @default(0)
   sortOrder Int       @default(0)
   isVisible Boolean   @default(true)
   createdAt DateTime  @default(now())
@@ -289,12 +444,15 @@ model Product {
   storeId           String
   categoryId        String
   name              String
-  description       String?
+  description       String? @db.Text
   imageUrl          String?
   type              ProductType             @default(SINGLE)
   price             Decimal                 @db.Decimal(10, 2)
   status            ProductStatus           @default(DRAFT)
   isFeatured        Boolean                 @default(false)
+  creationRequestId String? @db.VarChar(64)
+  creationFingerprint String? @db.Char(64)
+  configurationVersion Int                  @default(0)
   stock             Int                     @default(0)
   createdAt         DateTime                @default(now())
   updatedAt         DateTime                @updatedAt
@@ -303,7 +461,10 @@ model Product {
   skus              ProductSKU[]
   selectionBindings ProductSelectionGroup[]
   orderItems        OrderItem[]
+  imageRequests     ProductImageRequest[]
 
+  @@unique([id, storeId])
+  @@unique([storeId,creationRequestId])
   @@index([storeId, status])
   @@index([categoryId])
   @@map("products")
@@ -315,6 +476,8 @@ model ProductSKU {
   skuName             String
   price               Decimal                 @db.Decimal(10, 2)
   stockCount          Int                     @default(0)
+  recipeVersion       Int                     @default(0)
+  inventoryRecipes    InventoryRecipe[]
   isDefault           Boolean                 @default(false)
   isActive            Boolean                 @default(true)
   createdAt           DateTime                @default(now())
@@ -424,6 +587,11 @@ model Order {
   items              OrderItem[]
   statusLogs         OrderStatusLog[]
   paymentIntents     PaymentIntent[]
+  stockExpiresAt     DateTime?
+  inventoryReservations InventoryReservation[]
+
+  @@unique([id, storeId])
+  @@index([status, stockExpiresAt])
 
   @@unique([storeId, customerUserId, clientRequestId])
   @@unique([storeId, pickupBusinessDate, pickupCode])
@@ -463,6 +631,7 @@ model PaymentAccount {
   updatedAt          DateTime              @updatedAt
   store              Store                 @relation(fields: [storeId], references: [id], onDelete: Restrict)
   paymentIntents     PaymentIntent[]
+  paymentTransactions PaymentTransaction[]
   webhookEvents      PaymentWebhookEvent[]
 
   @@unique([storeId, provider, channel])
@@ -473,6 +642,7 @@ model PaymentAccount {
 model PaymentIntent {
   id                   String                      @id @default(cuid())
   paymentNo            String                      @unique @db.VarChar(64)
+  activeOrderKey       String?                     @unique @db.VarChar(191)
   orderId              String
   accountId            String
   provider             PaymentProvider
@@ -507,6 +677,8 @@ model PaymentTransaction {
   id                    String                   @id @default(cuid())
   transactionNo         String                   @unique @db.VarChar(64)
   paymentIntentId       String
+  provider              PaymentProvider
+  accountId             String
   type                  PaymentTransactionType
   status                PaymentTransactionStatus
   amountMinor           BigInt
@@ -518,10 +690,13 @@ model PaymentTransaction {
   createdAt             DateTime                 @default(now())
   updatedAt             DateTime                 @updatedAt
   paymentIntent         PaymentIntent            @relation(fields: [paymentIntentId], references: [id], onDelete: Restrict)
+  account               PaymentAccount            @relation(fields: [accountId], references: [id], onDelete: Restrict)
 
   @@unique([paymentIntentId, type, idempotencyKey])
   @@unique([paymentIntentId, providerTransactionId])
+  @@unique([provider, accountId, providerTransactionId], map: "payment_transactions_provider_accountId_providerTransactionI_key")
   @@index([paymentIntentId, createdAt])
+  @@index([accountId], map: "payment_transactions_accountId_fkey")
   @@map("payment_transactions")
 }
 
@@ -710,6 +885,7 @@ model AuthSession {
   id                       String        @id @default(cuid())
   userId                   String
   audience                 AuthAudience
+  activeDeviceKey          String?       @unique @db.Char(64)
   refreshTokenHash         String        @unique
   previousRefreshTokenHash String?       @unique
   refreshTokenHistory      Json?
@@ -721,7 +897,7 @@ model AuthSession {
   updatedAt                DateTime      @updatedAt
   user                     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, audience, device])
+  @@index([userId, audience, device, status])
   @@index([userId, status])
   @@index([expiresAt])
   @@map("auth_sessions")
@@ -793,4 +969,184 @@ model SystemLog {
   @@index([event, createdAt])
   @@index([createdAt])
   @@map("system_logs")
+}
+
+
+model Supplier {
+  id String @id @default(cuid())
+  storeId String
+  code String @db.VarChar(64)
+  name String @db.VarChar(120)
+  contact String @default("") @db.VarChar(191)
+  note String @default("") @db.VarChar(240)
+  isActive Boolean @default(true)
+  version Int @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  store Store @relation(fields:[storeId], references:[id], onDelete:Restrict)
+  orders PurchaseOrder[]
+  @@unique([id,storeId])
+  @@unique([storeId,code])
+  @@index([storeId,isActive,name])
+  @@map("suppliers")
+}
+
+model PurchaseOrder {
+  id String @id @default(cuid())
+  storeId String
+  supplierId String
+  supplierName String @db.VarChar(120)
+  supplierCode String @db.VarChar(64)
+  orderNo String @db.VarChar(40)
+  requestId String @db.VarChar(64)
+  fingerprint String @db.Char(64)
+  status String @default("OPEN") @db.VarChar(16)
+  version Int @default(0)
+  totalCostCents BigInt
+  receivedCostCents BigInt @default(0)
+  expectedAt DateTime?
+  note String @default("") @db.VarChar(240)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  cancelledAt DateTime?
+  cancelledBy String?
+  cancelReason String? @db.VarChar(240)
+  supplier Supplier @relation(fields:[supplierId,storeId],references:[id,storeId],onDelete:Restrict,onUpdate:Restrict)
+  lines PurchaseOrderLine[]
+  receipts PurchaseReceipt[]
+  @@unique([id,storeId])
+  @@unique([storeId,requestId])
+  @@unique([storeId,orderNo])
+  @@index([supplierId,storeId])
+  @@index([storeId,status,createdAt])
+  @@index([storeId,status,expectedAt])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderLine {
+  id String @id @default(cuid())
+  storeId String
+  orderId String
+  itemId String
+  itemName String @db.VarChar(120)
+  itemCode String @db.VarChar(64)
+  unit String @db.VarChar(16)
+  quantity Int
+  receivedQuantity Int @default(0)
+  unitPriceCents Int
+  order PurchaseOrder @relation(fields:[orderId,storeId],references:[id,storeId],onDelete:Restrict,onUpdate:Restrict)
+  item InventoryItem @relation(fields:[itemId,storeId],references:[id,storeId],onDelete:Restrict,onUpdate:Restrict)
+  receiptLines PurchaseReceiptLine[]
+  @@unique([id,storeId])
+  @@unique([orderId,itemId])
+  @@index([orderId,storeId])
+  @@index([itemId,storeId])
+  @@map("purchase_order_lines")
+}
+
+model PurchaseReceipt {
+  id String @id @default(cuid())
+  storeId String
+  orderId String
+  requestId String @db.VarChar(64)
+  fingerprint String @db.Char(64)
+  note String @db.VarChar(240)
+  actorId String
+  totalCostCents BigInt
+  createdAt DateTime @default(now())
+  order PurchaseOrder @relation(fields:[orderId,storeId],references:[id,storeId],onDelete:Restrict,onUpdate:Restrict)
+  lines PurchaseReceiptLine[]
+  movements InventoryMovement[]
+  @@unique([id,storeId])
+  @@unique([storeId,requestId])
+  @@index([orderId,storeId,createdAt])
+  @@index([storeId,createdAt])
+  @@map("purchase_receipts")
+}
+
+model PurchaseReceiptLine {
+  id String @id @default(cuid())
+  storeId String
+  receiptId String
+  orderLineId String
+  quantity Int
+  costCents BigInt
+  receipt PurchaseReceipt @relation(fields:[receiptId,storeId],references:[id,storeId],onDelete:Restrict,onUpdate:Restrict)
+  orderLine PurchaseOrderLine @relation(fields:[orderLineId,storeId],references:[id,storeId],onDelete:Restrict,onUpdate:Restrict)
+  @@unique([receiptId,orderLineId])
+  @@index([receiptId,storeId])
+  @@index([orderLineId,storeId])
+  @@index([storeId,receiptId])
+  @@map("purchase_receipt_lines")
+}
+
+model InventoryStocktake {
+  id String @id @default(cuid())
+  storeId String
+  requestId String @db.VarChar(64)
+  fingerprint String @db.Char(64)
+  title String @db.VarChar(120)
+  note String @db.VarChar(240)
+  status String @default("DRAFT") @db.VarChar(16)
+  version Int @default(0)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  postedBy String?
+  postedAt DateTime?
+  cancelledBy String?
+  cancelledAt DateTime?
+  store Store @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  lines InventoryStocktakeLine[]
+  movements InventoryMovement[]
+
+  @@unique([id, storeId])
+  @@unique([storeId, requestId])
+  @@index([storeId, status, createdAt])
+  @@map("inventory_stocktakes")
+}
+
+model InventoryStocktakeLine {
+  id String @id @default(cuid())
+  storeId String
+  stocktakeId String
+  itemId String
+  itemName String @db.VarChar(120)
+  itemCode String @db.VarChar(64)
+  unit String @db.VarChar(16)
+  expectedQuantity Int
+  reservedQuantity Int
+  itemVersion Int
+  capturedAt DateTime @default(now())
+  countedQuantity Int?
+  stocktake InventoryStocktake @relation(fields: [stocktakeId, storeId], references: [id, storeId], onDelete: Restrict, onUpdate: Restrict)
+  item InventoryItem @relation(fields: [itemId, storeId], references: [id, storeId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([stocktakeId, itemId])
+  @@index([stocktakeId, storeId])
+  @@index([itemId, storeId])
+  @@map("inventory_stocktake_lines")
+}
+
+model ProductImageRequest {
+  id String @id @default(cuid())
+  storeId String
+  productId String
+  requestId String @db.VarChar(64)
+  fingerprint String @db.Char(64)
+  operation String @db.VarChar(8)
+  state String @default("PENDING") @db.VarChar(16)
+  expectedVersion Int
+  assetKey String? @unique @db.VarChar(36)
+  imageUrl String?
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  store Store @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  product Product @relation(fields: [productId, storeId], references: [id, storeId], onDelete: Restrict, onUpdate: Restrict)
+  @@unique([storeId, requestId])
+  @@index([state, createdAt])
+  @@index([productId, storeId])
+  @@map("product_image_requests")
 }

@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsOptional, IsString } from 'class-validator';
+import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class UpdateOrderStatusDto {
   @ApiProperty({
@@ -41,6 +41,7 @@ export class UpdateOrderStatusDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(191)
   operatorName?: string;
 
   @ApiPropertyOptional({
@@ -49,5 +50,6 @@ export class UpdateOrderStatusDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(191)
   note?: string;
 }

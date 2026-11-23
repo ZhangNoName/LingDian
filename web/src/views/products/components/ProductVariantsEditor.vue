@@ -1,102 +1,89 @@
-<template>
-  <section class="editor-section">
-    <div class="section-header">
-      <div>
-        <h4>规格配置</h4>
-        <p>会影响价格和库存的规格保留在 SKU 层。</p>
-      </div>
-      <el-button type="primary" plain @click="$emit('add-variant')">新增规格</el-button>
-    </div>
+<script setup lang="ts">
+import { Button } from '@lingdian/console-ui/button'
+import { Checkbox, Input, RadioGroup, RadioGroupItem } from '@lingdian/console-ui/input'
+import type { ProductVariantForm } from '../types'
+import { useProductLocale } from '../use-product-locale'
+defineProps<{ modelValue: ProductVariantForm[]; currentDefaultIndex: number }>()
+const emit = defineEmits<{ 'add-variant': []; 'remove-variant': [index: number]; 'set-default': [index: number] }>()
+const { t } = useProductLocale()
 
-    <el-table :data="modelValue" border empty-text="暂无规格，请至少添加一个规格">
-      <el-table-column label="默认" width="96">
-        <template #default="{ $index }">
-          <el-radio :model-value="currentDefaultIndex" :label="$index" @change="$emit('set-default', $index)">
-            默认
-          </el-radio>
-        </template>
-      </el-table-column>
-      <el-table-column label="规格名称" min-width="180">
-        <template #default="{ row }">
-          <el-input v-model="row.sku_name" placeholder="如：单品 / 双层 / 大杯" />
-        </template>
-      </el-table-column>
-      <el-table-column label="售价" width="160">
-        <template #default="{ row }">
-          <el-input-number v-model="row.price" :min="0" :precision="2" :step="1" />
-        </template>
-      </el-table-column>
-      <el-table-column label="库存" width="160">
-        <template #default="{ row }">
-          <el-input-number v-model="row.stock_count" :min="0" :precision="0" :step="1" />
-        </template>
-      </el-table-column>
-      <el-table-column label="启用" width="110">
-        <template #default="{ row }">
-          <el-switch v-model="row.is_active" />
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" width="100" fixed="right">
-        <template #default="{ $index }">
-          <el-button link type="danger" @click="$emit('remove-variant', $index)">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+function selectDefault(value: unknown) {
+  if (typeof value === 'number') emit('set-default', value)
+}
+</script>
+<template>
+  <section class="grid gap-3">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h3 class="text-sm font-semibold">{{ t('variants') }}</h3>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        :disabled="modelValue.length >= 50"
+        @click="$emit('add-variant')"
+      >
+        {{ t('addVariant') }}
+      </Button>
+    </div>
+    <p class="text-xs leading-5 text-muted-foreground">{{ t('stockHint') }}</p>
+    <RadioGroup
+      :model-value="currentDefaultIndex"
+      :aria-label="t('defaultVariant')"
+      @update:model-value="selectDefault"
+    >
+      <div
+        v-for="(variant, index) in modelValue"
+        :key="variant.id ?? index"
+        class="grid gap-3 border p-3 sm:grid-cols-3"
+      >
+        <label>
+          {{ t('variantName') }} {{ index + 1 }}
+          <Input v-model="variant.sku_name" maxlength="191" required />
+        </label>
+        <label>
+          {{ t('salePrice') }} {{ index + 1 }}
+          <Input v-model.number="variant.price" type="number" min="0" max="99999999.99" step="0.01" required />
+        </label>
+        <label>
+          {{ t('referenceStock') }} {{ index + 1 }}
+          <Input v-model.number="variant.stock_count" type="number" min="0" max="999999" step="1" required />
+        </label>
+        <div class="flex flex-wrap items-center gap-4 sm:col-span-3">
+          <label class="check">
+            <RadioGroupItem :value="index" :disabled="!variant.is_active" />
+            {{ t('defaultVariant') }}
+          </label>
+          <label class="check">
+            <Checkbox v-model="variant.is_active" />
+            {{ t('enabled') }}
+          </label>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            class="ml-auto"
+            :disabled="modelValue.length <= 1"
+            :aria-label="`${t('remove')} ${variant.sku_name || index + 1}`"
+            @click="$emit('remove-variant', index)"
+          >
+            {{ t('remove') }}
+          </Button>
+        </div>
+      </div>
+    </RadioGroup>
   </section>
 </template>
-
-<script setup lang="ts">
-import {
-  ElButton,
-  ElInput,
-  ElInputNumber,
-  ElRadio,
-  ElSwitch,
-  ElTable,
-  ElTableColumn,
-} from '@/components/ui/element-plus'
-import type { ProductVariantForm } from '../types'
-
-defineProps<{
-  modelValue: ProductVariantForm[]
-  currentDefaultIndex: number
-}>()
-
-defineEmits<{
-  (event: 'add-variant'): void
-  (event: 'remove-variant', index: number): void
-  (event: 'set-default', index: number): void
-}>()
-</script>
-
 <style scoped>
-.editor-section {
+label {
   display: grid;
-  gap: 12px;
+  min-width: 0;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  color: var(--ld-text-muted);
 }
-
-.section-header {
+label.check {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.section-header h4 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 700;
-}
-
-.section-header p {
-  margin: 4px 0 0;
-  color: var(--muted-foreground);
-  font-size: 13px;
-}
-
-@media (max-width: 720px) {
-  .section-header {
-    display: grid;
-  }
+  align-items: center;
+  gap: 0.5rem;
 }
 </style>

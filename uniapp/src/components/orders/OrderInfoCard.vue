@@ -5,19 +5,24 @@
       <text class="label">{{ row.label }}</text>
       <view class="value-wrap">
         <text class="value">{{ row.value }}</text>
-        <CopyIcon v-if="row.copyable" class="copy" aria-hidden="true" />
+        <button v-if="row.copyable" class="copy" :aria-label="`复制${row.label}`" @tap="copyValue(row.value)">
+          <AppIcon name="copy" :size="28" tone="muted" />
+        </button>
       </view>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { CopyIcon } from "@lingdian/icons/miniapp";
+import AppIcon from "@/components/app/AppIcon.vue";
 import type { OrderInfoRow } from "@/types/order";
 
 defineProps<{
   rows: OrderInfoRow[];
 }>();
+function copyValue(data: string) {
+  uni.setClipboardData({ data, fail: () => uni.showToast({ title: "复制失败", icon: "none" }) });
+}
 </script>
 
 <style scoped>
@@ -40,16 +45,14 @@ defineProps<{
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16rpx;
   min-height: 72rpx;
   border-top: 1rpx solid #eeeeee;
 }
 
-.row:first-of-type {
-  border-top: 0;
-}
-
 .label {
-  color: #777777;
+  flex: 0 0 auto;
+  color: var(--ld-mini-text-muted);
   font-size: var(--ld-font-base, 26rpx);
 }
 
@@ -58,20 +61,17 @@ defineProps<{
   align-items: center;
   gap: 10rpx;
   max-width: 440rpx;
+  min-width: 0;
 }
 
 .value {
   color: var(--ld-mini-text);
   font-size: var(--ld-font-base, 26rpx);
   text-align: right;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
 }
 
-.copy {
-  display: block;
-  width: 28rpx;
-  height: 28rpx;
-  color: #c4c4c4;
-  font-size: 28rpx;
-  line-height: 28rpx;
-}
+.copy { flex: none; margin: 0; padding: 12rpx; background: transparent; }
+.copy::after { border: 0; }
 </style>

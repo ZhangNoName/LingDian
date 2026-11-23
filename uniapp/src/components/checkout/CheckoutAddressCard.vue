@@ -1,26 +1,25 @@
 <template>
-  <view class="card" role="button" tabindex="0" @tap="$emit('manage')">
+  <view class="card" role="button" tabindex="0" @keydown.enter="$emit('manage')" @keydown.space.prevent="$emit('manage')" @tap="$emit('manage')">
     <view v-if="address" class="address-content">
       <view class="title-row">
         <text class="title">配送至</text>
-        <text class="manage">更换 ›</text>
+        <view class="manage"><text>更换</text><AppIcon name="next" :size="26" tone="primary" /></view>
       </view>
       <text class="address">{{ fullAddress }}</text>
       <text class="recipient">{{ address.recipientName }}　{{ address.phoneNumber }}</text>
     </view>
-    <view v-else class="empty-content">
-      <view>
-        <text class="title">请选择收货地址</text>
-        <text class="hint">配送订单需要一个有效地址</text>
-      </view>
-      <text class="manage">去添加 ›</text>
+    <view v-else class="title-row">
+      <text class="title">请选择收货地址</text>
+      <AppIcon name="next" :size="26" tone="primary" />
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
 import type { UserAddress } from "@lingdian/contracts";
+import AppIcon from "@/components/app/AppIcon.vue";
 import { computed } from "vue";
+import { formatAddress } from "@/services/addresses";
 
 const props = defineProps<{
   address?: UserAddress;
@@ -30,9 +29,7 @@ defineEmits<{
   (event: "manage"): void;
 }>();
 
-const fullAddress = computed(() => props.address
-  ? `${props.address.provinceName}${props.address.cityName}${props.address.countyName}${props.address.streetName}${props.address.detailInfo}`
-  : "");
+const fullAddress = computed(() => props.address ? formatAddress(props.address) : "");
 </script>
 
 <style scoped>
@@ -44,8 +41,7 @@ const fullAddress = computed(() => props.address
   box-shadow: var(--ld-mini-shadow-card);
 }
 
-.title-row,
-.empty-content {
+.title-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -53,7 +49,6 @@ const fullAddress = computed(() => props.address
 }
 
 .title,
-.hint,
 .address,
 .recipient {
   display: block;
@@ -65,7 +60,10 @@ const fullAddress = computed(() => props.address
   font-weight: 900;
 }
 
+
 .manage {
+  display: flex;
+  align-items: center;
   color: var(--ld-mini-primary);
   font-size: 24rpx;
   font-weight: 800;
@@ -79,8 +77,7 @@ const fullAddress = computed(() => props.address
   line-height: 1.45;
 }
 
-.recipient,
-.hint {
+.recipient {
   margin-top: 10rpx;
   color: #666666;
   font-size: 24rpx;

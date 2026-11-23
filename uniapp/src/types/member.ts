@@ -19,8 +19,7 @@ export type MemberAssets = {
 };
 
 export type ManageEntry = {
-  key: string;
+  key: "orders" | "address";
   label: string;
-  available: boolean;
-  route?: string;
+  route: string;
 };

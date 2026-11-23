@@ -26,4 +26,4 @@ pnpm --filter @lingdian/web test
 pnpm --filter @lingdian/web build
 ```
 
-后端接口与鉴权见 [05-backend-python.md](./05-backend-python.md)（文件名为历史兼容名称）。
+后端接口与鉴权见 [05-backend-nestjs.md](./05-backend-nestjs.md)。

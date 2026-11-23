@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import { AuthenticatedUser } from '../../common/auth/authenticated-user.type';
 import { StoreContextResolver } from '../stores/store-context.resolver';
 
@@ -14,6 +14,17 @@ export class MerchantStoreScope {
     const storeIds = [...new Set((user.merchantStoreIds ?? []).map((storeId) => storeId.trim()).filter(Boolean))].sort();
     if (storeIds.length === 0) throw new ForbiddenException('Merchant store scope required.');
     return this.stores.resolveStoreIds(storeIds);
+  }
+
+  /** A multi-store merchant must explicitly select one authorized store for a business request. */
+  forRequest(user: AuthenticatedUser, requestedStoreId?: string): string[] {
+    const authorized = this.storeIds(user);
+    if (requestedStoreId !== undefined) {
+      if (!authorized.includes(requestedStoreId)) throw new ForbiddenException('Merchant is not authorized for this store.');
+      return [requestedStoreId];
+    }
+    if (authorized.length !== 1) throw new BadRequestException('Select a store before continuing.');
+    return authorized;
   }
 
   assertIncludes(user: AuthenticatedUser, storeId: string): void {

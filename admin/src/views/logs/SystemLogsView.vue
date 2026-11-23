@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Badge } from '@lingdian/console-ui/badge'
+import { Button } from '@lingdian/console-ui/button'
 import type { SystemLogPage, SystemLogQuery, SystemLogRecord } from '@lingdian/contracts'
 import { View } from '@lingdian/icons/admin'
 import { computed, onMounted, reactive, ref } from 'vue'
@@ -8,7 +10,7 @@ import {
   type QueryRecord,
   type SchemaAction,
 } from '../../components/schema-table'
-import { getSystemLogs } from '../../services/api'
+import { getSystemLogs } from '../../services/system-logs'
 import LogDetailDrawer from './LogDetailDrawer.vue'
 import { createLogColumns } from './log-columns'
 
@@ -18,6 +20,7 @@ const loading = ref(false)
 const error = ref('')
 const selected = ref<SystemLogRecord>()
 const drawer = ref(false)
+let loadSequence = 0
 const columns = createLogColumns()
 const schemaQuery = computed<QueryRecord>({
   get: () => ({ ...query }),
@@ -30,14 +33,16 @@ const pagination = computed(() => ({
 }))
 
 async function load() {
+  const sequence = ++loadSequence
   loading.value = true
   error.value = ''
   try {
-    result.value = await getSystemLogs(query)
+    const page = await getSystemLogs(query)
+    if (sequence === loadSequence) result.value = page
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : '日志加载失败'
+    if (sequence === loadSequence) error.value = cause instanceof Error ? cause.message : '日志加载失败'
   } finally {
-    loading.value = false
+    if (sequence === loadSequence) loading.value = false
   }
 }
 
@@ -91,11 +96,11 @@ onMounted(load)
       @page-change="changePage"
       @page-size-change="changePageSize"
     >
-      <template #toolbar-actions><el-button :loading="loading" @click="load">刷新</el-button></template>
+      <template #toolbar-actions><Button type="button" variant="outline" :disabled="loading" @click="load">{{ loading ? '正在刷新…' : '刷新' }}</Button></template>
       <template #cell-level="{ row }">
-        <el-tag :type="row.level === 'ERROR' || row.level === 'FATAL' ? 'danger' : row.level === 'WARN' ? 'warning' : 'success'">
+        <Badge :variant="row.level === 'ERROR' || row.level === 'FATAL' ? 'destructive' : 'outline'" :class="row.level === 'WARN' ? 'text-amber-700 dark:text-amber-300' : row.level === 'INFO' ? 'text-emerald-700 dark:text-emerald-300' : undefined">
           {{ row.level }}
-        </el-tag>
+        </Badge>
       </template>
       <template #cell-actions="{ row }">
         <SchemaTableActions :row="row" :actions="rowActions()" />

@@ -1,5 +1,7 @@
 import { customerAuth } from "./auth";
+import { currentCustomerPage, openCustomerLogin } from "./customer-login";
 import { buildAssetUrl } from "../config/api";
+import { usesBrowserCookieTransport } from "@/config/platform";
 import { ApiError, NetworkError, requestApiEnvelope, type HttpMethod } from "@/infra/http/uni-http-client";
 
 type RequestConfig = Omit<UniApp.RequestOptions, "url" | "header" | "method"> & {
@@ -19,13 +21,9 @@ export function resolveAssetUrl(url?: string | null) {
   return buildAssetUrl(url);
 }
 
-function redirectToLogin(): void {
-  uni.reLaunch({ url: "/pages/auth/login" });
-}
-
 function requestOnce<T>(path: string, options: RequestConfig): Promise<T> {
   const { method, requiresAuth: _requiresAuth, header: customHeader, ...requestOptions } = options;
-  const token = customerAuth.getAccessToken();
+  const token = options.requiresAuth === false ? undefined : customerAuth.getAccessToken();
   return requestApiEnvelope<T>({
     ...requestOptions,
     path,
@@ -51,25 +49,48 @@ function requestOnce<T>(path: string, options: RequestConfig): Promise<T> {
 }
 
 export async function request<T>(path: string, options: RequestConfig = {}): Promise<T> {
+  const page = options.requiresAuth === false ? undefined : currentCustomerPage();
+  const sessionVersion = customerAuth.getSessionVersion();
+  const sentAccessToken = options.requiresAuth === false ? undefined : customerAuth.getAccessToken();
+  async function send(): Promise<T> {
+    const response = await requestOnce<T>(path, options);
+    if (options.requiresAuth !== false && sessionVersion !== customerAuth.getSessionVersion()) {
+      throw new RequestError("登录账号已变更，请刷新后重试。");
+    }
+    return response;
+  }
   try {
-    return await requestOnce<T>(path, options);
+    return await send();
   } catch (error) {
     if (!(error instanceof RequestError) || error.statusCode !== 401) throw error;
-    if (options.requiresAuth === false) {
+    if (options.requiresAuth === false || sessionVersion !== customerAuth.getSessionVersion()) {
       throw error;
     }
 
-    if (!(await customerAuth.refresh())) {
-      redirectToLogin();
+    // A native 401 received for a token that was locally still valid is a
+    // server-side rejection, not ordinary expiry. Do not silently undo logout,
+    // revoke-all, or a security intervention with provider reauthentication.
+    const currentToken = customerAuth.getAccessToken();
+    const alreadyRefreshed = currentToken && currentToken !== sentAccessToken;
+    if (!alreadyRefreshed && sentAccessToken && !usesBrowserCookieTransport()) {
+      customerAuth.blockAutomaticRecovery();
+    }
+
+    if (!alreadyRefreshed && !(await customerAuth.refresh())) {
+      const recoveryError = customerAuth.getSessionRecoveryError();
+      if (recoveryError) throw new RequestError(recoveryError);
+      if (!customerAuth.isSignedIn()) void openCustomerLogin(page);
       throw error;
     }
+    if (sessionVersion !== customerAuth.getSessionVersion()) throw error;
 
     try {
-      return await requestOnce<T>(path, options);
+      return await send();
     } catch (retryError) {
-      if (retryError instanceof RequestError && retryError.statusCode === 401) {
-        customerAuth.clear();
-        redirectToLogin();
+      if (retryError instanceof RequestError && retryError.statusCode === 401 && sessionVersion === customerAuth.getSessionVersion()) {
+        if (usesBrowserCookieTransport()) customerAuth.clear();
+        else customerAuth.blockAutomaticRecovery();
+        void openCustomerLogin(page);
       }
       throw retryError;
     }
@@ -87,6 +108,9 @@ function toRequestMessage(message?: string, networkFailure = false): string {
   ) {
     return "网络连接异常，请检查网络后重试。";
   }
+  if (normalized === "inventory.orderinsufficient") return "原料余量不足，请减少数量或选择其他商品。";
+  if (normalized === "inventory.stale") return "原料余量刚刚发生变化，请重新确认后下单。";
+  if (normalized === "inventory.skuunavailable") return "商品已调整，请刷新菜单后重新选择。";
   if (/[\u3400-\u9fff]/.test(source)) return source;
   if (normalized.includes("unauthorized")) return "当前内容暂时无法加载，请稍后重试。";
   return "请求失败，请稍后重试。";

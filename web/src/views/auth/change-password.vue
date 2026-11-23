@@ -1,67 +1,109 @@
-<template>
-  <section class="mx-auto max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-    <p class="text-sm font-medium text-primary">账号安全</p>
-    <h2 class="mt-2 text-2xl font-semibold text-slate-900">修改密码</h2>
-    <p class="mt-2 text-sm leading-6 text-slate-500">使用绑定手机号收到的验证码设置新密码，无需输入旧密码。</p>
-    <form class="mt-6 space-y-5" @submit.prevent="changePassword">
-      <label class="block">
-        <span class="mb-2 block text-sm font-medium text-slate-700">验证码</span>
-        <div class="flex gap-3">
-          <input v-model.trim="code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required class="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2.5" />
-          <button type="button" class="shrink-0 rounded-lg border border-primary px-3 py-2 text-sm font-medium text-primary disabled:opacity-50" :disabled="sending" @click="requestCode">{{ sending ? '发送中…' : '发送验证码' }}</button>
-        </div>
-      </label>
-      <label class="block">
-        <span class="mb-2 block text-sm font-medium text-slate-700">新密码</span>
-        <input v-model="password" type="password" autocomplete="new-password" :minlength="merchantPasswordReplacementMinimum" maxlength="256" required class="w-full rounded-lg border border-slate-300 px-3 py-2.5" />
-        <span class="mt-1 block text-xs text-slate-500">密码至少 12 位。</span>
-      </label>
-      <p v-if="statusMessage" class="text-sm" :class="hasError ? 'text-red-600' : 'text-emerald-600'">{{ statusMessage }}</p>
-      <button type="submit" class="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50" :disabled="submitting || !/^\d{6}$/.test(code) || password.length < merchantPasswordReplacementMinimum">{{ submitting ? '提交中…' : '修改密码' }}</button>
-    </form>
-  </section>
-</template>
-
 <script setup lang="ts">
+import { Input } from '@lingdian/console-ui/input'
+import { Button } from '@lingdian/console-ui/button'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import AccountPanel from '@/components/account/AccountPanel.vue'
+import PasswordField from '@/components/account/PasswordField.vue'
 import { merchantSession } from '@/auth/session'
 import { merchantPasswordReplacementMinimum } from '@/auth/password-policy'
-
-const router = useRouter()
-const code = ref('')
-const password = ref('')
-const sending = ref(false)
-const submitting = ref(false)
-const statusMessage = ref('')
-const hasError = ref(false)
-
-async function requestCode(): Promise<void> {
+import { merchantAuthErrorKey } from '@/auth/user-message'
+import { useAccountLocale, type AccountKey } from '@/i18n/account'
+const { t } = useAccountLocale(),
+  router = useRouter(),
+  code = ref(''),
+  password = ref(''),
+  sending = ref(false),
+  submitting = ref(false),
+  message = ref<AccountKey>(),
+  hasError = ref(false)
+const forced = merchantSession.getUser()?.mustChangePassword
+async function requestCode() {
+  if (sending.value || submitting.value) return
   sending.value = true
-  statusMessage.value = ''
+  message.value = undefined
   try {
     await merchantSession.requestPasswordChangeCode()
     hasError.value = false
-    statusMessage.value = '验证码已发送至绑定手机号。'
-  } catch (error) {
+    message.value = 'codeSent'
+  } catch (e) {
     hasError.value = true
-    statusMessage.value = error instanceof Error ? error.message : '验证码发送失败，请稍后重试。'
+    message.value = merchantAuthErrorKey(e, 'codeFailed')
   } finally {
     sending.value = false
   }
 }
-
-async function changePassword(): Promise<void> {
+async function changePassword() {
+  if (submitting.value || sending.value) return
   submitting.value = true
-  statusMessage.value = ''
+  message.value = undefined
   try {
     await merchantSession.changePassword(code.value, password.value)
-    await router.replace({ name: 'login', query: { message: '密码已修改，请重新登录。' } })
-  } catch (error) {
+    password.value = ''
+    code.value = ''
+    await router.replace({ name: 'login', query: { notice: 'password-changed' } })
+  } catch (e) {
     hasError.value = true
-    statusMessage.value = error instanceof Error ? error.message : '密码修改失败，请稍后重试。'
+    message.value = merchantAuthErrorKey(e, 'changeFailed')
   } finally {
     submitting.value = false
   }
 }
 </script>
+<template>
+  <AccountPanel :title="t('security')" :description="t('changeHint')">
+    <p v-if="forced" role="status" class="mb-5 border border-amber-200 p-3 text-sm">
+      {{ t('forcedChange') }}
+    </p>
+    <form class="account-form" @submit.prevent="changePassword">
+      <fieldset :disabled="submitting || sending" class="grid min-w-0 gap-5">
+        <div>
+          <label for="change-code" class="account-label">{{ t('code') }}</label>
+          <div class="mt-2 flex min-w-0 gap-2">
+            <Input
+              id="change-code"
+              v-model.trim="code"
+              class="h-10 grow"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              pattern="[0-9]{6}"
+              maxlength="6"
+              required
+            />
+            <Button variant="outline" size="lg" class="h-10" type="button" :disabled="sending" @click="requestCode">
+              {{ t(sending ? 'sending' : 'sendCode') }}
+            </Button>
+          </div>
+        </div>
+        <div>
+          <PasswordField
+            v-model="password"
+            :label="t('newPassword')"
+            autocomplete="new-password"
+            :minlength="merchantPasswordReplacementMinimum"
+            :disabled="submitting || sending"
+          />
+          <p class="account-help mt-2">{{ t('passwordHint') }}</p>
+        </div>
+      </fieldset>
+      <p
+        v-if="message"
+        class="account-status"
+        :class="hasError ? 'text-destructive' : 'text-emerald-700'"
+        :role="hasError ? 'alert' : 'status'"
+      >
+        {{ t(message) }}
+      </p>
+      <Button
+        size="lg" class="h-10"
+        type="submit"
+        :disabled="
+          submitting || sending || !/^\d{6}$/.test(code) || password.length < merchantPasswordReplacementMinimum
+        "
+      >
+        {{ t(submitting ? 'submitting' : 'changePassword') }}
+      </Button>
+    </form>
+  </AccountPanel>
+</template>
+<style scoped src="../../components/account/account.css"></style>

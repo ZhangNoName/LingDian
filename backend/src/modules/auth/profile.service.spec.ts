@@ -83,3 +83,5 @@ test('profile avatar rejects non-image MIME types', async () => {
     /JPEG, PNG, or WebP/i,
   );
 });
+
+test('nickname read only selects the authenticated user display name',async()=>{const profile=new ProfileService({user:{findUniqueOrThrow:async(args:any)=>{assert.deepEqual(args,{where:{id:'merchant-a'},select:{nickname:true}});return{nickname:'Existing name'}}}} as never);assert.deepEqual(await profile.getNickname('merchant-a'),{nickname:'Existing name'});});

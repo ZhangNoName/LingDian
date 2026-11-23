@@ -149,8 +149,8 @@ expected_origins = {f"https://{env[k]}" for k in ('APP_DOMAIN', 'MERCHANT_DOMAIN
 actual_origins = {item.strip().rstrip('/') for item in env['CORS_ALLOWED_ORIGINS'].split(',') if item.strip()}
 if actual_origins != expected_origins:
     fail('CORS_ALLOWED_ORIGINS must contain exactly the three HTTPS frontend origins')
-if env.get('NODE_ENV') != 'production' or env.get('STORE_MODE') != 'single' or env.get('API_PREFIX') != 'api':
-    fail('NODE_ENV=production, STORE_MODE=single, and API_PREFIX=api are required')
+if env.get('NODE_ENV') != 'production' or env.get('STORE_MODE') not in ('single', 'multi') or env.get('API_PREFIX') != 'api':
+    fail('NODE_ENV=production, STORE_MODE=single or multi, and API_PREFIX=api are required')
 if env.get('TLS_ENABLED') != 'true':
     fail('TLS_ENABLED=true is required by the production deployment profile')
 if env.get('TLS_STAGING') != 'false':
@@ -159,7 +159,7 @@ if env.get('TRUST_PROXY_HOPS') != '1':
     fail('TRUST_PROXY_HOPS=1 is required behind the single host Nginx proxy')
 if env.get('AUTH_COOKIE_SECURE') != 'true' or env.get('SMS_PROVIDER') != 'webhook':
     fail('AUTH_COOKIE_SECURE=true and SMS_PROVIDER=webhook are required')
-if env.get('AUTH_BOOTSTRAP_MERCHANT_STORE_IDS') and env.get('AUTH_BOOTSTRAP_MERCHANT_STORE_IDS') != env.get('PRIMARY_STORE_ID'):
+if env.get('STORE_MODE') == 'single' and env.get('AUTH_BOOTSTRAP_MERCHANT_STORE_IDS') and env.get('AUTH_BOOTSTRAP_MERCHANT_STORE_IDS') != env.get('PRIMARY_STORE_ID'):
     fail('AUTH_BOOTSTRAP_MERCHANT_STORE_IDS must equal PRIMARY_STORE_ID')
 for key in ('AUTH_JWT_ACCESS_SECRET', 'AUTH_REFRESH_PEPPER'):
     if len(env.get(key, '')) < 32:

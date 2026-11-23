@@ -51,6 +51,12 @@ fi
 exec 7>"$STATE_DIR/backup.lock"
 flock -n 7 || die 'A scheduled backup started before rollback could lock release state; retry the rollback'
 
+if ! prisma_migration_sets_match "$current_release" "$target_release"; then
+  warn 'Application-only rollback is blocked because the current and target Prisma migration histories differ or are unavailable'
+  warn 'Roll forward with a corrected release, or restore the appropriate verified pre-deploy backup before starting the target application release'
+  die 'Rollback refused before activation; the current release and its services remain unchanged'
+fi
+
 use_release "$target_release" "$TARGET_SHA"
 
 for image in "lingdian/api:$TARGET_SHA" "lingdian/app:$TARGET_SHA" "lingdian/merchant:$TARGET_SHA" "lingdian/admin:$TARGET_SHA"; do

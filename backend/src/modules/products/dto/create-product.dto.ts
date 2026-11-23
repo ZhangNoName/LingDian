@@ -9,6 +9,11 @@ import {
 } from 'class-validator';
 
 export class CreateProductDto {
+  @ApiPropertyOptional({ description: 'Store context for platform operations' })
+  @IsOptional()
+  @IsString()
+  storeId?: string;
+
   @ApiProperty({ description: '分类 ID', example: 'cmofp2e5k0000w0j66zjobzse' })
   @IsString()
   category_id!: string;

@@ -1,4 +1,5 @@
-import type { IntegrationCapabilityContract } from '@lingdian/contracts'
+import type { IntegrationProvider, IntegrationCapabilityContract } from '@lingdian/contracts'
+const providers: readonly IntegrationProvider[] = ['CASHIER', 'RECEIPT_PRINTER', 'MEITUAN_WAIMAI', 'JD_DAOJIA']
 import type { MerchantStoreSummary } from '@/services/integrations'
 import { resolveSingleStoreView, type SingleStoreViewState } from '@/views/stores/store-view'
 
@@ -20,8 +21,16 @@ export async function loadSingleStoreCapabilities(
     return { storeState, capabilities: [] }
   }
 
-  return {
-    storeState,
-    capabilities: await loadCapabilities(storeState.store.id),
+  const capabilities = await loadCapabilities(storeState.store.id)
+  assertCapabilitiesForStore(capabilities, storeState.store.id)
+  return { storeState, capabilities }
+}
+
+export function assertCapabilitiesForStore(items: readonly IntegrationCapabilityContract[], storeId: string): void {
+  const seen = new Set<string>()
+  for (const item of items) {
+    if (item.store_id !== storeId || !providers.includes(item.provider) || seen.has(item.provider))
+      throw Error('settings.storeMismatch')
+    seen.add(item.provider)
   }
 }

@@ -2,6 +2,7 @@
   "name": "@lingdian/common",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "main": "./dist/cjs/index.js",
   "module": "./dist/esm/index.js",
   "types": "./dist/esm/index.d.ts",
@@ -29,7 +30,9 @@
     "tsconfig.json"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json && tsc -p tsconfig.cjs.json"
+    "build": "tsc -p tsconfig.json && tsc -p tsconfig.cjs.json && node scripts/write-package-types.mjs",
+    "type-check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.cjs.json",
+    "test": "pnpm run build && node --test test/*.test.mjs"
   },
   "devDependencies": {
     "typescript": "^5.9.3"

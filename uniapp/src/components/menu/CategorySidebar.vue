@@ -39,7 +39,7 @@ function getNavDomId(categoryId: string) {
   width: 156rpx;
   height: 100%;
   min-height: 0;
-  background: #f5f5f5;
+  background: var(--ld-mini-bg);
 }
 
 .category {
@@ -49,15 +49,15 @@ function getNavDomId(categoryId: string) {
   justify-content: center;
   min-height: var(--ld-sidebar-row-height, 116rpx);
   padding: 0 20rpx;
-  color: #747474;
+  color: var(--ld-mini-text-muted);
   text-align: center;
   font-size: var(--ld-font-sm, 24rpx);
   line-height: 1.25;
 }
 
 .category.active {
-  background: #ffffff;
-  color: var(--ld-mini-text);
+  background: var(--ld-mini-primary-soft);
+  color: var(--ld-mini-primary-pressed);
   font-weight: 900;
 }
 

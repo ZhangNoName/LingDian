@@ -1,0 +1,26 @@
+.purchase-form {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+label {
+  display: grid;
+  min-width: 0;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  color: var(--ld-text-muted);
+}
+.help {
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--ld-text-muted);
+}
+.error {
+  font-size: 0.875rem;
+  color: var(--ld-color-danger, #b91c1c);
+}
+.check {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}

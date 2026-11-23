@@ -1,65 +1,62 @@
 <template>
-  <view class="cart-bar" :class="{ 'is-disabled': disabled }">
-    <view class="bag">
-      <CartIcon class="cart-icon" aria-hidden="true" />
-      <text v-if="cart.itemCount" class="badge">{{ cart.itemCount }}</text>
-    </view>
-    <view class="summary">
-      <text class="amount">¥{{ cart.totalAmount.toFixed(1) }}</text>
-      <text class="discount">预估到手 共优惠¥{{ cart.discountAmount.toFixed(1) }}</text>
-    </view>
-    <button class="checkout" role="button" tabindex="0" :disabled="disabled" :aria-label="disabled ? '购物车为空，请先选择餐品' : '去结算'" @keydown.enter="handleCheckout" @tap="handleCheckout">
-      {{ disabled ? "请选择餐品" : "去结算" }}
+  <view class="cart-bar">
+    <button class="cart-summary" :aria-label="`查看购物车，已选 ${cart.itemCount} 件`" @tap="emit('open-cart')" @keydown.enter.prevent="emit('open-cart')" @keydown.space.prevent="emit('open-cart')">
+      <view class="bag">
+        <AppIcon name="cart" :size="40" tone="primary" />
+        <text class="badge">{{ cart.itemCount }}</text>
+      </view>
+      <view class="summary">
+        <text class="amount">¥{{ formatAmount(cart.totalAmount) }}</text>
+        <text v-if="cart.discountAmount > 0" class="discount">已优惠 ¥{{ formatAmount(cart.discountAmount) }}</text>
+      </view>
     </button>
+    <button class="checkout" @tap="emit('checkout')" @keydown.enter.prevent="emit('checkout')" @keydown.space.prevent="emit('checkout')">结算</button>
   </view>
 </template>
 
 <script setup lang="ts">
-import { CartIcon } from "@lingdian/icons/miniapp";
-import { computed } from "vue";
+import { formatAmount } from "@/utils/money";
+import AppIcon from "@/components/app/AppIcon.vue";
 import type { CartSummary } from "@/types/cart";
-import { canCheckout } from "@/services/checkout-state";
 
-const props = defineProps<{
+defineProps<{
   cart: CartSummary;
 }>();
 
 const emit = defineEmits<{
-  (event: "checkout"): void;
+  "open-cart": [];
+  checkout: [];
 }>();
-
-const disabled = computed(() => !canCheckout(props.cart));
-
-function handleCheckout() {
-  if (!disabled.value) emit("checkout");
-}
 </script>
 
 <style scoped>
 .cart-bar {
-  position: fixed;
-  left: var(--ld-page-padding, 24rpx);
-  right: var(--ld-page-padding, 24rpx);
-  bottom: calc(var(--ld-tabbar-height, 104rpx) + env(safe-area-inset-bottom) + var(--ld-page-padding, 24rpx));
-  z-index: 15;
+  margin: 12rpx var(--ld-page-padding, 24rpx) var(--ld-page-padding, 24rpx);
   display: grid;
-  grid-template-columns: 88rpx minmax(0, 1fr) 164rpx;
+  grid-template-columns: minmax(0, 1fr) 164rpx;
   align-items: center;
   min-height: 112rpx;
   padding: 0;
-  border-radius: 999rpx;
+  border-radius: var(--ld-radius-8);
   background: var(--ld-mini-primary);
   color: #ffffff;
-  box-shadow: 0 28rpx 56rpx rgba(237, 28, 36, 0.22);
+  box-shadow: var(--ld-mini-shadow-card);
 }
 
-.cart-bar.is-disabled {
-  background: #5f5f5f;
-  box-shadow: 0 20rpx 40rpx rgba(0, 0, 0, 0.14);
-}
-
-.cart-bar.is-disabled .bag {
-  color: #5f5f5f;
+.cart-summary {
+  display: grid;
+  grid-template-columns: 88rpx minmax(0, 1fr);
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  height: 112rpx;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #ffffff;
+  line-height: 1.25;
+  text-align: left;
 }
 
 .bag {
@@ -71,18 +68,11 @@ function handleCheckout() {
   height: 76rpx;
   margin: 0;
   border-radius: var(--ld-radius-16, 16px);
-  background: #fff2d9;
+  background: var(--ld-mini-warning-bg);
   color: var(--ld-mini-primary);
   text-align: center;
 }
 
-.cart-icon {
-  display: block;
-  width: 40rpx;
-  height: 40rpx;
-  font-size: 40rpx;
-  line-height: 40rpx;
-}
 
 .badge {
   position: absolute;
@@ -107,6 +97,7 @@ function handleCheckout() {
   overflow: hidden;
   font-size: var(--ld-font-price-lg, 40rpx);
   font-weight: 900;
+  font-variant-numeric: tabular-nums;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -136,15 +127,7 @@ function handleCheckout() {
   white-space: nowrap;
 }
 
-.checkout[disabled] {
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.cart-bar.is-disabled .checkout[disabled] {
-  background: transparent;
-  opacity: 1;
-}
-
+.cart-summary::after,
 .checkout::after {
   border: 0;
 }

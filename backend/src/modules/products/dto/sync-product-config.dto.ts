@@ -1,6 +1,10 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMinSize,
+  ArrayMaxSize,
+  Max,
+  MaxLength,
+  MinLength,
   IsArray,
   IsBoolean,
   IsEnum,
@@ -27,7 +31,7 @@ export class SyncSelectionOptionDto {
   id?: string;
 
   @ApiProperty({ description: '选项名称', example: '不要生菜' })
-  @IsString()
+  @IsString() @Transform(({ value }) => typeof value === 'string' ? value.trim() : value) @MinLength(1) @MaxLength(191)
   name!: string;
 
   @ApiProperty({
@@ -40,7 +44,7 @@ export class SyncSelectionOptionDto {
 
   @ApiPropertyOptional({ description: '价格增量', example: 2 })
   @IsOptional()
-  @IsNumber()
+  @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) @Max(99999999.99)
   price_delta?: number;
 
   @ApiPropertyOptional({ description: '库存增量', example: 0 })
@@ -80,7 +84,7 @@ export class SyncSelectionGroupPayloadDto {
   id?: string;
 
   @ApiProperty({ description: '选择组名称', example: '辣度' })
-  @IsString()
+  @IsString() @Transform(({ value }) => typeof value === 'string' ? value.trim() : value) @MinLength(1) @MaxLength(191)
   name!: string;
 
   @ApiProperty({
@@ -103,12 +107,14 @@ export class SyncSelectionGroupPayloadDto {
   @IsOptional()
   @IsInt()
   @Min(0)
+  @Max(50)
   min_select?: number;
 
   @ApiPropertyOptional({ description: '最多选择数量', example: 1 })
   @IsOptional()
   @IsInt()
   @Min(0)
+  @Max(50)
   max_select?: number;
 
   @ApiPropertyOptional({ description: '是否必选', example: false })
@@ -130,6 +136,7 @@ export class SyncSelectionGroupPayloadDto {
   @ApiPropertyOptional({ description: '说明', example: '支持辣度与去料配置' })
   @IsOptional()
   @IsString()
+  @MaxLength(191)
   description?: string;
 
   @ApiProperty({
@@ -140,6 +147,7 @@ export class SyncSelectionGroupPayloadDto {
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => SyncSelectionOptionDto)
+  @ArrayMaxSize(50)
   options!: SyncSelectionOptionDto[];
 }
 
@@ -192,17 +200,17 @@ export class SyncProductVariantDto {
   id?: string;
 
   @ApiProperty({ description: '规格名称', example: '单品' })
-  @IsString()
+  @IsString() @Transform(({ value }) => typeof value === 'string' ? value.trim() : value) @MinLength(1) @MaxLength(191)
   sku_name!: string;
 
   @ApiProperty({ description: '售价', example: 19.9 })
-  @IsNumber()
-  @Min(0)
+  @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) @Max(99999999.99)
   price!: number;
 
   @ApiProperty({ description: '库存', example: 120 })
   @IsInt()
   @Min(0)
+  @Max(999999)
   stock_count!: number;
 
   @ApiPropertyOptional({ description: '是否默认规格', example: false })
@@ -217,6 +225,8 @@ export class SyncProductVariantDto {
 }
 
 export class SyncProductConfigDto {
+  @IsOptional() @IsInt() @Min(0) @Max(2147483646)
+  expected_version?: number;
   @ApiPropertyOptional({
     description: '商品类型',
     enum: ProductType,
@@ -234,6 +244,7 @@ export class SyncProductConfigDto {
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => SyncProductVariantDto)
+  @ArrayMaxSize(50)
   variants!: SyncProductVariantDto[];
 
   @ApiPropertyOptional({
@@ -244,5 +255,6 @@ export class SyncProductConfigDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => SyncProductSelectionBindingDto)
+  @ArrayMaxSize(20)
   selection_groups?: SyncProductSelectionBindingDto[];
 }

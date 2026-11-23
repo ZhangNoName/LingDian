@@ -7,11 +7,7 @@ describe('customer presentation', () => {
     expect(buildCustomerPresentation(undefined)).toEqual({
       isSignedIn: false,
       displayName: '登录 / 注册',
-      secondaryText: '登录后查看会员权益',
-      membershipText: '游客',
-      pointsText: '—',
-      couponText: '—',
-      balanceText: '—',
+      secondaryText: '登录后查看订单',
     })
   })
 
@@ -27,10 +23,6 @@ describe('customer presentation', () => {
       isSignedIn: true,
       displayName: '用户 abc123',
       secondaryText: '账号已登录',
-      membershipText: '已登录用户',
-      pointsText: '—',
-      couponText: '—',
-      balanceText: '—',
     })
   })
 
@@ -39,6 +31,6 @@ describe('customer presentation', () => {
       userId: 'customer-abc123', sessionId: 'session-1', audience: 'user-api', roles: ['USER'],
     }
 
-    expect(buildCustomerPresentation(user, { nickname: '零点用户', avatar_data_url: null }).displayName).toBe('零点用户')
+    expect(buildCustomerPresentation(user, { nickname: '零点用户' }).displayName).toBe('零点用户')
   })
 })

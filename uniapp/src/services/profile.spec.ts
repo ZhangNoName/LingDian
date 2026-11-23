@@ -1,9 +1,10 @@
-import { afterEach, assert, test, vi } from "vitest";
+import { afterEach, assert, expect, test, vi } from "vitest";
 import { customerAuth } from "./auth";
 import { profile } from "./profile";
 
 afterEach(() => {
   customerAuth.clear();
+  uni.removeStorageSync("lingdian_customer_auto_recovery_blocked");
   vi.restoreAllMocks();
 });
 
@@ -62,4 +63,19 @@ test("uploads an avatar with the current access token", async () => {
   assert.equal(result.avatar_data_url, "data:image/png;base64,eA==");
   assert.equal(uploadFile.mock.calls[0][0].name, "avatar");
   assert.equal(uploadFile.mock.calls[0][0].header?.Authorization, "Bearer customer-jwt");
+});
+
+test("turns a null upload envelope into the expected upload error", async () => {
+  customerAuth.acceptLogin({
+    access_token: "customer-jwt", expires_in: 900,
+    user: { userId: "customer-1", sessionId: "session-1", audience: "user-api", roles: ["USER"] },
+  });
+  const uploadFile = vi.fn((options: UniApp.UploadFileOption) => {
+    options.success?.({ statusCode: 200, data: "null" } as UniApp.UploadFileSuccessCallbackResult);
+    return {} as UniApp.UploadTask;
+  });
+  Object.assign(uni, { uploadFile });
+
+  await expect(profile.uploadAvatar("wxfile://avatar.png"))
+    .rejects.toThrow("头像上传失败，请稍后重试。");
 });

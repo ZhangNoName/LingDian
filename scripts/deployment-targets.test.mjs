@@ -74,7 +74,7 @@ test('API deployment gates use primary-store readiness', async () => {
   assert.match(compose, /\/api\/health\/ready/);
   assert.match(deployScript, /wait_for_application/);
   assert.match(preflight, /PRIMARY_STORE_ID/);
-  assert.match(preflight, /NODE_ENV=production, STORE_MODE=single, and API_PREFIX=api are required/);
+  assert.match(preflight, /NODE_ENV=production, STORE_MODE=single or multi, and API_PREFIX=api are required/);
   assert.match(dockerfile, /\/api\/health\/ready/);
 });
 
@@ -107,6 +107,10 @@ test('production release verifies an immutable bundle and installs validated Ngi
   const installer = await readFile(new URL('../deploy/scripts/install-nginx.sh', import.meta.url), 'utf8');
 
   assert.match(workflow, /sha256sum --check --strict/);
+  assert.match(workflow, /pull_request:/);
+  assert.match(workflow, /if: github\.event_name != 'pull_request'/);
+  assert.match(workflow, /format\('lingdian-pr-\{0\}', github\.event\.pull_request\.number\)/);
+  assert.match(workflow, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}/);
   assert.match(workflow, /printf 'STATE_DIR=%s\/state\\n' "\$ci_dir"/);
   assert.match(workflow, /git --git-dir="\$repository" bundle verify/);
   assert.match(workflow, /bash "\$runner_dir\/deploy\/scripts\/deploy-all\.sh"/);
@@ -115,4 +119,13 @@ test('production release verifies an immutable bundle and installs validated Ngi
   assert.match(installer, /nginx -t/);
   assert.match(installer, /restore_nginx/);
   assert.match(installer, /systemctl reload nginx/);
+});
+
+test('all frontend HTTPS hosts forward public product uploads to the API instead of the SPA', async () => {
+  const template = await readFile(new URL('../deploy/nginx/templates/lingdian-https.conf.template', import.meta.url), 'utf8');
+  const routes = [...template.matchAll(/location \^~ \/uploads\/products\/\s*\{([^}]+)\}/g)];
+  assert.equal(routes.length, 3);
+  for (const route of routes) assert.match(route[1], /proxy_pass http:\/\/127\.0\.0\.1:__API_PORT__;/);
+  const merchant = await readFile(new URL('../web/vite.config.ts', import.meta.url), 'utf8');
+  assert.match(merchant, /['"]\/uploads\/products['"]:/);
 });

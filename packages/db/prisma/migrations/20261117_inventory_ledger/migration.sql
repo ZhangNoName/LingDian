@@ -1,0 +1,40 @@
+CREATE TABLE `inventory_items` (
+  `id` VARCHAR(191) NOT NULL,
+  `storeId` VARCHAR(191) NOT NULL,
+  `code` VARCHAR(64) NOT NULL,
+  `name` VARCHAR(120) NOT NULL,
+  `unit` VARCHAR(16) NOT NULL,
+  `quantity` INTEGER NOT NULL DEFAULT 0,
+  `reorderPoint` INTEGER NOT NULL DEFAULT 0,
+  `version` INTEGER NOT NULL DEFAULT 0,
+  `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updatedAt` DATETIME(3) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `inventory_items_storeId_code_key` (`storeId`, `code`),
+  UNIQUE INDEX `inventory_items_id_storeId_key` (`id`, `storeId`),
+  INDEX `inventory_items_storeId_updatedAt_idx` (`storeId`, `updatedAt`),
+  CONSTRAINT `inventory_items_storeId_fkey` FOREIGN KEY (`storeId`) REFERENCES `stores` (`id`) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT `inventory_items_nonnegative` CHECK (`quantity` >= 0 AND `reorderPoint` >= 0 AND `version` >= 0)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE TABLE `inventory_movements` (
+  `id` VARCHAR(191) NOT NULL,
+  `storeId` VARCHAR(191) NOT NULL,
+  `itemId` VARCHAR(191) NOT NULL,
+  `requestId` VARCHAR(64) NOT NULL,
+  `kind` VARCHAR(16) NOT NULL,
+  `amount` INTEGER NOT NULL,
+  `quantityBefore` INTEGER NOT NULL,
+  `quantityAfter` INTEGER NOT NULL,
+  `reorderPointBefore` INTEGER NOT NULL,
+  `reorderPointAfter` INTEGER NOT NULL,
+  `versionBefore` INTEGER NOT NULL,
+  `actorId` VARCHAR(191) NOT NULL,
+  `reason` VARCHAR(240) NOT NULL,
+  `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`),
+  UNIQUE INDEX `inventory_movements_storeId_requestId_key` (`storeId`, `requestId`),
+  INDEX `inventory_movements_storeId_itemId_createdAt_idx` (`storeId`, `itemId`, `createdAt`),
+  INDEX `inventory_movements_storeId_createdAt_idx` (`storeId`, `createdAt`),
+  CONSTRAINT `inventory_movements_itemId_storeId_fkey` FOREIGN KEY (`itemId`, `storeId`) REFERENCES `inventory_items` (`id`, `storeId`) ON DELETE RESTRICT ON UPDATE CASCADE
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

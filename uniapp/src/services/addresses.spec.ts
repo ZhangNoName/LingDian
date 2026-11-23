@@ -1,17 +1,28 @@
 import { afterEach, assert, test, vi } from "vitest";
 import { customerAuth } from "./auth";
-import { addresses } from "./addresses";
+import { addresses, formatAddress } from "./addresses";
 
+const manualAddress = {
+  recipientName: "张三", phoneNumber: "13800000000",
+  provinceName: "河南省", cityName: "开封市", countyName: "龙亭区", detailInfo: "示例路6号",
+  streetName: "示例街道", postalCode: "", nationalCode: "",
+};
 const address = {
-  id: "address-1", recipientName: "张三", phoneNumber: "13800000000",
-  provinceName: "北京市", cityName: "北京市", countyName: "西城区", streetName: "太平街", detailInfo: "甲6号",
-  postalCode: "100000", nationalCode: "110102", isDefault: true,
+  ...manualAddress, id: "address-1", isDefault: true,
   createdAt: "2026-08-09T00:00:00.000Z", updatedAt: "2026-08-09T00:00:00.000Z",
 };
 
 afterEach(() => {
   customerAuth.clear();
   vi.restoreAllMocks();
+});
+
+test("address display keeps an existing street and avoids repeating the municipality", () => {
+  assert.equal(formatAddress(address), "河南省开封市龙亭区示例街道示例路6号");
+  assert.equal(formatAddress({ ...address, streetName: "" }), "河南省开封市龙亭区示例路6号");
+  assert.equal(formatAddress({
+    ...address, provinceName: "北京市", cityName: "北京市", countyName: "西城区", streetName: "太平街", detailInfo: "甲6号",
+  }), "北京市西城区太平街甲6号");
 });
 
 test("address client uses authenticated list, create, default, and delete routes", async () => {
@@ -28,7 +39,7 @@ test("address client uses authenticated list, create, default, and delete routes
   Object.assign(uni, { request });
 
   assert.deepEqual(await addresses.list(), [address]);
-  assert.equal((await addresses.create(address)).id, "address-1");
+  assert.equal((await addresses.create(manualAddress)).id, "address-1");
   assert.equal((await addresses.setDefault("address-1")).isDefault, true);
   await addresses.remove("address-1");
 
@@ -39,4 +50,5 @@ test("address client uses authenticated list, create, default, and delete routes
     ["DELETE", "/api/addresses/address-1"],
   ]);
   assert.ok(request.mock.calls.every((call) => call[0].header?.Authorization === "Bearer customer-jwt"));
+  assert.deepEqual(request.mock.calls[1][0].data, manualAddress);
 });

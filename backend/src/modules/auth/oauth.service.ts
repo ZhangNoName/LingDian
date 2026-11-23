@@ -110,6 +110,53 @@ export class OAuthService {
     }
   }
 
+  async miniProgramSession(input: {
+    provider: string;
+    code: string;
+    audience: string;
+    ip?: string;
+    device?: string;
+  }): Promise<SessionTokens> {
+    try {
+      const provider = this.provider(input.provider);
+      this.requireUserAudience(input.audience);
+      const profile = await provider.exchangeMiniProgramCode({ code: input.code });
+      const subject = identitySubject(provider, profile, provider.miniProgramAppId);
+      const identity = await this.prisma.authIdentity.findUnique({
+        where: { provider_subject: { provider: provider.provider, subject } },
+        include: { user: { include: { roles: true } } },
+      });
+      const roles = identity ? activeRoles(identity.user) : [];
+      if (!identity || identity.user.status !== 'ACTIVE' || !roles.includes('USER')) {
+        throw new UnauthorizedException('Mini-program identity is not linked to an active customer.');
+      }
+
+      const tokens = await this.sessions.create(
+        { id: identity.user.id, sessionVersion: identity.user.sessionVersion, roles },
+        'user-api',
+        input.device ?? 'unknown',
+        { ip: input.ip, device: input.device },
+      );
+      await this.audit.record({
+        event: 'OAUTH_MINIAPP_SESSION_SUCCEEDED',
+        userId: identity.user.id,
+        sessionId: tokens.user.sessionId,
+        ip: input.ip,
+        device: input.device,
+        metadata: { provider: provider.provider },
+      });
+      return tokens;
+    } catch (error) {
+      await this.audit.record({
+        event: 'OAUTH_MINIAPP_SESSION_REJECTED',
+        ip: input.ip,
+        device: input.device,
+        metadata: { provider: input.provider },
+      });
+      throw error;
+    }
+  }
+
   async miniProgramPhoneLogin(input: {
     loginCode: string;
     phoneCode: string;
@@ -130,9 +177,7 @@ export class OAuthService {
         provider.exchangeMiniProgramPhoneCode({ code: input.phoneCode }),
       ]);
       const phoneE164 = normalizeChinesePhone(phoneProfile.phoneNumber);
-      const subject = wechatProfile.unionId
-        ? wechatProfile.unionId
-        : `${provider.miniProgramAppId}:${wechatProfile.openId}`;
+      const subject = identitySubject(provider, wechatProfile, provider.miniProgramAppId);
 
       return await this.transactionWithRetry(async (tx) => {
         const phoneIdentity = await tx.authIdentity.findUnique({
@@ -188,7 +233,7 @@ export class OAuthService {
             privacyPolicyVersion: input.legalConsent.privacyPolicyVersion,
           },
         }, tx);
-        return tokens;
+        return phoneIdentity ? tokens : { ...tokens, isNewUser: true };
       });
     } catch (error) {
       await this.audit.record({
@@ -206,7 +251,7 @@ export class OAuthService {
       const phoneE164 = normalizeChinesePhone(input.phone);
       return await this.transactionWithRetry(async (tx) => {
         await this.verification.consume({ purpose: 'PHONE_LINK', phone: input.phone, code: input.code }, tx);
-        const resolvedUser = await this.consumePendingIntoPhoneUser(tx, input.pendingOauthId, phoneE164);
+        const { user: resolvedUser, isNewUser } = await this.consumePendingIntoPhoneUser(tx, input.pendingOauthId, phoneE164);
         if (resolvedUser.status !== 'ACTIVE') throw new UnauthorizedException('User is inactive.');
         await this.legalConsent.record(
           resolvedUser.id,
@@ -237,7 +282,7 @@ export class OAuthService {
             privacyPolicyVersion: input.legalConsent.privacyPolicyVersion,
           },
         }, tx);
-        return tokens;
+        return isNewUser ? { ...tokens, isNewUser: true } : tokens;
       });
     } catch (error) {
       await this.audit.record({ event: 'OAUTH_PHONE_LINK_REJECTED' });
@@ -301,9 +346,11 @@ export class OAuthService {
     }
   }
 
-  private async consumePendingIntoPhoneUser(tx: Prisma.TransactionClient, pendingOauthId: string, phoneE164: string): Promise<OAuthUser> {
+  private async consumePendingIntoPhoneUser(
+    tx: Prisma.TransactionClient, pendingOauthId: string, phoneE164: string,
+  ): Promise<{ user: OAuthUser; isNewUser: boolean }> {
     const pending = await this.claimPending(tx, pendingOauthId);
-    let phoneIdentity = await tx.authIdentity.findUnique({
+    const phoneIdentity = await tx.authIdentity.findUnique({
       where: { provider_subject: { provider: 'PHONE', subject: phoneE164 } },
       include: { user: { include: { roles: true } } },
     });
@@ -313,11 +360,11 @@ export class OAuthService {
         include: { roles: true },
       });
       await this.linkIdentityInTransaction(tx, { userId: user.id, provider: pending.provider, subject: pending.subject });
-      return user;
+      return { user, isNewUser: true };
     }
     if (phoneIdentity.user.status !== 'ACTIVE') throw new UnauthorizedException('User is inactive.');
     await this.linkIdentityInTransaction(tx, { userId: phoneIdentity.userId, provider: pending.provider, subject: pending.subject });
-    return phoneIdentity.user;
+    return { user: phoneIdentity.user, isNewUser: false };
   }
 
   private async claimPending(tx: Prisma.TransactionClient, pendingOauthId: string, expectedProvider?: 'WECHAT' | 'QQ'): Promise<PendingIdentity> {
@@ -379,9 +426,7 @@ export class OAuthService {
     now: Date,
     subjectAppId = provider.appId,
   ) {
-    const subject = provider.provider === 'WECHAT' && profile.unionId
-      ? profile.unionId
-      : `${subjectAppId}:${profile.openId}`;
+    const subject = identitySubject(provider, profile, subjectAppId);
     return this.prisma.pendingOAuth.create({
       data: {
         provider: provider.provider,
@@ -405,6 +450,16 @@ export class OAuthService {
     const body = Buffer.concat([cipher.update(JSON.stringify(metadata), 'utf8'), cipher.final()]);
     return `${iv.toString('base64url')}.${cipher.getAuthTag().toString('base64url')}.${body.toString('base64url')}`;
   }
+}
+
+function identitySubject(
+  provider: OAuthProvider,
+  profile: { openId: string; unionId?: string },
+  subjectAppId: string,
+): string {
+  return provider.provider === 'WECHAT' && profile.unionId
+    ? profile.unionId
+    : `${subjectAppId}:${profile.openId}`;
 }
 
 function isPrismaUniqueConflict(error: unknown): boolean {

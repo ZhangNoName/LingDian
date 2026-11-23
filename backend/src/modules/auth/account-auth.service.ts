@@ -2,7 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, UnauthorizedExcept
 import type { AccountLoginRequest, AuthenticatedUser, PasswordResetRequest } from '@lingdian/contracts';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditContext, AuditService } from './audit.service';
-import { AuthRequestContext } from './auth.service';
+import type { AuthRequestContext } from './auth-request-context';
 import { PasswordService } from './password.service';
 import { SessionService, SessionTokens } from './session.service';
 import { VerificationService } from './verification.service';

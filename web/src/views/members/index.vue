@@ -1,26 +1,24 @@
 ﻿<template>
   <div class="grid gap-5">
     <div class="grid gap-4 md:grid-cols-2">
-      <Card class="rounded-lg border-border/80">
+      <Card class="border-border/80">
         <CardContent class="p-5">
           <p class="text-sm text-muted-foreground">会员总量</p>
           <p class="mt-3 text-2xl font-semibold text-foreground">42,680</p>
           <p class="mt-2 text-xs text-muted-foreground">本月新增 2,146</p>
         </CardContent>
       </Card>
-      <Card class="rounded-lg border-border/80">
+      <Card class="border-border/80">
         <CardContent class="p-5">
           <p class="text-sm text-muted-foreground">本月复购率</p>
           <p class="mt-3 text-2xl font-semibold text-foreground">31.5%</p>
-          <p class="mt-2 text-xs text-muted-foreground">会员贡献持续提升</p>
         </CardContent>
       </Card>
     </div>
 
-    <Card class="rounded-lg border-border/80">
+    <Card class="border-border/80">
       <CardHeader>
         <CardTitle class="text-xl">推荐页面</CardTitle>
-        <CardDescription class="mt-1 leading-6">用户与会员模块建议拆成以下独立页面。</CardDescription>
       </CardHeader>
       <CardContent>
         <div class="flex flex-wrap gap-2">
@@ -37,6 +35,6 @@
 </template>
 
 <script setup lang="ts">
-import { Badge } from '@/baseComponents/badge'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/baseComponents/card'
+import { Badge } from '@lingdian/console-ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@lingdian/console-ui/card'
 </script>

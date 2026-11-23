@@ -1,83 +1,115 @@
 <template>
-  <Layout :show-tab-bar="false">
-    <view class="page">
-      <AppNavBar title="收货地址" show-back @back="goBack" />
-
-      <view v-if="loading" class="state-card"><text>正在加载地址…</text></view>
-      <view v-else-if="addressList.length === 0" class="state-card empty-card">
-        <text class="state-title">还没有收货地址</text>
-        <text class="state-hint">从微信选择已有地址，配送下单时可以直接使用。</text>
-      </view>
-
-      <view v-else class="address-list">
-        <view v-for="item in addressList" :key="item.id" class="address-card">
-          <view class="address-heading">
-            <view class="recipient-row">
-              <text class="recipient">{{ item.recipientName }}</text>
-              <text class="phone">{{ item.phoneNumber }}</text>
+  <Layout :show-tab-bar="false" :scroll-into-view="creating ? 'address-form' : 'address-list'">
+    <template #header>
+      <AppNavBar :title="title" show-back @back="goBack" />
+    </template>
+    <view :id="creating ? 'address-form' : 'address-list'" class="address-content" :class="{ 'address-form-content': creating }">
+      <AddressForm v-if="creating" :saving="saving" :error="saveError" @save="saveAddress" />
+      <template v-else>
+        <view v-if="loading" class="state-card"><text>正在加载地址…</text></view>
+        <view v-else-if="loadError" class="state-card empty-card">
+          <text class="state-title">{{ loadError }}</text>
+          <AppActionButton size="small" variant="outline" @activate="loadAddresses">重试</AppActionButton>
+        </view>
+        <view v-else-if="addressList.length === 0" class="state-card empty-card">
+          <text class="state-title">还没有收货地址</text>
+        </view>
+        <view v-if="!loading && addressList.length" class="address-list">
+          <view v-for="item in addressList" :key="item.id" class="address-card">
+            <view class="address-heading">
+              <view class="recipient-row">
+                <text class="recipient">{{ item.recipientName }}</text>
+                <text class="phone">{{ item.phoneNumber }}</text>
+              </view>
+              <text v-if="item.isDefault" class="default-badge">默认</text>
             </view>
-            <text v-if="item.isDefault" class="default-badge">默认</text>
-          </view>
-          <text class="address-text">{{ formatAddress(item) }}</text>
-          <view class="address-actions">
-            <button v-if="!item.isDefault" class="action-button" :disabled="busyId === item.id" @tap="setDefault(item.id)">设为默认</button>
-            <button class="action-button danger" :disabled="busyId === item.id" @tap="removeAddress(item.id)">删除</button>
+            <text class="address-text">{{ formatAddress(item) }}</text>
+            <view class="address-actions">
+              <AppActionButton v-if="selecting" @activate="selectAddress(item.id)">使用此地址</AppActionButton>
+              <template v-else>
+                <AppActionButton v-if="!item.isDefault" size="small" variant="outline" :disabled="!!busyId" @activate="setDefault(item.id)">设为默认</AppActionButton>
+                <AppActionButton size="small" variant="danger" :disabled="!!busyId" @activate="removeAddress(item.id)">删除</AppActionButton>
+              </template>
+            </view>
           </view>
         </view>
-      </view>
 
-      <view class="bottom-action">
-        <button v-if="wechatImportSupported" class="import-button" :loading="importing" :disabled="importing" @tap="importFromWechat">从微信导入地址</button>
-        <text v-else class="unsupported-hint">当前平台不支持微信地址导入</text>
-      </view>
+      </template>
     </view>
+    <template #footer>
+      <view v-if="!creating" class="bottom-action">
+        <AppActionButton size="large" :disabled="loading || !!busyId" @activate="startCreating">新建收货地址</AppActionButton>
+      </view>
+    </template>
   </Layout>
 </template>
 
 <script setup lang="ts">
-import type { UserAddress } from "@lingdian/contracts";
-import { onShow } from "@dcloudio/uni-app";
+import AppActionButton from "@/components/app/AppActionButton.vue";
+import type { CreateUserAddressRequest, UserAddress } from "@lingdian/contracts";
+import { onLoad, onShow } from "@dcloudio/uni-app";
 import { computed, ref } from "vue";
 import AppNavBar from "@/components/app/AppNavBar.vue";
+import AddressForm from "@/components/address/AddressForm.vue";
 import Layout from "@/layout/layout.vue";
-import { addresses } from "@/services/addresses";
-import { requireCustomerAuth } from "@/services/auth-navigation";
-import { chooseWechatAddress } from "@/services/wechat-capabilities";
+import { addresses, formatAddress } from "@/services/addresses";
+import { navigateBackOrRedirect, requireCustomerAuth } from "@/services/auth-navigation";
 
 const addressList = ref<UserAddress[]>([]);
 const loading = ref(true);
-const importing = ref(false);
+const selecting = ref(false);
+const loadError = ref("");
+const creating = ref(false);
+const saving = ref(false);
+const saveError = ref("");
 const busyId = ref("");
-const wechatImportSupported = computed(() => typeof uni.chooseAddress === "function");
+const title = computed(() => creating.value ? "新建收货地址" : selecting.value ? "选择收货地址" : "收货地址");
+
+onLoad((query) => { selecting.value = query?.select === "1"; });
 
 onShow(async () => {
-  if (!(await requireCustomerAuth("/pages/address/address"))) return;
+  if (!(await requireCustomerAuth())) return;
   await loadAddresses();
 });
 
 async function loadAddresses() {
   loading.value = true;
+  loadError.value = "";
   try {
     addressList.value = await addresses.list();
   } catch (error) {
-    uni.showToast({ title: error instanceof Error ? error.message : "地址加载失败", icon: "none" });
+    loadError.value = error instanceof Error ? error.message : "地址加载失败";
   } finally {
     loading.value = false;
   }
 }
 
-async function importFromWechat() {
-  importing.value = true;
+function selectAddress(id: string) {
+  const pages = getCurrentPages();
+  const page = pages[pages.length - 1] as { getOpenerEventChannel?: () => { emit: (name: string, value: string) => void } };
+  page?.getOpenerEventChannel?.()?.emit("addressSelected", id);
+  goBack();
+}
+
+function startCreating() {
+  saveError.value = "";
+  creating.value = true;
+}
+
+async function saveAddress(address: CreateUserAddressRequest) {
+  if (saving.value) return;
+  saving.value = true;
+  saveError.value = "";
   try {
-    const selected = await chooseWechatAddress();
-    if (selected.status === "cancelled") return;
-    await addresses.create(selected.address);
-    await loadAddresses();
-    uni.showToast({ title: "地址已导入", icon: "success" });
+    const saved = await addresses.create(address);
+    addressList.value = [saved, ...addressList.value.filter(({ id }) => id !== saved.id)]
+      .sort((left, right) => Number(right.isDefault) - Number(left.isDefault));
+    creating.value = false;
+    uni.showToast({ title: "地址已保存", icon: "success" });
   } catch (error) {
-    uni.showToast({ title: error instanceof Error ? error.message : "地址导入失败", icon: "none" });
+    saveError.value = error instanceof Error ? error.message : "地址保存失败，请重试";
   } finally {
-    importing.value = false;
+    saving.value = false;
   }
 }
 
@@ -120,20 +152,23 @@ function confirmDelete(): Promise<boolean> {
   });
 }
 
-function formatAddress(address: UserAddress): string {
-  return `${address.provinceName}${address.cityName}${address.countyName}${address.streetName}${address.detailInfo}`;
-}
-
 function goBack() {
-  uni.navigateBack();
+  if (saving.value) return;
+  if (creating.value) {
+    creating.value = false;
+    return;
+  }
+  navigateBackOrRedirect("/pages/user/user");
 }
 </script>
 
 <style scoped>
-.page {
-  min-height: 100vh;
-  padding-bottom: calc(132rpx + env(safe-area-inset-bottom));
-  background: var(--ld-mini-bg);
+.address-content {
+  padding: var(--ld-page-padding, 24rpx) 0 12rpx;
+}
+
+.address-form-content {
+  padding-bottom: var(--ld-page-bottom-safe);
 }
 
 .state-card,
@@ -146,26 +181,18 @@ function goBack() {
 }
 
 .empty-card {
+  display: grid;
+  justify-items: center;
+  gap: 12rpx;
   padding: 72rpx 32rpx;
   text-align: center;
 }
 
-.state-title,
-.state-hint {
-  display: block;
-}
-
 .state-title {
+  display: block;
   color: var(--ld-mini-text);
   font-size: 30rpx;
   font-weight: 900;
-}
-
-.state-hint {
-  margin-top: 14rpx;
-  color: #777777;
-  font-size: 24rpx;
-  line-height: 1.5;
 }
 
 .address-heading,
@@ -182,6 +209,8 @@ function goBack() {
 
 .recipient-row {
   gap: 18rpx;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .recipient {
@@ -220,52 +249,10 @@ function goBack() {
   border-top: 1rpx solid #eeeeee;
 }
 
-.action-button {
-  height: 56rpx;
-  margin: 0;
-  padding: 0 20rpx;
-  border-radius: 28rpx;
-  background: #f4f4f4;
-  color: #444444;
-  font-size: 22rpx;
-  line-height: 56rpx;
-}
-
-.action-button.danger {
-  color: #c62828;
-}
-
-.action-button::after,
-.import-button::after {
-  border: 0;
-}
-
 .bottom-action {
-  position: fixed;
-  right: 0;
-  bottom: 0;
-  left: 0;
   padding: 18rpx var(--ld-page-padding, 24rpx) calc(18rpx + env(safe-area-inset-bottom));
   background: #ffffff;
-  box-shadow: 0 -8rpx 24rpx rgba(0, 0, 0, 0.06);
+  border-top: var(--ld-card-border);
 }
 
-.import-button {
-  width: 100%;
-  height: 84rpx;
-  margin: 0;
-  border-radius: 42rpx;
-  background: #07c160;
-  color: #ffffff;
-  font-size: 28rpx;
-  font-weight: 900;
-  line-height: 84rpx;
-}
-
-.unsupported-hint {
-  display: block;
-  color: #777777;
-  font-size: 24rpx;
-  text-align: center;
-}
 </style>

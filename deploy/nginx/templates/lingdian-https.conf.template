@@ -29,6 +29,7 @@ server {
 
     location ~* ^/api/metrics(?:/|$) { return 404; }
     location /api/ { proxy_pass http://127.0.0.1:__API_PORT__; include /etc/nginx/snippets/lingdian-proxy.conf; }
+    location ^~ /uploads/products/ { proxy_pass http://127.0.0.1:__API_PORT__; include /etc/nginx/snippets/lingdian-proxy.conf; }
     location / { proxy_pass http://127.0.0.1:__APP_PORT__; include /etc/nginx/snippets/lingdian-proxy.conf; }
 }
 
@@ -44,6 +45,7 @@ server {
 
     location ~* ^/api/metrics(?:/|$) { return 404; }
     location /api/ { proxy_pass http://127.0.0.1:__API_PORT__; include /etc/nginx/snippets/lingdian-proxy.conf; }
+    location ^~ /uploads/products/ { proxy_pass http://127.0.0.1:__API_PORT__; include /etc/nginx/snippets/lingdian-proxy.conf; }
     location / { proxy_pass http://127.0.0.1:__MERCHANT_PORT__; include /etc/nginx/snippets/lingdian-proxy.conf; }
 }
 
@@ -59,6 +61,7 @@ server {
 
     location ~* ^/api/metrics(?:/|$) { return 404; }
     location /api/ { proxy_pass http://127.0.0.1:__API_PORT__; include /etc/nginx/snippets/lingdian-proxy.conf; }
+    location ^~ /uploads/products/ { proxy_pass http://127.0.0.1:__API_PORT__; include /etc/nginx/snippets/lingdian-proxy.conf; }
     location / { proxy_pass http://127.0.0.1:__ADMIN_PORT__; include /etc/nginx/snippets/lingdian-proxy.conf; }
 }
 

@@ -1,4 +1,4 @@
-import { afterEach, assert, test, vi } from "vitest";
+import { afterEach, assert, expect, test, vi } from "vitest";
 import { fetchMenu, invalidateMenuCache } from "./catalog";
 
 const menu = {
@@ -38,6 +38,38 @@ test("coalesces concurrent menu requests and reuses the fresh menu cache", async
   assert.equal(first.products[0].name, "拿铁");
 });
 
+test("restores a recent menu after restart and shares the refresh request", async () => {
+  const openedAt = 1_800_000_000_000;
+  const clock = vi.spyOn(Date, "now").mockReturnValue(openedAt);
+  const updatedMenu = { ...menu, store: { ...menu.store, name: "更新后的门店" } };
+  const request = vi.fn((options: UniApp.RequestOptions) => {
+    const data = request.mock.calls.length === 1 ? menu : updatedMenu;
+    options.success?.({ statusCode: 200, data: { code: 0, data } } as unknown as UniApp.RequestSuccessCallbackResult);
+    return { abort() {} } as UniApp.RequestTask;
+  });
+  Object.assign(uni, { request });
+  await fetchMenu();
+
+  vi.resetModules();
+  const restarted = await import("./catalog");
+  assert.equal(restarted.peekMenu()?.store.name, menu.store.name);
+  assert.equal(request.mock.calls.length, 1);
+  const [preloaded, page, product] = await Promise.all([
+    restarted.fetchMenu(),
+    restarted.fetchMenu(),
+    restarted.getProductDetail("product-1"),
+  ]);
+  assert.equal(preloaded, page);
+  assert.equal(page.store.name, "更新后的门店");
+  assert.equal(product, page.productDetails["product-1"]);
+  assert.equal(request.mock.calls.length, 2);
+
+  clock.mockReturnValue(openedAt + 16 * 60 * 1000);
+  vi.resetModules();
+  const expired = await import("./catalog");
+  assert.equal(expired.peekMenu(), null);
+});
+
 test("force refresh bypasses a fresh menu cache", async () => {
   const request = vi.fn((options: UniApp.RequestOptions) => {
     options.success?.({ statusCode: 200, data: { code: 0, data: menu } } as unknown as UniApp.RequestSuccessCallbackResult);
@@ -48,5 +80,131 @@ test("force refresh bypasses a fresh menu cache", async () => {
   await fetchMenu();
   await fetchMenu({ force: true });
 
+  assert.equal(request.mock.calls.length, 2);
+});
+
+test("a failed forced refresh cannot confirm checkout using a cached open store", async () => {
+  const request = vi.fn((options: UniApp.RequestOptions) => {
+    if (request.mock.calls.length === 1) {
+      options.success?.({ statusCode: 200, data: { code: 0, data: menu } } as unknown as UniApp.RequestSuccessCallbackResult);
+    } else {
+      options.fail?.({ errMsg: "request:fail timeout" });
+    }
+    return { abort() {} } as UniApp.RequestTask;
+  });
+  Object.assign(uni, { request });
+
+  await fetchMenu();
+  await expect(fetchMenu({ force: true })).rejects.toThrow();
+});
+
+test("maps store fulfilment flags instead of advertising unavailable modes", async () => {
+  const request = vi.fn((options: UniApp.RequestOptions) => {
+    options.success?.({
+      statusCode: 200,
+      data: {
+        code: 0,
+        data: {
+          ...menu,
+          store: {
+            ...menu.store,
+            dineInEnabled: false,
+            pickupEnabled: true,
+            takeoutEnabled: true,
+          },
+        },
+      },
+    } as unknown as UniApp.RequestSuccessCallbackResult);
+    return { abort() {} } as UniApp.RequestTask;
+  });
+  Object.assign(uni, { request });
+
+  const result = await fetchMenu();
+
+  assert.deepEqual(result.store.supportModes, ["takeaway", "delivery"]);
+});
+
+test("exposes only product and selected-variant option groups", async () => {
+  const product = menu.categories[0].products[0];
+  const group = (id: string) => ({
+    binding_id: `binding-${id}`,
+    scope: "PRODUCT" as const,
+    target_variant_id: null,
+    sort_order: 0,
+    is_enabled: true,
+    group: {
+      id,
+      name: id,
+      group_type: "MODIFIER" as const,
+      selection_mode: "SINGLE" as const,
+      min_select: 0,
+      max_select: 1,
+      is_required: false,
+      is_active: true,
+      sort_order: 0,
+      description: null,
+      options: [],
+    },
+  });
+  const currentVariant = { ...group("current"), scope: "VARIANT" as const, target_variant_id: "sku-1" };
+  const otherVariant = { ...group("other"), scope: "VARIANT" as const, target_variant_id: "sku-2" };
+  const disabled = { ...group("disabled"), is_enabled: false };
+  const request = vi.fn((options: UniApp.RequestOptions) => {
+    options.success?.({
+      statusCode: 200,
+      data: {
+        code: 0,
+        data: {
+          ...menu,
+          categories: [{
+            ...menu.categories[0],
+            products: [{
+              ...product,
+              skus: [
+                ...product.skus,
+                { ...product.skus[0], id: "sku-2", is_default: false },
+              ],
+              selection_groups: [group("product"), currentVariant, otherVariant, disabled],
+            }],
+          }],
+        },
+      },
+    } as unknown as UniApp.RequestSuccessCallbackResult);
+    return { abort() {} } as UniApp.RequestTask;
+  });
+  Object.assign(uni, { request });
+
+  const result = await fetchMenu();
+
+  assert.deepEqual(result.productDetails["product-1"].optionGroups.map((item) => item.id), ["product", "current"]);
+  assert.deepEqual(
+    result.productDetails["product-1"].variants?.find((variant) => variant.id === "sku-2")?.optionGroups.map((item) => item.id),
+    ["product", "other"],
+  );
+});
+
+test("does not let an older request overwrite a newer forced refresh", async () => {
+  const successes: Array<NonNullable<UniApp.RequestOptions["success"]>> = [];
+  const request = vi.fn((options: UniApp.RequestOptions) => {
+    if (options.success) successes.push(options.success);
+    return { abort() {} } as UniApp.RequestTask;
+  });
+  Object.assign(uni, { request });
+
+  const olderRequest = fetchMenu();
+  const newerRequest = fetchMenu({ force: true });
+  successes[1]({
+    statusCode: 200,
+    data: { code: 0, data: { ...menu, store: { ...menu.store, name: "新菜单" } } },
+  } as unknown as UniApp.RequestSuccessCallbackResult);
+  assert.equal((await newerRequest).store.name, "新菜单");
+
+  successes[0]({
+    statusCode: 200,
+    data: { code: 0, data: { ...menu, store: { ...menu.store, name: "旧菜单" } } },
+  } as unknown as UniApp.RequestSuccessCallbackResult);
+  assert.equal((await olderRequest).store.name, "旧菜单");
+
+  assert.equal((await fetchMenu()).store.name, "新菜单");
   assert.equal(request.mock.calls.length, 2);
 });

@@ -1,8 +1,10 @@
 <template>
-  <Layout active="orders">
-    <view class="page">
+  <Layout active="orders" :scroll-into-view="'orders-' + activeTab">
+    <template #header>
       <AppNavBar title="订单" show-back @back="goHome" />
       <OrderStatusTabs :active="activeTab" @change="activeTab = $event" />
+    </template>
+    <view :id="'orders-' + activeTab" class="orders-content">
       <OrderHistoryCard
         v-for="order in filteredOrders"
         :key="order.id"
@@ -13,16 +15,16 @@
       <button v-if="hasMore" class="load-more" :loading="loadingMore" @tap="loadMore">
         {{ loadingMore ? "加载中…" : "加载更多" }}
       </button>
-      <view v-if="filteredOrders.length === 0 && !hasMore" class="empty">
+      <view v-if="!loadingMore && filteredOrders.length === 0 && !hasMore" class="empty">
         <text class="empty-title">{{ activeTab === "current" ? "暂无当前订单" : "暂无历史订单" }}</text>
-        <text class="empty-copy">挑选喜欢的餐品，下单后可在这里查看进度</text>
-        <button class="empty-action" role="button" tabindex="0" @keydown.enter="goMenu" @tap="goMenu">去点餐</button>
+        <AppActionButton @activate="goMenu">去点餐</AppActionButton>
       </view>
     </view>
   </Layout>
 </template>
 
 <script setup lang="ts">
+import AppActionButton from "@/components/app/AppActionButton.vue";
 import { computed, ref } from "vue";
 import { onShow } from "@dcloudio/uni-app";
 import AppNavBar from "@/components/app/AppNavBar.vue";
@@ -39,8 +41,9 @@ const page = ref(1);
 const total = ref(0);
 const loadingMore = ref(false);
 const pageSize = 20;
-const historyStatuses = new Set(["finished", "cancelled", "refunded"]);
-const hasMore = computed(() => orders.value.length < total.value);
+const historyStatuses = new Set(["finished", "cancelled", "failed", "timedOut", "refunded"]);
+const hasMore = computed(() => page.value * pageSize < total.value);
+let generation = 0;
 
 const filteredOrders = computed(() => {
   return orders.value.filter((order) => {
@@ -50,30 +53,39 @@ const filteredOrders = computed(() => {
 });
 
 onShow(async () => {
-  if (!(await requireCustomerAuth("/pages/his/his"))) return;
+  const current = ++generation;
+  loadingMore.value = true;
   try {
+    if (!(await requireCustomerAuth()) || current !== generation) return;
     const result = await fetchOrders(1, pageSize);
+    if (current !== generation) return;
     orders.value = result.items;
     page.value = result.page;
     total.value = result.total;
   } catch (error) {
+    if (current !== generation) return;
     uni.showToast({ title: error instanceof Error ? error.message : "订单加载失败", icon: "none" });
+  } finally {
+    if (current === generation) loadingMore.value = false;
   }
 });
 
 async function loadMore() {
   if (loadingMore.value || !hasMore.value) return;
+  const current = generation;
   loadingMore.value = true;
   try {
     const result = await fetchOrders(page.value + 1, pageSize);
+    if (current !== generation) return;
     const existingIds = new Set(orders.value.map((order) => order.id));
     orders.value.push(...result.items.filter((order) => !existingIds.has(order.id)));
     page.value = result.page;
     total.value = result.total;
   } catch (error) {
+    if (current !== generation) return;
     uni.showToast({ title: error instanceof Error ? error.message : "订单加载失败", icon: "none" });
   } finally {
-    loadingMore.value = false;
+    if (current === generation) loadingMore.value = false;
   }
 }
 
@@ -91,14 +103,16 @@ function goDetail(orderId: string) {
 </script>
 
 <style scoped>
-.page {
-  min-height: 100%;
-  background: #f3f3f3;
+.orders-content {
+  display: flow-root;
+  padding-bottom: 12rpx;
 }
 
 .empty {
   display: grid;
-  place-items: center;
+  align-content: center;
+  justify-items: center;
+  gap: 20rpx;
   min-height: 320rpx;
   padding: 32rpx;
   text-align: center;
@@ -108,28 +122,6 @@ function goDetail(orderId: string) {
   color: var(--ld-mini-text);
   font-size: 28rpx;
   font-weight: 800;
-}
-
-.empty-copy {
-  margin-top: 12rpx;
-  color: #666666;
-  font-size: 24rpx;
-}
-
-.empty-action {
-  height: 68rpx;
-  margin-top: 28rpx;
-  padding: 0 34rpx;
-  border-radius: 999rpx;
-  background: var(--ld-mini-primary);
-  color: #ffffff;
-  font-size: 26rpx;
-  font-weight: 800;
-  line-height: 68rpx;
-}
-
-.empty-action::after {
-  border: 0;
 }
 
 .load-more {

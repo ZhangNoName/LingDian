@@ -13,24 +13,20 @@ export function createClientLogReporter(
   source: ClientLogSource,
   send: (event: ClientLogEvent) => Promise<void> | void,
 ): ClientLogReporter {
-  let sending = false;
-
   return {
     report(error, event = 'CLIENT_ERROR', details = {}) {
-      if (sending) return;
-      sending = true;
-      void Promise.resolve(send({
-        source,
-        level: 'ERROR',
-        event,
-        message: error instanceof Error ? error.message : String(error),
-        details: {
-          ...details,
-          ...(typeof location === 'undefined' ? {} : { path: location.pathname }),
-        },
-      })).catch(() => undefined).finally(() => {
-        sending = false;
-      });
+      void Promise.resolve()
+        .then(() => send({
+          source,
+          level: 'ERROR',
+          event,
+          message: error instanceof Error ? error.message : String(error),
+          details: {
+            ...details,
+            ...(typeof location === 'undefined' ? {} : { path: location.pathname }),
+          },
+        }))
+        .catch(() => undefined);
     },
   };
 }

@@ -1,6 +1,7 @@
 import type { ProductRecordContract } from '@lingdian/contracts';
 
 type ProductRecord = {
+  configurationVersion?: number;
   id: string;
   storeId: string;
   name: string;
@@ -146,6 +147,7 @@ export function mapProductRecord(product: ProductRecord): ProductRecordContract 
 
   return {
     id: product.id,
+    configuration_version: product.configurationVersion ?? 0,
     store_id: product.storeId,
     name: product.name,
     description: product.description,

@@ -2,14 +2,10 @@
   <view class="card">
     <view class="store-row">
       <text class="store">{{ detail.storeName }}</text>
-      <view class="actions">
-        <PhoneIcon class="action-icon" />
-        <MessageIcon class="action-icon" />
-      </view>
     </view>
 
-    <view v-for="item in detail.items" :key="item.id" class="item">
-      <image class="image" :src="item.imageUrl" mode="aspectFill" />
+    <view v-for="item in detail.items" :key="item.id" class="item" :class="{ 'with-image': item.imageUrl }">
+      <image v-if="item.imageUrl" class="image" :src="item.imageUrl" mode="aspectFit" />
       <view class="info">
         <text class="name">{{ item.name }}</text>
         <text v-if="item.tag" class="tag">{{ item.tag }}</text>
@@ -17,28 +13,27 @@
       </view>
       <view class="amount">
         <text class="qty">{{ item.quantity }}份</text>
-        <text class="price">¥{{ formatAmount(item.price) }}</text>
+        <text class="price">¥{{ formatAmount(item.subtotal) }}</text>
       </view>
     </view>
 
     <view class="divider" />
-    <view class="amount-row"><text>商品总价</text><text>¥{{ formatAmount(detail.goodsAmount) }}</text></view>
-    <view class="amount-row"><text>{{ detail.discountTitle }}</text><text>- ¥{{ formatAmount(detail.discountAmount) }}</text></view>
-    <view class="total-row"><text>共{{ detail.itemCount }}件商品，合计：</text><strong>¥{{ formatAmount(detail.totalAmount) }}</strong></view>
+    <view v-if="detail.discountAmount > 0 || formatAmount(detail.goodsAmount) !== formatAmount(detail.totalAmount)" class="amount-row">
+      <text>商品总价</text><text>¥{{ formatAmount(detail.goodsAmount) }}</text>
+    </view>
+    <view v-if="detail.discountAmount > 0" class="amount-row"><text>{{ detail.discountTitle }}</text><text>- ¥{{ formatAmount(detail.discountAmount) }}</text></view>
+    <view class="total-row"><text>共{{ detail.itemCount }}件 · 合计</text><text class="total-price">¥{{ formatAmount(detail.totalAmount) }}</text></view>
   </view>
 </template>
 
 <script setup lang="ts">
-import { MessageIcon, PhoneIcon } from "@lingdian/icons/miniapp";
+import { formatAmount } from "@/utils/money";
 import type { OrderDetail } from "@/types/order";
 
 defineProps<{
   detail: OrderDetail;
 }>();
 
-function formatAmount(value: number) {
-  return Number.isInteger(value) ? String(value) : value.toFixed(1);
-}
 </script>
 
 <style scoped>
@@ -60,28 +55,18 @@ function formatAmount(value: number) {
 .store {
   color: var(--ld-mini-text);
   font-size: var(--ld-font-title, 32rpx);
-  font-weight: 900;
-}
-
-.actions {
-  display: flex;
-  gap: 22rpx;
-  color: #b7b7b7;
-}
-
-.action-icon {
-  display: block;
-  width: 32rpx;
-  height: 32rpx;
-  font-size: 32rpx;
-  line-height: 32rpx;
+  font-weight: 750;
 }
 
 .item {
   display: grid;
-  grid-template-columns: 112rpx 1fr 96rpx;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: var(--ld-card-gap, 20rpx);
   padding: 24rpx 0 10rpx;
+}
+
+.with-image {
+  grid-template-columns: 104rpx minmax(0, 1fr) auto;
 }
 
 .image {
@@ -111,7 +96,7 @@ function formatAmount(value: number) {
 
 .spec {
   margin-top: 8rpx;
-  color: #777777;
+  color: var(--ld-mini-text-muted);
   font-size: var(--ld-font-sm, 24rpx);
 }
 
@@ -121,16 +106,17 @@ function formatAmount(value: number) {
 
 .qty {
   display: block;
-  color: #999999;
+  color: var(--ld-mini-text-muted);
   font-size: var(--ld-font-sm, 24rpx);
 }
 
 .price {
   display: block;
-  margin-top: 22rpx;
+  margin-top: 8rpx;
   color: var(--ld-mini-text);
-  font-size: var(--ld-font-title, 32rpx);
-  font-weight: 900;
+  font-size: var(--ld-font-md);
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .divider {
@@ -150,12 +136,15 @@ function formatAmount(value: number) {
   justify-content: flex-end;
   gap: 12rpx;
   min-height: 68rpx;
-  color: #999999;
+  color: var(--ld-mini-text-muted);
   font-size: var(--ld-font-sm, 24rpx);
 }
 
-.total-row strong {
-  color: var(--ld-mini-text);
+.total-price {
+  color: var(--ld-mini-primary-pressed);
   font-size: var(--ld-font-price, 36rpx);
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 </style>

@@ -40,7 +40,7 @@ test('accepts a complete production configuration', () => {
   assert.equal(validateEnv(productionEnv()).NODE_ENV, 'production');
 });
 
-test('requires an explicit single-store runtime configuration in production', () => {
+test('requires an explicit valid store runtime configuration in production', () => {
   assert.throws(
     () => validateEnv(productionEnv({ STORE_MODE: undefined })),
     /STORE_MODE is required in production/,
@@ -50,8 +50,8 @@ test('requires an explicit single-store runtime configuration in production', ()
     /PRIMARY_STORE_ID is required outside test/,
   );
   assert.throws(
-    () => validateEnv(productionEnv({ STORE_MODE: 'multi' })),
-    /multi-store runtime is not enabled/i,
+    () => validateEnv(productionEnv({ STORE_MODE: 'unknown' })),
+    /STORE_MODE must be single or multi/i,
   );
 });
 
@@ -271,3 +271,11 @@ function productionEnv(overrides: Record<string, string | undefined> = {}) {
     ...overrides,
   };
 }
+
+test('multi-store mode allows explicitly provisioned merchant scopes beyond the default store', () => {
+  assert.equal(validateEnv(productionEnv({ STORE_MODE: 'multi' })).STORE_MODE, 'multi');
+  assert.equal(validateEnv({ NODE_ENV: 'test', STORE_MODE: 'multi', PRIMARY_STORE_ID: 'store-a',
+    AUTH_BOOTSTRAP_MERCHANT_USERNAME: 'operator', AUTH_BOOTSTRAP_MERCHANT_PASSWORD: 'a-valid-password',
+    AUTH_BOOTSTRAP_MERCHANT_PHONE: '13800000000', AUTH_BOOTSTRAP_MERCHANT_STORE_IDS: 'store-a,store-b',
+  }).STORE_MODE, 'multi');
+});

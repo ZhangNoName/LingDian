@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "nest start --watch",
     "build": "nest build",
+    "type-check": "tsc --noEmit -p tsconfig.build.json",
     "test": "node --require ts-node/register --test \"src/**/*.spec.ts\"",
     "test:oauth": "node --require ts-node/register --test --test-name-pattern=\"QQ subject|OAuth|PHONE_LINK|state|openid|audits|burn|P2034|bindPending|disabled\" \"src/modules/auth/oauth.service.spec.ts\"",
     "prisma:generate": "pnpm --filter @lingdian/db prisma:generate",
@@ -19,9 +20,12 @@
     "db:bootstrap:production": "node ./scripts/bootstrap-production.mjs",
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
-    "start:debug": "nest start --debug --watch"
+    "start:debug": "nest start --debug --watch",
+    "test:inventory:mysql": "node --require ts-node/register ./scripts/verify-order-inventory-mysql.ts",
+    "test:inventory-material-migration:mysql": "node --require ts-node/register ./scripts/verify-inventory-material-migration-mysql.ts"
   },
   "dependencies": {
+    "@js-temporal/polyfill": "0.5.1",
     "@lingdian/common": "workspace:*",
     "@lingdian/contracts": "workspace:*",
     "@lingdian/db": "workspace:*",
@@ -37,12 +41,12 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
     "cookie-parser": "^1.4.7",
-    "js-yaml": "^4.3.1",
-    "mariadb": "^3.5.3",
-    "multer": "^2.2.0",
+    "js-yaml": "^4.3.2",
+    "mariadb": "3.5.4",
+    "multer": "^2.5.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
-    "sharp": "^0.35.3",
+    "sharp": "^0.35.5",
     "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {

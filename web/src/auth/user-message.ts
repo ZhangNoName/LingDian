@@ -1,30 +1,38 @@
-const CHINESE_TEXT = /[\u3400-\u9fff]/
-
-export function getMerchantAuthMessage(error: unknown): string {
-  const source = error instanceof Error ? error.message.trim() : ''
-  const normalized = source.toLowerCase()
-
-  if (normalized.includes('account credentials are invalid')) {
-    return '账号或密码错误，请重新输入。'
-  }
-  if (normalized.includes('merchant session required')) {
-    return '当前账号没有商家端访问权限。'
-  }
+import { accountZh, accountEn, type AccountKey } from '@/i18n/account'
+import type { Locale } from '@/i18n/locale'
+export function merchantAuthErrorKey(error: unknown, fallback: AccountKey = 'loginFailed'): AccountKey {
+  const text = error instanceof Error ? error.message.trim().toLowerCase() : ''
+  if (text.includes('account credentials are invalid')) return 'credentials'
   if (
-    normalized.includes('please sign in again') ||
-    normalized.includes('token expired') ||
-    normalized.includes('session expired') ||
-    normalized.includes('refresh expired')
-  ) {
-    return '登录状态已失效，请重新登录。'
-  }
+    text.includes('merchant session required') ||
+    text.includes('merchant role required') ||
+    text.includes('merchant audience required')
+  )
+    return 'forbidden'
+  if (text.includes('verification code is invalid or expired') || /验证码.*(过期|错误|无效)/.test(text))
+    return 'codeInvalid'
+  if (text.includes('too many verification codes') || text.includes('too many requests')) return 'codeLimit'
+  if (text.includes('verified merchant phone identity')) return 'phoneRequired'
+  if (text.includes('password must be at least')) return 'passwordShort'
+  if (text.includes('nickname must contain')) return 'nicknameInvalid'
   if (
-    normalized.includes('failed to fetch') ||
-    normalized.includes('network request failed') ||
-    normalized.includes('network error')
-  ) {
-    return '网络连接异常，请检查网络后重试。'
-  }
-  if (source && CHINESE_TEXT.test(source)) return source
-  return '登录失败，请稍后重试。'
+    [
+      'please sign in again',
+      'token expired',
+      'session expired',
+      'refresh expired',
+      'session is inactive or expired',
+    ].some((value) => text.includes(value))
+  )
+    return 'expired'
+  if (['failed to fetch', 'network request failed', 'network error'].some((value) => text.includes(value)))
+    return 'network'
+  return fallback
+}
+export function getMerchantAuthMessage(
+  error: unknown,
+  locale: Locale = 'zh-CN',
+  fallback: AccountKey = 'loginFailed',
+): string {
+  return (locale === 'en-US' ? accountEn : accountZh)[merchantAuthErrorKey(error, fallback)]
 }

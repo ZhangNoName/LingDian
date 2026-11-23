@@ -13,23 +13,15 @@
       @keydown.space.prevent="$emit('change', tab.key)"
       @tap="$emit('change', tab.key)"
     >
-      <TabHomeIcon v-if="tab.key === 'home'" class="tab-icon" aria-hidden="true" />
-      <TabMenuIcon v-else-if="tab.key === 'menu'" class="tab-icon" aria-hidden="true" />
-      <TabOrdersIcon v-else-if="tab.key === 'orders'" class="tab-icon" aria-hidden="true" />
-      <TabProfileIcon v-else class="tab-icon" aria-hidden="true" />
+      <AppIcon :name="tab.key" :size="42" :tone="tab.key === active ? 'primary' : 'muted'" />
       <text>{{ tab.label }}</text>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import {
-  TabHomeIcon,
-  TabMenuIcon,
-  TabOrdersIcon,
-  TabProfileIcon,
-  type AppTabKey,
-} from "@lingdian/icons/miniapp";
+import AppIcon from "@/components/app/AppIcon.vue";
+import type { AppTabKey } from "@lingdian/icons/miniapp";
 
 defineProps<{
   active: AppTabKey;
@@ -76,10 +68,4 @@ const tabs: Array<{ key: AppTabKey; label: string }> = [
   font-weight: 700;
 }
 
-.tab-icon {
-  display: block;
-  width: var(--ld-tab-icon-size, 42rpx);
-  height: var(--ld-tab-icon-size, 42rpx);
-  color: currentColor;
-}
 </style>

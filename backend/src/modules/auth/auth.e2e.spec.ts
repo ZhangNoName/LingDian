@@ -57,6 +57,7 @@ type StoredSession = {
   id: string;
   userId: string;
   audience: Audience;
+  activeDeviceKey: string | null;
   refreshTokenHash: string;
   previousRefreshTokenHash: string | null;
   refreshTokenHistory: string[];
@@ -133,25 +134,11 @@ class StatefulAuthPersistence {
   };
 
   readonly authSession = {
-    upsert: async ({
-      where,
-      create,
-      update,
-    }: {
-      where: { userId_audience_device: { userId: string; audience: Audience; device: string } };
-      create: Omit<StoredSession, 'id'>;
-      update: Partial<StoredSession>;
-    }) => {
-      const key = where.userId_audience_device;
-      const existing = [...this.sessions.values()].find(
-        (session) => session.userId === key.userId && session.audience === key.audience && session.device === key.device,
-      );
-      if (existing) {
-        Object.assign(existing, update);
-        return existing;
+    create: async ({ data }: { data: Omit<StoredSession, 'id' | 'status' | 'revokedAt'> }) => {
+      if (data.activeDeviceKey && [...this.sessions.values()].some((session) => session.activeDeviceKey === data.activeDeviceKey)) {
+        throw { code: 'P2002' };
       }
-
-      const { status: _status, revokedAt: _revokedAt, ...persisted } = create;
+      const persisted = data;
       const session: StoredSession = { id: `session-${this.nextSession++}`, status: 'ACTIVE', revokedAt: null, ...persisted };
       this.sessions.set(session.id, session);
       return session;
@@ -177,11 +164,14 @@ class StatefulAuthPersistence {
       const user = this.users.get(session.userId);
       return user ? { ...session, user } : null;
     },
-    updateMany: async ({ where, data }: { where: { id?: string; status?: 'ACTIVE'; userId?: string; refreshTokenHash?: string; expiresAt?: { gt: Date } }; data: Partial<StoredSession> }) => {
+    updateMany: async ({ where, data }: { where: { id?: string; status?: 'ACTIVE'; userId?: string; audience?: Audience; activeDeviceKey?: string; device?: string; refreshTokenHash?: string; expiresAt?: { gt: Date } }; data: Partial<StoredSession> }) => {
       let count = 0;
       for (const session of this.sessions.values()) {
         if ((where.id === undefined || session.id === where.id) &&
           (where.userId === undefined || session.userId === where.userId) &&
+          (where.audience === undefined || session.audience === where.audience) &&
+          (where.activeDeviceKey === undefined || session.activeDeviceKey === where.activeDeviceKey) &&
+          (where.device === undefined || session.device === where.device) &&
           (where.status === undefined || session.status === where.status) &&
           (where.refreshTokenHash === undefined || session.refreshTokenHash === where.refreshTokenHash) &&
           (where.expiresAt === undefined || session.expiresAt > where.expiresAt.gt)) {

@@ -1,307 +1,259 @@
-<template>
-  <el-dialog
-    :model-value="open"
-    title="商品配置"
-    width="1200px"
-    top="4vh"
-    destroy-on-close
-    @close="$emit('update:open', false)"
-  >
-    <div v-if="draft" class="config-dialog">
-      <div class="dialog-intro">
-        <div>
-          <h3>{{ product?.name }}</h3>
-          <p>{{ product?.description || '暂无商品描述' }}</p>
-        </div>
-        <el-form-item label="商品类型" class="type-field">
-          <el-select v-model="draft.type">
-            <el-option label="普通商品" value="SINGLE" />
-            <el-option label="套餐商品" value="PACKAGE" />
-          </el-select>
-        </el-form-item>
-      </div>
-
-      <ProductVariantsEditor
-        :model-value="draft.variants"
-        :current-default-index="defaultVariantIndex"
-        @add-variant="addVariant"
-        @remove-variant="removeVariant"
-        @set-default="setDefaultVariant"
-      />
-
-      <ProductSelectionGroupsEditor
-        :model-value="draft.selection_groups"
-        :variants="draft.variants"
-        :external-sku-choices="externalSkuChoices"
-        @add-group="addGroup"
-        @remove-group="removeGroup"
-        @add-option="addOption"
-        @remove-option="removeOption"
-      />
-    </div>
-
-    <template #footer>
-      <el-button @click="$emit('update:open', false)">取消</el-button>
-      <el-button type="primary" :loading="saving" @click="submit">保存配置</el-button>
-    </template>
-  </el-dialog>
-</template>
-
 <script setup lang="ts">
-import { ElButton, ElDialog, ElFormItem, ElOption, ElSelect } from '@/components/ui/element-plus'
+import DataActionButton from '@/components/DataActionButton.vue'
 import { computed, ref, watch } from 'vue'
-import ProductSelectionGroupsEditor from './ProductSelectionGroupsEditor.vue'
+import { Button } from '@lingdian/console-ui/button'
+import { SelectField } from '@lingdian/console-ui/select'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@lingdian/console-ui/dialog'
 import ProductVariantsEditor from './ProductVariantsEditor.vue'
-import type {
-  ProductConfigForm,
-  ProductRecord,
-  ProductSelectionBindingForm,
-  ProductSelectionGroupForm,
-  ProductVariantForm,
-  SelectionOptionForm,
-} from '../types'
-
+import ProductSelectionGroupsEditor from './ProductSelectionGroupsEditor.vue'
+import ProductDetailsForm from './ProductDetailsForm.vue'
+import ProductImageEditor from './ProductImageEditor.vue'
+import ProductStatusPanel from './ProductStatusPanel.vue'
+import {
+  createProductConfigDraft,
+  createProductVariant,
+  createSelectionBinding,
+  createSelectionOption,
+  normalizeProductConfig,
+  validateProductConfig,
+} from '../product-config'
+import type { ProductConfigForm, ProductRecord } from '../types'
+import { useProductLocale } from '../use-product-locale'
+import { useCatalogLocale } from '../catalog-management-locale'
+import type { ProductMessageKey } from '../messages'
 const props = defineProps<{
-  open: boolean
-  product: ProductRecord | null
-  saving: boolean
-  externalSkuChoices: Array<{ value: string; label: string }>
-}>()
-
-const emit = defineEmits<{
-  (event: 'save', value: ProductConfigForm): void
-  (event: 'update:open', value: boolean): void
-}>()
-
-const draft = ref<ProductConfigForm | null>(null)
-
-const defaultVariantIndex = computed(() =>
-  draft.value?.variants.findIndex((variant) => variant.is_default) ?? -1,
+    open: boolean
+    storeId: string
+    product: ProductRecord | null
+    saving: boolean
+    loading: boolean
+    error?: ProductMessageKey
+    externalSkuChoices: Array<{ value: string; label: string }>
+  }>(),
+  emit = defineEmits<{ save: [ProductConfigForm]; 'update:open': [boolean]; retry: []; updated: [ProductRecord] }>(),
+  { t } = useProductLocale(),
+  { t: ct } = useCatalogLocale()
+const draft = ref<ProductConfigForm>(),
+  editingProductId = ref(''),
+  tab = ref<'details' | 'variants' | 'groups' | 'image'>('variants'),
+  localError = ref<ProductMessageKey>(),
+  statusBusy = ref(false),
+  detailsBusy = ref(false),
+  detailsDirty = ref(false),
+  imageBusy = ref(false),
+  imageDirty = ref(false),
+  closePending = ref(false),
+  editRevision = ref(0),
+  busy = computed(() => props.saving || statusBusy.value || detailsBusy.value || imageBusy.value),
+  defaultIndex = computed(() => draft.value?.variants.findIndex((variant) => variant.is_default) ?? -1)
+const configDirty = computed(
+  () =>
+    !!draft.value &&
+    !!props.product &&
+    JSON.stringify(normalizeProductConfig(draft.value)) !==
+      JSON.stringify(normalizeProductConfig(createProductConfigDraft(props.product))),
 )
-
+function discard() {
+  if (props.product) draft.value = createProductConfigDraft(props.product)
+  detailsDirty.value = false
+  imageDirty.value = false
+  editRevision.value++
+}
 watch(
   () => [props.open, props.product] as const,
   ([open, product]) => {
-    if (!open || !product) {
+    if (!open) {
+      editingProductId.value = ''
+      closePending.value = false
       return
     }
-
-    draft.value = {
-      type: product.type,
-      variants: product.skus.map((sku) => ({
-        id: sku.id,
-        sku_name: sku.sku_name,
-        price: sku.price,
-        stock_count: sku.stock_count,
-        is_default: sku.is_default,
-        is_active: sku.is_active,
-      })),
-      selection_groups: product.selection_groups.map((binding) => ({
-        id: binding.binding_id,
-        scope: binding.scope,
-        target_variant_id: binding.target_variant_id ?? undefined,
-        sort_order: binding.sort_order,
-        is_enabled: binding.is_enabled,
-        group: {
-          id: binding.group.id,
-          name: binding.group.name,
-          group_type: binding.group.group_type,
-          selection_mode: binding.group.selection_mode,
-          min_select: binding.group.min_select,
-          max_select: binding.group.max_select,
-          is_required: binding.group.is_required,
-          is_active: binding.group.is_active,
-          sort_order: binding.group.sort_order,
-          description: binding.group.description ?? '',
-          options: binding.group.options.map((option) => ({
-            id: option.id,
-            name: option.name,
-            option_type: option.option_type,
-            price_delta: option.price_delta,
-            stock_delta: option.stock_delta,
-            is_default: option.is_default,
-            is_active: option.is_active,
-            sort_order: option.sort_order,
-            referenced_sku_id: option.referenced_sku_id ?? undefined,
-          })),
-        },
-      })),
+    if (open && product) {
+      draft.value = createProductConfigDraft(product)
+      if (editingProductId.value !== product.id) tab.value = 'variants'
+      editingProductId.value = product.id
+      localError.value = undefined
+      closePending.value = false
     }
   },
   { immediate: true },
 )
-
-function createVariant(): ProductVariantForm {
-  return {
-    sku_name: '',
-    price: 0,
-    stock_count: 0,
-    is_default: draft.value?.variants.length === 0,
-    is_active: true,
-  }
+function close(open: boolean) {
+  if (busy.value) return
+  if (!open && (configDirty.value || detailsDirty.value || imageDirty.value)) closePending.value = true
+  else emit('update:open', open)
 }
-
-function createOption(): SelectionOptionForm {
-  return {
-    name: '',
-    option_type: 'VALUE',
-    price_delta: 0,
-    stock_delta: 0,
-    is_default: false,
-    is_active: true,
-    sort_order: 0,
-  }
+function discardAndClose() {
+  discard()
+  closePending.value = false
+  emit('update:open', false)
 }
-
-function createGroup(): ProductSelectionBindingForm {
-  const nextIndex = draft.value?.selection_groups.length ?? 0
-  const group: ProductSelectionGroupForm = {
-    name: '',
-    group_type: 'MODIFIER',
-    selection_mode: 'SINGLE',
-    min_select: 0,
-    max_select: 1,
-    is_required: false,
-    is_active: true,
-    sort_order: nextIndex,
-    description: '',
-    options: [createOption()],
-  }
-
-  return {
-    scope: 'PRODUCT',
-    sort_order: nextIndex,
-    is_enabled: true,
-    group,
-  }
-}
-
-function addVariant() {
-  draft.value?.variants.push(createVariant())
-}
-
 function removeVariant(index: number) {
-  if (!draft.value) {
+  if (!draft.value) return
+  const id = draft.value.variants[index]?.id
+  if (
+    id &&
+    draft.value.selection_groups.some(
+      (binding) =>
+        binding.target_variant_id === id || binding.group.options.some((option) => option.referenced_sku_id === id),
+    )
+  ) {
+    localError.value = 'variantInUse'
     return
   }
-
   draft.value.variants.splice(index, 1)
-  if (!draft.value.variants.some((variant) => variant.is_default) && draft.value.variants[0]) {
-    draft.value.variants[0].is_default = true
-  }
+  draft.value = normalizeProductConfig(draft.value)
+  localError.value = undefined
 }
-
-function setDefaultVariant(index: number) {
-  if (!draft.value) {
-    return
-  }
-
-  draft.value.variants.forEach((variant, currentIndex) => {
-    variant.is_default = currentIndex === index
+function setDefault(index: number) {
+  draft.value?.variants.forEach((variant, current) => {
+    variant.is_default = index === current
   })
 }
-
-function addGroup() {
-  draft.value?.selection_groups.push(createGroup())
-}
-
-function removeGroup(index: number) {
-  draft.value?.selection_groups.splice(index, 1)
-}
-
-function addOption(groupIndex: number) {
-  const group = draft.value?.selection_groups[groupIndex]
-  if (!group) {
-    return
-  }
-
-  group.group.options.push({
-    ...createOption(),
-    sort_order: group.group.options.length,
-  })
-}
-
-function removeOption(groupIndex: number, optionIndex: number) {
-  const group = draft.value?.selection_groups[groupIndex]
-  if (!group) {
-    return
-  }
-
-  group.group.options.splice(optionIndex, 1)
-}
-
-function normalizeDraft() {
-  if (!draft.value) {
-    return null
-  }
-
-  return {
-    type: draft.value.type,
-    variants: draft.value.variants.map((variant, index) => ({
-      ...variant,
-      is_default: variant.is_default || index === 0,
-    })),
-    selection_groups: draft.value.selection_groups.map((binding, bindingIndex) => ({
-      ...binding,
-      sort_order: bindingIndex,
-      group: {
-        ...binding.group,
-        sort_order: bindingIndex,
-        description: binding.group.description || '',
-        options: binding.group.options.map((option, optionIndex) => ({
-          ...option,
-          sort_order: optionIndex,
-        })),
-      },
-    })),
-  }
-}
-
 function submit() {
-  const payload = normalizeDraft()
-  if (!payload) {
-    return
-  }
-
-  emit('save', payload)
+  if (!draft.value || busy.value) return
+  localError.value = validateProductConfig(draft.value)
+  if (!localError.value) emit('save', normalizeProductConfig(draft.value))
 }
 </script>
-
-<style scoped>
-.config-dialog {
-  display: grid;
-  gap: 18px;
-  max-height: 72vh;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.dialog-intro {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.dialog-intro h3 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 700;
-}
-
-.dialog-intro p {
-  margin: 6px 0 0;
-  color: var(--muted-foreground);
-  font-size: 14px;
-}
-
-.type-field {
-  min-width: 180px;
-}
-
-@media (max-width: 720px) {
-  .dialog-intro {
-    display: grid;
-  }
-}
-</style>
+<template>
+  <Dialog :open="open" @update:open="close">
+    <DialogContent class="max-h-[92dvh] max-w-4xl overflow-y-auto" :close-label="t('close')" :close-disabled="busy" v-bind="tab === 'image' ? { 'aria-describedby': undefined } : {}">
+      <DialogHeader>
+        <DialogTitle>
+          {{ ct('manage') }}
+          <span class="mt-1 block break-words text-sm">{{ product?.name }}</span>
+        </DialogTitle>
+        <DialogDescription v-if="tab !== 'image'">{{ t('configurationHint') }}</DialogDescription>
+      </DialogHeader>
+      <p v-if="loading" role="status" class="p-6 text-center text-sm text-muted-foreground">{{ t('loading') }}</p>
+      <div v-else-if="!product || !draft" role="alert">
+        <p>{{ t(error ?? 'loadFailed') }}</p>
+        <DataActionButton action="refresh" :label="t('refresh')" @click="$emit('retry')" />
+      </div>
+      <div v-else class="grid min-w-0 gap-4">
+        <ProductStatusPanel
+          :product="product"
+          :store-id="storeId"
+          :disabled="props.saving || detailsBusy || imageBusy || configDirty || detailsDirty || imageDirty"
+          @busy="statusBusy = $event"
+          @saved="$emit('updated', $event)"
+        />
+        <p v-if="configDirty || detailsDirty || imageDirty" role="status" class="text-sm text-amber-800">
+          {{ ct('unsaved') }}
+          <Button type="button" size="sm" variant="outline" :disabled="busy" @click="discard">
+            {{ ct('discard') }}
+          </Button>
+        </p>
+        <div class="flex flex-wrap gap-2 border-b pb-3">
+          <Button
+            type="button"
+            :disabled="busy || configDirty || imageDirty"
+            :variant="tab === 'details' ? 'secondary' : 'ghost'"
+            :aria-pressed="tab === 'details'"
+            @click="tab = 'details'"
+          >
+            {{ ct('details') }}
+          </Button>
+          <Button
+            type="button"
+            :disabled="busy || detailsDirty || imageDirty"
+            :variant="tab === 'variants' ? 'secondary' : 'ghost'"
+            :aria-pressed="tab === 'variants'"
+            @click="tab = 'variants'"
+          >
+            {{ t('variants') }}
+          </Button>
+          <Button
+            type="button"
+            :disabled="busy || detailsDirty || imageDirty"
+            :variant="tab === 'groups' ? 'secondary' : 'ghost'"
+            :aria-pressed="tab === 'groups'"
+            @click="tab = 'groups'"
+          >
+            {{ t('groups') }}
+          </Button>
+          <Button
+            type="button"
+            :disabled="busy || configDirty || detailsDirty"
+            :variant="tab === 'image' ? 'secondary' : 'ghost'"
+            :aria-pressed="tab === 'image'"
+            @click="tab = 'image'"
+            >{{ ct('image') }}</Button
+          >
+        </div>
+        <ProductImageEditor
+          v-if="tab === 'image'"
+          :key="'image-' + editRevision"
+          :store-id="storeId"
+          :product="product"
+          :disabled="props.saving || statusBusy || detailsBusy"
+          @busy="imageBusy = $event"
+          @dirty="imageDirty = $event"
+          @saved="$emit('updated', $event)"
+          @reload="$emit('retry')"
+        />
+        <ProductDetailsForm
+          :key="editRevision"
+          @dirty="detailsDirty = $event"
+          @cancel="close(false)"
+          v-else-if="tab === 'details'"
+          :store-id="storeId"
+          :product="product"
+          :disabled="props.saving || statusBusy"
+          @busy="detailsBusy = $event"
+          @saved="$emit('updated', $event)"
+        />
+        <form v-else class="grid min-w-0 gap-4" novalidate @submit.prevent="submit">
+          <fieldset :disabled="busy" class="grid min-w-0 gap-4">
+            <label class="grid gap-1 text-xs text-muted-foreground">
+              {{ t('type') }}
+              <SelectField
+                v-model="draft.type"
+                :aria-label="t('type')"
+                :options="[
+                  { value: 'SINGLE', label: t('SINGLE') },
+                  { value: 'PACKAGE', label: t('PACKAGE') },
+                ]"
+              />
+            </label>
+            <ProductVariantsEditor
+              v-if="tab === 'variants'"
+              :model-value="draft.variants"
+              :current-default-index="defaultIndex"
+              @add-variant="draft.variants.push(createProductVariant(false))"
+              @remove-variant="removeVariant"
+              @set-default="setDefault"
+            />
+            <ProductSelectionGroupsEditor
+              v-else
+              :model-value="draft.selection_groups"
+              :variants="draft.variants"
+              :external-sku-choices="externalSkuChoices"
+              @add-group="draft.selection_groups.push(createSelectionBinding(draft.selection_groups.length))"
+              @remove-group="draft.selection_groups.splice($event, 1)"
+              @add-option="draft.selection_groups[$event]?.group.options.push(createSelectionOption())"
+              @remove-option="(group, option) => draft?.selection_groups[group]?.group.options.splice(option, 1)"
+            />
+          </fieldset>
+          <p v-if="localError || error" role="alert" class="text-sm text-destructive">{{ t(localError ?? error!) }}</p>
+          <p v-if="product.configuration_version === undefined" role="alert" class="text-sm text-destructive">
+            {{ t('missingVersion') }}
+          </p>
+          <div class="flex justify-end gap-2 border-t pt-4">
+            <Button type="button" variant="outline" :disabled="busy" @click="close(false)">{{ t('cancel') }}</Button>
+            <Button type="submit" :disabled="busy || product.configuration_version === undefined">
+              {{ t(saving ? 'saving' : 'save') }}
+            </Button>
+          </div>
+        </form>
+      </div>
+      <div v-if="closePending" role="alert" class="grid gap-3 border p-3">
+        <p class="text-sm">{{ ct('unsavedClose') }}</p>
+        <div class="flex flex-wrap justify-end gap-2">
+          <Button variant="outline" @click="closePending = false">{{ ct('keepEditing') }}</Button
+          ><Button variant="outline" @click="discardAndClose">{{ ct('discardClose') }}</Button>
+        </div>
+      </div>
+    </DialogContent>
+  </Dialog>
+</template>

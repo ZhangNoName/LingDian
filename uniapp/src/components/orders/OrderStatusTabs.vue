@@ -37,9 +37,12 @@ defineEmits<{
 .tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  height: var(--ld-tabs-height, 72rpx);
-  background: #ffffff;
-  color: #5f5f5f;
+  margin: 0 var(--ld-page-padding);
+  padding: 6rpx;
+  gap: 6rpx;
+  border-radius: var(--ld-radius-8);
+  background: var(--ld-mini-neutral-bg);
+  color: var(--ld-mini-neutral-text);
   text-align: center;
   font-size: var(--ld-font-title, 32rpx);
   font-weight: 900;
@@ -51,18 +54,8 @@ defineEmits<{
 }
 
 .tab.active {
-  color: var(--ld-mini-primary, #ed1c24);
-}
-
-.tab.active::after {
-  position: absolute;
-  left: 50%;
-  bottom: 0;
-  width: 64rpx;
-  height: 5rpx;
-  border-radius: 999rpx;
-  background: var(--ld-mini-primary);
-  content: "";
-  transform: translateX(-50%);
+  border-radius: var(--ld-radius-8);
+  background: var(--ld-mini-surface);
+  color: var(--ld-mini-primary-pressed);
 }
 </style>

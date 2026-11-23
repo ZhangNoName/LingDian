@@ -1,5 +1,5 @@
-import { RES_CODE_META } from './meta'
-import type { ResCodeMeta, ResponseEnvelope } from './types'
+import { RES_CODE_META } from './meta.js'
+import type { ResCodeMeta, ResponseEnvelope } from './types.js'
 
 export function getResCodeMeta(code: number): ResCodeMeta {
   return (
@@ -16,11 +16,12 @@ export function getResCodeMessage(code: number) {
 }
 
 export function isResponseEnvelope<T>(value: unknown): value is ResponseEnvelope<T> {
-  return Boolean(
-    value &&
-      typeof value === 'object' &&
-      'code' in value &&
-      'msg' in value &&
-      'data' in value,
+  if (!value || typeof value !== 'object') return false
+  const candidate = value as { code?: unknown; msg?: unknown }
+  return (
+    typeof candidate.code === 'number' &&
+    Object.prototype.hasOwnProperty.call(RES_CODE_META, candidate.code) &&
+    typeof candidate.msg === 'string' &&
+    'data' in value
   )
 }

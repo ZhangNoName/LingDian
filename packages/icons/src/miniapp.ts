@@ -46,12 +46,12 @@ export const TabMenuIcon = Coffee
 export const TabOrdersIcon = ListOrdered
 export const TabProfileIcon = CircleUserRound
 
-export const tabIcons: Record<AppTabKey, MiniappIcon> = {
+export const tabIcons = {
   home: TabHomeIcon,
   menu: TabMenuIcon,
   orders: TabOrdersIcon,
   profile: TabProfileIcon,
-}
+} satisfies Record<AppTabKey, MiniappIcon>
 
 export const ManageOrdersIcon = ListOrdered
 export const ManageAddressIcon = MapPin
@@ -75,3 +75,20 @@ export const checkoutModeIcons = {
   dineIn: CheckoutDineInIcon,
   takeaway: CheckoutTakeawayIcon,
 } satisfies Record<string, MiniappIcon>
+
+export const miniappGlyphs = {
+  ...tabIcons,
+  back: BackIcon,
+  next: ChevronRightIcon,
+  cart: CartIcon,
+  location: StoreLocationIcon,
+  minus: MinusIcon,
+  plus: PlusIcon,
+  copy: CopyIcon,
+  address: ManageAddressIcon,
+  dineIn: HomeDineInIcon,
+  takeaway: HomeTakeawayIcon,
+  delivery: HomeDeliveryIcon,
+} as const
+
+export type MiniappGlyphName = keyof typeof miniappGlyphs

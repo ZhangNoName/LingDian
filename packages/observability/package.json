@@ -6,6 +6,6 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
-  "scripts": { "build": "tsc -p tsconfig.json", "test": "node --test test/module-format.test.mjs" },
+  "scripts": { "build": "tsc -p tsconfig.json", "type-check": "tsc --noEmit -p tsconfig.json", "test": "pnpm run build && node --test test/*.test.mjs" },
   "devDependencies": { "typescript": "^5.9.3" }
 }

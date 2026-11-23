@@ -2,6 +2,11 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IsBoolean, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 export class CreateCategoryDto {
+  @ApiPropertyOptional({ description: 'Store context for platform operations' })
+  @IsOptional()
+  @IsString()
+  storeId?: string;
+
   @ApiProperty({ description: '分类名称', example: '招牌饮品' })
   @IsString()
   name!: string;

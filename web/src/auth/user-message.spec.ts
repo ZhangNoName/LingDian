@@ -11,11 +11,17 @@ describe('merchant authentication messages', () => {
     expect(getMerchantAuthMessage(new Error(source))).toBe(expected)
   })
 
-  it('keeps an existing Chinese service message', () => {
-    expect(getMerchantAuthMessage(new Error('验证码已过期，请重新获取'))).toBe('验证码已过期，请重新获取')
+  it('maps a known Chinese code error to a localized safe message', () => {
+    expect(getMerchantAuthMessage(new Error('验证码已过期，请重新获取'))).toBe('验证码不正确或已过期，请重新获取。')
   })
 
   it('does not expose an unknown backend error', () => {
     expect(getMerchantAuthMessage(new Error('database connection refused'))).toBe('登录失败，请稍后重试。')
   })
+})
+
+it('localizes known auth failures in English and hides unknown messages in either language',()=>{
+ expect(getMerchantAuthMessage(new Error('Verification code is invalid or expired.'),'en-US')).toBe('The code is invalid or expired. Request a new one.')
+ expect(getMerchantAuthMessage(new Error('数据库连接含内部参数'),'en-US')).toBe('Could not sign in. Please try again.')
+ expect(getMerchantAuthMessage(new Error('Too many verification codes requested.'),'en-US')).toBe('Too many code requests. Please try again later.')
 })

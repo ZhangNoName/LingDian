@@ -12,6 +12,7 @@ flowchart LR
   U -->|选择支付方式| P[支付域]
   P -->|按 order.storeId 查询| A[(门店收款账户)]
   P -->|HMAC 签名请求：收款方 + 金额 + 币种| C[支付连接器]
+  P -->|过期时按 payment_no 请求关单证明| C
   C --> W[微信/支付宝/银联/Stripe/PayPal]
   W --> C
   C -->|验签回调| P
@@ -30,13 +31,16 @@ flowchart LR
 7. 订单状态使用条件更新；在线支付订单只能由已验签回调从 `PENDING_PAYMENT` 变为 `PAID`。
 8. 已取消或超时订单收到迟到付款时，资金流水仍记录为成功，但订单不恢复，支付意图标记 `LATE_PAYMENT` 等待退款/人工处理。
 9. 数据库不保存商户私钥、API Key、平台证书或原始回调正文，只保存非敏感账号标识、密钥引用和 SHA-256 摘要。
+10. `activeOrderKey` 的唯一约束保证每个订单最多一个活动支付尝试；创建、取消、成功确认和过期释放统一按 order → intent 顺序加锁。
+11. 本地 `expiresAt` 不是资金终态。只有连接器按稳定 `payment_no` 返回持久、可审计的 `CLOSED` 凭证，核心才把意图标为 `EXPIRED` 并释放 `activeOrderKey`；`UNKNOWN`、`PROCESSING`、`SUCCEEDED` 或通信失败均继续阻断新尝试并转人工核对。
+12. 资金流水把 provider/account 固化到行上，并以 `provider + accountId + providerTransactionId` 做数据库唯一约束；同一外部交易若已属于另一意图，整笔成功确认事务回滚。
 
 ## 数据模型
 
 - `orders` / `order_items` / `order_item_selections`：订单、商品与加料快照，防止商品后续改价影响历史订单。
 - `order_status_logs`：订单状态审计链。
 - `payment_accounts`：门店到真实收款主体的唯一映射，`connectorConfigKey` 只引用部署密钥。
-- `payment_intents`：一次支付尝试及其生命周期、应付金额、外部意图号、客户端唤起参数和对账状态。
+- `payment_intents`：一次支付尝试及其生命周期、订单活动占位、应付金额、外部意图号、客户端唤起参数、过期时间和对账状态。
 - `payment_transactions`：不可混同于订单状态的资金事实流水。
 - `payment_webhook_events`：验签、去重、载荷哈希与处理结果。
 
@@ -68,7 +72,12 @@ X-LingDian-Signature: sha256=HMAC(secret, timestamp + "." + nonce + "." + rawBod
 
 连接器回调使用相同签名格式，JSON 事件至少包含：`event_id`、`event_type`、`payment_no`、`provider_intent_id`、`account_external_id`、`amount_minor`、`currency`、`occurred_at`；成功事件还应包含 `provider_transaction_id`。
 
-连接器必须用 `payment_no` 作为调用厂商 API 的幂等键。它负责使用各厂商官方 SDK 完成请求签名、证书验证、回调解密及平台交易查询；不得把商户私钥返回或写入 LingDian 数据库。
+过期恢复调用 `POST /v1/payment-intents/close`，请求包含 `payment_no`、可空 `provider_intent_id`、`provider`、`account_external_id` 和 `reason=EXPIRED`。响应必须回显支付号、收款账号和外部意图号，并返回：
+
+- `CLOSED`：必须带非空 `closureId`，表示连接器已持久 tombstone 该 `payment_no`，确认不存在成功资金事实且之后也不能再成功；
+- `PROCESSING` / `SUCCEEDED` / `UNKNOWN`：不是关单证明，核心保留活动占位并等待验签 webhook 或人工处理。
+
+连接器必须把 create 与 close 按 `payment_no` 幂等、串行化；即使厂商 create 已执行但响应在网络中丢失，close 也要能仅凭 `payment_no` 查明或安全关闭。它负责使用各厂商官方 SDK 完成请求签名、证书验证、回调解密及平台交易查询；不得把商户私钥返回或写入 LingDian 数据库。
 
 ## 上线清单
 
@@ -76,9 +85,9 @@ X-LingDian-Signature: sha256=HMAC(secret, timestamp + "." + nonce + "." + rawBod
 2. 为每个门店、渠道创建 `payment_accounts`，并在密钥管理系统中配置相应 URL/SECRET。
 3. 部署经过厂商沙箱与正式商户号验证的连接器，启用 TLS、出站访问控制和密钥轮换。
 4. 将厂商回调配置到连接器；连接器再调用本系统回调地址。
-5. 完成成功、失败、重复回调、乱序回调、金额篡改、错收款方、超时后付款的端到端验收。
+5. 完成成功、失败、重复回调、乱序回调、金额篡改、错收款方、create 响应丢失、close 与成功并发、超时后付款的端到端验收。
 6. 上线退款、日终主动对账、差错工单、告警和财务报表后再开放真实资金流量。
 
 ## 后续阶段
 
-本次实现覆盖收款主链路和订单联动。生产闭环仍应继续增加：退款申请/退款回调、日终渠道账单对账、主动查单补偿、争议/拒付、风控限额、财务分录和密钥轮换自动化。未完成这些能力前，可以做沙箱和小流量收款验证，但不应宣称达到完整支付清结算平台能力。
+本次实现覆盖收款主链路、订单联动和“新支付重试触发的安全过期释放”。生产闭环仍应继续增加：定时超时/关单 worker、退款申请/退款回调、日终渠道账单对账、主动查单补偿、争议/拒付、风控限额、财务分录和密钥轮换自动化。未完成这些能力前，可以做沙箱和小流量收款验证，但不应宣称达到完整支付清结算平台能力。

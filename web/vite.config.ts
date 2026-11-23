@@ -32,6 +32,7 @@ function bundleSizeBudget(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig({
+  publicDir: path.resolve(__dirname, "../packages/icons/public"),
   plugins: [
     vue(),
     vueInspector({
@@ -46,6 +47,7 @@ export default defineConfig({
   ],
   server: {
     proxy: {
+      '/uploads/products': { target: 'http://localhost:9000', changeOrigin: true },
       '/api': {
         target: 'http://localhost:9000',
         changeOrigin: true,
@@ -53,6 +55,7 @@ export default defineConfig({
     },
   },
   resolve: {
+    dedupe: ['vue'],
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@theme': path.resolve(__dirname, '../theme'),

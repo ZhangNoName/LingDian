@@ -1,15 +1,15 @@
 <template>
   <view class="price" :class="`price--${size}`">
-    <text class="price-current">¥{{ formattedPrice }}</text>
+    <text class="price-current">¥{{ formatAmount(price) }}</text>
     <text v-if="originalPrice" class="price-original">¥{{ formatAmount(originalPrice) }}</text>
     <text v-if="suffix" class="price-suffix">{{ suffix }}</text>
   </view>
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { formatAmount } from "@/utils/money";
 
-const props = withDefaults(
+withDefaults(
   defineProps<{
     price: number;
     originalPrice?: number;
@@ -20,12 +20,6 @@ const props = withDefaults(
     size: "normal",
   },
 );
-
-const formattedPrice = computed(() => formatAmount(props.price));
-
-function formatAmount(value: number) {
-  return Number.isInteger(value) ? String(value) : value.toFixed(1);
-}
 </script>
 
 <style scoped>

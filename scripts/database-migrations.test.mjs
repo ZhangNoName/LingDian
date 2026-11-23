@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 
 test('order idempotency is store-scoped and keeps the old protection until the replacement index exists', async () => {
   const [schema, migration] = await Promise.all([
@@ -38,4 +38,63 @@ test('channel pickup codes use nullable legacy fields and an atomic per-source s
   assert.match(migration, /ADD COLUMN `pickupBusinessDate` DATE NULL/);
   assert.match(migration, /CREATE TABLE `pickup_code_sequences`/);
   assert.doesNotMatch(migration, /UPDATE\s+`?orders`?/i, 'legacy orders must not receive invented pickup credentials');
+});
+
+test('payment invariants are preflighted before durable unique indexes are added', async () => {
+  const [schema, migration] = await Promise.all([
+    readFile(new URL('../packages/db/prisma/schema.prisma', import.meta.url), 'utf8'),
+    readFile(new URL(
+      '../packages/db/prisma/migrations/20260830_session_and_payment_invariants/migration.sql',
+      import.meta.url,
+    ), 'utf8'),
+  ]);
+
+  assert.match(schema, /activeOrderKey\s+String\?\s+@unique/);
+  assert.match(schema, /@@unique\(\[provider, accountId, providerTransactionId\], map: "payment_transactions_provider_accountId_providerTransactionI_key"\)/);
+  const activePreflight = migration.indexOf('CREATE TEMPORARY TABLE `_migration_active_payment_order_keys`');
+  const transactionPreflight = migration.indexOf('CREATE TEMPORARY TABLE `_migration_provider_transaction_keys`');
+  const firstDurableAlter = migration.indexOf('DROP INDEX `auth_sessions_userId_audience_device_key`');
+  const globalTransactionIndex = migration.indexOf(
+    'CREATE UNIQUE INDEX `payment_transactions_provider_accountId_providerTransactionI_key`',
+  );
+  assert.ok(activePreflight >= 0 && transactionPreflight > activePreflight);
+  assert.ok(firstDurableAlter > transactionPreflight,
+    'ambiguous legacy payment facts must abort before any durable DDL');
+  assert.ok(globalTransactionIndex > firstDurableAlter);
+  assert.match(migration,
+    /UPDATE `payment_transactions` AS `transaction`[\s\S]*`transaction`\.`provider` = `intent`\.`provider`[\s\S]*`transaction`\.`accountId` = `intent`\.`accountId`/);
+});
+
+
+test('all migration index and constraint names fit the MySQL 64-character limit', async () => {
+  const root = new URL('../packages/db/prisma/migrations/', import.meta.url);
+  for (const entry of await readdir(root, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const sql = await readFile(new URL(`${entry.name}/migration.sql`, root), 'utf8');
+    for (const match of sql.matchAll(/(?:INDEX|CONSTRAINT)\s+`([^`]+)`/gi)) {
+      assert.ok(match[1].length <= 64, `${entry.name}: ${match[1]} exceeds 64 characters`);
+    }
+  }
+});
+
+test('stock alert migration follows ingredient balances and backfills only current shortages', async () => {
+  const root = new URL('../packages/db/prisma/migrations/', import.meta.url);
+  const names = (await readdir(root)).sort();
+  assert.ok(names.indexOf('20261117_stock_alerts') > names.indexOf('20261117_order_inventory_reservations'));
+  const sql = await readFile(new URL('20261117_stock_alerts/migration.sql', root), 'utf8');
+  assert.match(sql, /WHERE `availableQuantity` <= `reorderPoint`/);
+  assert.match(sql, /UNIQUE INDEX `inventory_alerts_activeItemKey_key`/);
+  assert.match(sql, /FOREIGN KEY \(`itemId`, `storeId`\)/);
+});
+
+
+test('material-change history is ordered after lifecycle and scoped by a composite foreign key', async () => {
+  const root = new URL('../packages/db/prisma/migrations/', import.meta.url);
+  const names = (await readdir(root)).sort();
+  const target = '20261118_zzzzz_inventory_material_changes';
+  assert.ok(names.indexOf(target) > names.indexOf('20261118_zzzz_inventory_lifecycle'));
+  const sql = await readFile(new URL(target + '/migration.sql', root), 'utf8');
+  assert.match(sql, /FOREIGN KEY \(`itemId`, `storeId`\)/);
+  assert.match(sql, /inventory_material_changes_history_idx/);
+  assert.doesNotMatch(sql, /(?:UPDATE|DELETE FROM|ALTER TABLE) `(?:inventory_items|auth_audit_logs)`/);
 });

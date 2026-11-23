@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import { Alert } from '@lingdian/console-ui/alert'
+import { Button } from '@lingdian/console-ui/button'
+import { ComboboxField } from '@lingdian/console-ui/combobox'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@lingdian/console-ui/dialog'
+import { Checkbox, Input, PasswordInput } from '@lingdian/console-ui/input'
 import type { AuthRole, CreatePlatformUserRequest, PlatformAccountType, PlatformUserSummary, UpdatePlatformUserRequest } from '@lingdian/contracts'
 import { computed, reactive, watch } from 'vue'
 import { accountPageConfig } from './account-page-config'
@@ -20,7 +25,7 @@ watch(() => [props.modelValue, props.user] as const, () => {
 }, { immediate: true })
 
 function submit() {
-  if (errors.value.length) return
+  if (props.saving || errors.value.length) return
   const value = normalizeUserForm(form)
   if (props.user) emit('submit', { nickname: value.nickname, username: value.username, phone: value.phone, roles: value.roles, storeIds: value.storeIds })
   else emit('submit', value)
@@ -28,16 +33,55 @@ function submit() {
 </script>
 
 <template>
-  <el-drawer :model-value="modelValue" :title="user ? `编辑${config.entityLabel}` : config.createLabel" size="min(520px, 100%)" destroy-on-close @update:model-value="emit('update:modelValue', $event)">
-    <el-form label-position="top" class="drawer-form" @submit.prevent="submit">
-      <el-form-item label="昵称"><el-input v-model="form.nickname" maxlength="32" placeholder="平台内展示名称" /></el-form-item>
-      <el-form-item label="账号" required><el-input v-model="form.username" :disabled="Boolean(user)" placeholder="3–64 位小写账号" /></el-form-item>
-      <el-form-item label="手机号" required><el-input v-model="form.phone" placeholder="用于身份验证" /></el-form-item>
-      <el-form-item v-if="!user" label="初始密码" required><el-input v-model="form.password" type="password" show-password placeholder="至少 12 位" /></el-form-item>
-      <el-form-item label="角色" required><el-checkbox-group v-model="form.roles"><el-checkbox v-for="role in roleOptions" :key="role.value" :value="role.value">{{ role.label }}</el-checkbox></el-checkbox-group></el-form-item>
-      <el-form-item v-if="form.roles.includes('MERCHANT')" label="允许门店" required><el-select v-model="form.storeIds" multiple filterable placeholder="至少选择一个门店"><el-option v-for="store in stores" :key="store.id" :label="store.name" :value="store.id" /></el-select></el-form-item>
-      <el-alert v-if="errors.length" :title="errors[0]" type="warning" :closable="false" show-icon />
-    </el-form>
-    <template #footer><el-button @click="emit('update:modelValue', false)">取消</el-button><el-button type="primary" :loading="saving" :disabled="errors.length > 0" @click="submit">{{ user ? '保存更改' : config.createLabel }}</el-button></template>
-  </el-drawer>
+  <Dialog :open="modelValue" @update:open="!saving && emit('update:modelValue', $event)">
+    <DialogContent side="right" :close-disabled="saving">
+      <DialogHeader>
+        <DialogTitle>{{ user ? `编辑${config.entityLabel}` : config.createLabel }}</DialogTitle>
+        <DialogDescription class="sr-only">管理平台账号资料与权限</DialogDescription>
+      </DialogHeader>
+      <form class="admin-form mt-4" @submit.prevent="submit">
+        <fieldset :disabled="saving" class="admin-form">
+          <label for="account-editor-nickname">昵称</label>
+          <Input id="account-editor-nickname" v-model="form.nickname" maxlength="32" placeholder="平台内展示名称" />
+          <label for="account-editor-username">账号</label>
+          <Input id="account-editor-username" v-model="form.username" required :disabled="Boolean(user)" placeholder="3–64 位小写账号" />
+          <label for="account-editor-phone">手机号</label>
+          <Input id="account-editor-phone" v-model="form.phone" required type="tel" placeholder="用于身份验证" />
+          <template v-if="!user">
+            <label for="account-editor-password">初始密码</label>
+            <PasswordInput id="account-editor-password" v-model="form.password" autocomplete="new-password" required placeholder="至少 12 位" />
+          </template>
+          <fieldset class="admin-role-options">
+            <legend>角色</legend>
+            <label v-for="role in roleOptions" :key="role.value" class="flex items-center gap-2">
+              <Checkbox
+                :model-value="form.roles.includes(role.value)"
+                @update:model-value="form.roles = $event ? [...form.roles, role.value] : form.roles.filter((value) => value !== role.value)"
+              />
+              {{ role.label }}
+            </label>
+          </fieldset>
+          <div v-if="form.roles.includes('MERCHANT')" class="grid gap-1.5">
+            <span class="text-sm">允许门店</span>
+            <ComboboxField
+              :model-value="form.storeIds"
+              multiple
+              label="允许门店"
+              placeholder="至少选择一个门店"
+              :options="stores.map((store) => ({ value: store.id, label: store.name }))"
+              :disabled="saving"
+              @update:model-value="Array.isArray($event) && (form.storeIds = $event)"
+            />
+          </div>
+          <Alert v-if="errors.length" variant="warning">{{ errors[0] }}</Alert>
+        </fieldset>
+        <div class="admin-dialog-actions">
+          <Button type="button" variant="outline" :disabled="saving" @click="emit('update:modelValue', false)">取消</Button>
+          <Button type="submit" :disabled="saving || errors.length > 0">
+            {{ saving ? '正在保存…' : user ? '保存更改' : config.createLabel }}
+          </Button>
+        </div>
+      </form>
+    </DialogContent>
+  </Dialog>
 </template>

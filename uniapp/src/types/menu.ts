@@ -20,12 +20,14 @@ export type ProductOption = {
   name: string;
   imageUrl?: string;
   priceDelta?: number;
+  isDefault: boolean;
 };
 
 export type OptionGroup = {
   id: string;
   name: string;
   required: boolean;
+  selectionMode: "SINGLE" | "MULTIPLE";
   min: number;
   max: number;
   options: ProductOption[];
@@ -33,6 +35,8 @@ export type OptionGroup = {
 
 export type ProductDetail = ProductSummary & {
   skuId: string;
+  skuName?: string;
+  variants?: Array<{ id: string; name: string; price: number; optionGroups: OptionGroup[] }>;
   optionGroups: OptionGroup[];
   comboImages: string[];
   description?: string;

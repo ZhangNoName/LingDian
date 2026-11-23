@@ -1,6 +1,17 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsIn, IsInt, IsISO8601, IsOptional, IsString, Matches, Max, MaxLength, Min } from 'class-validator';
+
+export const ORDER_QUERY_PAYMENT_CHANNELS = [
+  'CASH',
+  'WECHAT',
+  'ALIPAY',
+  'UNIONPAY',
+  'STRIPE',
+  'PAYPAL',
+  'CUSTOMER_SCAN',
+  'OTHER',
+] as const;
 
 export class QueryOrdersDto {
   @ApiPropertyOptional({ description: 'Page number', default: 1 })
@@ -8,6 +19,7 @@ export class QueryOrdersDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(1000000)
   page = 1;
 
   @ApiPropertyOptional({ description: 'Rows per page', default: 50, maximum: 100 })
@@ -23,6 +35,7 @@ export class QueryOrdersDto {
   })
   @IsOptional()
   @IsString()
+  @MaxLength(120)
   keyword?: string;
 
   @ApiPropertyOptional({
@@ -69,10 +82,10 @@ export class QueryOrdersDto {
 
   @ApiPropertyOptional({
     description: 'Payment channel',
-    enum: ['CASH', 'WECHAT', 'ALIPAY', 'CUSTOMER_SCAN', 'OTHER'],
+    enum: ORDER_QUERY_PAYMENT_CHANNELS,
   })
   @IsOptional()
-  @IsIn(['CASH', 'WECHAT', 'ALIPAY', 'CUSTOMER_SCAN', 'OTHER'])
+  @IsIn(ORDER_QUERY_PAYMENT_CHANNELS)
   paymentChannel?: string;
 
   @ApiPropertyOptional({
@@ -92,4 +105,11 @@ export class QueryOrdersDto {
   @Type(() => String)
   @IsString()
   endDate?: string;
+
+  @ApiPropertyOptional({ description: 'Exclusive end instant; cannot be combined with endDate' })
+  @IsOptional()
+  @IsISO8601({ strict: true, strictSeparator: true })
+  @Matches(/(?:Z|[+-]\d{2}:\d{2})$/)
+  endBefore?: string;
+
 }

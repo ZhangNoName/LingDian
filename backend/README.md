@@ -196,14 +196,21 @@ authentication flow against an isolated MySQL staging database before release.
 
 ### Native uni-app refresh transport
 
-Refresh credentials are never returned in JSON responses. Browsers use the
-HttpOnly refresh cookie; native clients must rely on their platform's
-OS-managed cookie transport for the same cookie. On relaunch the uni-app client
-recreates only the in-memory access token by calling the cookie-backed refresh
-endpoint. It does not write refresh credentials or access tokens to uni-app
-storage, Keychain/Keystore bridges, or any caller-controlled header. A future
-native raw-token transport requires verifiable device attestation and a new
-security review before it can be added.
+Refresh credentials are never returned in JSON responses. H5 uses the
+HttpOnly refresh cookie. WeChat and QQ mini-programs do not rely on cookie
+persistence: after an access token expires or the process relaunches, the
+client obtains a fresh `uni.login` code and calls
+`POST /auth/oauth/:provider/miniapp/session`. The API exchanges that one-time
+platform code, requires an already linked active `USER` identity, and creates a
+new database session. Explicit logout and a server-side 401 block automatic
+recovery until the user signs in again.
+
+Neither refresh credentials nor access tokens are written to uni-app storage,
+Keychain/Keystore bridges, or caller-controlled headers. A future native raw-
+token transport requires verifiable device attestation and a new security
+review. This split follows the documented uni-app transport boundary: the
+[`withCredentials` option applies to H5](https://uniapp.dcloud.net.cn/api/request/request.html),
+not mini-program cookie persistence.
 
 ### Account bootstrap, review, and incidents
 
@@ -216,7 +223,7 @@ corepack pnpm run db:migrate:deploy
 corepack pnpm run db:bootstrap:production
 ```
 
-The command requires `NODE_ENV=production`, `STORE_MODE=single`, one explicit
+The command requires `NODE_ENV=production`, `STORE_MODE=single` or `multi`, one explicit
 store identity, and the seven account variables below. Keep their values out of
 source control, shell history, command output, and logs:
 
@@ -239,8 +246,10 @@ AUTH_BOOTSTRAP_MERCHANT_PHONE=
 AUTH_BOOTSTRAP_MERCHANT_STORE_IDS=<same-value-as-PRIMARY_STORE_ID>
 ```
 
-In this single-store build, `AUTH_BOOTSTRAP_MERCHANT_STORE_IDS` must contain
-exactly one value and equal `PRIMARY_STORE_ID`. Both passwords must be different,
+In single-store mode, `AUTH_BOOTSTRAP_MERCHANT_STORE_IDS` must contain
+exactly one value and equal `PRIMARY_STORE_ID`. In multi-store mode, it may list
+multiple existing store IDs; bootstrap verifies every assignment and never grants
+all stores implicitly. Both passwords must be different,
 12-128 characters, contain lowercase, uppercase, numeric, and symbol characters,
 and must not contain common weak tokens or account-derived values. Demo/test
 store or account identities and `ALLOW_DEMO_SEED=true` are rejected. A newly created store
@@ -258,7 +267,7 @@ Only merchant `web/` contains password-reset and password-change pages. The
 administrator client supports account/password login and merchant management
 but no password-recovery UI. The user mini-program keeps phone, WeChat, and QQ
 login only. All three authenticated clients may update their own non-unique
-nickname.
+nickname. `GET /auth/profile/nickname` returns only the authenticated user nickname across authenticated audiences; customer profile/avatar endpoints retain their user-api guard. Merchant integration changes write `INTEGRATION_SETTING_UPDATED` in the same transaction as the flag update. See [merchant account/settings verification](../docs/25-account-settings-2026-11-17.md).
 
 Never create an administrator by editing a JWT or allowing an unknown phone
 number to use `admin-api`. Review `auth_audit_logs` at least weekly for login,
@@ -290,3 +299,11 @@ minute. `GET /api/admin/system-logs` requires an
 the intended operator interface. Startup, graceful stop, uncaught exceptions,
 unhandled rejections, HTTP 5xx responses, and registered client errors share
 this endpoint's structured store.
+
+## 多店 API 上下文
+
+`STORE_MODE=multi` 启用共享 API 下按门店隔离的商家运行时，`single` 保持现有主门店限制。两个模式都需要 `PRIMARY_STORE_ID` 作为公开默认门店和启动/readiness 检查对象。
+
+商家商品、订单和收款账户 API 使用 `X-Store-Id` 选择一个已授权门店；单门店账号可省略，多门店账号省略时返回 400，未授权时返回 403。库存和集成接口通过路径显式指定门店，仍由服务端 signed scope 校验。CORS 允许 `X-Store-Id`。
+
+`GET /stores/current`、`GET /menu/current` 支持可选 `storeId` 查询参数；平台分类/商品建档支持 `storeId`。下单按请求门店校验营业状态，支付按已归属订单找到收款门店，outbox 多店模式处理所有门店。完整约束和验证见 [多店运行时记录](../docs/16-multi-store-iteration-2026-11-17.md)。
