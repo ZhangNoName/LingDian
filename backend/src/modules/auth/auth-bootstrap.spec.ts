@@ -1,8 +1,11 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
+import { AccountAuthService } from './account-auth.service';
+import { PasswordService } from './password.service';
 
 const loadBootstrap = () => new Function('path', 'return import(path)')('../../../scripts/auth-bootstrap.lib.mjs') as Promise<{
   bootstrapAccounts(input: { prisma: unknown; env: Record<string, string> }): Promise<unknown>;
+  seedLocalMerchant(input: { prisma: unknown; env: NodeJS.ProcessEnv }): Promise<string>;
 }>;
 
 const environment = {
@@ -16,6 +19,77 @@ const environment = {
   AUTH_BOOTSTRAP_MERCHANT_PHONE: '13800000002',
   AUTH_BOOTSTRAP_MERCHANT_STORE_IDS: 'store-1',
 };
+
+const localEnvironment = {
+  NODE_ENV: 'development',
+  DATABASE_URL: 'mysql://127.0.0.1/lingdian_test',
+  PRIMARY_STORE_ID: 'store-1',
+};
+
+test('local initialization signs in through the merchant audience and preserves credentials on repeat runs', async () => {
+  const { seedLocalMerchant } = await loadBootstrap();
+  let credential: { passwordHash: string } | undefined;
+  const roles: Array<{ role: string; scopeType: string; scopeId: string; status: string }> = [];
+  const tx = {
+    store: { findUnique: async () => ({ id: 'store-1' }) },
+    authIdentity: { findFirst: async () => credential ? { user: { roles } } : null },
+    user: {
+      create: async ({ data }: { data: {
+        identities: { create: { accountName: string; provider: string; subject: string; passwordCredential: { create: { passwordHash: string } } } };
+        roles: { create: { role: string; scopeType: string; scopeId: string } };
+      } }) => {
+        assert.equal(credential, undefined);
+        const { accountName, provider, subject, passwordCredential } = data.identities.create;
+        assert.deepEqual([accountName, provider, subject], ['admin', 'ACCOUNT', 'admin']);
+        credential = passwordCredential.create;
+        roles.push({ ...data.roles.create, status: 'ACTIVE' });
+      },
+    },
+  };
+  const prisma = { $transaction: async (run: (scope: typeof tx) => Promise<string>) => run(tx) };
+  assert.equal(await seedLocalMerchant({ prisma, env: localEnvironment }), 'created');
+  assert.deepEqual(roles, [{ role: 'MERCHANT', scopeType: 'STORE', scopeId: 'store-1', status: 'ACTIVE' }]);
+
+  const passwords = new PasswordService({} as never, {} as never);
+  const service = new AccountAuthService(
+    {
+      authIdentity: { findUnique: async () => ({ passwordCredential: credential, user: { id: 'user', status: 'ACTIVE', sessionVersion: 1, roles } }) },
+      user: { update: async () => undefined },
+    } as never,
+    {} as never,
+    { create: async (user: { merchantStoreIds: string[] }, audience: string) => ({ user: { ...user, audience } }) } as never,
+    passwords,
+    { record: async () => undefined } as never,
+  );
+  const login = { username: 'admin', password: 'Admin@020206', audience: 'merchant-api' } as const;
+  const context = { deviceId: 'web', ip: '127.0.0.1' };
+  const session = await service.login(login, context);
+  assert.equal(session.user.audience, 'merchant-api');
+  assert.deepEqual(session.user.merchantStoreIds, ['store-1']);
+  await assert.rejects(() => service.login({ ...login, audience: 'admin-api' }, context), /credentials.*invalid/i);
+
+  const changedHash = await passwords.hash('Changed-password7!');
+  credential = { passwordHash: changedHash };
+  assert.equal(await seedLocalMerchant({ prisma, env: localEnvironment }), 'unchanged');
+  assert.equal(credential.passwordHash, changedHash);
+});
+
+test('default merchant initialization skips an occupied username and rejects non-local environments before writing', async () => {
+  const { seedLocalMerchant } = await loadBootstrap();
+  const tx = {
+    store: { findUnique: async () => ({ id: 'store-1' }) },
+    authIdentity: { findFirst: async () => ({ user: { roles: [] } }) },
+  };
+  const prisma = { $transaction: async (run: (scope: typeof tx) => Promise<string>) => run(tx) };
+  assert.equal(await seedLocalMerchant({ prisma, env: localEnvironment }), 'occupied');
+  for (const overrides of [
+    { NODE_ENV: 'production' },
+    { DATABASE_MODE: 'external' },
+    { DATABASE_URL: 'mysql://remote.example/lingdian_test' },
+  ]) {
+    await assert.rejects(() => seedLocalMerchant({ prisma: {}, env: { ...localEnvironment, ...overrides } }), /loopback database/);
+  }
+});
 
 test('bootstrap rejects a merchant scope outside the configured primary store before writing', async () => {
   const persistence = createPersistence();

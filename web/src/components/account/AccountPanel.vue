@@ -18,7 +18,11 @@ const { t, locale } = useAccountLocale()
         <p class="text-sm font-medium text-primary">{{ t('brand') }}</p>
         <LanguageSelect />
       </div>
-      <component :is="publicPage ? 'h1' : 'h2'" class="break-words text-xl font-semibold">{{ title }}</component>
+      <component
+        :is="publicPage ? 'h1' : 'h2'"
+        class="break-words font-semibold"
+        :class="publicPage ? 'text-2xl sm:text-3xl' : 'text-xl'"
+      >{{ title }}</component>
       <p v-if="description" class="mt-2 text-sm leading-6 text-muted-foreground">{{ description }}</p>
       <div class="mt-6"><slot /></div>
     </Card>

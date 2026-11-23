@@ -63,6 +63,6 @@ import { StoresModule } from '../stores/stores.module';
     SuperAdminGuard,
     UserApiGuard,
   ],
-  exports: [JwtModule, AuthService, VerificationService, SessionService, PasswordService, AccountAuthService, MerchantAdminService, ProfileService, LegalConsentService, OAuthService, AccessTokenGuard, AdminGuard, MerchantGuard, SuperAdminGuard, UserApiGuard],
+  exports: [JwtModule, AuthService, VerificationService, SessionService, PasswordService, AccountAuthService, MerchantAdminService, ProfileService, LegalConsentService, OAuthService, WechatOAuthProvider, AccessTokenGuard, AdminGuard, MerchantGuard, SuperAdminGuard, UserApiGuard],
 })
 export class AuthModule {}

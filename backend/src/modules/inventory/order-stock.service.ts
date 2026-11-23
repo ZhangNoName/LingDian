@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { Prisma } from '@lingdian/db';
 import { syncInventoryAlert } from './inventory-alert-state';
 
-type OrderRef = { id: string; storeId: string; orderNo: string };
+type OrderRef = { id: string; storeId: string; orderNo: string; paymentRequired?: boolean };
 const MAX_QUANTITY = 999999000;
 export const STOCK_HOLD_MINUTES = 30;
 
@@ -71,10 +71,11 @@ async function updateMaterial(tx: Prisma.TransactionClient, item: Material, next
   if (changed.count !== 1) throw new ConflictException('inventory.stale');
 }
 async function movement(tx: Prisma.TransactionClient, order: OrderRef, item: Material, next: Balance, kind: 'RESERVE' | 'RELEASE' | 'ISSUE', amount: number, actorId: string) {
+  const issueReason = order.paymentRequired === false ? 'order accepted for preparation' : 'payment confirmed';
   await tx.inventoryMovement.create({ data: {
     storeId: order.storeId, itemId: item.id, requestId: createHash('sha256').update(`${kind}:${order.id}:${item.id}`).digest('hex'), kind, amount,
     quantityBefore: item.quantity, quantityAfter: next.quantity, reservedBefore: item.reservedQuantity, reservedAfter: next.reservedQuantity,
     reorderPointBefore: item.reorderPoint, reorderPointAfter: item.reorderPoint, versionBefore: item.version, actorId,
-    reason: `Order ${order.orderNo}: ${kind === 'RESERVE' ? 'stock reserved' : kind === 'ISSUE' ? 'payment confirmed' : 'stock released'}`.slice(0, 240),
+    reason: `Order ${order.orderNo}: ${kind === 'RESERVE' ? 'stock reserved' : kind === 'ISSUE' ? issueReason : 'stock released'}`.slice(0, 240),
   } });
 }

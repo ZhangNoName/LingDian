@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Badge } from '@lingdian/console-ui/badge'
 import DataActionButton from '@/components/DataActionButton.vue'
 import TablePagination from '@/components/table/TablePagination.vue'
 import { parseTablePageSize } from '@/components/table/page-size'
@@ -119,7 +120,7 @@ onBeforeUnmount(() => {
         <div class="min-w-0">
           <strong class="break-words">{{ row.title }}</strong>
           <p class="help mt-1">
-            {{ t(row.status) }} · {{ t('progress') }}
+            <Badge :variant="row.status === 'POSTED' ? 'success' : row.status === 'DRAFT' ? 'warning' : 'secondary'">{{ t(row.status) }}</Badge> · {{ t('progress') }}
             {{ row.lines.filter((line) => line.countedQuantity !== null).length }} / {{ row.lines.length }} ·
             {{ date(row.createdAt) }}
           </p>

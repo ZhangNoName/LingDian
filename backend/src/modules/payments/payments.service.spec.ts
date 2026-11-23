@@ -1,3 +1,4 @@
+import { confirmSuccessfulPayment } from './payment-settlement';
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { PaymentsService } from './payments.service';
@@ -18,6 +19,82 @@ const storeContext = {
     return ['store-1'];
   },
 };
+
+test('an offline mini-program order cannot create a customer or merchant online payment', async () => {
+  const order = {
+    id: 'order-1', storeId: 'store-1', status: 'PENDING_PAYMENT', orderSource: 'MINIAPP',
+    paymentChannel: 'CASH', payableAmount: 18.8, paymentIntents: [],
+  };
+  const prisma = {
+    order: { findFirst: async () => order },
+    paymentIntent: { findUnique: async () => null },
+    paymentAccount: { findUnique: async () => assert.fail('offline checkout must not look up a gateway account') },
+  };
+  const service = testPaymentsService(prisma, {}, storeContext);
+  assert.deepEqual(await service.getCustomerPaymentMethods('store-1'), { wechatMiniProgram: false });
+  await assert.rejects(service.createIntent(order.id, 'owner', {
+    provider: 'WECHAT_PAY', channel: 'WECHAT', clientRequestId: 'offline',
+  }), /仅支持线下支付/);
+  assert.equal((await service.createMerchantWechatNativePayment(order.id, ['store-1'])).state, 'UNAVAILABLE');
+});
+
+test('only the owner of a pending WeChat order can resume its active payment', async () => {
+  const expected = { id: 'order-1', storeId: 'store-1', status: 'PENDING_PAYMENT', paymentChannel: 'WECHAT' };
+  const active = {
+    paymentNo: 'PAY1', orderId: expected.id, provider: 'WECHAT_PAY', channel: 'WECHAT', status: 'PENDING',
+    amountMinor: 1550n, currency: 'CNY', clientAction: { type: 'WECHAT_MINI_PROGRAM' },
+    expiresAt: new Date(Date.now() + 60_000), paidAt: null, order: { status: 'PENDING_PAYMENT' },
+  };
+  const prisma = {
+    order: { findFirst: async ({ where }: any) => {
+      assert.equal(where.storeId, 'store-1');
+      assert.equal(where.isDeleted, false);
+      return where.customerUserId === 'owner' ? expected : null;
+    } },
+    paymentIntent: { findFirst: async ({ where }: any) => {
+      assert.equal(where.activeOrderKey, expected.id);
+      assert.equal(where.orderId, expected.id);
+      return active;
+    } },
+  };
+  const service = testPaymentsService(prisma, {}, storeContext);
+  await assert.rejects(service.getActiveWechatPayment(expected.id, 'another-user'), /Order not found/);
+  assert.equal((await service.getActiveWechatPayment(expected.id, 'owner')).intent?.payment_no, 'PAY1');
+  expected.status = 'PAID';
+  assert.deepEqual(await service.getActiveWechatPayment(expected.id, 'owner'), { intent: null });
+});
+
+test('customer recheck closes an expired active attempt only after a connector proof', async () => {
+  const intent = {
+    paymentNo: 'PAY1', orderId: 'order-1', activeOrderKey: 'order-1', provider: 'WECHAT_PAY', channel: 'WECHAT',
+    status: 'PENDING', amountMinor: 1550n, currency: 'CNY', clientAction: null,
+    expiresAt: new Date(Date.now() + 60_000), paidAt: null, order: { status: 'PENDING_PAYMENT', storeId: 'store-1' },
+  };
+  const prisma = {
+    paymentIntent: { findFirst: async ({ where }: any) => {
+      assert.equal(where.paymentNo, intent.paymentNo);
+      assert.equal(where.order.storeId, 'store-1');
+      return where.order.customerUserId === 'owner' ? intent : null;
+    } },
+  };
+  let closes = 0;
+  const expiry = {
+    isExpiredActiveIntent: (candidate: typeof intent) => candidate.expiresAt < new Date(),
+    recoverExpiredAttempt: async (orderId: string, storeId: string) => {
+      assert.deepEqual([orderId, storeId], ['order-1', 'store-1']);
+      if (++closes === 1) throw new Error('Connector closure not proven');
+      intent.status = 'EXPIRED';
+    },
+  };
+  const service = testPaymentsService(prisma, {}, storeContext, expiry);
+  assert.equal((await service.recheckCustomerIntent('PAY1', 'owner')).status, 'PENDING');
+  intent.expiresAt = new Date(0);
+  await assert.rejects(service.recheckCustomerIntent('PAY1', 'another-user'), /Payment not found/);
+  assert.equal(closes, 0);
+  await assert.rejects(service.recheckCustomerIntent('PAY1', 'owner'), /not proven/);
+  assert.equal(intent.status, 'PENDING');
+  assert.equal((await service.recheckCustomerIntent('PAY1', 'owner')).status, 'EXPIRED');
+});
 
 for (const callbackStatus of [undefined, 'SUCCEEDED', 'FAILED', 'PROCESSING'] as const) {
   test(`createIntent preserves payment state when the connector returns after ${callbackStatus ?? 'no callback'}`, async () => {
@@ -760,13 +837,15 @@ test('a success fact remains matched when the order is already in a paid termina
     },
     orderStatusLog: { create: async () => { statusLogWritten = true; return {}; } },
   };
-  const service = testPaymentsService({} as never, {} as never, storeContext as never);
+  const stock = { commit: async () => { assert.fail('inventory must not be committed'); } };
 
-  await (service as any).confirmSuccessfulPayment(tx, {
+  await confirmSuccessfulPayment(tx as never, stock as never, {
     intentId: intent.id,
     orderId: order.id,
+    orderNo: 'LD1',
     storeId: order.storeId,
     provider: 'WECHAT_PAY',
+    channel: 'WECHAT',
     accountId: intent.accountId,
     providerIntentId: 'provider-1',
     eventId: 'event-completed',
@@ -808,14 +887,16 @@ test('one provider transaction cannot credit a second payment intent', async () 
     },
     orderStatusLog: { create: async () => { statusLogWritten = true; } },
   };
-  const service = testPaymentsService({} as never, {} as never, storeContext as never);
+  const stock = { commit: async () => { assert.fail('inventory must not be committed'); } };
 
   await assert.rejects(
-    () => (service as any).confirmSuccessfulPayment(tx, {
+    () => confirmSuccessfulPayment(tx as never, stock as never, {
       intentId: intent.id,
       orderId: order.id,
+      orderNo: 'LD2',
       storeId: order.storeId,
       provider: 'WECHAT_PAY',
+      channel: 'WECHAT',
       accountId: intent.accountId,
       providerIntentId: intent.providerIntentId,
       eventId: 'event-duplicate-provider-transaction',

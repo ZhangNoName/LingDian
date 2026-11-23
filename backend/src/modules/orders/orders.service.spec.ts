@@ -42,6 +42,14 @@ function createOrdersService(
   return new OrdersService(prisma, addresses, stores, queries, { reserve: async () => null, commit: async () => undefined, release: async () => undefined } as never, integrationOutbox);
 }
 
+test('new mini-program orders reject an online payment channel', async () => {
+  const service = createOrdersService({ $transaction: async () => assert.fail('must reject before creating the order') });
+  await assert.rejects(service.createOrder({
+    storeId: 'store-1', orderType: 'pickup', paymentChannel: 'wechat',
+    items: [{ sku_id: 'sku-1', quantity: 1 }],
+  }), /仅支持线下支付/);
+});
+
 test('createOrder does not block checkout when sku stock is zero', async () => {
   const createdOrder = {
     id: 'order-1',
@@ -302,47 +310,59 @@ test('takeout checkout propagates address ownership rejection', async () => {
   );
 });
 
-test('checkout accepts duplicate SKU lines and charges selections for every item quantity', async () => {
-  let skuQuery: any;
-  let createdData: any;
-  const group = {
-    id: 'group-1', name: '加料', selectionMode: 'MULTIPLE', minSelect: 0,
-    maxSelect: 3, isRequired: false, options: [],
-  };
-  const sku = {
-    id: 'sku-1', productId: 'product-1', skuName: '默认', price: 0.1, isActive: true,
-    product: { id: 'product-1', name: '拿铁', status: 'ACTIVE', selectionBindings: [{ groupId: group.id, group }] },
-    selectionBindings: [],
-  };
-  const tx = {
-    store: { findUnique: async () => ({ status: 'OPEN' }) },
-    productSKU: { findMany: async (query: any) => { skuQuery = query; return [sku]; } },
-    selectionOption: { findMany: async () => [{
-      id: 'option-1', groupId: group.id, name: '椰果', optionType: 'VALUE', priceDelta: 0.2,
-      referencedSkuId: null, group, referencedSku: null,
-    }] },
-    pickupCodeSequence: fakePickupCodeSequence(),
-    order: { create: async ({ data }: any) => { createdData = data; return orderRecord(data); } },
-  };
-  const service = createOrdersService(
-    { $transaction: async (callback: any) => callback(tx) } as never,
-    {} as never,
-    fakeStores(),
-  );
+for (const paymentMode of ['true', 'false', undefined]) {
+  test(`checkout prices duplicate SKU lines and respects payment mode (${paymentMode ?? 'default'})`, async (t) => {
+    const originalMode = process.env.ORDER_PAYMENT_REQUIRED;
+    t.after(() => {
+      if (originalMode === undefined) delete process.env.ORDER_PAYMENT_REQUIRED;
+      else process.env.ORDER_PAYMENT_REQUIRED = originalMode;
+    });
+    if (paymentMode === undefined) delete process.env.ORDER_PAYMENT_REQUIRED;
+    else process.env.ORDER_PAYMENT_REQUIRED = paymentMode;
+    let skuQuery: any;
+    let createdData: any;
+    const group = {
+      id: 'group-1', name: '加料', selectionMode: 'MULTIPLE', minSelect: 0,
+      maxSelect: 3, isRequired: false, options: [],
+    };
+    const sku = {
+      id: 'sku-1', productId: 'product-1', skuName: '默认', price: 0.1, isActive: true,
+      product: { id: 'product-1', name: '拿铁', status: 'ACTIVE', selectionBindings: [{ groupId: group.id, group }] },
+      selectionBindings: [],
+    };
+    const tx = {
+      store: { findUnique: async () => ({ status: 'OPEN' }) },
+      productSKU: { findMany: async (query: any) => { skuQuery = query; return [sku]; } },
+      selectionOption: { findMany: async () => [{
+        id: 'option-1', groupId: group.id, name: '椰果', optionType: 'VALUE', priceDelta: 0.2,
+        referencedSkuId: null, group, referencedSku: null,
+      }] },
+      pickupCodeSequence: fakePickupCodeSequence(),
+      order: { create: async ({ data }: any) => { createdData = data; return orderRecord(data); } },
+    };
+    const service = createOrdersService(
+      { $transaction: async (callback: any) => callback(tx) } as never,
+      {} as never,
+      fakeStores(),
+    );
 
-  const result = await service.createOrder({
-    storeId: 'store-1', orderType: 'pickup', customerName: '顾客', mobile: '13800000000',
-    items: [
-      { sku_id: 'sku-1', quantity: 2, selections: [{ selectionOptionId: 'option-1', quantity: 1 }] },
-      { sku_id: 'sku-1', quantity: 1 },
-    ],
+    const result = await service.createOrder({
+      storeId: 'store-1', orderType: 'pickup', customerName: '顾客', mobile: '13800000000',
+      items: [
+        { sku_id: 'sku-1', quantity: 2, selections: [{ selectionOptionId: 'option-1', quantity: 1 }] },
+        { sku_id: 'sku-1', quantity: 1 },
+      ],
+    });
+
+    assert.deepEqual(skuQuery.where.id.in, ['sku-1']);
+    assert.equal(createdData.items.create[0].subtotal, 0.6);
+    assert.equal(createdData.items.create[1].subtotal, 0.1);
+    assert.equal(result.total_amount, 0.7);
+    assert.equal(result.payable_amount, paymentMode === 'false' ? 0 : 0.7);
+    assert.equal(result.status, paymentMode === 'false' ? 'PREPARING' : 'PENDING_PAYMENT');
+    assert.equal(result.payment_required, paymentMode === 'false' ? false : undefined);
   });
-
-  assert.deepEqual(skuQuery.where.id.in, ['sku-1']);
-  assert.equal(createdData.items.create[0].subtotal, 0.6);
-  assert.equal(createdData.items.create[1].subtotal, 0.1);
-  assert.equal(result.payable_amount, 0.7);
-});
+}
 
 test('checkout rejects an option that is not bound to the selected SKU', async () => {
   const tx = {
@@ -570,7 +590,7 @@ function orderRecord(data: any) {
     pickupBusinessDate: data.pickupBusinessDate ?? now,
     customerName: data.customerName, customerMobile: data.customerMobile,
     deliveryAddress: data.deliveryAddress ?? null, orderType: data.orderType,
-    status: data.status, paymentChannel: data.paymentChannel,
+    status: data.status, paymentRequired: data.paymentRequired, paymentChannel: data.paymentChannel,
     totalAmount: data.totalAmount, payableAmount: data.payableAmount, remark: data.remark ?? null,
     isDeleted: false, deletedAt: null, paidAt: null, cancelledAt: null, refundingAt: null, refundedAt: null,
     createdAt: now, updatedAt: now, store: { id: data.storeId, name: '零点示范店', code: 'demo' },

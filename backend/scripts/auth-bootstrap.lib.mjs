@@ -5,16 +5,68 @@ const MAX_TRANSACTION_ATTEMPTS = 3;
 const MIN_BOOTSTRAP_PASSWORD_LENGTH = 12;
 const MAX_BOOTSTRAP_PASSWORD_LENGTH = 128;
 const WEAK_PASSWORD_TOKENS = ['password', 'passwd', 'admin', 'merchant', 'qwerty', 'letmein', 'changeme', '123456'];
+const LOCAL_MERCHANT_USERNAME = 'admin';
+const LOCAL_MERCHANT_PASSWORD = 'Admin@020206';
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 
 export async function bootstrapAccounts({ prisma, env }) {
   const config = validateBootstrapAccountsConfig(env);
+  return runSerializable(prisma, (tx) => bootstrapAccountsInTransaction({ tx, config }));
+}
 
+export function isLocalMerchantSeedAllowed(env) {
+  if (!['development', 'test'].includes(env.NODE_ENV) || env.DATABASE_MODE === 'external') return false;
+  return LOOPBACK_HOSTS.has(URL.parse(env.DATABASE_URL ?? '')?.hostname);
+}
+
+export async function seedLocalMerchant({ prisma, env }) {
+  if (!isLocalMerchantSeedAllowed(env)) {
+    throw new Error('The default merchant requires NODE_ENV=development or test and a loopback database.');
+  }
+  const storeId = env.PRIMARY_STORE_ID?.trim();
+  if (!storeId || storeId.includes(',')) {
+    throw new Error('The default merchant requires exactly one PRIMARY_STORE_ID.');
+  }
+
+  return runSerializable(prisma, async (tx) => {
+    const store = await tx.store.findUnique({ where: { id: storeId }, select: { id: true } });
+    if (!store) throw new Error('Create the primary store before initializing the default merchant.');
+    return createLocalMerchantInTransaction(tx, store.id);
+  });
+}
+
+export async function createLocalMerchantInTransaction(tx, storeId) {
+  const username = LOCAL_MERCHANT_USERNAME;
+  const scope = { role: 'MERCHANT', scopeType: 'STORE', scopeId: storeId };
+  const existing = await tx.authIdentity.findFirst({
+    where: { OR: [{ accountName: username }, { provider: 'ACCOUNT', subject: username }] },
+    select: {
+      user: { select: { roles: { where: scope, select: { id: true } } } },
+    },
+  });
+  if (existing) return existing.user.roles.length ? 'unchanged' : 'occupied';
+
+  const passwordHash = await hashPassword(LOCAL_MERCHANT_PASSWORD);
+  await tx.user.create({
+    data: {
+      identities: {
+        create: {
+          provider: 'ACCOUNT',
+          subject: username,
+          accountName: username,
+          passwordCredential: { create: { passwordHash } },
+        },
+      },
+      roles: { create: scope },
+    },
+  });
+  return 'created';
+}
+
+async function runSerializable(prisma, work) {
   for (let attempt = 1; attempt <= MAX_TRANSACTION_ATTEMPTS; attempt += 1) {
     try {
-      return await prisma.$transaction(
-        (tx) => bootstrapAccountsInTransaction({ tx, config }),
-        { isolationLevel: 'Serializable' },
-      );
+      return await prisma.$transaction(work, { isolationLevel: 'Serializable' });
     } catch (error) {
       if (!isRetryableWriteConflict(error) || attempt === MAX_TRANSACTION_ATTEMPTS) throw error;
     }

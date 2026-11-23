@@ -1,0 +1,1 @@
+ALTER TABLE `orders` ADD COLUMN `paymentRequired` BOOLEAN NOT NULL DEFAULT true;

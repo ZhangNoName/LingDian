@@ -5,6 +5,7 @@ import {
   type GatewayCloseResult,
   PaymentGatewayFactory,
 } from './payment.gateway';
+import { isWechatNativePayment, WechatNativeGateway } from './wechat-native.gateway';
 
 type ExpiredIntentCandidate = {
   id: string;
@@ -52,7 +53,10 @@ export class PaymentExpiryService {
 
     let result: GatewayCloseResult;
     try {
-      result = await this.gateways.create(candidate.account).closeIntent({
+      const gateway = isWechatNativePayment(candidate.paymentNo)
+        ? WechatNativeGateway.forAccount(candidate.account)
+        : this.gateways.create(candidate.account);
+      result = await gateway.closeIntent({
         paymentNo: candidate.paymentNo,
         providerIntentId: candidate.providerIntentId,
         reason: 'EXPIRED',

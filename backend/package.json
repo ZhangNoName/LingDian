@@ -16,6 +16,7 @@
     "db:pull": "pnpm --filter @lingdian/db db:pull",
     "db:sync-local-config": "node ./scripts/sync-local-config.mjs",
     "db:seed:demo": "node ./scripts/seed-demo-data.mjs",
+    "db:seed:merchant": "node ./scripts/seed-auth-bootstrap.mjs --local-merchant",
     "db:seed:auth-bootstrap": "node ./scripts/seed-auth-bootstrap.mjs",
     "db:bootstrap:production": "node ./scripts/bootstrap-production.mjs",
     "start": "node dist/main.js",

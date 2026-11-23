@@ -15,3 +15,10 @@ export type PaymentIntentContract = {
   expires_at: string;
   paid_at: string | null;
 };
+
+export type MerchantWechatNativePayment = {
+  state: 'AVAILABLE' | 'UNAVAILABLE' | 'BLOCKED' | 'WAITING' | 'EXPIRED' | 'ORDER_UPDATED';
+  amount_minor: number;
+  code_url: string | null;
+  expires_at: string | null;
+};

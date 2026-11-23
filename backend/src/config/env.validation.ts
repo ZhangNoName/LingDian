@@ -11,6 +11,9 @@ export function validateEnv(config: EnvRecord) {
   const isTestEnvironment = config.NODE_ENV === 'test';
 
   validateStoreEnv(config, errors, isTestEnvironment);
+  if (config.ORDER_PAYMENT_REQUIRED !== undefined && !['true', 'false'].includes(config.ORDER_PAYMENT_REQUIRED)) {
+    errors.push('ORDER_PAYMENT_REQUIRED must be true or false');
+  }
 
   if (!isTestEnvironment) {
     validateSecret(config, 'AUTH_JWT_ACCESS_SECRET', errors);

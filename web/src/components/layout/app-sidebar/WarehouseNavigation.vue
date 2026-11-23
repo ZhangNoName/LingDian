@@ -45,8 +45,8 @@ async function expand() {
     v-if="collapsed"
     type="button"
     variant="ghost"
-    class="min-h-10 w-full rounded-none"
-    :class="activeSection && 'border border-primary/10 bg-primary/8 text-primary'"
+    class="min-h-10 w-full rounded-none border-l-2 border-transparent"
+    :class="activeSection && 'border-l-sidebar-primary bg-sidebar-accent text-sidebar-primary'"
     :aria-label="label"
     :title="label"
     @click="expand"
@@ -59,8 +59,8 @@ async function expand() {
         ref="groupTrigger"
         type="button"
         variant="ghost"
-        class="min-h-10 w-full justify-start gap-3 rounded-none border border-transparent px-3"
-        :class="activeSection && (open ? 'text-primary' : 'border-primary/10 bg-primary/8 text-primary')"
+        class="min-h-10 w-full justify-start gap-3 rounded-none border-l-2 border-transparent px-3"
+        :class="activeSection && (open ? 'text-sidebar-primary' : 'border-l-sidebar-primary bg-sidebar-accent text-sidebar-primary')"
       >
         <Package aria-hidden="true" />
         <span class="min-w-0 flex-1 truncate text-left">{{ label }}</span>
@@ -75,8 +75,8 @@ async function expand() {
             :role="isLocked(section) ? 'link' : undefined"
             :aria-disabled="isLocked(section) || undefined"
             :aria-current="activeSection === section ? 'page' : undefined"
-            class="block truncate px-3 py-2 text-sm leading-5 transition-colors hover:bg-muted aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
-            :class="activeSection === section && 'bg-primary/8 font-medium text-primary'"
+            class="block truncate border-l-2 border-transparent px-3 py-2 text-sm leading-5 transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:-outline-offset-2 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-[current=page]:hover:bg-sidebar-accent"
+            :class="activeSection === section && 'border-l-sidebar-primary bg-sidebar-accent font-semibold text-sidebar-primary'"
             @click="selectSection($event, section, navigate)"
           >{{ section.label[locale] }}</a>
         </RouterLink>

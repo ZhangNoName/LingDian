@@ -2,7 +2,8 @@
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import type { ProductRecordContract, ProductStatus } from '@lingdian/contracts'
-import { catalogStatusActions } from '../catalog-lifecycle'
+import { catalogStatusActions, catalogStatusBadge } from '../catalog-lifecycle'
+import { Badge } from '@lingdian/console-ui/badge'
 import { Button } from '@lingdian/console-ui/button'
 import { updateMerchantProductStatus } from '@/services/products'
 import { useCatalogLocale, catalogError, type CatalogKey } from '../catalog-management-locale'
@@ -46,8 +47,7 @@ onBeforeUnmount(() => {
   <section class="grid min-w-0 gap-3 border p-3">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <p class="text-sm">
-        {{ t('status') }}:
-        <strong>{{ t(product.status) }}</strong>
+        <Badge :variant="catalogStatusBadge(product.status)">{{ t(product.status) }}</Badge>
       </p>
       <div v-if="!target" class="flex flex-wrap gap-2">
         <Button

@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { PrismaMariaDb } from '@prisma/adapter-mariadb';
 import { createMariaDbConnectionConfig, PrismaClient } from '@lingdian/db';
-import { bootstrapAccounts } from './auth-bootstrap.lib.mjs';
+import { bootstrapAccounts, seedLocalMerchant } from './auth-bootstrap.lib.mjs';
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -14,10 +14,19 @@ const prisma = new PrismaClient({
   })),
 });
 
-bootstrapAccounts({ prisma, env: process.env })
-  .then((result) => {
+async function main() {
+  const options = { prisma, env: process.env };
+  if (process.argv.includes('--local-merchant')) {
+    const outcome = await seedLocalMerchant(options);
+    if (outcome === 'occupied') throw new Error('The default merchant username is already in use by another account.');
+    console.log(`Default merchant ${outcome}.`);
+  } else {
+    const result = await bootstrapAccounts(options);
     console.log(`Bootstrap accounts ready: super administrator ${bootstrapAction(result.admin)}, merchant ${bootstrapAction(result.merchant)}.`);
-  })
+  }
+}
+
+main()
   .catch((error) => {
     console.error(safeErrorMessage(error));
     process.exitCode = 1;

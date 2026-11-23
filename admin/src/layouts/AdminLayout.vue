@@ -26,11 +26,11 @@ onBeforeUnmount(() => window.removeEventListener('resize', resize))
 
 <template>
   <div class="admin-shell">
-    <aside v-if="!mobile" class="admin-shell__sidebar" :style="{ width: collapsed ? '72px' : '240px' }">
+    <aside v-if="!mobile" id="platform-desktop-navigation" class="admin-shell__sidebar" :class="{ 'is-collapsed': collapsed }">
       <AdminSidebar :collapsed="collapsed" />
     </aside>
     <Dialog v-model:open="drawer">
-      <DialogContent side="left" class="w-60 border-0 p-0 [&>button]:right-1 [&>button]:top-4 [&>button]:text-white">
+      <DialogContent side="left" class="w-[min(16rem,calc(100vw-3rem))] p-0">
         <DialogTitle class="sr-only">工作台导航</DialogTitle>
         <DialogDescription class="sr-only">选择管理页面</DialogDescription>
         <AdminSidebar @navigate="drawer = false" />

@@ -1,4 +1,6 @@
 import 'dotenv/config';
+import { copyFile, mkdir } from 'node:fs/promises';
+import { join } from 'node:path';
 import { PrismaMariaDb } from '@prisma/adapter-mariadb';
 import {
   OrderStatus,
@@ -14,6 +16,7 @@ import {
   SelectionScope,
   StoreStatus,
 } from '@lingdian/db';
+import { createLocalMerchantInTransaction, isLocalMerchantSeedAllowed } from './auth-bootstrap.lib.mjs';
 import {
   assertDemoSeedAllowed,
   clearPrimaryStoreDemoData,
@@ -54,128 +57,120 @@ const storeSeed = {
 const catalogSeed = [
   {
     key: 'burgers',
-    name: 'Burgers',
+    name: '汉堡',
     sortOrder: 1,
     products: [
       {
         key: 'spicy-chicken-burger',
         type: ProductType.SINGLE,
-        name: 'Spicy Chicken Burger',
-        description: 'Crispy chicken thigh burger with lettuce and spicy sauce.',
-        imageUrl: 'https://example.com/demo/spicy-chicken-burger.jpg',
+        name: '香辣鸡腿堡',
+        description: '酥脆鸡腿排、生菜和香辣酱，夹在芝麻面包里。',
         status: ProductStatus.ACTIVE,
         isFeatured: true,
         skus: [
-          { key: 'single', skuName: 'Single', price: 19.9, stockCount: 120, isDefault: true },
-          { key: 'double', skuName: 'Double Patty', price: 27.9, stockCount: 60, isDefault: false },
+          { key: 'single', skuName: '单层', price: 19.9, stockCount: 120, isDefault: true },
+          { key: 'double', skuName: '双层', price: 27.9, stockCount: 60, isDefault: false },
         ],
       },
       {
         key: 'grilled-chicken-burger',
         type: ProductType.SINGLE,
-        name: 'Grilled Chicken Burger',
-        description: 'Grilled chicken burger with black pepper sauce.',
-        imageUrl: 'https://example.com/demo/grilled-chicken-burger.jpg',
+        name: '黑椒烤鸡堡',
+        description: '炭烤鸡腿肉搭配黑椒酱和脆生菜。',
         status: ProductStatus.ACTIVE,
-        isFeatured: true,
+        isFeatured: false,
         skus: [
-          { key: 'single', skuName: 'Single', price: 21.9, stockCount: 96, isDefault: true },
+          { key: 'single', skuName: '单层', price: 21.9, stockCount: 96, isDefault: true },
         ],
       },
       {
         key: 'beef-bacon-burger',
         type: ProductType.SINGLE,
-        name: 'Beef Bacon Burger',
-        description: 'Beef patty layered with bacon and cheese.',
-        imageUrl: 'https://example.com/demo/beef-bacon-burger.jpg',
+        name: '芝士培根牛肉堡',
+        description: '牛肉饼叠上香煎培根和融化的芝士。',
         status: ProductStatus.ACTIVE,
         isFeatured: false,
         skus: [
-          { key: 'single', skuName: 'Single', price: 28.9, stockCount: 48, isDefault: true },
+          { key: 'single', skuName: '单层', price: 28.9, stockCount: 48, isDefault: true },
         ],
       },
     ],
   },
   {
     key: 'snacks',
-    name: 'Snacks',
+    name: '小吃',
     sortOrder: 2,
     products: [
       {
         key: 'fries',
         type: ProductType.SINGLE,
-        name: 'Golden Fries',
-        description: 'Fresh fried fries with crispy texture.',
-        imageUrl: 'https://example.com/demo/fries.jpg',
+        name: '黄金薯条',
+        description: '现炸金黄薯条，外脆内软。',
         status: ProductStatus.ACTIVE,
         isFeatured: false,
         skus: [
-          { key: 'medium', skuName: 'Medium', price: 11.9, stockCount: 180, isDefault: true },
-          { key: 'large', skuName: 'Large', price: 15.9, stockCount: 120, isDefault: false },
+          { key: 'medium', skuName: '中份', price: 11.9, stockCount: 180, isDefault: true },
+          { key: 'large', skuName: '大份', price: 15.9, stockCount: 120, isDefault: false },
         ],
       },
       {
         key: 'popcorn-chicken',
         type: ProductType.SINGLE,
-        name: 'Popcorn Chicken',
-        description: 'Small crispy chicken bites with mild spice.',
-        imageUrl: 'https://example.com/demo/popcorn-chicken.jpg',
+        name: '香酥鸡米花',
+        description: '一口大小的酥炸鸡块，带一点辣味。',
         status: ProductStatus.ACTIVE,
         isFeatured: true,
         skus: [
-          { key: 'small', skuName: 'Small', price: 13.9, stockCount: 88, isDefault: true },
-          { key: 'share', skuName: 'Sharing', price: 22.9, stockCount: 40, isDefault: false },
+          { key: 'small', skuName: '小份', price: 13.9, stockCount: 88, isDefault: true },
+          { key: 'share', skuName: '分享装', price: 22.9, stockCount: 40, isDefault: false },
         ],
       },
     ],
   },
   {
     key: 'drinks',
-    name: 'Drinks',
+    name: '饮料',
     sortOrder: 3,
     products: [
       {
         key: 'cola',
         type: ProductType.SINGLE,
-        name: 'Cola',
-        description: 'Classic sparkling cola drink.',
-        imageUrl: 'https://example.com/demo/cola.jpg',
+        name: '冰可乐',
+        description: '带气泡的经典冰爽可乐。',
         status: ProductStatus.ACTIVE,
-        isFeatured: false,
+        isFeatured: true,
         skus: [
-          { key: 'medium', skuName: 'Medium', price: 8.5, stockCount: 150, isDefault: true },
-          { key: 'large', skuName: 'Large', price: 10.5, stockCount: 110, isDefault: false },
+          { key: 'medium', skuName: '中杯', price: 8.5, stockCount: 150, isDefault: true },
+          { key: 'large', skuName: '大杯', price: 10.5, stockCount: 110, isDefault: false },
         ],
       },
       {
         key: 'fruit-drink',
         type: ProductType.SINGLE,
-        name: 'Fruit Drink',
-        description: 'Sweet mixed fruit drink for combo upgrades.',
-        imageUrl: 'https://example.com/demo/fruit-drink.jpg',
+        name: '冰橙饮',
+        description: '冰爽橙味果饮，可搭配套餐。',
         status: ProductStatus.ACTIVE,
         isFeatured: false,
         skus: [
-          { key: 'medium', skuName: 'Medium', price: 10.9, stockCount: 90, isDefault: true },
+          { key: 'medium', skuName: '中杯', price: 10.9, stockCount: 90, isDefault: true },
         ],
       },
     ],
   },
   {
     key: 'combos',
-    name: 'Combos',
-    sortOrder: 4,
+    name: '套餐',
+    sortOrder: 0,
     products: [
       {
         key: 'classic-burger-combo',
         type: ProductType.PACKAGE,
-        name: 'Classic Burger Combo',
-        description: 'One burger, one snack, and one drink. Choose your own combination.',
-        imageUrl: 'https://example.com/demo/classic-burger-combo.jpg',
+        name: '经典鸡腿堡套餐',
+        description: '香辣鸡腿堡、黄金薯条和冰可乐，可替换主食、小吃或饮料。',
         status: ProductStatus.ACTIVE,
         isFeatured: true,
         skus: [
-          { key: 'standard', skuName: 'Standard Combo', price: 36.9, stockCount: 80, isDefault: true },
+          { key: 'standard', skuName: '标准套餐', price: 36.9, stockCount: 80, isDefault: true },
         ],
       },
     ],
@@ -597,7 +592,13 @@ function computeOrderAmounts(orderItems) {
 }
 
 async function main() {
-  await prisma.$transaction(async (tx) => {
+  const imageDirectory = join(process.cwd(), 'uploads', 'products', 'demo');
+  await mkdir(imageDirectory, { recursive: true });
+  await Promise.all(catalogSeed.flatMap(({ products }) => products.map(({ key }) =>
+    copyFile(new URL(`./demo-assets/${key}.jpg`, import.meta.url), join(imageDirectory, `${key}.jpg`)),
+  )));
+
+  const merchant = await prisma.$transaction(async (tx) => {
     await clearPrimaryStoreDemoData(tx, primaryStoreId);
     const store = await tx.store.upsert({
       where: { id: primaryStoreId },
@@ -628,7 +629,7 @@ async function main() {
             categoryId: category.id,
             name: productSeed.name,
             description: productSeed.description,
-            imageUrl: productSeed.imageUrl,
+            imageUrl: `/uploads/products/demo/${productSeed.key}.jpg`,
             type: productSeed.type,
             price: basePrice,
             status: productSeed.status,
@@ -663,7 +664,7 @@ async function main() {
     const spicyLevelGroup = await tx.selectionGroup.create({
       data: {
         storeId: store.id,
-        name: 'Spice Level',
+        name: '辣度',
         groupType: SelectionGroupType.MODIFIER,
         selectionMode: SelectionMode.SINGLE,
         minSelect: 1,
@@ -672,9 +673,9 @@ async function main() {
         sortOrder: 0,
         options: {
           create: [
-            { name: 'No Spice', optionType: SelectionOptionType.VALUE, isDefault: false, sortOrder: 0 },
-            { name: 'Mild', optionType: SelectionOptionType.VALUE, isDefault: true, sortOrder: 1 },
-            { name: 'Hot', optionType: SelectionOptionType.VALUE, isDefault: false, sortOrder: 2 },
+            { name: '不辣', optionType: SelectionOptionType.VALUE, isDefault: false, sortOrder: 0 },
+            { name: '微辣', optionType: SelectionOptionType.VALUE, isDefault: true, sortOrder: 1 },
+            { name: '香辣', optionType: SelectionOptionType.VALUE, isDefault: false, sortOrder: 2 },
           ],
         },
       },
@@ -683,7 +684,7 @@ async function main() {
     const veggieAdjustGroup = await tx.selectionGroup.create({
       data: {
         storeId: store.id,
-        name: 'Veggie Adjustments',
+        name: '配菜调整',
         groupType: SelectionGroupType.MODIFIER,
         selectionMode: SelectionMode.MULTIPLE,
         minSelect: 0,
@@ -692,9 +693,9 @@ async function main() {
         sortOrder: 1,
         options: {
           create: [
-            { name: 'No Lettuce', optionType: SelectionOptionType.VALUE, sortOrder: 0 },
-            { name: 'No Tomato', optionType: SelectionOptionType.VALUE, sortOrder: 1 },
-            { name: 'Extra Pickles', optionType: SelectionOptionType.VALUE, priceDelta: 1, sortOrder: 2 },
+            { name: '去生菜', optionType: SelectionOptionType.VALUE, sortOrder: 0 },
+            { name: '去番茄', optionType: SelectionOptionType.VALUE, sortOrder: 1 },
+            { name: '加酸黄瓜', optionType: SelectionOptionType.VALUE, priceDelta: 1, sortOrder: 2 },
           ],
         },
       },
@@ -703,7 +704,7 @@ async function main() {
     const addOnGroup = await tx.selectionGroup.create({
       data: {
         storeId: store.id,
-        name: 'Add-ons',
+        name: '加料',
         groupType: SelectionGroupType.MODIFIER,
         selectionMode: SelectionMode.MULTIPLE,
         minSelect: 0,
@@ -712,8 +713,8 @@ async function main() {
         sortOrder: 2,
         options: {
           create: [
-            { name: 'Add Cheese', optionType: SelectionOptionType.VALUE, priceDelta: 2, sortOrder: 0 },
-            { name: 'Add Bacon', optionType: SelectionOptionType.VALUE, priceDelta: 4, sortOrder: 1 },
+            { name: '加芝士', optionType: SelectionOptionType.VALUE, priceDelta: 2, sortOrder: 0 },
+            { name: '加培根', optionType: SelectionOptionType.VALUE, priceDelta: 4, sortOrder: 1 },
           ],
         },
       },
@@ -722,7 +723,7 @@ async function main() {
     const iceLevelGroup = await tx.selectionGroup.create({
       data: {
         storeId: store.id,
-        name: 'Ice Level',
+        name: '冰量',
         groupType: SelectionGroupType.MODIFIER,
         selectionMode: SelectionMode.SINGLE,
         minSelect: 1,
@@ -731,9 +732,9 @@ async function main() {
         sortOrder: 3,
         options: {
           create: [
-            { name: 'Regular Ice', optionType: SelectionOptionType.VALUE, isDefault: true, sortOrder: 0 },
-            { name: 'Less Ice', optionType: SelectionOptionType.VALUE, sortOrder: 1 },
-            { name: 'No Ice', optionType: SelectionOptionType.VALUE, sortOrder: 2 },
+            { name: '正常冰', optionType: SelectionOptionType.VALUE, isDefault: true, sortOrder: 0 },
+            { name: '少冰', optionType: SelectionOptionType.VALUE, sortOrder: 1 },
+            { name: '去冰', optionType: SelectionOptionType.VALUE, sortOrder: 2 },
           ],
         },
       },
@@ -742,7 +743,7 @@ async function main() {
     const burgerChoiceGroup = await tx.selectionGroup.create({
       data: {
         storeId: store.id,
-        name: 'Burger Choice',
+        name: '主食',
         groupType: SelectionGroupType.COMPONENT,
         selectionMode: SelectionMode.SINGLE,
         minSelect: 1,
@@ -752,20 +753,20 @@ async function main() {
         options: {
           create: [
             {
-              name: 'Spicy Chicken Burger',
+              name: '香辣鸡腿堡',
               optionType: SelectionOptionType.VARIANT,
               referencedSkuId: skuMap.get('spicy-chicken-burger:single'),
               sortOrder: 0,
             },
             {
-              name: 'Grilled Chicken Burger',
+              name: '黑椒烤鸡堡',
               optionType: SelectionOptionType.VARIANT,
               referencedSkuId: skuMap.get('grilled-chicken-burger:single'),
               priceDelta: 2,
               sortOrder: 1,
             },
             {
-              name: 'Beef Bacon Burger',
+              name: '芝士培根牛肉堡',
               optionType: SelectionOptionType.VARIANT,
               referencedSkuId: skuMap.get('beef-bacon-burger:single'),
               priceDelta: 6,
@@ -779,7 +780,7 @@ async function main() {
     const snackChoiceGroup = await tx.selectionGroup.create({
       data: {
         storeId: store.id,
-        name: 'Snack Choice',
+        name: '小吃',
         groupType: SelectionGroupType.COMPONENT,
         selectionMode: SelectionMode.SINGLE,
         minSelect: 1,
@@ -789,13 +790,13 @@ async function main() {
         options: {
           create: [
             {
-              name: 'Golden Fries Medium',
+              name: '黄金薯条（中份）',
               optionType: SelectionOptionType.VARIANT,
               referencedSkuId: skuMap.get('fries:medium'),
               sortOrder: 0,
             },
             {
-              name: 'Popcorn Chicken Small',
+              name: '香酥鸡米花（小份）',
               optionType: SelectionOptionType.VARIANT,
               referencedSkuId: skuMap.get('popcorn-chicken:small'),
               priceDelta: 2,
@@ -809,7 +810,7 @@ async function main() {
     const drinkChoiceGroup = await tx.selectionGroup.create({
       data: {
         storeId: store.id,
-        name: 'Drink Choice',
+        name: '饮料',
         groupType: SelectionGroupType.COMPONENT,
         selectionMode: SelectionMode.SINGLE,
         minSelect: 1,
@@ -819,13 +820,13 @@ async function main() {
         options: {
           create: [
             {
-              name: 'Cola Medium',
+              name: '冰可乐（中杯）',
               optionType: SelectionOptionType.VARIANT,
               referencedSkuId: skuMap.get('cola:medium'),
               sortOrder: 0,
             },
             {
-              name: 'Fruit Drink Medium',
+              name: '冰橙饮（中杯）',
               optionType: SelectionOptionType.VARIANT,
               referencedSkuId: skuMap.get('fruit-drink:medium'),
               priceDelta: 2,
@@ -926,24 +927,24 @@ async function main() {
 
     const selectionReferenceMap = buildSelectionReferenceMap(selectionGroups);
     const selectionAliasMap = new Map([
-      ['spice:no', selectionReferenceMap.get('Spice Level:No Spice')],
-      ['spice:mild', selectionReferenceMap.get('Spice Level:Mild')],
-      ['spice:hot', selectionReferenceMap.get('Spice Level:Hot')],
-      ['veggie:no-lettuce', selectionReferenceMap.get('Veggie Adjustments:No Lettuce')],
-      ['veggie:no-tomato', selectionReferenceMap.get('Veggie Adjustments:No Tomato')],
-      ['veggie:pickles', selectionReferenceMap.get('Veggie Adjustments:Extra Pickles')],
-      ['addon:cheese', selectionReferenceMap.get('Add-ons:Add Cheese')],
-      ['addon:bacon', selectionReferenceMap.get('Add-ons:Add Bacon')],
-      ['ice:regular', selectionReferenceMap.get('Ice Level:Regular Ice')],
-      ['ice:less', selectionReferenceMap.get('Ice Level:Less Ice')],
-      ['ice:no', selectionReferenceMap.get('Ice Level:No Ice')],
-      ['burger:spicy', selectionReferenceMap.get('Burger Choice:Spicy Chicken Burger')],
-      ['burger:grilled', selectionReferenceMap.get('Burger Choice:Grilled Chicken Burger')],
-      ['burger:beef', selectionReferenceMap.get('Burger Choice:Beef Bacon Burger')],
-      ['snack:fries', selectionReferenceMap.get('Snack Choice:Golden Fries Medium')],
-      ['snack:chicken', selectionReferenceMap.get('Snack Choice:Popcorn Chicken Small')],
-      ['drink:cola', selectionReferenceMap.get('Drink Choice:Cola Medium')],
-      ['drink:fruit', selectionReferenceMap.get('Drink Choice:Fruit Drink Medium')],
+      ['spice:no', selectionReferenceMap.get('辣度:不辣')],
+      ['spice:mild', selectionReferenceMap.get('辣度:微辣')],
+      ['spice:hot', selectionReferenceMap.get('辣度:香辣')],
+      ['veggie:no-lettuce', selectionReferenceMap.get('配菜调整:去生菜')],
+      ['veggie:no-tomato', selectionReferenceMap.get('配菜调整:去番茄')],
+      ['veggie:pickles', selectionReferenceMap.get('配菜调整:加酸黄瓜')],
+      ['addon:cheese', selectionReferenceMap.get('加料:加芝士')],
+      ['addon:bacon', selectionReferenceMap.get('加料:加培根')],
+      ['ice:regular', selectionReferenceMap.get('冰量:正常冰')],
+      ['ice:less', selectionReferenceMap.get('冰量:少冰')],
+      ['ice:no', selectionReferenceMap.get('冰量:去冰')],
+      ['burger:spicy', selectionReferenceMap.get('主食:香辣鸡腿堡')],
+      ['burger:grilled', selectionReferenceMap.get('主食:黑椒烤鸡堡')],
+      ['burger:beef', selectionReferenceMap.get('主食:芝士培根牛肉堡')],
+      ['snack:fries', selectionReferenceMap.get('小吃:黄金薯条（中份）')],
+      ['snack:chicken', selectionReferenceMap.get('小吃:香酥鸡米花（小份）')],
+      ['drink:cola', selectionReferenceMap.get('饮料:冰可乐（中杯）')],
+      ['drink:fruit', selectionReferenceMap.get('饮料:冰橙饮（中杯）')],
     ]);
 
     for (const demoOrder of demoOrders) {
@@ -1031,6 +1032,7 @@ async function main() {
         },
       });
     }
+    if (isLocalMerchantSeedAllowed(process.env)) return createLocalMerchantInTransaction(tx, store.id);
   });
 
   const [stores, categories, products, skus, groups, options, bindings, orders, orderLogs] = await Promise.all([
@@ -1049,6 +1051,7 @@ async function main() {
     `Demo seed complete: ${stores} store(s), ${categories} categories, ${products} products, ${skus} skus, ${groups} groups, ${options} options, ${bindings} bindings, ${orders} orders, ${orderLogs} order logs.`,
   );
   console.log(`Configured primary store: PRIMARY_STORE_ID=${primaryStoreId}`);
+  if (merchant) console.log(`Default merchant ${merchant}.`);
 }
 
 main()

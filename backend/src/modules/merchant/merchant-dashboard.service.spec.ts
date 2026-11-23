@@ -12,19 +12,21 @@ const user: AuthenticatedUser = { userId: 'm', sessionId: 's', audience: 'mercha
 const period = { startAt: '2026-11-01T16:00:00.000Z', endAt: '2026-11-02T16:00:00.000Z' };
 function fixture() {
   const db = new DatabaseSync(':memory:');
-  db.exec('CREATE TABLE orders(id TEXT,storeId TEXT,status TEXT,orderType TEXT,isDeleted INTEGER,createdAt TEXT,cents INTEGER); CREATE TABLE order_items(orderId TEXT,productId TEXT,skuId TEXT,productName TEXT,skuName TEXT,quantity INTEGER)');
-  const insert = db.prepare('INSERT INTO orders VALUES(?,?,?,?,?,?,?)');
+  db.exec('CREATE TABLE orders(id TEXT,storeId TEXT,status TEXT,orderType TEXT,isDeleted INTEGER,createdAt TEXT,cents INTEGER,paymentRequired INTEGER DEFAULT 1); CREATE TABLE order_items(orderId TEXT,productId TEXT,skuId TEXT,productName TEXT,skuName TEXT,quantity INTEGER)');
+  const insert = db.prepare('INSERT INTO orders(id,storeId,status,orderType,isDeleted,createdAt,cents) VALUES(?,?,?,?,?,?,?)');
   for (const row of [
     ['paid','store-a','PAID','PICKUP',0,period.startAt,1234], ['completed','store-a','COMPLETED','DINE_IN',0,'2026-11-02T00:00:00.000Z',2000],
     ['pending','store-a','PENDING_PAYMENT','PICKUP',0,period.startAt,1000], ['refund','store-a','REFUNDING','PICKUP',0,period.startAt,8000], ['cancelled','store-a','CANCELLED','PICKUP',0,period.startAt,9000],
     ['before','store-a','PAID','PICKUP',0,'2026-11-01T15:59:59.999Z',9999], ['end','store-a','PAID','PICKUP',0,period.endAt,9999], ['deleted','store-a','PAID','PICKUP',1,period.startAt,9999], ['foreign','store-b','PAID','PICKUP',0,period.startAt,9999],
   ]) insert.run(...row as (string | number)[]);
+  insert.run('pickup-only', 'store-a', 'COMPLETED', 'PICKUP', 0, period.startAt, 0);
+  db.prepare('UPDATE orders SET paymentRequired=0 WHERE id=?').run('pickup-only');
   const item = db.prepare('INSERT INTO order_items VALUES(?,?,?,?,?,?)');
-  for (const row of [['paid','p1','sku1','Bread','Regular',2],['paid','p1','sku1','Bread','Regular',3],['completed','p1','sku1','Renamed bread','Regular',4],['completed','p1',null,'Legacy bread',null,1],['refund','p1','sku1','Bread','Regular',999],['foreign','p1','sku1','Bread','Regular',999]]) item.run(...row as (string | number | null)[]);
+  for (const row of [['paid','p1','sku1','Bread','Regular',2],['paid','p1','sku1','Bread','Regular',3],['completed','p1','sku1','Renamed bread','Regular',4],['completed','p1',null,'Legacy bread',null,1],['refund','p1','sku1','Bread','Regular',999],['foreign','p1','sku1','Bread','Regular',999],['pickup-only','p1','sku1','Bread','Regular',999]]) item.run(...row as (string | number | null)[]);
   let calls = 0;
   const tx: any = {
     order: {
-      groupBy: async ({ where }: any) => { calls++; return db.prepare('SELECT status,orderType,COUNT(*) AS n,SUM(cents) AS cents FROM orders WHERE storeId=? AND isDeleted=0 AND createdAt>=? AND createdAt<? GROUP BY status,orderType').all(where.storeId, where.createdAt.gte.toISOString(), where.createdAt.lt.toISOString()).map((row: any) => ({ status: row.status, orderType: row.orderType, _count: { _all: row.n }, _sum: { payableAmount: new Prisma.Decimal(row.cents).div(100) } })); },
+      groupBy: async ({ where }: any) => { calls++; return db.prepare('SELECT status,orderType,paymentRequired,COUNT(*) AS n,SUM(cents) AS cents FROM orders WHERE storeId=? AND isDeleted=0 AND createdAt>=? AND createdAt<? GROUP BY status,orderType,paymentRequired').all(where.storeId, where.createdAt.gte.toISOString(), where.createdAt.lt.toISOString()).map((row: any) => ({ status: row.status, orderType: row.orderType, paymentRequired: Boolean(row.paymentRequired), _count: { _all: row.n }, _sum: { payableAmount: new Prisma.Decimal(row.cents).div(100) } })); },
       count: async ({ where }: any) => { assert.equal(where.storeId, 'store-a'); assert.equal(where.createdAt, undefined); return where.stockExpiresAt ? 2 : 3; },
     },
     inventoryAlert: { count: async ({ where }: any) => { assert.equal(where.storeId, 'store-a'); return where.status === 'OPEN' ? 1 : 2; } },
@@ -37,7 +39,7 @@ function fixture() {
 test('dashboard uses a scoped half-open creation cohort, exact amounts and eligible current statuses', async () => {
   const f = fixture(); try {
     const result = await f.service.snapshot(user, 'store-a', period);
-    assert.deepEqual(result.orders, { total: 5, paid: 2, completed: 1, pendingPayment: 1, refunding: 1, refunded: 0, cancelled: 1, timedOut: 0, failed: 0, paidAmount: 32.34 });
+    assert.deepEqual(result.orders, { total: 6, paid: 2, completed: 2, pendingPayment: 1, refunding: 1, refunded: 0, cancelled: 1, timedOut: 0, failed: 0, paidAmount: 32.34 });
     assert.equal(result.orderTypes.find(row => row.type === 'PICKUP')!.paidAmount, 12.34); assert.equal(result.currency, 'CNY');
     assert.equal(result.operations.expiredStockHoldOrders, 2); assert.equal(result.operations.outOfStockMaterials, 4);
   } finally { f.db.close(); }

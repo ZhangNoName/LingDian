@@ -20,6 +20,7 @@ type CreatedOrder = {
   orderType: string;
   status: string;
   paymentChannel: string;
+  paymentRequired?: boolean;
   totalAmount: Prisma.Decimal | number;
   payableAmount: Prisma.Decimal | number;
   customerName: string;
@@ -182,6 +183,7 @@ export class IntegrationOutboxService implements OnApplicationBootstrap, OnModul
         order_type: order.orderType,
         status: order.status,
         payment_channel: order.paymentChannel,
+        ...(order.paymentRequired === false ? { payment_required: false } : {}),
         total_amount: Number(order.totalAmount),
         payable_amount: Number(order.payableAmount),
         customer_name: order.customerName,

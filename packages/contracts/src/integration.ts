@@ -48,6 +48,7 @@ export type OrderCreatedIntegrationEvent = {
     order_type: string;
     status: string;
     payment_channel: string;
+    payment_required?: boolean;
     total_amount: number;
     payable_amount: number;
     customer_name: string;

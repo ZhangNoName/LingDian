@@ -46,12 +46,25 @@ flowchart LR
 
 ## API
 
+部署设置 `ORDER_PAYMENT_REQUIRED=false` 后，新顾客订单直接进入制作中并领取取餐码，订单金额保留，系统应付金额为零。原料在接单事务中扣减，订单不计入收款统计。已创建订单按自身支付状态继续处理。设置 `ORDER_PAYMENT_REQUIRED=true` 可恢复新订单的支付流程。旧部署未设置时继续使用支付流程。
+
+- `GET /api/customer/payment-methods?storeId=…` 返回该门店是否已配置微信小程序支付。H5 继续使用线下现金。
 - `POST /api/customer/orders/:orderId/payments`：为当前用户自己的待支付订单创建幂等支付意图。
+- `GET /api/customer/orders/:orderId/wechat-payment` 返回顾客自己待支付订单的当前活动意图，用于取消后继续付款或重新打开订单。
 - `GET /api/customer/payments/:paymentNo`：查询当前用户自己的支付状态。
+- `POST /api/customer/payments/:paymentNo/recheck` 在顾客主动刷新时核对自己的支付。若意图已到期且仍被占用，复用连接器关单验证。
 - `POST /api/payments/webhooks/:provider/:accountId`：支付连接器回调；公开路由，但必须通过密码学验签。
 - `PUT /api/payment-accounts`：管理员创建/更新门店收款账户。
 - `GET /api/payment-accounts`：管理员查询全部收款账户。
 - `GET /api/merchant/payment-accounts`：商户仅查询 JWT 门店范围内的收款账户。
+
+## 商家端微信扫码收款
+
+- 商家在订单详情生成本单的微信 Native 收款码。 `GET /api/merchant/orders/:orderId/wechat-native-payment` 查看当前二维码或收款状态，`POST` 创建或复用正在等待的二维码。两者都使用商家 JWT 门店范围。订单金额和截止时间由 API 确定。
+- 同一订单最多保留一笔活动支付。Native 二维码和小程序预支付共享同一个活动占位。码到期后隐藏，只有确认旧支付已关闭并且订单仍可支付，才可重新下单。
+- `POST /api/payments/wechat-native/webhooks/:accountId` 接收微信原始通知。API 验微信支付公钥签名，使用 APIv3 密钥解密，再核对 AppID、商户号、支付单号、交易类型、金额和币种。支付流水、库存和订单状态在数据库事务中更新。收款界面自动轮询，必要时通过微信签名查单补偿通知延迟。
+- 真实收款使用**普通商户模式**。在微信支付商户平台开通 Native 并绑定已认证应用 AppID。门店使用同一个 `WECHAT_PAY / WECHAT` 收款账户配置，`externalAccountId` 填微信商户号，`connectorConfigKey` 对应部署环境变量前缀 `WECHAT_NATIVE_<KEY>_`。需要 `APP_ID`、`MERCHANT_SERIAL`、`MERCHANT_PRIVATE_KEY`、`PUBLIC_KEY_ID`、`PUBLIC_KEY`、`API_V3_KEY` 和外网 HTTPS `NOTIFY_ORIGIN`。私钥只放在部署密钥中。小程序支付继续使用以下连接器协议。
+- [微信支付 Native 官方指引](https://pay.wechatpay.cn/doc/v3/merchant/4012791891) · [支付成功通知](https://pay.wechatpay.cn/doc/v3/merchant/4012791882)
 
 ## 连接器协议
 
@@ -69,6 +82,21 @@ X-LingDian-Timestamp: <unix seconds>
 X-LingDian-Nonce: <random hex>
 X-LingDian-Signature: sha256=HMAC(secret, timestamp + "." + nonce + "." + rawBody)
 ```
+
+微信小程序发起支付时，顾客端提交本次 `wx.login` 返回的 `miniProgramLoginCode`。API 使用配置的小程序 AppID 和密钥换取 OpenID，并通过签名请求的 `wechat_mini_program: { app_id, open_id }` 传给连接器。连接器创建预支付后返回 `status: "PENDING"`，并按下方结构提供 `clientAction`。
+
+```json
+{
+  "type": "WECHAT_MINI_PROGRAM",
+  "timeStamp": "1795000000",
+  "nonceStr": "<随机串>",
+  "package": "prepay_id=<微信预支付会话>",
+  "signType": "RSA",
+  "paySign": "<使用对应 AppID 签发的支付签名>"
+}
+```
+
+顾客端通过微信收银台付款，随后刷新订单。微信客户端接受付款后，重新进入订单也会保留等待确认状态。支付结果以连接器验签回调更新的订单状态为准。
 
 连接器回调使用相同签名格式，JSON 事件至少包含：`event_id`、`event_type`、`payment_no`、`provider_intent_id`、`account_external_id`、`amount_minor`、`currency`、`occurred_at`；成功事件还应包含 `provider_transaction_id`。
 

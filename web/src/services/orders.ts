@@ -1,5 +1,6 @@
 import { requestData } from '@/lib/api'
 import { apiUrl } from '@/config/api'
+import type { MerchantWechatNativePayment } from '@lingdian/contracts'
 import type {
   OrderDetail,
   OrderFilters,
@@ -53,6 +54,14 @@ export function summarizeMerchantOrders(query: OrderListQuery): Promise<OrderSum
 
 export function getMerchantOrder(orderId: string): Promise<OrderDetail> {
   return requestData(apiUrl(`/merchant/orders/${encodeURIComponent(orderId)}`))
+}
+
+export function getMerchantWechatNativePayment(orderId: string): Promise<MerchantWechatNativePayment> {
+  return requestData(apiUrl(`/merchant/orders/${encodeURIComponent(orderId)}/wechat-native-payment`))
+}
+
+export function createMerchantWechatNativePayment(orderId: string): Promise<MerchantWechatNativePayment> {
+  return requestData(apiUrl(`/merchant/orders/${encodeURIComponent(orderId)}/wechat-native-payment`), { method: 'POST' })
 }
 
 export function updateMerchantOrderStatus(

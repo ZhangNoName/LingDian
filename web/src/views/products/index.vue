@@ -8,6 +8,7 @@ import { Settings } from '@lingdian/icons/web'
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { Badge } from '@lingdian/console-ui/badge'
+import { catalogStatusBadge } from './catalog-lifecycle'
 import { Button } from '@lingdian/console-ui/button'
 import { Card } from '@lingdian/console-ui/card'
 import { Input } from '@lingdian/console-ui/input'
@@ -264,7 +265,7 @@ onBeforeUnmount(() => {
               </th>
               <td><Badge variant="outline">{{ t(product.type) }}</Badge></td>
               <td>
-                {{ t(product.status) }}
+                <Badge :variant="catalogStatusBadge(product.status)">{{ t(product.status) }}</Badge>
                 <span
                   v-if="!product.skus.some((sku) => sku.is_active)"
                   class="mt-1 block whitespace-normal text-xs text-muted-foreground"
@@ -272,7 +273,7 @@ onBeforeUnmount(() => {
                   {{ t('noActiveVariants') }}
                 </span>
               </td>
-              <td class="tabular-nums">{{ money(product.price) }}</td>
+              <td class="font-semibold tabular-nums">{{ money(product.price) }}</td>
               <td class="tabular-nums">
                 {{ product.skus.filter((sku) => sku.is_active).length }} / {{ product.selection_group_count }}
               </td>
@@ -294,7 +295,7 @@ onBeforeUnmount(() => {
                   {{ t('noActiveVariants') }}
                 </p>
               </div>
-              <span class="shrink-0">{{ t(product.status) }}</span>
+              <Badge :variant="catalogStatusBadge(product.status)">{{ t(product.status) }}</Badge>
             </div>
             <div class="flex items-center justify-between gap-3">
               <strong class="tabular-nums">{{ money(product.price) }}</strong>

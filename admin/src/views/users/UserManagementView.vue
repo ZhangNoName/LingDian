@@ -231,7 +231,7 @@ watch(accountType, (value) => {
       <template #cell-identity="{ row }">
         <div class="identity-cell">
           <span class="avatar identity-avatar" aria-hidden="true">{{ (row.nickname || row.username || '用').slice(0, 1) }}</span>
-          <div><strong>{{ row.nickname || '未设置昵称' }}</strong><small>{{ row.username || '无账号' }}</small></div>
+          <div><strong>{{ row.nickname || row.username || '未设置昵称' }}</strong><small v-if="row.nickname && row.username">{{ row.username }}</small></div>
         </div>
       </template>
       <template #cell-roles="{ row }">
@@ -240,7 +240,7 @@ watch(accountType, (value) => {
         </Badge>
       </template>
       <template #cell-status="{ row }">
-        <Badge variant="outline" :class="row.status === 'ACTIVE' ? 'text-emerald-700 dark:text-emerald-300' : 'text-muted-foreground'">
+        <Badge :variant="row.status === 'ACTIVE' ? 'success' : 'secondary'">
           {{ label(statusOptions, row.status) }}
         </Badge>
       </template>

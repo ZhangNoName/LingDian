@@ -16,6 +16,17 @@ import { PaymentsService } from '../src/modules/payments/payments.service';
 import type { StoreContextResolver } from '../src/modules/stores/store-context.resolver';
 
 export async function verifyCheckoutPayment(db: PrismaService, stores: StoreContextResolver) {
+  const originalMode = process.env.ORDER_PAYMENT_REQUIRED;
+  try {
+    process.env.ORDER_PAYMENT_REQUIRED = 'true';
+    await verifyCheckoutModes(db, stores);
+  } finally {
+    if (originalMode === undefined) delete process.env.ORDER_PAYMENT_REQUIRED;
+    else process.env.ORDER_PAYMENT_REQUIRED = originalMode;
+  }
+}
+
+async function verifyCheckoutModes(db: PrismaService, stores: StoreContextResolver) {
   const store = await db.store.create({ data: { code: 'CHECKOUT', name: 'Checkout test' } });
   const user = await db.user.create({ data: { identities: { create: {
     provider: 'PHONE', subject: '+8613800009102', phoneE164: '+8613800009102', verifiedAt: new Date(),
@@ -61,7 +72,10 @@ export async function verifyCheckoutPayment(db: PrismaService, stores: StoreCont
   const checkout = (clientRequestId: string, quantity = 1) => orders.createOrder({
     clientRequestId, storeId: store.id, orderType: 'pickup', paymentChannel: 'cash', items: [{ sku_id: sku.id, quantity }],
   }, customer);
-  const status = (id: string, value: 'PAID' | 'PREPARING' | 'CANCELLED') => orders.updateMerchantOrderStatus(id, { status: value }, merchant, store.id);
+  const checkoutWithConnector = (clientRequestId: string) => orderService.createOrder({
+    clientRequestId, storeId: store.id, orderType: 'pickup', paymentChannel: 'cash', items: [{ sku_id: sku.id, quantity: 1 }],
+  }, customer.userId, 'MANUAL');
+  const status = (id: string, value: 'PAID' | 'PREPARING' | 'READY' | 'COMPLETED' | 'CANCELLED') => orders.updateMerchantOrderStatus(id, { status: value }, merchant, store.id);
   async function balance(quantity: number, reservedQuantity: number) {
     assert.deepEqual(await db.inventoryItem.findUniqueOrThrow({ where: { id: material.id },
       select: { quantity: true, reservedQuantity: true, availableQuantity: true } }), {
@@ -79,7 +93,7 @@ export async function verifyCheckoutPayment(db: PrismaService, stores: StoreCont
   assert.equal((await orders.getMerchantOrderDetail(cash.id, merchant, store.id)).status, 'PREPARING');
   await balance(4000, 0);
 
-  const online = await checkout('checkout-pay');
+  const online = await checkoutWithConnector('checkout-pay');
   const deadline = new Date(Date.now() + 120_000);
   await db.order.update({ where: { id: online.id }, data: { stockExpiresAt: deadline } });
   const wxRequest = { provider: wx.provider, channel: 'WECHAT' as const, clientRequestId: 'attempt-wx' };
@@ -115,11 +129,16 @@ export async function verifyCheckoutPayment(db: PrismaService, stores: StoreCont
   assert.equal((await db.paymentIntent.findUniqueOrThrow({ where: { paymentNo: first.payment_no } })).reconciliationStatus, 'MANUAL_REVIEW');
   await balance(3000, 0);
 
-  const expired = await checkout('checkout-timeout');
+  const expired = await checkoutWithConnector('checkout-timeout');
   const pending = await payments.createIntent(expired.id, customer, wxRequest);
   const past = new Date(Date.now() - 1000);
   await db.order.update({ where: { id: expired.id }, data: { stockExpiresAt: past } });
   await db.paymentIntent.update({ where: { paymentNo: pending.payment_no }, data: { expiresAt: past } });
+  assert.equal((await payments.getIntent(pending.payment_no, customer)).status, 'PENDING');
+  assert.equal((await payments.recheckIntent(pending.payment_no, customer)).status, 'EXPIRED');
+  assert.equal((await db.paymentIntent.findUniqueOrThrow({
+    where: { paymentNo: pending.payment_no },
+  })).failureCode, 'PROVIDER_CONFIRMED_CLOSED');
   await assert.rejects(payments.createIntent(expired.id, customer, { ...wxRequest, clientRequestId: 'after-expiry' }), /reservation has expired/);
   await new OrderStockExpiryService(db, expiry, orderService, stores).flush();
   assert.equal((await orders.getMerchantOrderDetail(expired.id, merchant, store.id)).status, 'TIMED_OUT');
@@ -127,7 +146,7 @@ export async function verifyCheckoutPayment(db: PrismaService, stores: StoreCont
   assert.equal((await db.paymentIntent.findUniqueOrThrow({ where: { paymentNo: pending.payment_no } })).reconciliationStatus, 'LATE_PAYMENT');
   await balance(3000, 0);
 
-  const racing = await checkout('checkout-racing');
+  const racing = await checkoutWithConnector('checkout-racing');
   const racingIntent = await payments.createIntent(racing.id, customer, wxRequest);
   await notify(wx, racingIntent.payment_no, 'race-failed', 'PAYMENT_FAILED');
   const [cancel, capture] = await Promise.allSettled([
@@ -142,7 +161,7 @@ export async function verifyCheckoutPayment(db: PrismaService, stores: StoreCont
   const receipt = await db.paymentIntent.findUniqueOrThrow({ where: { paymentNo: racingIntent.payment_no } });
   assert.equal(receipt.reconciliationStatus, paid ? 'MATCHED' : 'LATE_PAYMENT');
   await balance(paid ? 2000 : 3000, 0);
-  const lostReply = await checkout('checkout-lost-reply');
+  const lostReply = await checkoutWithConnector('checkout-lost-reply');
   onCreate = async (paymentNo) => {
     await notify(wx, paymentNo, 'success-before-disconnect', 'PAYMENT_SUCCEEDED', 'confirmed-charge');
     throw new Error('simulated lost connector response');
@@ -152,4 +171,27 @@ export async function verifyCheckoutPayment(db: PrismaService, stores: StoreCont
   assert.equal(confirmed.client_action, null);
   await balance(paid ? 1000 : 2000, 0);
   console.log('PASS MySQL checkout to merchant: cash and online acceptance, retries, stock rollback, competing payment channels, expiry and late receipts.');
+
+  const summary = () => orders.getMerchantOrderSummary(merchant, { page: 1, pageSize: 10 }, store.id);
+  const before = await summary();
+  process.env.ORDER_PAYMENT_REQUIRED = 'false';
+  const [pickup, retry] = await Promise.all([checkout('pickup-without-payment'), checkout('pickup-without-payment')]);
+  assert.equal(pickup.id, retry.id);
+  assert.equal(pickup.status, 'PREPARING');
+  assert.equal(pickup.payment_required, false);
+  assert.equal(pickup.payment_channel, undefined);
+  assert.equal(pickup.payable_amount, 0);
+  assert.equal(pickup.total_amount, 6.25);
+  assert.ok(pickup.pickup_code);
+  await balance(paid ? 0 : 1000, 0);
+  await assert.rejects(payments.createIntent(pickup.id, customer, wxRequest), /not awaiting payment/);
+  assert.equal((await status(pickup.id, 'READY')).status, 'READY');
+  assert.equal((await status(pickup.id, 'COMPLETED')).status, 'COMPLETED');
+  assert.equal(await db.paymentIntent.count({ where: { orderId: pickup.id } }), 0);
+  assert.equal(await db.orderStatusLog.count({ where: { orderId: pickup.id, toStatus: 'PAID' } }), 0);
+  assert.deepEqual(await summary(), { ...before, total_count: before.total_count + 1 });
+  process.env.ORDER_PAYMENT_REQUIRED = 'true';
+  assert.equal((await checkout('pickup-without-payment')).payment_required, false);
+  assert.equal((await orders.getCustomerOrderDetail(pickup.id, customer)).status, 'COMPLETED');
+  console.log('PASS MySQL order-only pickup: stock issued once, payment excluded, ready and completed, and mode change preserves history.');
 }

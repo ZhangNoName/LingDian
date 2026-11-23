@@ -20,7 +20,7 @@ const { locale } = useLocale(),
       <div class="min-w-0">
         <h2 class="break-words text-xl font-semibold">{{ store.name }}</h2>
       </div>
-      <Badge variant="outline" class="h-6 px-3">{{ status }}</Badge>
+      <Badge :variant="store.status === 'OPEN' ? 'success' : store.status === 'RESTING' ? 'warning' : 'secondary'">{{ status }}</Badge>
     </div>
     <dl class="mt-5 grid gap-5 sm:grid-cols-2">
       <div>
@@ -29,7 +29,7 @@ const { locale } = useLocale(),
       </div>
       <div>
         <dt class="text-sm text-muted-foreground">{{ english ? 'Authorized stores' : '已授权门店' }}</dt>
-        <dd class="mt-2 text-sm">{{ merchantStore.stores.value.length.toLocaleString(locale) }}</dd>
+        <dd class="mt-2 text-2xl font-bold tabular-nums">{{ merchantStore.stores.value.length.toLocaleString(locale) }}</dd>
       </div>
     </dl>
     <div class="mt-5 flex flex-wrap gap-3">

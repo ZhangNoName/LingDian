@@ -41,7 +41,7 @@ export function mapOrderDetail(order: OrderDetailRecord): OrderDetailContract {
     delivery_address: order.deliveryAddress,
     order_type: order.orderType,
     status: order.status,
-    payment_channel: order.paymentChannel,
+    ...(order.paymentRequired === false ? { payment_required: false } : { payment_channel: order.paymentChannel }),
     total_amount: toNumber(order.totalAmount),
     payable_amount: toNumber(order.payableAmount),
     remark: order.remark,

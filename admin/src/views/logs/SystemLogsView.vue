@@ -98,7 +98,7 @@ onMounted(load)
     >
       <template #toolbar-actions><Button type="button" variant="outline" :disabled="loading" @click="load">{{ loading ? '正在刷新…' : '刷新' }}</Button></template>
       <template #cell-level="{ row }">
-        <Badge :variant="row.level === 'ERROR' || row.level === 'FATAL' ? 'destructive' : 'outline'" :class="row.level === 'WARN' ? 'text-amber-700 dark:text-amber-300' : row.level === 'INFO' ? 'text-emerald-700 dark:text-emerald-300' : undefined">
+        <Badge :variant="row.level === 'ERROR' || row.level === 'FATAL' ? 'destructive' : row.level === 'WARN' ? 'warning' : row.level === 'INFO' ? 'info' : 'secondary'">
           {{ row.level }}
         </Badge>
       </template>

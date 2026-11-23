@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Badge } from '@lingdian/console-ui/badge'
 import FilterToggle from '@/components/FilterToggle.vue'
 import DataActionButton from '@/components/DataActionButton.vue'
 import TablePagination from '@/components/table/TablePagination.vue'
@@ -320,19 +321,14 @@ onBeforeUnmount(() => {
               }}</span>
             </th>
             <td>
-              <span
-                :class="
-                  row.status === 'RESOLVED'
-                    ? 'text-muted-foreground'
-                    : row.severity === 'OUT'
-                      ? 'text-red-700'
-                      : 'text-amber-800'
-                "
-                >{{ t(row.severity === 'OUT' ? 'out' : 'low') }}</span
-              >
+              <Badge :variant="row.status === 'RESOLVED' ? 'secondary' : row.severity === 'OUT' ? 'attention' : 'warning'">
+                {{ t(row.severity === 'OUT' ? 'out' : 'low') }}
+              </Badge>
             </td>
-            <td>{{ t(stateKey[row.status]) }}</td>
-            <td class="tabular-nums">
+            <td>
+              <Badge :variant="row.status === 'RESOLVED' ? 'success' : 'secondary'">{{ t(stateKey[row.status]) }}</Badge>
+            </td>
+            <td class="font-semibold tabular-nums">
               {{ number(row.availableLatest) }} / {{ number(row.thresholdLatest) }} {{ row.unit }}
             </td>
             <td class="text-xs">{{ date(row.detectedAt) }}</td>
@@ -355,18 +351,10 @@ onBeforeUnmount(() => {
           class="grid min-w-0 gap-3 border p-3 text-sm"
         >
           <div class="flex flex-wrap justify-between gap-2">
-            <strong class="break-words">{{ row.name }}</strong
-            ><span
-              class="text-xs"
-              :class="
-                row.status === 'RESOLVED'
-                  ? 'text-muted-foreground'
-                  : row.severity === 'OUT'
-                    ? 'text-red-700'
-                    : 'text-amber-800'
-              "
-              >{{ t(row.severity === 'OUT' ? 'out' : 'low') }} · {{ t(stateKey[row.status]) }}</span
-            >
+            <strong class="break-words">{{ row.name }}</strong>
+            <Badge :variant="row.status === 'RESOLVED' ? 'success' : row.severity === 'OUT' ? 'attention' : 'warning'">
+              {{ t(row.severity === 'OUT' ? 'out' : 'low') }} · {{ t(stateKey[row.status]) }}
+            </Badge>
           </div>
           <p class="break-words font-mono text-xs text-muted-foreground">{{ row.code }}</p>
           <p class="tabular-nums">

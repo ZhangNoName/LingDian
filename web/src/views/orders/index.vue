@@ -10,6 +10,7 @@ import { Button } from '@lingdian/console-ui/button'
 import { Card } from '@lingdian/console-ui/card'
 import { Input } from '@lingdian/console-ui/input'
 import { SelectField } from '@lingdian/console-ui/select'
+import { Filter } from '@lingdian/icons/web'
 import { deleteMerchantOrder, getMerchantOrder, listMerchantOrders, summarizeMerchantOrders } from '@/services/orders'
 import { updateMerchantOrderStatus } from '@/services/orders'
 import OrderList from './components/OrderList.vue'
@@ -32,7 +33,21 @@ const dirty = computed(() => filters.keyword.trim() !== state.value.keyword || f
 const detailActions = computed(() => orderStatusActions(activeOrder.value?.status, activeOrder.value?.payment_channel, locale.value))
 const metrics = computed<OrderSummaryMetric[]>(() => {
   const value = summary.value, valid = !loading.value && !error.value
-  return [ ['total', value?.total_count], ['pending', value?.pending_payment_count], ['paid', value?.paid_count], ['refunding', value?.refunding_count], ['refunded', value?.refunded_count], ['amount', value?.total_amount] ].map(([key, count]) => ({ label: t(key as OrderMessageKey), value: valid && typeof count === 'number' ? key === 'amount' ? money(count) : count.toLocaleString(locale.value) : '—', note: '' }))
+  const metrics = [
+    { key: 'total', count: value?.total_count, tone: 'info' },
+    { key: 'pending', count: value?.pending_payment_count, tone: 'warning' },
+    { key: 'paid', count: value?.paid_count, tone: 'success' },
+    { key: 'refunding', count: value?.refunding_count },
+    { key: 'refunded', count: value?.refunded_count },
+    { key: 'amount', count: value?.total_amount },
+  ] as const
+  return metrics.map((metric) => ({
+    label: t(metric.key),
+    value: valid && typeof metric.count === 'number'
+      ? metric.key === 'amount' ? money(metric.count) : metric.count.toLocaleString(locale.value)
+      : '—',
+    tone: 'tone' in metric ? metric.tone : undefined,
+  }))
 })
 let listSequence = 0, detailSequence = 0, lastList = '', selectedId = '', disposed = false
 async function load() {
@@ -65,8 +80,28 @@ async function apply() {
   } catch { error.value = 'invalidPeriod' }
 }
 function reset() { const next = parseOrderState({}); next.orderId = state.value.orderId; if (orderListFingerprint(next) === orderListFingerprint(state.value)) { filters.keyword = ''; filters.status = ''; filters.orderType = ''; filters.paymentChannel = ''; filters.from = ''; filters.to = ''; void load() } else void navigate(next) }
-function openDetail(id: string) { if (!busy.value) void navigate({ ...state.value, orderId: id }) }
+let detailTrigger: HTMLElement | undefined
+function openDetail(id: string, event: MouseEvent) {
+  if (busy.value) return
+  detailTrigger = event.currentTarget instanceof HTMLElement ? event.currentTarget : undefined
+  void navigate({ ...state.value, orderId: id })
+}
+function restoreDetailFocus(event: Event) {
+  event.preventDefault()
+  const target = detailTrigger?.isConnected && detailTrigger.getClientRects().length ? detailTrigger : listPanel.value
+  detailTrigger = undefined
+  target?.focus({ preventScroll: true })
+}
 function closeDetail(open: boolean) { if (!open && !busy.value) void navigate({ ...state.value, orderId: '' }) }
+function reflectNativePayment() {
+  if (activeOrder.value?.status === 'PENDING_PAYMENT' && activeOrder.value.payment_channel !== 'WECHAT') {
+    activeOrder.value = { ...activeOrder.value, payment_channel: 'WECHAT' }
+  }
+}
+function refreshAfterPayment() {
+  void loadDetail()
+  void load()
+}
 async function saveStatus(target: OrderStatus) {
   if (!activeOrder.value || busy.value || !detailActions.value.some(action => action.value === target)) return
   const id = activeOrder.value.id; savingStatus.value = target; actionError.value = false; notice.value = undefined
@@ -101,9 +136,25 @@ onBeforeUnmount(() => { disposed = true; listSequence++; detailSequence++ })
 <template>
   <section class="grid min-w-0 gap-4" :lang="locale">
     <SummaryMetrics :metrics="metrics" :more-label="t('moreSummary')" desktop-columns="xl:grid-cols-6" />
-    <Card class="gap-0 p-0"><div class="flex flex-wrap items-center justify-between gap-3 border-b p-4"><FilterToggle v-model="filtersOpen" controls="order-filters" class="sm:hidden">{{ t('filters') }}</FilterToggle><h2 class="hidden font-semibold sm:block">{{ t('filters') }}</h2><div class="flex gap-2"><DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" /><Button variant="ghost" :title="t('queryLinkHint')" @click="copyLink">{{ t('copyLink') }}</Button></div></div>
-      <form id="order-filters" :data-filter-open="filtersOpen" class="order-filters flex flex-wrap items-end gap-3 p-4" @submit.prevent="apply">
-        <label class="grow sm:grow-0">
+    <Card class="min-w-0 gap-0 p-0">
+      <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+        <h2 class="font-semibold">{{ t('list') }}</h2>
+        <div class="flex flex-wrap items-center gap-2">
+          <FilterToggle v-model="filtersOpen" controls="order-filters" class="sm:hidden">
+            <Filter aria-hidden="true" />{{ t('filters') }}
+          </FilterToggle>
+          <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" />
+          <Button variant="ghost" type="button" :title="t('queryLinkHint')" @click="copyLink">{{ t('copyLink') }}</Button>
+        </div>
+      </div>
+      <form
+        id="order-filters"
+        :data-filter-open="filtersOpen"
+        :aria-label="t('filters')"
+        class="order-filters grid grid-cols-2 items-start gap-3 border-t px-4 py-3 sm:grid-cols-3 xl:grid-cols-[minmax(12rem,1.5fr)_repeat(5,minmax(0,1fr))]"
+        @submit.prevent="apply"
+      >
+        <label class="col-span-2 sm:col-span-1">
           {{ t('search') }}
           <Input v-model="filters.keyword" type="search" maxlength="120" :placeholder="t('searchHint')" />
         </label>
@@ -129,7 +180,7 @@ onBeforeUnmount(() => { disposed = true; listSequence++; detailSequence++ })
             ]"
           />
         </label>
-        <label>
+        <label class="col-span-2 sm:col-span-1">
           {{ t('channel') }}
           <SelectField
             v-model="filters.paymentChannel"
@@ -140,17 +191,24 @@ onBeforeUnmount(() => { disposed = true; listSequence++; detailSequence++ })
             ]"
           />
         </label>
-        <MerchantDatePicker :label="t('from')" v-model="filters.from" :required="!!filters.to" />
-        <MerchantDatePicker :label="t('to')" v-model="filters.to" :required="!!filters.from" :min="filters.from" />
-        <Button variant="outline" type="button" :disabled="loading" @click="reset">{{ t('reset') }}</Button>
-        <Button type="submit" :disabled="loading">{{ t('apply') }}</Button>
+        <MerchantDatePicker class="w-full" :label="t('from')" v-model="filters.from" :required="!!filters.to" />
+        <MerchantDatePicker class="w-full" :label="t('to')" v-model="filters.to" :required="!!filters.from" :min="filters.from" />
+        <div class="col-span-full flex flex-wrap justify-end gap-2">
+          <Button variant="outline" type="button" :disabled="loading" @click="reset">{{ t('reset') }}</Button>
+          <Button type="submit" :disabled="loading">{{ t('apply') }}</Button>
+        </div>
       </form>
-    </Card>
-    <p v-if="dirty" role="status" class="text-sm text-amber-800">{{ t('dirty') }}</p><p v-if="notice" role="status" class="text-sm">{{ t(notice) }}</p>
-    <div ref="listPanel" class="min-w-0">
-      <Card class="min-w-0 gap-0 p-0">
-        <p v-if="loading" role="status" class="p-8 text-center text-sm text-muted-foreground">{{ t('loading') }}</p><div v-else-if="error" role="alert" class="p-8 text-sm"><p>{{ t(error) }}</p><DataActionButton action="refresh" :label="t('refresh')" class="mt-3" @click="load" /></div><p v-else-if="!orders.length" class="p-8 text-center text-sm text-muted-foreground">{{ t('empty') }}</p><OrderList v-else :orders="orders" @detail="openDetail" />
-        <div v-if="!error" class="flex flex-wrap items-center justify-between gap-3 border-t p-4 text-sm text-muted-foreground md:border-t-0">
+      <p v-if="dirty" role="status" class="border-t px-4 py-3 text-sm text-status-warning-ink">{{ t('dirty') }}</p>
+      <p v-if="notice" role="status" class="border-t px-4 py-3 text-sm">{{ t(notice) }}</p>
+      <div ref="listPanel" tabindex="-1" class="min-w-0 border-t focus-visible:outline-2 focus-visible:-outline-offset-2">
+        <p v-if="loading" role="status" class="p-8 text-center text-sm text-muted-foreground">{{ t('loading') }}</p>
+        <div v-else-if="error" role="alert" class="p-8 text-sm">
+          <p>{{ t(error) }}</p>
+          <DataActionButton action="refresh" :label="t('refresh')" class="mt-3" @click="load" />
+        </div>
+        <p v-else-if="!orders.length" class="p-8 text-center text-sm text-muted-foreground">{{ t('empty') }}</p>
+        <OrderList v-else :orders="orders" @detail="openDetail" />
+        <div v-if="!error" class="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm text-muted-foreground">
           <span>{{ total.toLocaleString(locale) }} {{ t('records') }}</span>
           <div class="flex gap-2">
             <TablePagination
@@ -164,11 +222,24 @@ onBeforeUnmount(() => { disposed = true; listSequence++; detailSequence++ })
             />
           </div>
         </div>
-      </Card>
-    </div>
-    <OrderDetailDialog :open="detailOpen" :loading="detailLoading" :error="detailError" :action-error="actionError" :feedback="notice === 'saved' || notice === 'deleted' ? t(notice) : undefined" :order="activeOrder" :actions="detailActions" :can-delete="canDeleteOrderStatus(activeOrder?.status)" :action-note="actionNote" :saving-status="savingStatus" :deleting="deleting" @update:open="closeDetail" @update:action-note="actionNote = $event" @change-status="saveStatus" @delete-order="remove" @retry="loadDetail" />
+      </div>
+    </Card>
+    <OrderDetailDialog :open="detailOpen" :loading="detailLoading" :error="detailError" :action-error="actionError" :feedback="notice === 'saved' || notice === 'deleted' ? t(notice) : undefined" :order="activeOrder" :actions="detailActions" :can-delete="canDeleteOrderStatus(activeOrder?.status)" :action-note="actionNote" :saving-status="savingStatus" :deleting="deleting" @update:open="closeDetail" @close-auto-focus="restoreDetailFocus" @update:action-note="actionNote = $event" @change-status="saveStatus" @delete-order="remove" @payment-started="reflectNativePayment" @payment-updated="refreshAfterPayment" @retry="loadDetail" />
   </section>
 </template>
 <style scoped>
-.order-filters label { display: grid; min-width: 0; gap: .375rem; font-size: .75rem; color: var(--ld-text-muted); }
+.order-filters label {
+  display: grid;
+  min-width: 0;
+  gap: .375rem;
+  font-size: .75rem;
+  color: var(--muted-foreground);
+}
+
+@media (width < 40rem) {
+  .order-filters :deep([data-slot="date-picker"] input) {
+    padding-inline-start: .5rem;
+    font-size: .75rem;
+  }
+}
 </style>

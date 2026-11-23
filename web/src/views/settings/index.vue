@@ -98,7 +98,7 @@ onBeforeUnmount(() => {
         </div>
         <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || !!changing || !store" @click="load" />
       </div>
-      <p v-if="notice" role="status" class="text-sm text-emerald-700">{{ t('saved') }}</p>
+      <p v-if="notice" role="status" class="text-sm text-status-success-ink">{{ t('saved') }}</p>
       <div v-if="error" role="alert">
         <p class="text-sm text-destructive">{{ t(error) }}</p>
         <DataActionButton action="refresh" :label="t('refresh')" v-if="!changing" class="mt-3" @click="load" />
@@ -110,25 +110,20 @@ onBeforeUnmount(() => {
         <Card v-for="item in capabilities" :key="item.provider" class="min-w-0 gap-3 p-4">
           <div class="flex flex-wrap items-center justify-between gap-2">
             <h3 class="font-medium">{{ t(item.provider) }}</h3>
-            <Badge :variant="item.available && item.enabled ? 'secondary' : 'outline'">
-              {{ t(!item.available ? 'notAvailable' : item.enabled ? 'enabled' : 'disabled') }}
-            </Badge>
+            <div class="flex flex-wrap items-center gap-3">
+              <Badge :variant="changing === item.provider ? 'info' : item.available && item.enabled ? 'success' : 'secondary'">
+                {{ t(changing === item.provider ? 'saving' : !item.available ? 'notAvailable' : item.enabled ? 'enabled' : 'disabled') }}
+              </Badge>
+              <Switch
+                v-if="item.available"
+                :model-value="item.enabled"
+                :aria-label="t(item.provider)"
+                :disabled="!!changing"
+                @update:model-value="toggle(item)"
+              />
+            </div>
           </div>
           <p v-if="!item.available" class="text-sm text-muted-foreground">{{ t(reason(item)) }}</p>
-          <label
-            :for="'integration-' + item.provider"
-            class="flex min-h-10 items-center justify-between gap-2 rounded-md border border-input bg-background px-3 text-sm focus-within:border-ring"
-            :class="item.available && !changing ? 'cursor-pointer hover:bg-accent' : 'opacity-60'"
-          >
-            <span>{{ t(changing === item.provider ? 'saving' : item.enabled ? 'enabled' : 'disabled') }}</span>
-            <Switch
-              :id="'integration-' + item.provider"
-              :model-value="item.enabled"
-              :aria-label="t(item.provider)"
-              :disabled="!item.available || !!changing"
-              @update:model-value="toggle(item)"
-            />
-          </label>
         </Card>
       </div>
     </Card>

@@ -1,7 +1,7 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { createHash, randomBytes } from 'node:crypto';
 import { PaymentChannel, PaymentProvider, Prisma } from '@lingdian/db';
-import type { PaymentIntentContract } from '@lingdian/contracts';
+import type { MerchantWechatNativePayment, PaymentIntentContract } from '@lingdian/contracts';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
 import { UpsertPaymentAccountDto } from './dto/upsert-payment-account.dto';
@@ -12,6 +12,9 @@ import {
 import { StoreContextResolver } from '../stores/store-context.resolver';
 import { OrderStockService } from '../inventory/order-stock.service';
 import { PaymentExpiryService } from './payment-expiry.service';
+import { WechatOAuthProvider } from '../auth/providers/wechat-oauth.provider';
+import { confirmSuccessfulPayment } from './payment-settlement';
+import { isWechatNativePayment, WechatNativeGateway, wechatNativePaymentPrefix } from './wechat-native.gateway';
 
 const providerChannels: Record<PaymentProvider, PaymentChannel> = {
   WECHAT_PAY: 'WECHAT', ALIPAY: 'ALIPAY', UNIONPAY: 'UNIONPAY', STRIPE: 'STRIPE', PAYPAL: 'PAYPAL',
@@ -20,6 +23,10 @@ const providerChannels: Record<PaymentProvider, PaymentChannel> = {
 const intentOrder = { order: { select: { status: true } } } as const;
 type CustomerIntent = Prisma.PaymentIntentGetPayload<{ include: typeof intentOrder }>;
 
+function isOfflineMiniAppOrder(order: { orderSource: string; paymentChannel: PaymentChannel }): boolean {
+  return order.orderSource === 'MINIAPP' && order.paymentChannel === 'CASH';
+}
+
 type PaymentAccountView = {
   id: string; storeId: string; provider: PaymentProvider; channel: PaymentChannel;
   externalAccountId: string; connectorConfigKey: string; status: 'ACTIVE' | 'DISABLED'; updatedAt: Date;
@@ -27,7 +34,7 @@ type PaymentAccountView = {
 
 type IntentReservationInput = {
   orderId: string;
-  customerUserId: string;
+  customerUserId?: string;
   storeId: string;
   accountId: string;
   provider: PaymentProvider;
@@ -35,19 +42,7 @@ type IntentReservationInput = {
   amountMinor: number;
   clientRequestId: string;
   expiresAt: Date;
-};
-
-type SuccessfulPaymentInput = {
-  orderNo: string;
-  intentId: string;
-  orderId: string;
-  storeId: string;
-  provider: PaymentProvider;
-  accountId: string;
-  providerIntentId: string;
-  eventId: string;
-  providerTransactionId: string;
-  occurredAt: Date;
+  wechatNative: boolean;
 };
 
 const INTENT_RESERVATION_MAX_ATTEMPTS = 3;
@@ -60,15 +55,124 @@ export class PaymentsService {
     private readonly stores: StoreContextResolver,
     private readonly expiry: PaymentExpiryService = new PaymentExpiryService(prisma, gateways),
     private readonly stock: OrderStockService,
+    @Optional() private readonly wechat?: WechatOAuthProvider,
   ) {}
 
+  async getCustomerPaymentMethods(requestedStoreId?: string) {
+    if (requestedStoreId !== undefined && typeof requestedStoreId !== 'string') {
+      throw new BadRequestException('Invalid store id');
+    }
+    this.stores.resolveRequestedStoreId(requestedStoreId);
+    return { wechatMiniProgram: false };
+  }
+
+  async getActiveWechatPayment(orderId: string, customerUserId: string) {
+    const storeScope = this.stores.mode === 'multi' ? {} : { storeId: this.stores.primaryStoreId() };
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, customerUserId, isDeleted: false, ...storeScope },
+      select: { id: true, status: true, paymentChannel: true },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    if (order.status !== 'PENDING_PAYMENT' || order.paymentChannel !== 'WECHAT') return { intent: null };
+    const intent = await this.prisma.paymentIntent.findFirst({
+      where: { activeOrderKey: order.id, orderId: order.id, provider: 'WECHAT_PAY', channel: 'WECHAT',
+        NOT: { paymentNo: { startsWith: wechatNativePaymentPrefix } } },
+      include: intentOrder,
+    });
+    return { intent: intent ? this.mapIntent(intent) : null };
+  }
+
   async createIntent(orderId: string, customerUserId: string, body: CreatePaymentIntentDto) {
+    return this.createOrderIntent(orderId, {
+      customerUserId, ...(this.stores.mode === 'multi' ? {} : { storeId: this.stores.primaryStoreId() }),
+    }, body, false);
+  }
+
+  async getMerchantWechatNativePayment(orderId: string, storeIds: string[]): Promise<MerchantWechatNativePayment> {
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, storeId: { in: storeIds }, isDeleted: false },
+      select: {
+        id: true, status: true, storeId: true, orderSource: true, paymentChannel: true,
+        payableAmount: true, stockExpiresAt: true,
+        paymentIntents: {
+          where: { activeOrderKey: orderId },
+          include: { account: true },
+          take: 1,
+        },
+      },
+    });
+    if (!order) throw new NotFoundException('Order not found');
+    const amount = this.toMinor(order.payableAmount);
+    const status = (state: MerchantWechatNativePayment['state']): MerchantWechatNativePayment => ({
+      state, amount_minor: amount, code_url: null, expires_at: null,
+    });
+    if (order.status !== 'PENDING_PAYMENT') return status('ORDER_UPDATED');
+    const intent = order.paymentIntents[0];
+    if (intent) {
+      if (!isWechatNativePayment(intent.paymentNo)) return status('BLOCKED');
+      if (await this.reconcileMerchantWechatNativePayment(intent)) return status('ORDER_UPDATED');
+      if (intent.expiresAt <= new Date()) return status('EXPIRED');
+      if (intent.reconciliationStatus === 'MANUAL_REVIEW') return status('BLOCKED');
+      const action = intent.clientAction as { code_url?: string } | null;
+      return { ...status('WAITING'), code_url: action?.code_url ?? null, expires_at: intent.expiresAt.toISOString() };
+    }
+    if (isOfflineMiniAppOrder(order)) return status('UNAVAILABLE');
+    const account = await this.prisma.paymentAccount.findUnique({
+      where: { storeId_provider_channel: { storeId: order.storeId, provider: 'WECHAT_PAY', channel: 'WECHAT' } },
+    });
+    const canPay = !order.stockExpiresAt || order.stockExpiresAt > new Date();
+    return status(canPay && amount > 0 && account?.status === 'ACTIVE' && WechatNativeGateway.isConfigured(account)
+      ? 'AVAILABLE' : 'UNAVAILABLE');
+  }
+
+  async createMerchantWechatNativePayment(orderId: string, storeIds: string[]) {
+    const current = await this.getMerchantWechatNativePayment(orderId, storeIds);
+    if (current.state !== 'AVAILABLE' && current.state !== 'EXPIRED') return current;
+    try {
+      await this.createOrderIntent(orderId, { storeId: { in: storeIds } }, {
+        provider: 'WECHAT_PAY', channel: 'WECHAT',
+        clientRequestId: `wechat-native-${randomBytes(16).toString('hex')}`,
+      }, true);
+    } catch (error) {
+      // A second terminal may have created the active payment while this request was starting.
+      if (!(error instanceof ConflictException)) throw error;
+      const updated = await this.getMerchantWechatNativePayment(orderId, storeIds);
+      if (updated.state === 'WAITING' || updated.state === 'ORDER_UPDATED') return updated;
+      throw error;
+    }
+    return this.getMerchantWechatNativePayment(orderId, storeIds);
+  }
+
+  private async reconcileMerchantWechatNativePayment(intent: {
+    id: string; paymentNo: string; updatedAt: Date; accountId: string;
+    account: { provider: string; externalAccountId: string; connectorConfigKey: string; storeId: string };
+  }): Promise<boolean> {
+    const now = new Date();
+    if (now.getTime() - intent.updatedAt.getTime() < 8_000 || !WechatNativeGateway.isConfigured(intent.account)) return false;
+    const claim = await this.prisma.paymentIntent.updateMany({
+      where: { id: intent.id, updatedAt: intent.updatedAt, status: { in: ['CREATED', 'PENDING', 'PROCESSING'] } },
+      data: { updatedAt: now },
+    });
+    if (claim.count !== 1) return false;
+    // Periodic signed query recovers a missed notification. Failures keep the order and live QR intact.
+    const receipt = await WechatNativeGateway.forAccount(intent.account).querySuccessfulPayment(intent.paymentNo).catch(() => null);
+    if (!receipt) return false;
+    await this.applyPaymentEvent('WECHAT_PAY', intent.accountId, intent.account, receipt, Buffer.from(JSON.stringify(receipt)), true);
+    return true;
+  }
+
+  private async createOrderIntent(
+    orderId: string,
+    scope: { customerUserId?: string; storeId?: Prisma.OrderWhereInput['storeId'] },
+    body: CreatePaymentIntentDto,
+    wechatNative: boolean,
+  ) {
     if (providerChannels[body.provider] !== body.channel) {
       throw new BadRequestException('Payment provider does not support the requested channel');
     }
     const order = await this.prisma.order.findFirst({
-      where: { id: orderId, customerUserId, ...(this.stores.mode === 'multi' ? {} : { storeId: this.stores.primaryStoreId() }), isDeleted: false },
-      select: { id: true, orderNo: true, storeId: true, status: true, paymentChannel: true, payableAmount: true, stockExpiresAt: true },
+      where: { id: orderId, ...scope, isDeleted: false },
+      select: { id: true, orderNo: true, storeId: true, status: true, orderSource: true, paymentChannel: true, payableAmount: true, stockExpiresAt: true },
     });
     if (!order) throw new NotFoundException('Order not found');
     const storeId = this.stores.resolveRequestedStoreId(order.storeId);
@@ -77,7 +181,7 @@ export class PaymentsService {
       include: intentOrder,
     });
     if (existing) {
-      this.assertRequestedMethod(existing, body);
+      this.assertRequestedMethod(existing, body, wechatNative);
       if (this.expiry.isExpiredActiveIntent(existing)) {
         await this.expiry.recoverExpiredAttempt(orderId, storeId);
         existing = await this.prisma.paymentIntent.findUnique({
@@ -87,6 +191,7 @@ export class PaymentsService {
       }
       if (existing) return this.mapIntent(existing);
     }
+    if (isOfflineMiniAppOrder(order)) throw new BadRequestException('小程序订单仅支持线下支付。');
     await this.expiry.recoverExpiredAttempt(orderId, storeId);
     if (order.status !== 'PENDING_PAYMENT') throw new ConflictException('Order is not awaiting payment');
     const amountMinor = this.toMinor(order.payableAmount);
@@ -97,12 +202,14 @@ export class PaymentsService {
     if (!account || account.status !== 'ACTIVE') {
       throw new BadRequestException('The store has no active receiving account for this payment method');
     }
+    const nativeGateway = wechatNative ? WechatNativeGateway.forAccount(account) : undefined;
     const now = Date.now();
     const expiresAt = new Date(Math.min(now + 15 * 60_000, order.stockExpiresAt?.getTime() ?? Infinity));
     if (expiresAt.getTime() <= now) throw new ConflictException('The ingredient reservation has expired');
+    const wechatMiniProgram = await this.resolveWechatMiniProgramPayer(body);
     const reservation = await this.reserveIntent({
       orderId,
-      customerUserId,
+      customerUserId: scope.customerUserId,
       storeId,
       accountId: account.id,
       provider: body.provider,
@@ -110,17 +217,19 @@ export class PaymentsService {
       amountMinor,
       clientRequestId: body.clientRequestId,
       expiresAt,
+      wechatNative,
     });
     if (!reservation.created) {
-      this.assertRequestedMethod(reservation.intent, body);
+      this.assertRequestedMethod(reservation.intent, body, wechatNative);
       return this.mapIntent(reservation.intent);
     }
     const intent = reservation.intent;
 
     let result;
     try {
-      result = await this.gateways.create(account).createIntent({
+      result = await (nativeGateway ?? this.gateways.create(account)).createIntent({
         paymentNo: intent.paymentNo, orderNo: order.orderNo, amountMinor, currency: 'CNY', expiresAt,
+        ...(wechatMiniProgram ? { wechatMiniProgram } : {}),
       });
     } catch (error) {
       const markedUnknown = await this.prisma.paymentIntent.updateMany({ where: { id: intent.id, status: 'CREATED' }, data: {
@@ -168,16 +277,42 @@ export class PaymentsService {
   }
 
   async getCustomerIntent(paymentNo: string, customerUserId: string) {
-    const storeScope = this.stores.mode === 'multi' ? {} : { storeId: this.stores.primaryStoreId() };
-    const intent = await this.prisma.paymentIntent.findFirst({
-      where: { paymentNo, order: { customerUserId, ...storeScope } },
-      include: intentOrder,
-    });
-    if (!intent) throw new NotFoundException('Payment not found');
-    return this.mapIntent(intent);
+    return this.mapIntent(await this.findCustomerIntent(paymentNo, customerUserId));
   }
 
-  async handleWebhook(provider: PaymentProvider, accountId: string, rawBody: Buffer, headers: Record<string, string | string[] | undefined>) {
+  async recheckCustomerIntent(paymentNo: string, customerUserId: string) {
+    const intent = await this.findCustomerIntent(paymentNo, customerUserId);
+    if (intent.activeOrderKey !== intent.orderId || !this.expiry.isExpiredActiveIntent(intent)) {
+      return this.mapIntent(intent);
+    }
+    await this.expiry.recoverExpiredAttempt(intent.orderId, intent.order.storeId);
+    return this.getCustomerIntent(paymentNo, customerUserId);
+  }
+
+  private async findCustomerIntent(paymentNo: string, customerUserId: string) {
+    const storeScope = this.stores.mode === 'multi' ? {} : { storeId: this.stores.primaryStoreId() };
+    const intent = await this.prisma.paymentIntent.findFirst({
+      where: { paymentNo, NOT: { paymentNo: { startsWith: wechatNativePaymentPrefix } }, order: { customerUserId, ...storeScope } },
+      include: { order: { select: { status: true, storeId: true } } },
+    });
+    if (!intent) throw new NotFoundException('Payment not found');
+    return intent;
+  }
+
+  private async resolveWechatMiniProgramPayer(body: CreatePaymentIntentDto) {
+    if (body.miniProgramLoginCode === undefined) return undefined;
+    if (body.provider !== 'WECHAT_PAY' || !this.wechat?.isMiniProgramConfigured()) {
+      throw new BadRequestException('当前门店无法使用微信小程序支付');
+    }
+    try {
+      const payer = await this.wechat.exchangeMiniProgramCode({ code: body.miniProgramLoginCode });
+      return { appId: this.wechat.miniProgramAppId, openId: payer.openId };
+    } catch {
+      throw new BadRequestException('微信授权失败，请重新发起支付');
+    }
+  }
+
+  async handleWebhook(provider: PaymentProvider, accountId: string, rawBody: Buffer, headers: Record<string, string | string[] | undefined>, wechatNative = false) {
     if (!Object.prototype.hasOwnProperty.call(providerChannels, provider)) {
       throw new BadRequestException('Unsupported payment provider');
     }
@@ -185,8 +320,14 @@ export class PaymentsService {
       where: { id: accountId, provider, ...(this.stores.mode === 'multi' ? {} : { storeId: this.stores.primaryStoreId() }) },
     });
     if (!account) throw new NotFoundException('Payment account not found');
-    const payload = this.gateways.create(account).verifyWebhook(rawBody, headers);
+    const gateway = wechatNative ? WechatNativeGateway.forAccount(account) : this.gateways.create(account);
+    return this.applyPaymentEvent(provider, accountId, account, gateway.verifyWebhook(rawBody, headers), rawBody, wechatNative);
+  }
+
+  private async applyPaymentEvent(provider: PaymentProvider, accountId: string, account: { externalAccountId: string; storeId: string },
+    payload: PaymentWebhookPayload, rawBody: Buffer, wechatNative: boolean) {
     this.validatePayload(payload);
+    if (isWechatNativePayment(payload.payment_no) !== wechatNative) throw new ConflictException('Payment callback method mismatch');
     const occurredAt = new Date(payload.occurred_at);
     if (Number.isNaN(occurredAt.getTime())) throw new BadRequestException('Invalid webhook occurrence time');
     const payloadHash = createHash('sha256').update(rawBody).digest('hex');
@@ -222,12 +363,13 @@ export class PaymentsService {
     }
     await this.prisma.$transaction(async (tx) => {
       if (payload.event_type === 'PAYMENT_SUCCEEDED') {
-        await this.confirmSuccessfulPayment(tx, {
+        await confirmSuccessfulPayment(tx, this.stock, {
           intentId: intent.id,
           orderNo: intent.order.orderNo,
           orderId: intent.orderId,
           storeId: account.storeId,
           provider,
+          channel: providerChannels[provider],
           accountId,
           providerIntentId: payload.provider_intent_id,
           eventId: payload.event_id,
@@ -262,102 +404,6 @@ export class PaymentsService {
       });
     }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
     return { accepted: true, duplicate: false };
-  }
-
-  private async confirmSuccessfulPayment(
-    tx: Prisma.TransactionClient,
-    input: SuccessfulPaymentInput,
-  ): Promise<void> {
-    // Take the order lock before reading or updating the intent. This makes the
-    // following read observe the state that won the conditional transition,
-    // instead of a repeatable-read snapshot captured before a lock wait.
-    const changed = await tx.order.updateMany({
-      where: { id: input.orderId, storeId: input.storeId, status: 'PENDING_PAYMENT' },
-      data: { status: 'PAID', paidAt: input.occurredAt, paymentChannel: providerChannels[input.provider] },
-    });
-    const currentOrderStatus = changed.count === 1
-      ? 'PAID'
-      : (await tx.order.findUnique({
-          where: { id: input.orderId },
-          select: { status: true },
-        }))?.status;
-    // Bind the provider reference under the intent lock before classifying this receipt.
-    const intent = await tx.paymentIntent.update({
-      where: {
-        id: input.intentId, orderId: input.orderId, order: { storeId: input.storeId },
-        OR: [{ providerIntentId: null }, { providerIntentId: input.providerIntentId }],
-      },
-      data: { providerIntentId: input.providerIntentId },
-    }).catch((error: unknown) => {
-      if (this.isPrismaError(error, 'P2025')) throw new ConflictException('Payment intent changed while processing the webhook');
-      throw error;
-    });
-    const transaction = await tx.paymentTransaction.upsert({
-      where: {
-        provider_accountId_providerTransactionId: {
-          provider: input.provider,
-          accountId: input.accountId,
-          providerTransactionId: input.providerTransactionId,
-        },
-      },
-      create: {
-        transactionNo: `TXN${Date.now()}${randomBytes(5).toString('hex').toUpperCase()}`,
-        paymentIntentId: intent.id,
-        provider: input.provider,
-        accountId: input.accountId,
-        type: 'PAYMENT',
-        status: 'SUCCEEDED',
-        amountMinor: intent.amountMinor,
-        currency: intent.currency,
-        providerTransactionId: input.providerTransactionId,
-        idempotencyKey: input.eventId,
-        occurredAt: input.occurredAt,
-      },
-      update: {},
-    });
-    if (
-      transaction.paymentIntentId !== intent.id ||
-      transaction.type !== 'PAYMENT' ||
-      transaction.status !== 'SUCCEEDED' ||
-      transaction.amountMinor !== intent.amountMinor ||
-      transaction.currency !== intent.currency
-    ) {
-      throw new ConflictException(
-        'Provider transaction is already assigned to a different payment fact',
-      );
-    }
-    const otherReceipt = await tx.paymentTransaction.findFirst({
-      where: { paymentIntentId: intent.id, type: 'PAYMENT', status: 'SUCCEEDED', NOT: { providerTransactionId: input.providerTransactionId } },
-      select: { id: true },
-    });
-    const alreadyPaid = currentOrderStatus && ['PAID', 'PREPARING', 'READY', 'COMPLETED', 'REFUNDING', 'REFUNDED'].includes(currentOrderStatus);
-    const duplicatePayment = otherReceipt || intent.failureCode === 'DUPLICATE_PAYMENT' ||
-      (changed.count === 0 && alreadyPaid && intent.reconciliationStatus !== 'MATCHED');
-    const matched = changed.count === 1 || intent.reconciliationStatus === 'MATCHED';
-    await tx.paymentIntent.update({
-      where: { id: intent.id },
-      data: {
-        status: 'SUCCEEDED',
-        activeOrderKey: null,
-        paidAt: intent.paidAt ?? input.occurredAt,
-        reconciliationStatus: duplicatePayment ? 'MANUAL_REVIEW' : matched ? 'MATCHED' : 'LATE_PAYMENT',
-        failureCode: duplicatePayment ? 'DUPLICATE_PAYMENT' : null,
-        failureMessage: null,
-      },
-    });
-    if (changed.count === 1) {
-      await this.stock.commit(tx, { id: input.orderId, storeId: input.storeId, orderNo: input.orderNo }, `payment:${input.provider}`);
-      await tx.orderStatusLog.create({
-        data: {
-          orderId: intent.orderId,
-          fromStatus: 'PENDING_PAYMENT',
-          toStatus: 'PAID',
-          operatorName: `payment:${input.provider}`,
-          note: 'Payment confirmed by verified webhook',
-          extra: { paymentNo: intent.paymentNo, eventId: input.eventId },
-        },
-      });
-    }
   }
 
   async upsertAccount(body: UpsertPaymentAccountDto): Promise<PaymentAccountView> {
@@ -400,7 +446,7 @@ export class PaymentsService {
           const claimedOrder = await tx.order.updateMany({
             where: {
               id: input.orderId,
-              customerUserId: input.customerUserId,
+              ...(input.customerUserId ? { customerUserId: input.customerUserId } : {}),
               storeId: input.storeId,
               isDeleted: false,
               status: 'PENDING_PAYMENT',
@@ -426,7 +472,9 @@ export class PaymentsService {
 
           const intent = await tx.paymentIntent.create({
             data: {
-              paymentNo: `PAY${Date.now()}${randomBytes(6).toString('hex').toUpperCase()}`,
+              paymentNo: input.wechatNative
+                ? `${wechatNativePaymentPrefix}${randomBytes(14).toString('hex').toUpperCase()}`
+                : `PAY${Date.now()}${randomBytes(6).toString('hex').toUpperCase()}`,
               activeOrderKey: input.orderId,
               orderId: input.orderId,
               accountId: input.accountId,
@@ -473,8 +521,8 @@ export class PaymentsService {
     throw new ConflictException('Payment reservation retry limit reached');
   }
 
-  private assertRequestedMethod(intent: CustomerIntent, request: CreatePaymentIntentDto): void {
-    if (intent.channel !== request.channel || intent.provider !== request.provider) {
+  private assertRequestedMethod(intent: CustomerIntent, request: CreatePaymentIntentDto, wechatNative: boolean): void {
+    if (intent.channel !== request.channel || intent.provider !== request.provider || isWechatNativePayment(intent.paymentNo) !== wechatNative) {
       throw new ConflictException('Payment request id was already used for a different payment method');
     }
   }
@@ -516,7 +564,7 @@ export class PaymentsService {
   private isUniqueError(error: unknown): boolean {
     return this.isPrismaError(error, 'P2002');
   }
-  private isPrismaError(error: unknown, code: 'P2002' | 'P2034' | 'P2025'): boolean {
+  private isPrismaError(error: unknown, code: 'P2002' | 'P2034'): boolean {
     return typeof error === 'object' && error !== null && 'code' in error && error.code === code;
   }
 }

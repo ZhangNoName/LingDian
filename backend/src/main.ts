@@ -70,7 +70,9 @@ async function bootstrap() {
   }
 
   const port = Number(process.env.PORT ?? 9000);
-  await app.listen(port);
+  const bindHost = process.env.API_BIND_HOST?.trim();
+  if (bindHost) await app.listen(port, bindHost);
+  else await app.listen(port);
   void systemLogs.record({
     source: 'SERVER',
     level: 'INFO',

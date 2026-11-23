@@ -1,24 +1,51 @@
 @custom-variant dark (&:is(.dark *));
 
+/* Console colors follow the active color scheme, including the admin theme switch. */
+:root,
+:root.light,
+:root.dark {
+  --ld-color-primary: light-dark(#4318ff, #a8a5ff);
+  --ld-color-primary-soft: light-dark(#eeebff, #252354);
+  --ld-color-secondary: light-dark(#634bdf, #a195fd);
+  --ld-text-body: light-dark(#3d496b, #d8dff5);
+  --ld-text-heading: light-dark(#1b2559, #f0f3ff);
+  --ld-text-muted: light-dark(#59678f, #a3aed0);
+  --ld-text-inverse: light-dark(#ffffff, #0b1437);
+  --ld-bg-page: light-dark(#f4f7fe, #0b1437);
+  --ld-bg-elevated: light-dark(#ffffff, #111c44);
+  --ld-bg-muted: light-dark(#f5f7fc, #1b254b);
+  --ld-border-default: light-dark(#dfe6f4, #303d68);
+  --ld-accent: var(--ld-color-primary);
+  --ld-accent-bg: var(--ld-color-primary-soft);
+}
+
 :root {
   --background: var(--ld-bg-page);
   --foreground: var(--ld-text-heading);
   --card: var(--ld-bg-elevated);
   --card-foreground: var(--ld-text-heading);
   --popover: var(--ld-bg-elevated);
-  --popover-foreground: light-dark(#0a0a0a, #fafafa);
+  --popover-foreground: var(--foreground);
   --primary: var(--ld-color-primary);
   --primary-foreground: var(--ld-text-inverse);
-  --secondary: light-dark(#f5f5f5, #262626);
-  --secondary-foreground: light-dark(#171717, #fafafa);
-  --muted: light-dark(#f5f5f5, #262626);
-  --muted-foreground: light-dark(#737373, #a3a3a3);
-  --accent: light-dark(#f5f5f5, #262626);
-  --accent-foreground: light-dark(#171717, #fafafa);
+  --secondary: var(--ld-bg-muted);
+  --secondary-foreground: var(--foreground);
+  --muted: var(--ld-bg-muted);
+  --muted-foreground: var(--ld-text-muted);
+  --accent: var(--ld-color-primary-soft);
+  --accent-foreground: var(--ld-color-primary);
   --destructive: light-dark(#dc2626, #f87171);
   --destructive-foreground: #ffffff;
-  --border: light-dark(#e5e5e5, rgb(255 255 255 / 10%));
-  --input: light-dark(#e5e5e5, rgb(255 255 255 / 15%));
+  --state-attention: light-dark(#fff0f0, #46232a);
+  --state-attention-ink: light-dark(#97172c, #ffc4cd);
+  --state-warning: light-dark(#fff3d4, #412f16);
+  --state-warning-ink: light-dark(#70420b, #ffdf9d);
+  --state-success: light-dark(#e4f4ea, #193c2e);
+  --state-success-ink: light-dark(#19503a, #ace7c8);
+  --state-info: light-dark(#eaf0fa, #23354d);
+  --state-info-ink: light-dark(#264679, #bcd5ff);
+  --border: var(--ld-border-default);
+  --input: light-dark(#c7d2e8, #445483);
   --ring: var(--ld-color-secondary);
   --chart-1: var(--ld-color-primary);
   --chart-2: var(--ld-color-success);
@@ -33,9 +60,12 @@
   --console-radius-select: var(--console-radius-control);
   --console-radius-table: var(--radius);
   --console-radius-status: 9999px;
-  --console-panel-shadow: 0 1px 3px 0 rgb(0 0 0 / 10%), 0 1px 2px -1px rgb(0 0 0 / 10%);
+  --console-panel-shadow: 0 1px 3px rgb(27 37 89 / 5%);
+  --console-header-height: 4rem;
+  --console-gutter: clamp(1rem, 2vw, 1.75rem);
+  --console-content-width: 100rem;
   --sidebar: var(--ld-bg-elevated);
-  --sidebar-foreground: var(--foreground);
+  --sidebar-foreground: var(--ld-text-body);
   --sidebar-primary: var(--primary);
   --sidebar-primary-foreground: var(--primary-foreground);
   --sidebar-accent: var(--accent);
@@ -63,6 +93,14 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-status-attention: var(--state-attention);
+  --color-status-attention-ink: var(--state-attention-ink);
+  --color-status-warning: var(--state-warning);
+  --color-status-warning-ink: var(--state-warning-ink);
+  --color-status-success: var(--state-success);
+  --color-status-success-ink: var(--state-success-ink);
+  --color-status-info: var(--state-info);
+  --color-status-info-ink: var(--state-info-ink);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);

@@ -8,6 +8,7 @@ import { EyeIcon, Pencil } from '@lingdian/icons/web'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { PurchaseDeliveryFilter, PurchaseRecord, SupplierRecord, ReplenishmentRow } from '@lingdian/contracts'
+import { Badge, type BadgeVariants } from '@lingdian/console-ui/badge'
 import { Button } from '@lingdian/console-ui/button'
 import { Input } from '@lingdian/console-ui/input'
 import { SelectField } from '@lingdian/console-ui/select'
@@ -75,6 +76,12 @@ const statusLabel = (value: PurchasingListState['status']) =>
   t(value === 'ACTIVE' ? 'active' : value === 'ALL' ? 'all' : value)
 const deliveryKey = (value: PurchaseDeliveryFilter): Key =>
   value === 'BEFORE' ? 'beforeDelivery' : value === 'UNDATED' ? 'undatedDelivery' : 'allDelivery'
+const statusVariants = {
+  OPEN: 'info',
+  PARTIAL: 'warning',
+  RECEIVED: 'success',
+  CANCELLED: 'secondary',
+} satisfies Record<PurchaseRecord['status'], BadgeVariants['variant']>
 function outstanding(order: PurchaseRecord) {
   const line = order.lines.find((line) => line.itemId === pendingItemId.value)
   return line
@@ -386,8 +393,8 @@ onBeforeUnmount(() => {
             <tr v-for="order in orders" :key="order.id">
               <td class="font-medium">{{ order.orderNo }}</td>
               <td class="break-words">{{ order.supplierName }}</td>
-              <td class="whitespace-nowrap">{{ t(order.status) }}</td>
-              <td class="tabular-nums">{{ money(order.totalCostCents) }}</td>
+              <td><Badge :variant="statusVariants[order.status]">{{ t(order.status) }}</Badge></td>
+              <td class="font-semibold tabular-nums">{{ money(order.totalCostCents) }}</td>
               <td class="tabular-nums">{{ money(order.receivedCostCents) }}</td>
               <td>{{ date(order.createdAt) }}</td>
               <td>{{ date(order.expectedAt) }}</td>
@@ -405,12 +412,12 @@ onBeforeUnmount(() => {
           <li v-for="order in orders" :key="order.id" class="grid gap-3 border p-3 text-sm">
             <div class="flex justify-between gap-3">
               <strong class="min-w-0 break-words">{{ order.orderNo }}</strong>
-              <span class="shrink-0">{{ t(order.status) }}</span>
+              <Badge :variant="statusVariants[order.status]">{{ t(order.status) }}</Badge>
             </div>
             <p class="break-words">{{ order.supplierName }}</p>
             <p v-if="pendingItemId" class="break-words">{{ t('pending') }}: {{ outstanding(order) }}</p>
             <p class="help">{{ t('expectedAt') }}: {{ date(order.expectedAt) }}</p>
-            <p class="help">
+            <p class="tabular-nums">
               {{ t('orderedCost') }} {{ money(order.totalCostCents) }} · {{ t('receivedCost') }}
               {{ money(order.receivedCostCents) }}
             </p>

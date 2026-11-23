@@ -31,10 +31,11 @@ export class OrdersQueryService {
     const scopedWhere = this.buildOrderWhere(query, true, scope);
     const paidStatuses: OrderStatus[] = ['PAID', 'PREPARING', 'READY', 'COMPLETED'];
     return this.prisma.$transaction(async tx => {
-      const groups = await tx.order.groupBy({ by: ['status'], where: scopedWhere, _count: { _all: true }, _sum: { payableAmount: true } });
-      const counts = new Map(groups.map(group => [group.status, group._count._all]));
+      const groups = await tx.order.groupBy({ by: ['status', 'paymentRequired'], where: scopedWhere, _count: { _all: true }, _sum: { payableAmount: true } });
+      const paymentGroups = groups.filter(group => group.paymentRequired !== false);
+      const counts = new Map(paymentGroups.map(group => [group.status, group._count._all]));
       let amount = new Prisma.Decimal(0);
-      for (const group of groups) if ([...paidStatuses, 'REFUNDING', 'REFUNDED'].includes(group.status)) amount = amount.add(group._sum.payableAmount ?? 0);
+      for (const group of paymentGroups) if ([...paidStatuses, 'REFUNDING', 'REFUNDED'].includes(group.status)) amount = amount.add(group._sum.payableAmount ?? 0);
       const total = groups.reduce((sum, group) => sum + group._count._all, 0);
       const cents = amount.mul(100).toNumber();
       if (!Number.isSafeInteger(total) || !Number.isSafeInteger(cents)) throw new BadRequestException('orders.summaryTooLarge');
@@ -89,7 +90,7 @@ export class OrdersQueryService {
       delivery_address: order.deliveryAddress,
       order_type: order.orderType,
       status: order.status,
-      payment_channel: order.paymentChannel,
+      ...(order.paymentRequired === false ? { payment_required: false } : { payment_channel: order.paymentChannel }),
       total_amount: toNumber(order.totalAmount),
       payable_amount: toNumber(order.payableAmount),
       remark: order.remark,
@@ -138,7 +139,10 @@ export class OrdersQueryService {
       if (query.status === 'DELETED') delete where.isDeleted;
     }
     if (query.orderType) where.orderType = query.orderType as OrderType;
-    if (query.paymentChannel) where.paymentChannel = query.paymentChannel as PaymentChannel;
+    if (query.paymentChannel) {
+      where.paymentRequired = true;
+      where.paymentChannel = query.paymentChannel as PaymentChannel;
+    }
     if (createdAt) where.createdAt = createdAt;
     if (query.keyword?.trim()) {
       const keyword = query.keyword.trim();

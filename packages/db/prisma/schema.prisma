@@ -571,6 +571,7 @@ model Order {
   pickupBusinessDate DateTime?        @db.Date
   status             OrderStatus      @default(CREATING)
   paymentChannel     PaymentChannel   @default(CASH)
+  paymentRequired    Boolean          @default(true)
   totalAmount        Decimal          @db.Decimal(10, 2)
   payableAmount      Decimal          @db.Decimal(10, 2)
   remark             String?

@@ -13,6 +13,7 @@ export type CreateGatewayIntent = {
   amountMinor: number;
   currency: string;
   expiresAt: Date;
+  wechatMiniProgram?: { appId: string; openId: string };
 };
 
 export type GatewayIntentResult = {
@@ -70,6 +71,10 @@ export class SignedPaymentGateway {
       amount_minor: input.amountMinor,
       currency: input.currency,
       expires_at: input.expiresAt.toISOString(),
+      ...(input.wechatMiniProgram ? { wechat_mini_program: {
+        app_id: input.wechatMiniProgram.appId,
+        open_id: input.wechatMiniProgram.openId,
+      } } : {}),
     });
     const headers = this.sign(body);
     const response = await this.fetcher(new URL('/v1/payment-intents', this.endpoint), {
@@ -172,6 +177,11 @@ export class SignedPaymentGateway {
 
 @Injectable()
 export class PaymentGatewayFactory {
+  static isConfigured(account: PaymentAccountConfig): boolean {
+    const prefix = `PAYMENT_CONNECTOR_${account.connectorConfigKey}`;
+    return Boolean(process.env[`${prefix}_URL`] && (process.env[`${prefix}_SECRET`]?.length ?? 0) >= 32);
+  }
+
   create(account: PaymentAccountConfig): SignedPaymentGateway {
     const prefix = `PAYMENT_CONNECTOR_${account.connectorConfigKey}`;
     const endpoint = process.env[`${prefix}_URL`];

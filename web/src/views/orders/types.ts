@@ -17,7 +17,7 @@ export type PaymentChannel = ContractPaymentChannel
 export type OrderSummaryMetric = {
   label: string
   value: string | number
-  note: string
+  tone?: 'warning' | 'success' | 'info'
 }
 
 export type OrderSummaryResponse = OrderSummaryStatsContract

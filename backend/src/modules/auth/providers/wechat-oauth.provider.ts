@@ -22,6 +22,10 @@ export class WechatOAuthProvider implements OAuthProvider {
     this.miniAppSecret = config.getOrThrow<string>('auth.oauth.wechatMini.appSecret');
   }
 
+  isMiniProgramConfigured(): boolean {
+    return Boolean(this.miniAppId && this.miniAppSecret);
+  }
+
   buildAuthorizationUrl({ state, redirectUri }: { state: string; redirectUri: string }): string {
     const url = new URL('https://open.weixin.qq.com/connect/oauth2/authorize');
     url.search = new URLSearchParams({
@@ -56,7 +60,7 @@ export class WechatOAuthProvider implements OAuthProvider {
       js_code: code,
       grant_type: 'authorization_code',
     }).toString();
-    const response = await fetch(url);
+    const response = await fetch(url, { signal: AbortSignal.timeout(5_000) });
     const payload = await response.json() as { openid?: string; unionid?: string; errcode?: number; errmsg?: string };
     if (!response.ok || !payload.openid) throw new Error(payload.errmsg ?? 'WeChat mini-program code exchange failed.');
     return { openId: payload.openid, unionId: payload.unionid };

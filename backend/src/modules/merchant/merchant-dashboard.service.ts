@@ -16,7 +16,7 @@ export class MerchantDashboardService {
     const asOf = new Date();
     return this.prisma.$transaction(async tx => {
       const where = { storeId, isDeleted: false, createdAt: { gte: start, lt: end } };
-      const groups = await tx.order.groupBy({ by: ['status', 'orderType'], where, _count: { _all: true }, _sum: { payableAmount: true } });
+      const groups = await tx.order.groupBy({ by: ['status', 'orderType', 'paymentRequired'], where, _count: { _all: true }, _sum: { payableAmount: true } });
       const counts = new Map<OrderStatus, number>();
       const byType = new Map<OrderType, { orders: number; paidOrders: number; cents: number }>();
       let total = 0, paid = 0, cents = 0;
@@ -24,14 +24,14 @@ export class MerchantDashboardService {
         const count = safe(group._count._all), amount = safe(new Prisma.Decimal(group._sum.payableAmount ?? 0).mul(100).toNumber());
         total = safe(total + count); counts.set(group.status, safe((counts.get(group.status) ?? 0) + count));
         const type = byType.get(group.orderType) ?? { orders: 0, paidOrders: 0, cents: 0 }; type.orders = safe(type.orders + count);
-        if (paidStatuses.includes(group.status)) { paid = safe(paid + count); cents = safe(cents + amount); type.paidOrders = safe(type.paidOrders + count); type.cents = safe(type.cents + amount); }
+        if (group.paymentRequired !== false && paidStatuses.includes(group.status)) { paid = safe(paid + count); cents = safe(cents + amount); type.paidOrders = safe(type.paidOrders + count); type.cents = safe(type.cents + amount); }
         byType.set(group.orderType, type);
       }
       const top = await tx.$queryRaw<TopItem[]>(Prisma.sql`
         SELECT i.productId, i.skuId, i.productName, i.skuName, SUM(i.quantity) AS quantity, COUNT(DISTINCT i.orderId) AS orderCount
         FROM order_items i JOIN orders o ON o.id = i.orderId
         WHERE o.storeId = ${storeId} AND o.isDeleted = false AND o.createdAt >= ${start} AND o.createdAt < ${end}
-          AND o.status IN (${Prisma.join(paidStatuses)})
+          AND o.paymentRequired = true AND o.status IN (${Prisma.join(paidStatuses)})
         GROUP BY i.productId, i.skuId, i.productName, i.skuName
         ORDER BY quantity DESC, orderCount DESC, i.productId ASC, i.skuId ASC, i.productName ASC, i.skuName ASC LIMIT 10
       `);

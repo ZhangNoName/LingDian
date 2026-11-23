@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
+import { orderPaymentRequired } from '../../config/order-payment';
 import {
   OrderStatus,
   OrderSource,
@@ -63,6 +64,9 @@ export class OrdersService {
       body.clientRequestId,
     );
     if (existingOrder) return mapOrderDetail(existingOrder);
+    if (orderSource === 'MINIAPP' && body.paymentChannel && body.paymentChannel !== 'cash') {
+      throw new BadRequestException('小程序订单仅支持线下支付。');
+    }
 
     const delivery = await this.resolveDelivery(body, customerUserId);
     const normalizedItems = body.items.map((item) => {
@@ -243,6 +247,8 @@ export class OrdersService {
         });
       }
 
+      const paymentRequired = orderSource !== 'MINIAPP' || orderPaymentRequired();
+      const initialStatus = paymentRequired ? 'PENDING_PAYMENT' : 'PREPARING';
       const pickup = await allocatePickupCode(tx, { storeId, orderSource });
       const order = await tx.order.create({
         data: {
@@ -257,12 +263,13 @@ export class OrdersService {
           customerMobile: customer.mobile,
           deliveryAddress: delivery?.snapshot,
           orderType: ORDER_TYPE_BY_API_VALUE[body.orderType],
-          paymentChannel: body.paymentChannel
+          paymentRequired,
+          paymentChannel: !paymentRequired ? 'OTHER' : body.paymentChannel
             ? PAYMENT_CHANNEL_BY_API_VALUE[body.paymentChannel]
             : 'CASH',
-          status: 'PENDING_PAYMENT',
+          status: initialStatus,
           totalAmount: centsToAmount(totalAmountInCents),
-          payableAmount: centsToAmount(totalAmountInCents),
+          payableAmount: paymentRequired ? centsToAmount(totalAmountInCents) : 0,
           remark: body.remark,
           items: {
             create: orderItems,
@@ -276,8 +283,8 @@ export class OrdersService {
               },
               {
                 fromStatus: 'CREATING',
-                toStatus: 'PENDING_PAYMENT',
-                note: 'Waiting for payment',
+                toStatus: initialStatus,
+                note: paymentRequired ? 'Waiting for payment' : 'Order accepted for preparation',
               },
             ],
           },
@@ -285,10 +292,15 @@ export class OrdersService {
         include: ORDER_DETAIL_INCLUDE,
       });
 
-      const stockExpiresAt = await this.stock.reserve(tx, order, stockLines, customerUserId ?? 'order:customer');
+      const actor = customerUserId ?? 'order:customer';
+      const stockExpiresAt = await this.stock.reserve(tx, order, stockLines, actor);
       if (stockExpiresAt) {
-        await tx.order.update({ where: { id: order.id }, data: { stockExpiresAt } });
-        order.stockExpiresAt = stockExpiresAt;
+        if (paymentRequired) {
+          await tx.order.update({ where: { id: order.id }, data: { stockExpiresAt } });
+          order.stockExpiresAt = stockExpiresAt;
+        } else {
+          await this.stock.commit(tx, order, actor);
+        }
       }
       await this.integrationOutbox.enqueueOrderCreated(tx, order);
 

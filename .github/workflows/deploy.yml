@@ -178,7 +178,7 @@ jobs:
           docker run --rm --cap-drop ALL --user 0:0 \
             -v "$ci_dir/observability/alertmanager.yml:/input:ro" \
             --entrypoint /bin/cat "$socket_proxy_image" /input >/dev/null
-          jq --exit-status empty deploy/observability/grafana/dashboards/*.json
+          jq empty deploy/observability/grafana/dashboards/*.json
 
       - name: Bundle the verified revision
         shell: bash

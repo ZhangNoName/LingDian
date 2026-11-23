@@ -1,5 +1,5 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsIn, IsString, Length } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsIn, IsOptional, IsString, Length } from 'class-validator';
 
 export class CreatePaymentIntentDto {
   @ApiProperty({ enum: ['WECHAT_PAY', 'ALIPAY', 'UNIONPAY', 'STRIPE', 'PAYPAL'] })
@@ -14,4 +14,10 @@ export class CreatePaymentIntentDto {
   @IsString()
   @Length(8, 64)
   clientRequestId!: string;
+
+  @ApiPropertyOptional({ description: 'Fresh wx.login code for mini-program checkout' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 256)
+  miniProgramLoginCode?: string;
 }

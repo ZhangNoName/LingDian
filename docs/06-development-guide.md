@@ -28,6 +28,7 @@ pnpm run build
 - 后端：从 `backend/.env.example` 复制本地 `.env`，真实文件不提交。
 - 后端单店运行时设置 `STORE_MODE=single` 和 `PRIMARY_STORE_ID`；先创建/确认门店行，再启动 API。
 - `db:seed:demo` 会重置演示业务数据，只允许可丢弃的开发/测试库使用；必须是 `NODE_ENV=development` 或 `NODE_ENV=test`，并显式设置 `ALLOW_DEMO_SEED=true`。生产和共享数据库禁止运行。
+- 使用本机数据库时，`db:seed:demo` 会为 `PRIMARY_STORE_ID` 创建默认商家账号 `admin`。已有本机主门店时可运行 `pnpm run db:seed:merchant` 单独建号。重复运行会保留已有账号和密码，平台账号也不能与该商家账号同名。
 - 认证 bootstrap 的 `AUTH_BOOTSTRAP_MERCHANT_STORE_IDS` 必须只包含 `PRIMARY_STORE_ID`，不能再配置多个门店 ID。
 - 小程序：公开 API 入口使用 `VITE_API_BASE`，示例见 `uniapp/.env.example`；生产必须 HTTPS。
 - `WECHAT_*_SECRET`、`QQ_*_SECRET`、短信 token 和 integration signing secret 只允许出现在服务端密钥系统。

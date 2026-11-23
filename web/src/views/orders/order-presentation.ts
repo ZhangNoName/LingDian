@@ -5,6 +5,7 @@ import type {
   OrderType,
   PaymentChannel,
 } from './types'
+import type { BadgeVariants } from '@lingdian/console-ui/badge'
 
 export type OrderTagType = 'primary' | 'success' | 'warning' | 'danger' | 'info'
 
@@ -60,19 +61,19 @@ const paymentChannelLabels: Record<PaymentChannel, string> = Object.fromEntries(
   paymentChannelOptions.map((option) => [option.value, option.label]),
 ) as Record<PaymentChannel, string>
 
-const statusTagTypes: Record<OrderStatus, OrderTagType> = {
+const statusTagTypes: Record<OrderStatus, NonNullable<BadgeVariants['variant']>> = {
   CREATING: 'info',
   PENDING_PAYMENT: 'warning',
-  PAID: 'success',
+  PAID: 'info',
   PREPARING: 'warning',
-  READY: 'primary',
+  READY: 'attention',
   COMPLETED: 'success',
-  TIMED_OUT: 'info',
+  TIMED_OUT: 'secondary',
   REFUNDING: 'warning',
-  REFUNDED: 'danger',
-  CANCELLED: 'info',
-  FAILED: 'danger',
-  DELETED: 'info',
+  REFUNDED: 'secondary',
+  CANCELLED: 'secondary',
+  FAILED: 'destructive',
+  DELETED: 'secondary',
 }
 
 const actionsByStatus: Record<OrderStatus, OrderStatusAction[]> = {
@@ -164,7 +165,7 @@ export function paymentChannelLabel(channel: PaymentChannel | string | undefined
   return paymentChannelLabels[channel as PaymentChannel] ?? channel
 }
 
-export function statusTagType(status: OrderStatus): OrderTagType {
+export function statusTagType(status: OrderStatus): NonNullable<BadgeVariants['variant']> {
   return statusTagTypes[status]
 }
 

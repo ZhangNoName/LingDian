@@ -30,12 +30,14 @@
             <InventoryAlertNotice v-if="storeReady" :key="merchantStore.selectedId.value" :store-id="merchantStore.selectedId.value" />
           </template>
         </AppHeader>
-        <main class="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-4 md:px-6 md:pb-8">
-          <div v-if="!storeReady && !accountPage" class="border bg-card p-8 text-sm" role="status">
-            <p>{{ storeLoadError ? (locale === 'en-US' ? 'Could not load authorized stores.' : '无法加载授权门店，请重试。') : loadingStores ? (locale === 'en-US' ? 'Loading stores…' : '正在加载门店…') : (locale === 'en-US' ? 'Select an authorized store to continue.' : '请选择已授权门店后继续。') }}</p>
-            <DataActionButton v-if="storeLoadError" action="refresh" :label="locale === 'en-US' ? 'Retry' : '重试'" class="mt-3" @click="loadStores" />
+        <main class="min-h-0 flex-1 overflow-y-auto px-(--console-gutter) py-(--console-gutter)">
+          <div class="mx-auto min-w-0 max-w-(--console-content-width)">
+            <div v-if="!storeReady && !accountPage" class="rounded-xl border bg-card p-8 text-sm" role="status">
+              <p>{{ storeLoadError ? (locale === 'en-US' ? 'Could not load authorized stores.' : '无法加载授权门店，请重试。') : loadingStores ? (locale === 'en-US' ? 'Loading stores…' : '正在加载门店…') : (locale === 'en-US' ? 'Select an authorized store to continue.' : '请选择已授权门店后继续。') }}</p>
+              <DataActionButton v-if="storeLoadError" action="refresh" :label="locale === 'en-US' ? 'Retry' : '重试'" class="mt-3" @click="loadStores" />
+            </div>
+            <RouterView v-else :key="merchantStore.selectedId.value" />
           </div>
-          <RouterView v-else :key="merchantStore.selectedId.value" />
         </main>
       </div>
 

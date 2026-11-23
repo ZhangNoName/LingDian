@@ -34,11 +34,11 @@ async function command(value: string) {
       <DialogTrigger v-if="mobile" as-child>
         <IconButton :icon="Fold" size="icon" label="打开工作台导航" />
       </DialogTrigger>
-      <IconButton v-else :aria-expanded="!collapsed" :icon="Fold" size="icon" label="切换侧栏" @click="$emit('toggle')" />
+      <IconButton v-else :aria-expanded="!collapsed" aria-controls="platform-desktop-navigation" :icon="Fold" size="icon" :label="collapsed ? '展开侧栏' : '收起侧栏'" @click="$emit('toggle')" />
       <nav class="header-breadcrumb" aria-label="当前位置">
-        <span>零点平台</span>
-        <span aria-hidden="true">/</span>
-        <span aria-current="page">{{ title }}</span>
+        <span class="header-breadcrumb-root">零点平台</span>
+        <span class="header-breadcrumb-root" aria-hidden="true">/</span>
+        <component :is="route.meta.layout === 'list' ? 'h1' : 'span'" aria-current="page">{{ title }}</component>
       </nav>
     </div>
     <div class="header-actions">
