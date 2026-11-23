@@ -24,7 +24,8 @@ test('customer contract runtime values are exported only through the public entr
   }
 
   assert.equal(contracts.login.audience, 'user-api')
-  assert.equal(contracts.login.legalConsent.userAgreementVersion, '2026-08-17')
+  assert.equal(contracts.login.legalConsent.userAgreementVersion, '2026-11-23')
+  assert.equal(contracts.login.legalConsent.privacyPolicyVersion, '2026-11-23')
   assert.equal(contracts.address.isDefault, true)
   assert.equal(contracts.profile.avatar_data_url, null)
   assert.match(contracts.deliveryAddress, /13800000000/)

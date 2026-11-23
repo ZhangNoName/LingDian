@@ -3,9 +3,17 @@ export type AuthAudience = 'user-api' | 'admin-api' | 'merchant-api';
 export type AuthRole = 'USER' | 'ADMIN' | 'SUPER_ADMIN' | 'MERCHANT';
 
 export const LEGAL_DOCUMENT_VERSIONS = {
-  USER_AGREEMENT: '2026-08-17',
-  PRIVACY_POLICY: '2026-08-17',
+  USER_AGREEMENT: '2026-11-23',
+  PRIVACY_POLICY: '2026-11-23',
 } as const;
+
+export const SUPPORTED_LEGAL_DOCUMENT_VERSIONS = [
+  LEGAL_DOCUMENT_VERSIONS,
+  {
+    USER_AGREEMENT: '2026-08-17',
+    PRIVACY_POLICY: '2026-08-17',
+  },
+] as const;
 
 export interface LegalConsentInput {
   userAgreementVersion: string;

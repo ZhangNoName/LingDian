@@ -10,14 +10,15 @@ describe("legal documents", () => {
   it("identifies the operator and uses the current contract versions", () => {
     expect(LEGAL_OPERATOR_NAME).toBe("开封市示范区赵美红小吃店");
     expect(LEGAL_DOCUMENT_VERSIONS).toEqual({
-      USER_AGREEMENT: "2026-08-17",
-      PRIVACY_POLICY: "2026-08-17",
+      USER_AGREEMENT: "2026-11-23",
+      PRIVACY_POLICY: "2026-11-23",
     });
     expect(userAgreementDocument.operatorName).toBe(LEGAL_OPERATOR_NAME);
     expect(userAgreementDocument.version).toBe(LEGAL_DOCUMENT_VERSIONS.USER_AGREEMENT);
     expect(privacyPolicyDocument.operatorName).toBe(LEGAL_OPERATOR_NAME);
     expect(privacyPolicyDocument.version).toBe(LEGAL_DOCUMENT_VERSIONS.PRIVACY_POLICY);
     for (const document of [userAgreementDocument, privacyPolicyDocument]) {
+      expect(document.effectiveDate).toBe("2026-11-23");
       const details = document.sections[0].bullets;
       expect(details).toContain("统一社会信用代码：92410211MA9N0J4G2T");
       expect(details).toContain("经营地址：河南省开封市示范区四大街碧桂园31号楼106号商铺");
@@ -103,7 +104,7 @@ describe("legal documents", () => {
     expect(userAgreementDocument.sections.find((section) => section.title === "订单与价格")?.paragraphs.join("\n")).toContain("下单后，您需按订单显示的应付金额线下付款");
   });
 
-  it("marks unknown release facts with the required placeholder", () => {
+  it("explains retention conditions and how guardians can exercise rights", () => {
     const allText = [userAgreementDocument, privacyPolicyDocument]
       .flatMap((document) => [
         ...document.introduction,
@@ -111,11 +112,16 @@ describe("legal documents", () => {
       ])
       .join("\n");
 
-    for (const fact of [
-      "具体保存期限",
-    ]) {
-      expect(allText).toMatch(new RegExp(`${fact}[^\n]*【正式发布前补充】`));
-    }
+    const storage = privacyPolicyDocument.sections.find((section) => section.title === "信息存储与保存期限");
+    expect(storage?.bullets).toEqual(expect.arrayContaining([
+      expect.stringMatching(/订单及配送记录.*依法仍需保存/),
+      expect.stringMatching(/地址簿.*删除该地址或账户注销/),
+      expect.stringMatching(/设备信息和运行日志.*故障排查/),
+    ]));
+    expect(allText).toContain("请由监护人使用自己的账号和联系方式代为下单");
+    expect(allText).toMatch(/监护人发现儿童的个人信息.*店铺客服电话/);
+    expect(allText).not.toContain("【正式发布前补充】");
+    expect(allText).not.toContain("业务初稿");
     expect(allText).toContain("中国大陆的腾讯云北京地域");
   });
 

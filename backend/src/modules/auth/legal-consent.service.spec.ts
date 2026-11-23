@@ -1,6 +1,8 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
+import { validateSync } from 'class-validator';
 import { LEGAL_DOCUMENT_VERSIONS } from '@lingdian/contracts';
+import { LegalConsentDto } from './dto/legal-consent.dto';
 import { LegalConsentService } from './legal-consent.service';
 
 const consent = {
@@ -8,8 +10,21 @@ const consent = {
   privacyPolicyVersion: LEGAL_DOCUMENT_VERSIONS.PRIVACY_POLICY,
 };
 
-test('requires current legal versions for user-api logins', () => {
+const previousConsent = {
+  userAgreementVersion: '2026-08-17',
+  privacyPolicyVersion: '2026-08-17',
+};
+
+test('accepts published versions as matching pairs for user-api logins', () => {
   const service = new LegalConsentService({} as never);
+  for (const input of [consent, previousConsent]) {
+    assert.deepEqual(validateSync(Object.assign(new LegalConsentDto(), input)), []);
+    assert.doesNotThrow(() => service.assertCurrentForAudience('user-api', input));
+  }
+  assert.throws(
+    () => service.assertCurrentForAudience('user-api', { ...consent, privacyPolicyVersion: previousConsent.privacyPolicyVersion }),
+    /请更新小程序后重试/,
+  );
   assert.throws(() => service.assertCurrentForAudience('user-api', undefined), /请更新小程序后重试/);
   assert.throws(
     () => service.assertCurrentForAudience('user-api', { ...consent, privacyPolicyVersion: 'old' }),
@@ -52,8 +67,8 @@ test('records both current legal documents idempotently', async () => {
   assert.deepEqual(
     (calls[0] as { data: Array<{ documentType: string; version: string }> }).data.map((item) => [item.documentType, item.version]),
     [
-      ['USER_AGREEMENT', '2026-08-17'],
-      ['PRIVACY_POLICY', '2026-08-17'],
+      ['USER_AGREEMENT', consent.userAgreementVersion],
+      ['PRIVACY_POLICY', consent.privacyPolicyVersion],
     ],
   );
 });
