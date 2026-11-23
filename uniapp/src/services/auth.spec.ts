@@ -18,6 +18,7 @@ afterEach(() => {
   customerAuth.clear();
   uni.removeStorageSync("lingdian_demo_token");
   uni.removeStorageSync("lingdian_customer_auto_recovery_blocked");
+  uni.removeStorageSync("lingdian_customer_wechat_session");
   vi.restoreAllMocks();
   vi.unstubAllEnvs();
 });
@@ -68,6 +69,38 @@ test("recovers a linked WeChat mini-program session with a fresh platform login 
   assert.deepEqual(request.mock.calls[1][0].data, { code: "mini-login-2", audience: "user-api" });
   assert.equal(request.mock.calls[1][0].withCredentials, false);
   assert.equal(uni.getStorageSync("lingdian_refresh_credential"), "");
+});
+
+test("remembers a WeChat sign-in across relaunch and recovers silently after an outage", async () => {
+  vi.spyOn(uni, "getSystemInfoSync").mockReturnValue({
+    uniPlatform: "mp-weixin",
+  } as unknown as ReturnType<typeof uni.getSystemInfoSync>);
+  customerAuth.acceptLogin({ access_token: "initial-access", expires_in: 900, user: userProfile });
+  const request = vi.fn((options: UniApp.RequestOptions) => {
+    if (request.mock.calls.length === 1) {
+      options.fail?.({ errMsg: "request:fail offline" });
+    } else {
+      options.success?.({
+        statusCode: 201,
+        data: { code: 0, data: { access_token: "restored-access", expires_in: 900, user: userProfile } },
+      } as unknown as UniApp.RequestSuccessCallbackResult);
+    }
+    return { abort() {} } as UniApp.RequestTask;
+  });
+  Object.assign(uni, {
+    request,
+    login(options: UniApp.LoginOptions) {
+      options.success?.({ code: "wx-login-code", errMsg: "login:ok" } as UniApp.LoginRes);
+    },
+  });
+
+  assert.equal(await customerAuth.recoverAfterRelaunch(), false);
+  assert.equal(customerAuth.getSessionRecoveryError(), "暂时无法恢复登录，请稍后重试。");
+  assert.equal(await customerAuth.refresh(), true);
+  assert.equal(customerAuth.getAccessToken(), "restored-access");
+  assert.equal(customerAuth.getSessionRecoveryError(), undefined);
+  assert.equal(request.mock.calls.length, 2);
+  assert.ok(request.mock.calls.every(([options]) => options.url.endsWith("/miniapp/session")));
 });
 
 test("uses the HttpOnly cookie refresh endpoint only on H5", async () => {

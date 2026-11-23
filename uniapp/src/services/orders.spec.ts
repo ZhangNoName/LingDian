@@ -1,6 +1,6 @@
 import { afterEach, assert, expect, test, vi } from "vitest";
 import { addCartItem, clearCart, getCartSummary } from "./cart";
-import { createOrderFromCart, fetchOrderDetail, fetchOrders } from "./orders";
+import { createOrderFromCart, fetchOrderDetail, fetchOrders, MAX_ORDER_REMARK_LENGTH } from "./orders";
 
 const directCart = {
   itemCount: 1,
@@ -35,6 +35,7 @@ test("delivery order request sends takeout type and the selected address id", as
     serviceMode: "delivery",
     addressId: "address-1",
     clientRequestId: "checkout-request-1",
+    remark: "   ",
   });
 
   const orderCall = request.mock.calls.find((call) => String(call[0].url).endsWith("/order/create"));
@@ -57,7 +58,7 @@ test("rejects a delivery order without an address before making a request", asyn
   expect(request).not.toHaveBeenCalled();
 });
 
-test("dine-in order request sends the dine-in order type", async () => {
+test("dine-in order request sends the order type and a trimmed remark", async () => {
   const request = vi.fn((options: UniApp.RequestOptions) => {
     if (String(options.url).endsWith("/menu/current")) {
       options.success?.({
@@ -74,13 +75,26 @@ test("dine-in order request sends the dine-in order type", async () => {
   await createOrderFromCart(directCart, {
     serviceMode: "dineIn",
     clientRequestId: "checkout-dine-in-1",
+    remark: "  少放辣椒\n不要餐具  ",
   });
 
   const orderCall = request.mock.calls.find((call) => String(call[0].url).endsWith("/order/create"));
   expect(orderCall?.[0].data).toMatchObject({
     clientRequestId: "checkout-dine-in-1",
     orderType: "dine_in",
+    remark: "少放辣椒\n不要餐具",
   });
+});
+
+test("rejects an order remark that exceeds the storage limit", async () => {
+  const request = vi.fn();
+  Object.assign(uni, { request });
+
+  await expect(createOrderFromCart(directCart, {
+    serviceMode: "takeaway",
+    remark: "字".repeat(MAX_ORDER_REMARK_LENGTH + 1),
+  })).rejects.toThrow(`订单备注最多 ${MAX_ORDER_REMARK_LENGTH} 字`);
+  expect(request).not.toHaveBeenCalled();
 });
 
 test("failed order submission keeps the real cart intact", async () => {
@@ -252,7 +266,7 @@ test("order detail shows its source and falls back to the complete order number 
           status: "PAID",
           payable_amount: 18,
           payment_channel: "WECHAT",
-          remark: null,
+          remark: "少放辣椒\n不要餐具",
           created_at: "2026-08-23T00:00:00.000Z",
           paid_at: "2026-08-23T00:01:00.000Z",
           status_logs: [{
@@ -277,13 +291,15 @@ test("order detail shows its source and falls back to the complete order number 
   assert.equal(result.goodsAmount, 18.06);
   assert.equal(result.orderNo, "LD20260823000021");
   assert.equal(result.pickupCode, "LD20260823000021");
+  assert.equal(result.pickupCardCode, undefined);
   assert.equal(rows.get("订单来源"), "京东到家");
   assert.equal(rows.get("取餐日期"), "2026-08-23");
   assert.equal(rows.get("取餐码"), "LD20260823000021");
   assert.equal(rows.get("订单编号"), "LD20260823000021");
   assert.equal(rows.get("支付方式"), "微信支付");
-  assert.equal(rows.get("预计取餐时间"), "未记录");
-  assert.equal(rows.get("出餐时间"), "2026-08-23T00:10:00.000Z");
+  assert.equal(rows.get("备注"), "少放辣椒\n不要餐具");
+  assert.equal(rows.has("预计取餐时间"), false);
+  assert.match(rows.get("出餐时间") ?? "", /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
   assert.deepEqual(result.productThumbs, []);
   assert.match(String(request.mock.calls[0][0].url), /customer\/orders\/order-old%2Fwith%3Fquery$/);
 });
@@ -314,4 +330,37 @@ test("unknown backend statuses stay unknown instead of being presented as unpaid
   const result = await fetchOrders();
 
   assert.equal(result.items[0].status, "unknown");
+});
+
+test.each([
+  { orderType: "PICKUP", status: "PREPARING", paymentRequired: false, label: "取餐码", highlighted: true },
+  { orderType: "DINE_IN", status: "READY", paymentRequired: true, label: "取餐码", highlighted: true },
+  { orderType: "PICKUP", status: "COMPLETED", paymentRequired: false, label: "取餐码", highlighted: true },
+  { orderType: "PICKUP", status: "PENDING_PAYMENT", paymentRequired: true, label: "取餐码", highlighted: true },
+  { orderType: "TAKEOUT", status: "PENDING_PAYMENT", paymentRequired: true, label: "订单码", highlighted: true },
+  { orderType: "TAKEOUT", status: "READY", paymentRequired: false, label: "订单码", highlighted: true },
+  { orderType: "TAKEOUT", status: "CANCELLED", paymentRequired: true, label: "订单码", highlighted: false },
+])("shows the order code consistently for $orderType $status", async ({ orderType, status, paymentRequired, label, highlighted }) => {
+  const record = {
+    id: "order-1", order_no: "LD12345678", store_name: "零点店",
+    order_type: orderType, status, payment_required: paymentRequired, pickup_code: "U-0032",
+    pickup_business_date: "2026-11-20", payment_channel: "CASH",
+    payable_amount: 15, total_amount: 15, created_at: "2026-11-20T00:00:00.000Z",
+  };
+  Object.assign(uni, { request: (options: UniApp.RequestOptions) => {
+    const isList = new URL(options.url).pathname.endsWith("/customer/orders");
+    const data = isList ? { items: [record], total: 1, page: 1, page_size: 20 } : record;
+    options.success?.({ statusCode: 200, data: { code: 0, data } } as unknown as UniApp.RequestSuccessCallbackResult);
+    return { abort() {} } as UniApp.RequestTask;
+  } });
+
+  const order = await fetchOrderDetail(record.id);
+  const { items } = await fetchOrders();
+  const displayedCode = highlighted ? record.pickup_code : undefined;
+  assert.equal(order.pickupCardCode, displayedCode);
+  assert.equal(order.pickupCodeLabel, label);
+  assert.equal(items[0].pickupCardCode, displayedCode);
+  assert.equal(items[0].pickupCodeLabel, label);
+  assert.equal(order.infoRows.some(row => row.label === label), !highlighted);
+  assert.equal(order.infoRows.some(row => row.label === "取餐日期"), orderType !== "TAKEOUT");
 });

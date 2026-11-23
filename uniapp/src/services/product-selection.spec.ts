@@ -53,6 +53,17 @@ describe("product selections", () => {
     expect(second).toEqual({ selected: ["option-1"], limitReached: true });
   });
 
+  it("keeps a required single choice selected until another option is chosen", () => {
+    const required = group({ required: true, name: "口味" });
+    const initial = initializeProductSelections([required])[required.id];
+    const same = toggleProductSelection(required, initial, "option-1");
+    const changed = toggleProductSelection(required, same.selected, "option-2");
+
+    expect(same.selected).toEqual(["option-1"]);
+    expect(changed.selected).toEqual(["option-2"]);
+    expect(validateProductSelections([required], { [required.id]: changed.selected })).toBeUndefined();
+  });
+
   it("reports missing required choices", () => {
     const required = group({ required: true });
     expect(validateProductSelections([required], { "group-1": [] })).toMatch(/至少选择 1 项/);

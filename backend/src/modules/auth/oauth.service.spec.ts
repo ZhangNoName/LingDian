@@ -870,6 +870,7 @@ test('mini-program phone login creates one phone user and binds the WeChat ident
   });
 
   assert.equal(result.user.userId, 'user-1');
+  assert.equal(result.isNewUser, true);
   assert.deepEqual(createdIdentities, [{
     userId: 'user-1',
     provider: 'WECHAT',
@@ -915,6 +916,7 @@ test('mini-program phone login reuses the verified phone user', async () => {
 
   assert.equal(result.user.userId, user.id);
   assert.equal(userCreates, 0);
+  assert.equal(result.isNewUser, undefined);
 });
 
 test('mini-program phone login rejects a WeChat identity owned by another user', async () => {

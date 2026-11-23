@@ -1,26 +1,31 @@
 <template>
   <view class="group">
-    <text class="title">{{ group.name }}</text>
+    <view class="title-row">
+      <text class="title">{{ group.name }}</text>
+      <text v-if="group.required" class="required">必选</text>
+    </view>
     <view class="grid">
-      <view
+      <button
         v-for="option in group.options"
         :key="option.id"
         class="card"
         :class="{ active: selectedIds.includes(option.id) }"
+        :aria-pressed="selectedIds.includes(option.id)"
         @tap="$emit('select', group.id, option.id)"
+        @keydown.enter="$emit('select', group.id, option.id)"
+        @keydown.space.prevent="$emit('select', group.id, option.id)"
       >
-        <image v-if="option.imageUrl" class="image" :src="option.imageUrl" mode="aspectFill" />
-        <SkeletonBox v-else class="image" radius="md" />
+        <image v-if="option.imageUrl" class="image" :src="option.imageUrl" mode="aspectFit" />
         <text class="name">{{ option.name }}</text>
-        <view class="radio"><text v-if="selectedIds.includes(option.id)">✓</text></view>
-      </view>
+        <text v-if="option.priceDelta" class="price-delta">{{ option.priceDelta > 0 ? "+" : "−" }}¥{{ formatAmount(Math.abs(option.priceDelta)) }}</text>
+      </button>
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
-import SkeletonBox from "@/components/app/SkeletonBox.vue";
 import type { OptionGroup } from "@/types/menu";
+import { formatAmount } from "@/utils/money";
 
 defineProps<{
   group: OptionGroup;
@@ -34,65 +39,74 @@ defineEmits<{
 
 <style scoped>
 .group {
-  padding: 0 var(--ld-page-padding, 24rpx);
+  padding: 0 var(--ld-page-padding, 24rpx) 24rpx;
+}
+
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  margin-bottom: 18rpx;
 }
 
 .title {
-  display: block;
-  margin-bottom: 18rpx;
-  color: #777777;
-  font-size: var(--ld-font-base, 26rpx);
+  color: var(--ld-mini-text);
+  font-size: var(--ld-font-md);
+  font-weight: 750;
+}
+
+.required {
+  flex: none;
+  padding: 3rpx 10rpx;
+  border-radius: 8rpx;
+  background: var(--ld-mini-warning-bg);
+  color: var(--ld-mini-warning-text);
+  font-size: var(--ld-font-xs);
 }
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--ld-card-gap, 20rpx);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12rpx;
 }
 
 .card {
-  position: relative;
-  min-height: 232rpx;
-  padding: 16rpx 12rpx 52rpx;
-  border: 1rpx solid #eeeeee;
-  border-radius: 14rpx;
-  background: #ffffff;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 6rpx;
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  padding: 12rpx;
+  border: 1rpx solid var(--ld-mini-border);
+  border-radius: var(--ld-radius-8);
+  background: var(--ld-mini-surface);
+  color: var(--ld-mini-text);
   text-align: center;
+  line-height: 1.35;
 }
 
+.card::after { border: 0; }
+
 .card.active {
-  border-color: #b9934b;
+  border-color: var(--ld-mini-primary);
+  background: var(--ld-mini-primary-soft);
+  color: var(--ld-mini-primary-pressed);
 }
 
 .image {
-  width: 128rpx;
+  width: 100%;
   height: 88rpx;
-  margin: 0 auto 14rpx;
   border-radius: var(--ld-radius-8, 8px);
 }
 
 .name {
-  color: var(--ld-mini-text);
   font-size: var(--ld-font-sm, 24rpx);
-  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
-.radio {
-  position: absolute;
-  right: 20rpx;
-  bottom: 20rpx;
-  width: 40rpx;
-  height: 40rpx;
-  border: 4rpx solid #e3e3e3;
-  border-radius: 50%;
-  color: #ffffff;
-  font-size: var(--ld-font-base, 26rpx);
-  font-weight: 900;
-  line-height: 34rpx;
-}
-
-.card.active .radio {
-  border-color: var(--ld-mini-primary);
-  background: var(--ld-mini-primary);
+.price-delta {
+  font-size: var(--ld-font-xs);
 }
 </style>

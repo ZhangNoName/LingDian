@@ -5,6 +5,8 @@ import { getCustomerAuthMessage } from "./auth-message";
 const DEMO_TOKEN_KEY = "lingdian_demo_token";
 const DEVICE_STORAGE_KEY = "lingdian_customer_device_id";
 const AUTO_RECOVERY_BLOCKED_KEY = "lingdian_customer_auto_recovery_blocked";
+const REMEMBERED_WECHAT_SESSION_KEY = "lingdian_customer_wechat_session";
+const WECHAT_TOKEN_EXPIRY_MARGIN_MS = 15_000;
 
 export type ThirdPartyProvider = "WECHAT" | "QQ";
 
@@ -14,6 +16,7 @@ let accessTokenExpiresAt = 0;
 let currentUser: AuthenticatedUser | undefined;
 let sessionVersion = 0;
 let refreshPromise: Promise<boolean> | undefined;
+let sessionRecoveryError: string | undefined;
 
 const supportedThirdPartyProviders: ThirdPartyProvider[] = [];
 
@@ -48,7 +51,7 @@ function authRequest<T>(path: string, options: Omit<UniApp.RequestOptions, "url"
     },
   }).catch((error: unknown) => {
     if (error instanceof ApiError) {
-      throw new Error(readErrorMessage({ code: error.code, msg: error.message }));
+      throw new ApiError(readErrorMessage({ code: error.code, msg: error.message }), error.statusCode, error.code);
     }
     if (error instanceof NetworkError) {
       throw new Error(getCustomerAuthMessage(new Error(error.causeMessage || error.message)));
@@ -57,7 +60,7 @@ function authRequest<T>(path: string, options: Omit<UniApp.RequestOptions, "url"
   });
 }
 
-function loginWithProvider(provider: ThirdPartyProvider): Promise<string> {
+export function loginWithProvider(provider: ThirdPartyProvider): Promise<string> {
   const platformProvider = provider === "WECHAT" ? "weixin" : "qq";
 
   return new Promise((resolve, reject) => {
@@ -97,8 +100,12 @@ function storeTokens(tokens: AuthTokens) {
   }
   forgetDemoToken();
   uni.removeStorageSync(AUTO_RECOVERY_BLOCKED_KEY);
+  sessionRecoveryError = undefined;
+  const isWechat = miniProgramAuthProvider() === "WECHAT";
+  if (isWechat) uni.setStorageSync(REMEMBERED_WECHAT_SESSION_KEY, true);
   accessToken = tokens.access_token;
-  accessTokenExpiresAt = Date.now() + tokens.expires_in * 1000;
+  const ttlMs = tokens.expires_in * 1000;
+  accessTokenExpiresAt = Date.now() + ttlMs - (isWechat ? Math.min(WECHAT_TOKEN_EXPIRY_MARGIN_MS, ttlMs / 2) : 0);
   currentUser = tokens.user;
 }
 
@@ -125,16 +132,22 @@ export const customerAuth = {
     return Boolean(this.getAccessToken());
   },
 
+  getSessionRecoveryError(): string | undefined {
+    return sessionRecoveryError;
+  },
+
   clear(): void {
     invalidateSessionRequests();
     forgetDemoToken();
     accessToken = undefined;
     accessTokenExpiresAt = 0;
     currentUser = undefined;
+    sessionRecoveryError = undefined;
   },
 
   blockAutomaticRecovery(): void {
     this.clear();
+    uni.removeStorageSync(REMEMBERED_WECHAT_SESSION_KEY);
     uni.setStorageSync(AUTO_RECOVERY_BLOCKED_KEY, true);
   },
 
@@ -145,12 +158,13 @@ export const customerAuth = {
     });
   },
 
-  async phoneLogin(phone: string, code: string, legalConsent: LegalConsentInput): Promise<void> {
+  async phoneLogin(phone: string, code: string, legalConsent: LegalConsentInput): Promise<boolean> {
     const tokens = await authRequest<AuthTokens>("/auth/phone/login", {
       method: "POST",
       data: { phone, code, audience: "user-api", legalConsent },
     });
     this.acceptLogin(tokens);
+    return tokens.is_new_user === true;
   },
 
   async beginThirdPartyLogin(provider: ThirdPartyProvider): Promise<PendingOAuthResponse> {
@@ -161,13 +175,14 @@ export const customerAuth = {
     return beginMiniProgramThirdPartyLogin(provider);
   },
 
-  async wechatPhoneLogin(phoneCode: string, legalConsent: LegalConsentInput): Promise<void> {
+  async wechatPhoneLogin(phoneCode: string, legalConsent: LegalConsentInput): Promise<boolean> {
     const loginCode = await loginWithProvider("WECHAT");
     const tokens = await authRequest<AuthTokens>("/auth/wechat/miniapp/phone-login", {
       method: "POST",
       data: { loginCode, phoneCode, audience: "user-api", legalConsent },
     });
     this.acceptLogin(tokens);
+    return tokens.is_new_user === true;
   },
 
   async completePhoneLink(
@@ -175,12 +190,13 @@ export const customerAuth = {
     phone: string,
     code: string,
     legalConsent: LegalConsentInput,
-  ): Promise<void> {
+  ): Promise<boolean> {
     const tokens = await authRequest<AuthTokens>("/auth/oauth/link-phone", {
       method: "POST",
       data: { pendingOauthId, phone, code, legalConsent },
     });
     this.acceptLogin(tokens);
+    return tokens.is_new_user === true;
   },
 
   async refresh(): Promise<boolean> {
@@ -220,12 +236,12 @@ export const customerAuth = {
 };
 
 async function refreshCustomerSession(version: number): Promise<boolean> {
+  const provider = miniProgramAuthProvider();
   try {
     let tokens: AuthTokens;
     if (usesBrowserCookieTransport()) {
       tokens = await authRequest<AuthTokens>("/auth/refresh", { method: "POST", data: {} });
     } else {
-      const provider = miniProgramAuthProvider();
       if (!provider) {
         customerAuth.clear();
         return false;
@@ -241,8 +257,16 @@ async function refreshCustomerSession(version: number): Promise<boolean> {
     if (currentUser && tokens.user.userId !== currentUser.userId) invalidateSessionRequests();
     storeTokens(tokens);
     return true;
-  } catch {
-    if (version === sessionVersion) customerAuth.clear();
+  } catch (error) {
+    if (version !== sessionVersion) return false;
+    if (provider === "WECHAT" && uni.getStorageSync(REMEMBERED_WECHAT_SESSION_KEY) === true) {
+      if (!(error instanceof ApiError) || (error.statusCode !== 401 && error.statusCode !== 403)) {
+        sessionRecoveryError = "暂时无法恢复登录，请稍后重试。";
+        return false;
+      }
+      uni.removeStorageSync(REMEMBERED_WECHAT_SESSION_KEY);
+    }
+    customerAuth.clear();
     return false;
   }
 }

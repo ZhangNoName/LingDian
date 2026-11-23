@@ -1,6 +1,7 @@
 import { afterEach, assert, expect, test, vi } from "vitest";
 import type { AuthenticatedUser } from "@lingdian/contracts";
 import { customerAuth } from "./auth";
+import { currentCustomerPage, customerLoginForPage } from "./customer-login";
 import { request } from "./request";
 
 const userProfile: AuthenticatedUser = {
@@ -11,8 +12,10 @@ const userProfile: AuthenticatedUser = {
 };
 
 afterEach(() => {
+  customerLoginForPage(currentCustomerPage())?.finish(false);
   customerAuth.clear();
   uni.removeStorageSync("lingdian_customer_auto_recovery_blocked");
+  uni.removeStorageSync("lingdian_customer_wechat_session");
   vi.restoreAllMocks();
 });
 
@@ -51,7 +54,7 @@ test("a delayed 401 cannot replay a submission under a newly signed-in customer"
   assert.equal(customerAuth.getAccessToken(), "second");
 });
 
-test("clears the session and directs the customer to login when refresh fails", async () => {
+test("clears the session and opens the current page login drawer when refresh fails", async () => {
   customerAuth.acceptLogin({ access_token: "expired-jwt", expires_in: 900, user: userProfile });
   const reLaunch = vi.fn();
   const requestMock = vi.fn((options: UniApp.RequestOptions) => {
@@ -63,7 +66,8 @@ test("clears the session and directs the customer to login when refresh fails", 
   await expect(request("/orders")).rejects.toThrow("登录状态已失效，请重新登录。");
 
   assert.equal(customerAuth.getAccessToken(), undefined);
-  assert.deepEqual(reLaunch.mock.calls[0][0], { url: "/pages/auth/login" });
+  expect(reLaunch).not.toHaveBeenCalled();
+  expect(customerLoginForPage(currentCustomerPage())).toBeDefined();
 });
 
 test("does not silently reauthenticate a rejected native access token", async () => {
@@ -84,7 +88,34 @@ test("does not silently reauthenticate a rejected native access token", async ()
   assert.equal(requestMock.mock.calls.length, 1);
   assert.equal(login.mock.calls.length, 0);
   assert.equal(customerAuth.getAccessToken(), undefined);
-  assert.deepEqual(reLaunch.mock.calls[0][0], { url: "/pages/auth/login" });
+  expect(reLaunch).not.toHaveBeenCalled();
+  expect(customerLoginForPage(currentCustomerPage())).toBeDefined();
+});
+
+test("does not send a returning WeChat customer to login when background renewal is temporarily unavailable", async () => {
+  vi.spyOn(uni, "getSystemInfoSync").mockReturnValue({
+    uniPlatform: "mp-weixin",
+  } as unknown as ReturnType<typeof uni.getSystemInfoSync>);
+  customerAuth.acceptLogin({ access_token: "expired-jwt", expires_in: 0, user: userProfile });
+  const reLaunch = vi.fn();
+  Object.assign(uni, {
+    reLaunch,
+    login(options: UniApp.LoginOptions) {
+      options.success?.({ code: "wx-login-code", errMsg: "login:ok" } as UniApp.LoginRes);
+    },
+    request(options: UniApp.RequestOptions) {
+      if (options.url.endsWith("/miniapp/session")) {
+        options.fail?.({ errMsg: "request:fail timeout" });
+      } else {
+        options.success?.({ statusCode: 401, data: { code: 401 } } as unknown as UniApp.RequestSuccessCallbackResult);
+      }
+    },
+  });
+
+  await expect(request("/orders")).rejects.toThrow("暂时无法恢复登录，请稍后重试。");
+  expect(reLaunch).not.toHaveBeenCalled();
+  expect(customerLoginForPage(currentCustomerPage())).toBeUndefined();
+  expect(customerAuth.getUser()).toEqual(userProfile);
 });
 
 test("blocks further native recovery when the request still fails after platform reauthentication", async () => {
@@ -116,7 +147,8 @@ test("blocks further native recovery when the request still fails after platform
   assert.equal(await customerAuth.refresh(), false);
   assert.equal(login.mock.calls.length, 1);
   assert.equal(customerAuth.getAccessToken(), undefined);
-  assert.deepEqual(reLaunch.mock.calls[0][0], { url: "/pages/auth/login" });
+  expect(reLaunch).not.toHaveBeenCalled();
+  expect(customerLoginForPage(currentCustomerPage())).toBeDefined();
 });
 
 test("turns a platform network failure into a useful Chinese message", async () => {
@@ -143,6 +175,7 @@ test("does not force a guest to login when a public request returns 401", async 
 
   expect(requestMock).toHaveBeenCalledTimes(1);
   expect(reLaunch).not.toHaveBeenCalled();
+  expect(customerLoginForPage(currentCustomerPage())).toBeUndefined();
 });
 
 test("does not destroy a valid customer session when a public endpoint rejects a request", async () => {

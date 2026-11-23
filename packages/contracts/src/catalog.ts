@@ -114,6 +114,7 @@ export type ProductInputContract = {
 };
 
 export type MenuContract = {
+  paymentRequired?: boolean;
   store: {
     id: string;
     code?: string;

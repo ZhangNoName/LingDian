@@ -196,6 +196,7 @@ test('WeChat mini-program phone login issues a session and refresh cookie', asyn
           accessToken: 'access-token',
           refreshToken: 'refresh-token',
           expiresIn: 900,
+          isNewUser: true,
           user: { userId: 'user-1', sessionId: 'session-1', audience: 'user-api', roles: ['USER'] },
         };
       },
@@ -220,6 +221,7 @@ test('WeChat mini-program phone login issues a session and refresh cookie', asyn
   assert.deepEqual(result, {
     access_token: 'access-token',
     expires_in: 900,
+    is_new_user: true,
     user: { userId: 'user-1', sessionId: 'session-1', audience: 'user-api', roles: ['USER'] },
   });
 });

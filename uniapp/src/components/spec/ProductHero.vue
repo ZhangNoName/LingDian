@@ -1,13 +1,14 @@
 <template>
-  <view class="hero">
-    <image class="main" :src="product.imageUrl" mode="aspectFill" />
-    <view class="stack">
-      <image v-for="image in product.comboImages" :key="image" class="stack-image" :src="image" mode="aspectFill" />
+  <view class="hero" :class="{ 'hero-with-stack': product.comboImages.length > 0 }">
+    <ProductThumbnail :src="product.imageUrl" hero />
+    <view v-if="product.comboImages.length" class="stack">
+      <image v-for="image in product.comboImages" :key="image" class="stack-image" :src="image" mode="aspectFit" />
     </view>
   </view>
 </template>
 
 <script setup lang="ts">
+import ProductThumbnail from "@/components/app/ProductThumbnail.vue";
 import type { ProductDetail } from "@/types/menu";
 
 defineProps<{
@@ -18,17 +19,13 @@ defineProps<{
 <style scoped>
 .hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 164rpx;
-  gap: 12rpx;
+  grid-template-columns: minmax(0, 1fr);
   padding: 0 var(--ld-page-padding, 24rpx);
 }
 
-.main {
-  width: 100%;
-  height: 352rpx;
-  align-self: end;
-  border-radius: 28rpx;
-  background: #ffffff;
+.hero-with-stack {
+  grid-template-columns: minmax(0, 1fr) 164rpx;
+  gap: 12rpx;
 }
 
 .stack {

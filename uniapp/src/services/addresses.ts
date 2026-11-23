@@ -1,6 +1,10 @@
 import type { CreateUserAddressRequest, UserAddress } from "@lingdian/contracts";
 import { request } from "./request";
 
+export function formatAddress({ provinceName, cityName, countyName, streetName, detailInfo }: UserAddress): string {
+  return [provinceName, cityName === provinceName ? "" : cityName, countyName, streetName, detailInfo].join("");
+}
+
 export const addresses = {
   list(): Promise<UserAddress[]> {
     return request("/addresses");

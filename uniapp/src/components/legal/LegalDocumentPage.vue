@@ -1,45 +1,44 @@
 <template>
-  <view class="legal-page">
-    <view class="legal-header">
+  <Layout :show-tab-bar="false">
+    <template #header>
       <AppNavBar :title="document.title" show-back @back="handleBack" />
-    </view>
+    </template>
 
-    <scroll-view class="legal-scroll" scroll-y>
-      <view class="legal-content">
-        <view class="legal-card">
-          <text class="document-title">{{ document.title }}</text>
-          <view class="document-meta">
-            <text class="meta-text">版本：{{ document.version }}</text>
-            <text class="meta-text">生效日期：{{ document.effectiveDate }}</text>
-            <text class="meta-text">运营主体：{{ document.operatorName }}</text>
-          </view>
+    <view class="legal-content">
+      <view class="legal-card">
+        <text class="document-title">{{ document.title }}</text>
+        <view class="document-meta">
+          <text class="meta-text">版本：{{ document.version }}</text>
+          <text class="meta-text">生效日期：{{ document.effectiveDate }}</text>
+          <text class="meta-text">运营主体：{{ document.operatorName }}</text>
+        </view>
 
-          <view class="introduction">
-            <text v-for="paragraph in document.introduction" :key="paragraph" class="legal-paragraph">{{ paragraph }}</text>
-          </view>
+        <view class="introduction">
+          <text v-for="paragraph in document.introduction" :key="paragraph" class="legal-paragraph">{{ paragraph }}</text>
+        </view>
 
-          <view v-for="(section, sectionIndex) in document.sections" :key="section.title" class="legal-section">
-            <text class="section-title">{{ sectionIndex + 1 }}. {{ section.title }}</text>
-            <text v-for="paragraph in section.paragraphs" :key="paragraph" class="legal-paragraph">{{ paragraph }}</text>
-            <view v-if="section.bullets?.length" class="bullet-list">
-              <view v-for="bullet in section.bullets" :key="bullet" class="bullet-row">
-                <text class="bullet-mark">•</text>
-                <text class="legal-bullet">{{ bullet }}</text>
-              </view>
+        <view v-for="(section, sectionIndex) in document.sections" :key="section.title" class="legal-section">
+          <text class="section-title">{{ sectionIndex + 1 }}. {{ section.title }}</text>
+          <text v-for="paragraph in section.paragraphs" :key="paragraph" class="legal-paragraph">{{ paragraph }}</text>
+          <view v-if="section.bullets?.length" class="bullet-list">
+            <view v-for="bullet in section.bullets" :key="bullet" class="bullet-row">
+              <text class="bullet-mark">•</text>
+              <text class="legal-bullet">{{ bullet }}</text>
             </view>
           </view>
+        </view>
 
-          <view class="legal-notice">
-            <text class="notice-text">本页面用于阅读协议，不在此处完成同意操作。请返回登录页后根据提示作出选择。</text>
-          </view>
+        <view class="legal-notice">
+          <text class="notice-text">请返回登录抽屉，选择是否同意。</text>
         </view>
       </view>
-    </scroll-view>
-  </view>
+    </view>
+  </Layout>
 </template>
 
 <script setup lang="ts">
 import AppNavBar from "@/components/app/AppNavBar.vue";
+import Layout from "@/layout/layout.vue";
 import type { LegalDocument } from "@/legal/legal-documents";
 
 defineProps<{
@@ -52,31 +51,11 @@ function handleBack() {
     return;
   }
 
-  uni.reLaunch({ url: "/pages/auth/login" });
+  uni.reLaunch({ url: "/pages/home/home" });
 }
 </script>
 
 <style scoped>
-.legal-page {
-  display: flex;
-  height: 100vh;
-  flex-direction: column;
-  overflow: hidden;
-  background: var(--ld-mini-bg);
-}
-
-.legal-header {
-  flex-shrink: 0;
-  padding-top: var(--status-bar-height, 0px);
-  background: var(--ld-mini-surface);
-}
-
-.legal-scroll {
-  min-height: 0;
-  flex: 1;
-  background: var(--ld-mini-bg);
-}
-
 .legal-content {
   padding: 24rpx var(--ld-page-padding, 24rpx) calc(40rpx + env(safe-area-inset-bottom));
 }

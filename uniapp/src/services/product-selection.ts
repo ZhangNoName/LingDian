@@ -34,6 +34,9 @@ export function toggleProductSelection(
     return { selected: [...current], limitReached: false };
   }
   if (current.includes(optionId)) {
+    if (group.selectionMode === "SINGLE" && minimumFor(group) > 0) {
+      return { selected: [optionId], limitReached: false };
+    }
     return { selected: current.filter((id) => id !== optionId), limitReached: false };
   }
   if (group.selectionMode === "SINGLE") {

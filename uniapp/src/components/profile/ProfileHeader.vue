@@ -1,33 +1,27 @@
 <template>
   <view class="header">
-    <!-- #ifdef MP-WEIXIN -->
-    <button class="avatar-button" open-type="chooseAvatar" aria-label="选择头像" @chooseavatar="$emit('choose-avatar', $event)">
-      <image v-if="avatarUrl" class="avatar-image" :src="avatarUrl" mode="aspectFill" />
-      <SkeletonBox v-else class="avatar" radius="round" />
-    </button>
-    <!-- #endif -->
-    <!-- #ifndef MP-WEIXIN -->
     <image v-if="avatarUrl" class="avatar-image" :src="avatarUrl" mode="aspectFill" aria-label="头像" />
-    <SkeletonBox v-else class="avatar" radius="round" />
-    <!-- #endif -->
-    <view>
+    <view v-else class="avatar"><AppIcon name="profile" :size="48" tone="muted" /></view>
+    <view class="identity">
       <text class="level">{{ presentation.displayName }}</text>
-      <text class="phone">{{ presentation.secondaryText }}</text>
     </view>
+    <AppActionButton v-if="editable" size="small" variant="outline" @activate="$emit('edit')">编辑个人信息</AppActionButton>
   </view>
 </template>
 
 <script setup lang="ts">
-import SkeletonBox from "@/components/app/SkeletonBox.vue";
+import AppIcon from "@/components/app/AppIcon.vue";
+import AppActionButton from "@/components/app/AppActionButton.vue";
 import type { CustomerPresentation } from "@/services/customer-presentation";
 
 defineProps<{
   presentation: CustomerPresentation;
   avatarUrl?: string | null;
+  editable: boolean;
 }>();
 
 defineEmits<{
-  (event: "choose-avatar", value: unknown): void;
+  edit: [];
 }>();
 </script>
 
@@ -36,51 +30,36 @@ defineEmits<{
   display: flex;
   align-items: center;
   gap: var(--ld-card-gap, 20rpx);
-  padding: 0 var(--ld-page-padding, 24rpx) 22rpx;
+  margin: 0 var(--ld-page-padding) var(--ld-card-gap);
+  padding: 24rpx;
+  border-radius: var(--ld-radius-16);
+  background: linear-gradient(120deg, var(--ld-mini-primary-soft), var(--ld-mini-warning-bg));
 }
 
+.identity { flex: 1; min-width: 0; }
 .avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
   width: 96rpx;
   height: 96rpx;
-}
-
-.avatar-button {
-  width: 96rpx;
-  height: 96rpx;
-  margin: 0;
-  padding: 0;
-  border: 0;
   border-radius: 50%;
-  background: transparent;
-  line-height: 1;
-  overflow: hidden;
-}
-
-.avatar-button::after {
-  border: 0;
+  background: var(--ld-mini-primary-soft);
 }
 
 .avatar-image {
   display: block;
+  flex: none;
   width: 96rpx;
   height: 96rpx;
   border-radius: 50%;
 }
 
-.level,
-.phone {
-  display: block;
-}
-
 .level {
-  color: var(--ld-mini-text);
-  font-size: var(--ld-font-title, 32rpx);
+  display: block;
+  color: var(--ld-mini-primary-pressed);
+  font-size: var(--ld-font-display);
   font-weight: 900;
-}
-
-.phone {
-  margin-top: 8rpx;
-  color: #666666;
-  font-size: var(--ld-font-base, 26rpx);
+  overflow-wrap: anywhere;
 }
 </style>

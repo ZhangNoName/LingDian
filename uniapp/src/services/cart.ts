@@ -59,6 +59,7 @@ export function addCartItem(
     id,
     productId: product.id,
     skuId: product.skuId,
+    ...(product.skuName ? { skuName: product.skuName } : {}),
     productName: product.name,
     imageUrl: product.imageUrl,
     quantity,

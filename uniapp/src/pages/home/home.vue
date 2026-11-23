@@ -1,12 +1,12 @@
 <template>
   <Layout active="home">
-    <scroll-view class="page" scroll-y>
+    <view class="page">
       <view class="home-header">
         <HomeHero />
-        <MemberStrip :presentation="customerPresentation" @login="goLogin" />
       </view>
       <view class="content">
         <ServiceModeCards v-if="availableServiceModes.length" :modes="availableServiceModes" @select="goMenu" />
+        <MemberStrip :presentation="customerPresentation" @login="goLogin" />
         <RecommendSection v-if="menu" :products="featuredProducts" @browse="goMenu" @select="goSpec" />
         <view v-else-if="menuError" class="menu-state">
           <text>{{ menuError }}</text>
@@ -14,12 +14,12 @@
         </view>
         <text v-else>正在加载菜单…</text>
       </view>
-    </scroll-view>
+    </view>
   </Layout>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, shallowRef } from "vue";
 import { onLoad, onShow } from "@dcloudio/uni-app";
 import type { AuthenticatedUser } from "@lingdian/contracts";
 import Layout from "@/layout/layout.vue";
@@ -30,14 +30,18 @@ import RecommendSection from "@/components/home/RecommendSection.vue";
 import ServiceModeCards from "@/components/app/ServiceModeCards.vue";
 import { homeServiceModes } from "@/data/home-service-modes";
 import { customerAuth } from "@/services/auth";
-import { fetchMenu, type MenuViewModel } from "@/services/catalog";
+import { fetchMenu, peekMenu } from "@/services/catalog";
+import { currentCustomerPage, openCustomerLogin } from "@/services/customer-login";
 import { buildCustomerPresentation } from "@/services/customer-presentation";
+import { profile } from "@/services/profile";
 import { buildServiceModeUrl } from "@/services/service-mode";
 import type { ServiceMode } from "@/types/store";
 
-const menu = ref<MenuViewModel | null>(null);
+const menu = shallowRef(peekMenu());
 const menuError = ref("");
 const currentUser = ref<AuthenticatedUser | undefined>(customerAuth.getUser());
+const nickname = ref<string | null>(null);
+let profileRequest = 0;
 
 const featuredProducts = computed(() => {
   return (menu.value?.products ?? []).filter((product) => product.tags.includes("推荐")).slice(0, 6);
@@ -48,7 +52,7 @@ const availableServiceModes = computed(() => {
     ? homeServiceModes.filter((mode) => supportedModes.includes(mode.key))
     : [];
 });
-const customerPresentation = computed(() => buildCustomerPresentation(currentUser.value));
+const customerPresentation = computed(() => buildCustomerPresentation(currentUser.value, { nickname: nickname.value }));
 
 onLoad(() => { void loadMenu(); });
 
@@ -61,10 +65,21 @@ async function loadMenu() {
   }
 }
 
-onShow(async () => {
+onShow(() => { void loadMember(); });
+
+async function loadMember() {
+  const call = ++profileRequest;
   if (!customerAuth.isSignedIn()) await customerAuth.refresh();
-  currentUser.value = customerAuth.getUser();
-});
+  if (call !== profileRequest) return;
+  const user = customerAuth.getUser();
+  if (user?.userId !== currentUser.value?.userId) nickname.value = null;
+  currentUser.value = user;
+  if (!user) return;
+  const result = await profile.getNickname().catch(() => null);
+  if (result && call === profileRequest && customerAuth.getUser()?.userId === user.userId) {
+    nickname.value = result.nickname;
+  }
+}
 
 function selectedOrDefaultMode(mode?: ServiceMode): ServiceMode {
   return mode ?? availableServiceModes.value[0]?.key ?? "takeaway";
@@ -80,17 +95,17 @@ function goSpec(productId: string) {
   });
 }
 
-function goLogin() {
-  uni.navigateTo({ url: "/pages/auth/login?redirect=%2Fpages%2Fhome%2Fhome" });
+async function goLogin() {
+  if (customerAuth.isSignedIn() || await openCustomerLogin(currentCustomerPage())) await loadMember();
 }
 </script>
 
 <style scoped>
 .page {
   box-sizing: border-box;
-  height: 100%;
+  min-height: 100%;
   background: var(--ld-mini-bg);
-  padding: 16rpx var(--ld-page-padding, 24rpx) calc(var(--ld-tabbar-height, 104rpx) + var(--ld-page-bottom-safe, 24rpx));
+  padding: 16rpx var(--ld-page-padding, 24rpx) 24rpx;
 }
 
 .home-header {

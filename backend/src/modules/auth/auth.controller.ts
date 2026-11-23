@@ -376,5 +376,10 @@ function requestContext(request: AuthRequest) {
 }
 
 function toAuthTokens(tokens: SessionTokens) {
-  return { access_token: tokens.accessToken, expires_in: tokens.expiresIn, user: tokens.user };
+  return {
+    access_token: tokens.accessToken,
+    expires_in: tokens.expiresIn,
+    user: tokens.user,
+    ...(tokens.isNewUser ? { is_new_user: true as const } : {}),
+  };
 }

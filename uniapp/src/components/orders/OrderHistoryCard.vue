@@ -1,21 +1,22 @@
 <template>
-  <view class="card" @tap="$emit('detail', order.id)">
+  <view class="card" :class="'order-' + order.status" @tap="$emit('detail', order.id)">
     <view class="title-row">
       <text class="badge">{{ serviceModeLabel }}</text>
       <text class="store">{{ order.storeName }}</text>
       <view class="status-wrap">
         <text class="status">{{ statusLabel }}</text>
-        <AppIcon name="next" :size="26" tone="muted" />
       </view>
     </view>
     <view class="meta-row">
       <text class="time">{{ formatOrderTime(order.createdAt) }}</text>
-      <text class="pickup-code">{{ sourceLabel }} · 取餐码 {{ order.pickupCode }}</text>
+    </view>
+    <view v-if="order.pickupCardCode" class="pickup-strip">
+      <text class="pickup-label">{{ order.pickupCodeLabel }}</text>
+      <text class="pickup-code">{{ order.pickupCardCode }}</text>
     </view>
     <view class="body">
-      <view class="thumbs">
+      <view v-if="order.productThumbs.length" class="thumbs">
         <image v-for="thumb in order.productThumbs.slice(0, 3)" :key="thumb" class="thumb" :src="thumb" mode="aspectFill" lazy-load />
-        <view v-if="order.productThumbs.length === 0" class="thumb-empty">商品图片未记录</view>
       </view>
       <view class="summary">
         <text class="price">¥{{ formatAmount(order.totalAmount) }}</text>
@@ -30,9 +31,8 @@
 import { formatAmount } from "@/utils/money";
 import AppActionButton from "@/components/app/AppActionButton.vue";
 import { computed } from "vue";
-import AppIcon from "@/components/app/AppIcon.vue";
 import type { OrderSummary } from "@/types/order";
-import { formatOrderSource } from "@/utils/order-presentation";
+import { formatOrderTime } from "@/utils/order-presentation";
 
 const props = defineProps<{
   order: OrderSummary;
@@ -49,14 +49,12 @@ const serviceModeLabel = computed(() => ({
   delivery: "配送",
 })[props.order.serviceMode]);
 
-const sourceLabel = computed(() => formatOrderSource(props.order.orderSource));
-
 const statusLabel = computed(() => {
   const labels: Record<OrderSummary["status"], string> = {
     pendingPay: "待支付",
     paid: "已支付",
     making: "制作中",
-    ready: "待取餐",
+    ready: props.order.serviceMode === "delivery" ? "待配送" : "待取餐",
     finished: "已完成",
     cancelled: "已取消",
     failed: "失败",
@@ -82,25 +80,34 @@ function emitAction() {
   emit("detail", props.order.id);
 }
 
-function formatOrderTime(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  return `${date.getFullYear()}-${month}-${day} ${hours}:${minutes}`;
-}
 </script>
 
 <style scoped>
 .card {
+  --order-tone-bg: var(--ld-mini-neutral-bg);
+  --order-tone-text: var(--ld-mini-neutral-text);
   margin: var(--ld-page-padding, 24rpx);
   padding: var(--ld-card-padding, 24rpx);
   border-radius: var(--ld-radius-16, 16px);
-  background: #ffffff;
-  box-shadow: var(--ld-mini-shadow-float);
+  border: 1rpx solid var(--ld-mini-border);
+  background: var(--ld-mini-surface);
+}
+
+.order-making, .order-pendingPay, .order-refunding {
+  --order-tone-bg: var(--ld-mini-warning-bg);
+  --order-tone-text: var(--ld-mini-warning-text);
+}
+.order-ready, .order-failed {
+  --order-tone-bg: var(--ld-mini-primary-soft);
+  --order-tone-text: var(--ld-mini-primary-pressed);
+}
+.order-finished {
+  --order-tone-bg: var(--ld-mini-success-bg);
+  --order-tone-text: var(--ld-mini-success-text);
+}
+.order-paid {
+  --order-tone-bg: var(--ld-mini-info-bg);
+  --order-tone-text: var(--ld-mini-info-text);
 }
 
 .title-row {
@@ -112,8 +119,9 @@ function formatOrderTime(value: string) {
 .badge {
   padding: 4rpx 10rpx;
   border-radius: 10rpx;
-  background: #00645c;
-  color: #ffffff;
+  background: var(--ld-mini-neutral-bg);
+  color: var(--ld-mini-neutral-text);
+  white-space: nowrap;
   font-size: var(--ld-font-xs, 22rpx);
 }
 
@@ -121,25 +129,31 @@ function formatOrderTime(value: string) {
   flex: 1;
   overflow: hidden;
   color: var(--ld-mini-text);
-  font-size: var(--ld-font-title, 32rpx);
+  font-size: var(--ld-font-md);
   font-weight: 900;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.status,
 .time,
 .count {
-  color: #999999;
+  color: var(--ld-mini-text-muted);
   font-size: var(--ld-font-sm, 24rpx);
 }
 
 .status-wrap {
-  display: flex;
-  align-items: center;
-  gap: 2rpx;
+  flex: none;
 }
 
+.status {
+  padding: 4rpx 10rpx;
+  border-radius: 8rpx;
+  background: var(--order-tone-bg);
+  color: var(--order-tone-text);
+  font-size: var(--ld-font-xs);
+  font-weight: 700;
+  white-space: nowrap;
+}
 
 .time {
   flex: none;
@@ -147,23 +161,39 @@ function formatOrderTime(value: string) {
 
 .meta-row {
   display: flex;
-  gap: 20rpx;
+  flex-wrap: wrap;
+  gap: 6rpx 20rpx;
   align-items: flex-start;
   justify-content: space-between;
   margin: 14rpx 0 18rpx;
 }
 
+.pickup-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10rpx;
+  margin-bottom: 14rpx;
+  padding: 12rpx 16rpx;
+  border-radius: var(--ld-radius-8);
+  background: var(--order-tone-bg);
+  color: var(--order-tone-text);
+}
+
+.pickup-label { flex: none; font-size: var(--ld-font-sm); }
+
 .pickup-code {
-  color: var(--ld-mini-primary);
-  font-size: var(--ld-font-sm, 24rpx);
-  font-weight: 800;
-  text-align: right;
-  word-break: break-all;
+  min-width: 0;
+  font-size: 40rpx;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+  overflow-wrap: anywhere;
 }
 
 .body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 148rpx;
+  display: flex;
+  justify-content: space-between;
   gap: var(--ld-card-gap, 20rpx);
   align-items: center;
 }
@@ -181,24 +211,13 @@ function formatOrderTime(value: string) {
   background: #ffffff;
 }
 
-.thumb-empty {
-  display: grid;
-  width: 196rpx;
-  height: 84rpx;
-  place-items: center;
-  border-radius: var(--ld-radius-8, 8px);
-  background: #f7f7f7;
-  color: #999999;
-  font-size: var(--ld-font-xs, 22rpx);
-}
-
 .summary {
   display: flex;
-  min-height: 88rpx;
-  flex-direction: column;
-  justify-content: center;
-  align-items: flex-end;
-  text-align: right;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8rpx 14rpx;
 }
 
 .price {
@@ -209,7 +228,6 @@ function formatOrderTime(value: string) {
 }
 
 .count {
-  display: block;
-  margin: 4rpx 0 10rpx;
+  margin-right: auto;
 }
 </style>

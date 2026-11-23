@@ -21,6 +21,7 @@ export type SessionTokens = {
   refreshToken: string;
   expiresIn: number;
   user: AuthenticatedUser;
+  isNewUser?: true;
 };
 
 export type SessionAuditContext = { ip?: string; device?: string };

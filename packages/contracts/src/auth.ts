@@ -26,6 +26,7 @@ export type AuthTokens = {
   access_token: string;
   expires_in: number;
   user: AuthenticatedUser;
+  is_new_user?: true;
 };
 
 export interface PhoneLoginRequest {

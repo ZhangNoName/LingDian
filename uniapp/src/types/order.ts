@@ -26,6 +26,8 @@ export type OrderSummary = {
   orderNo: string;
   orderSource: OrderSource | string | null;
   pickupCode: string;
+  pickupCodeLabel: "取餐码" | "订单码";
+  pickupCardCode?: string;
   pickupBusinessDate: string | null;
   storeName: string;
   serviceMode: ServiceMode;
@@ -61,6 +63,7 @@ export type OrderDetail = OrderSummary & {
   expectedTime: string | null;
   servedAt: string | null;
   paymentMethod: string;
+  paymentChannel?: string;
   remark: string;
   items: OrderDetailItem[];
   infoRows: OrderInfoRow[];

@@ -38,6 +38,38 @@ test("coalesces concurrent menu requests and reuses the fresh menu cache", async
   assert.equal(first.products[0].name, "拿铁");
 });
 
+test("restores a recent menu after restart and shares the refresh request", async () => {
+  const openedAt = 1_800_000_000_000;
+  const clock = vi.spyOn(Date, "now").mockReturnValue(openedAt);
+  const updatedMenu = { ...menu, store: { ...menu.store, name: "更新后的门店" } };
+  const request = vi.fn((options: UniApp.RequestOptions) => {
+    const data = request.mock.calls.length === 1 ? menu : updatedMenu;
+    options.success?.({ statusCode: 200, data: { code: 0, data } } as unknown as UniApp.RequestSuccessCallbackResult);
+    return { abort() {} } as UniApp.RequestTask;
+  });
+  Object.assign(uni, { request });
+  await fetchMenu();
+
+  vi.resetModules();
+  const restarted = await import("./catalog");
+  assert.equal(restarted.peekMenu()?.store.name, menu.store.name);
+  assert.equal(request.mock.calls.length, 1);
+  const [preloaded, page, product] = await Promise.all([
+    restarted.fetchMenu(),
+    restarted.fetchMenu(),
+    restarted.getProductDetail("product-1"),
+  ]);
+  assert.equal(preloaded, page);
+  assert.equal(page.store.name, "更新后的门店");
+  assert.equal(product, page.productDetails["product-1"]);
+  assert.equal(request.mock.calls.length, 2);
+
+  clock.mockReturnValue(openedAt + 16 * 60 * 1000);
+  vi.resetModules();
+  const expired = await import("./catalog");
+  assert.equal(expired.peekMenu(), null);
+});
+
 test("force refresh bypasses a fresh menu cache", async () => {
   const request = vi.fn((options: UniApp.RequestOptions) => {
     options.success?.({ statusCode: 200, data: { code: 0, data: menu } } as unknown as UniApp.RequestSuccessCallbackResult);
@@ -145,6 +177,10 @@ test("exposes only product and selected-variant option groups", async () => {
   const result = await fetchMenu();
 
   assert.deepEqual(result.productDetails["product-1"].optionGroups.map((item) => item.id), ["product", "current"]);
+  assert.deepEqual(
+    result.productDetails["product-1"].variants?.find((variant) => variant.id === "sku-2")?.optionGroups.map((item) => item.id),
+    ["product", "other"],
+  );
 });
 
 test("does not let an older request overwrite a newer forced refresh", async () => {

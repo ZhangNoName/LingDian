@@ -54,6 +54,10 @@ function uploadAvatarOnce(filePath: string): Promise<CustomerProfile> {
 }
 
 export const profile = {
+  getNickname(): Promise<Pick<CustomerProfile, "nickname">> {
+    return request("/auth/profile/nickname");
+  },
+
   get(): Promise<CustomerProfile> {
     return request("/auth/profile");
   },

@@ -1,0 +1,650 @@
+{
+  "storeName": "zmh小吃店",
+  "categories": [
+    {
+      "name": "汉堡",
+      "products": [
+        {
+          "key": "signature-double-chicken",
+          "name": "招牌双鸡堡",
+          "price": 5,
+          "hasSpiceChoice": true,
+          "featured": true,
+          "image": "images/signature-double-chicken.jpg",
+          "sheet": "burgers",
+          "tile": 1
+        },
+        {
+          "key": "original-chicken-thigh",
+          "name": "原味鸡腿堡（不辣）",
+          "price": 6,
+          "hasSpiceChoice": false,
+          "featured": false,
+          "image": "images/original-chicken-thigh.jpg",
+          "sheet": "burgers",
+          "tile": 2
+        },
+        {
+          "key": "spicy-chicken-thigh",
+          "name": "香辣鸡腿堡",
+          "price": 6,
+          "hasSpiceChoice": false,
+          "featured": false,
+          "image": "images/spicy-chicken-thigh.jpg",
+          "sheet": "burgers",
+          "tile": 3
+        },
+        {
+          "key": "chunky-chicken-burger",
+          "name": "哆肉堡",
+          "price": 5,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/chunky-chicken-burger.jpg",
+          "sheet": "burgers",
+          "tile": 4
+        },
+        {
+          "key": "shrimp-burger",
+          "name": "七珍虾堡",
+          "price": 8,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/shrimp-burger.jpg",
+          "sheet": "burgers",
+          "tile": 5
+        },
+        {
+          "key": "beef-cheeseburger",
+          "name": "芝士牛肉堡",
+          "price": 8,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/beef-cheeseburger.jpg",
+          "sheet": "burgers",
+          "tile": 6
+        },
+        {
+          "key": "orleans-chicken-burger",
+          "name": "奥尔良烤腿堡",
+          "price": 7,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/orleans-chicken-burger.jpg",
+          "sheet": "burgers",
+          "tile": 7
+        },
+        {
+          "key": "double-beef-burger",
+          "name": "双层牛牛堡",
+          "price": 13,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/double-beef-burger.jpg",
+          "sheet": "burgers",
+          "tile": 8
+        },
+        {
+          "key": "double-chunky-chicken-burger",
+          "name": "双层哆肉堡",
+          "price": 7,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/double-chunky-chicken-burger.jpg",
+          "sheet": "burgers",
+          "tile": 9
+        }
+      ]
+    },
+    {
+      "name": "汉堡双拼",
+      "products": [
+        {
+          "key": "shrimp-and-beef-burgers",
+          "name": "虾堡＋牛堡",
+          "price": 15,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/shrimp-and-beef-burgers.jpg",
+          "sheet": "burgerBundles",
+          "tile": 1
+        },
+        {
+          "key": "signature-double-chicken-trio",
+          "name": "招牌双鸡堡 3 个",
+          "price": 10,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/signature-double-chicken-trio.jpg",
+          "sheet": "burgerBundles",
+          "tile": 2
+        },
+        {
+          "key": "original-chicken-thigh-pair",
+          "name": "原味鸡腿堡 2 个",
+          "price": 10,
+          "hasSpiceChoice": false,
+          "featured": false,
+          "image": "images/original-chicken-thigh-pair.jpg",
+          "sheet": "burgerBundles",
+          "tile": 3
+        },
+        {
+          "key": "spicy-chicken-thigh-pair",
+          "name": "香辣鸡腿堡 2 个",
+          "price": 10,
+          "hasSpiceChoice": false,
+          "featured": false,
+          "image": "images/spicy-chicken-thigh-pair.jpg",
+          "sheet": "burgerBundles",
+          "tile": 4
+        },
+        {
+          "key": "chunky-chicken-burger-pair",
+          "name": "哆肉堡 2 个",
+          "price": 8,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/chunky-chicken-burger-pair.jpg",
+          "sheet": "burgerBundles",
+          "tile": 5
+        },
+        {
+          "key": "beef-cheeseburger-pair",
+          "name": "芝士牛肉堡 2 个",
+          "price": 15,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/beef-cheeseburger-pair.jpg",
+          "sheet": "burgerBundles",
+          "tile": 6
+        },
+        {
+          "key": "mixed-chicken-thigh-pair",
+          "name": "鸡腿堡双拼（一辣一不辣）",
+          "price": 10,
+          "hasSpiceChoice": false,
+          "featured": false,
+          "image": "images/mixed-chicken-thigh-pair.jpg",
+          "sheet": "burgerBundles",
+          "tile": 7
+        },
+        {
+          "key": "orleans-chicken-burger-pair",
+          "name": "奥尔良烤腿堡 2 个",
+          "price": 13,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/orleans-chicken-burger-pair.jpg",
+          "sheet": "burgerBundles",
+          "tile": 8
+        },
+        {
+          "key": "shrimp-burger-pair",
+          "name": "七珍虾堡 2 个",
+          "price": 15,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/shrimp-burger-pair.jpg",
+          "sheet": "burgerBundles",
+          "tile": 9
+        },
+        {
+          "key": "chunky-chicken-burger-trio",
+          "name": "哆肉堡 3 个",
+          "price": 12,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/chunky-chicken-burger-trio.jpg",
+          "sheet": "snacksFirst",
+          "tile": 1
+        },
+        {
+          "key": "chicken-wrap-pair",
+          "name": "鸡肉卷 2 个",
+          "price": 9,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/chicken-wrap-pair.jpg",
+          "sheet": "snacksFirst",
+          "tile": 2
+        }
+      ]
+    },
+    {
+      "name": "小吃类",
+      "products": [
+        {
+          "key": "extra-large-fries",
+          "name": "超大份薯条",
+          "price": 10,
+          "hasSpiceChoice": false,
+          "featured": false,
+          "image": "images/extra-large-fries.jpg",
+          "sheet": "snacksFirst",
+          "tile": 3
+        },
+        {
+          "key": "plum-sweet-potato-fries",
+          "name": "甘梅红薯条",
+          "price": 8,
+          "hasSpiceChoice": false,
+          "featured": false,
+          "image": "images/plum-sweet-potato-fries.jpg",
+          "sheet": "snacksFirst",
+          "tile": 4
+        },
+        {
+          "key": "black-pepper-nugget-bucket",
+          "name": "一桶黑椒鸡块（15 个）",
+          "price": 10,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/black-pepper-nugget-bucket.jpg",
+          "sheet": "snacksFirst",
+          "tile": 5
+        },
+        {
+          "key": "popcorn-chicken-bucket",
+          "name": "一桶鸡米花",
+          "price": 10,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/popcorn-chicken-bucket.jpg",
+          "sheet": "snacksFirst",
+          "tile": 6
+        },
+        {
+          "key": "crispy-drumstick-trio",
+          "name": "脆皮大鸡腿 3 个",
+          "price": 12,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/crispy-drumstick-trio.jpg",
+          "sheet": "snacksFirst",
+          "tile": 7
+        },
+        {
+          "key": "korean-cheese-corn-dog",
+          "name": "韩式拉丝热狗棒",
+          "price": 7,
+          "hasSpiceChoice": false,
+          "featured": false,
+          "image": "images/korean-cheese-corn-dog.jpg",
+          "sheet": "snacksFirst",
+          "tile": 8
+        },
+        {
+          "key": "whole-chicken-leg",
+          "name": "秘制全腿",
+          "price": 9,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/whole-chicken-leg.jpg",
+          "sheet": "snacksFirst",
+          "tile": 9
+        },
+        {
+          "key": "chicken-cartilage-skewer-pair",
+          "name": "骨肉相连两串",
+          "price": 5,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/chicken-cartilage-skewer-pair.jpg",
+          "sheet": "snacksSecond",
+          "tile": 1
+        },
+        {
+          "key": "corn-cup",
+          "name": "玉米杯",
+          "price": 5,
+          "hasSpiceChoice": false,
+          "featured": false,
+          "image": "images/corn-cup.jpg",
+          "sheet": "snacksSecond",
+          "tile": 2
+        },
+        {
+          "key": "orleans-wings",
+          "name": "奥尔良烤翅",
+          "price": 7,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/orleans-wings.jpg",
+          "sheet": "snacksSecond",
+          "tile": 3
+        },
+        {
+          "key": "medium-fries",
+          "name": "中份薯条",
+          "price": 6,
+          "hasSpiceChoice": false,
+          "featured": false,
+          "image": "images/medium-fries.jpg",
+          "sheet": "snacksSecond",
+          "tile": 4
+        },
+        {
+          "key": "spicy-meat-skewers",
+          "name": "麻辣肉串",
+          "price": 5,
+          "hasSpiceChoice": false,
+          "featured": false,
+          "image": "images/spicy-meat-skewers.jpg",
+          "sheet": "snacksSecond",
+          "tile": 5
+        },
+        {
+          "key": "crispy-drumstick",
+          "name": "脆皮鸡腿",
+          "price": 5,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/crispy-drumstick.jpg",
+          "sheet": "snacksSecond",
+          "tile": 6
+        },
+        {
+          "key": "black-pepper-nuggets",
+          "name": "黑椒鸡块",
+          "price": 5,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/black-pepper-nuggets.jpg",
+          "sheet": "snacksSecond",
+          "tile": 7
+        },
+        {
+          "key": "onion-rings",
+          "name": "洋葱圈",
+          "price": 4,
+          "hasSpiceChoice": false,
+          "featured": false,
+          "image": "images/onion-rings.jpg",
+          "sheet": "snacksSecond",
+          "tile": 8
+        },
+        {
+          "key": "crispy-drumettes",
+          "name": "脆皮小鸡腿",
+          "price": 4,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/crispy-drumettes.jpg",
+          "sheet": "snacksSecond",
+          "tile": 9
+        },
+        {
+          "key": "purple-sweet-potato-balls",
+          "name": "紫薯球",
+          "price": 4,
+          "hasSpiceChoice": false,
+          "featured": false,
+          "image": "images/purple-sweet-potato-balls.jpg",
+          "sheet": "friedAndSides",
+          "tile": 7
+        },
+        {
+          "key": "crispy-popcorn-chicken",
+          "name": "香脆鸡米花",
+          "price": 5,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/crispy-popcorn-chicken.jpg",
+          "sheet": "friedAndSides",
+          "tile": 8
+        }
+      ]
+    },
+    {
+      "name": "套餐",
+      "products": [
+        {
+          "key": "house-recommended-meal",
+          "name": "店长推荐套餐",
+          "price": 19.9,
+          "hasSpiceChoice": true,
+          "featured": true,
+          "image": "images/house-recommended-meal.jpg",
+          "sheet": "finalMeals",
+          "tile": 4
+        },
+        {
+          "key": "filling-meal-for-one",
+          "name": "管饱单人餐",
+          "price": 13,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/filling-meal-for-one.jpg",
+          "sheet": "finalMeals",
+          "tile": 5
+        },
+        {
+          "key": "value-meal-for-one",
+          "name": "超值单人餐",
+          "price": 16.9,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/value-meal-for-one.jpg",
+          "sheet": "finalMeals",
+          "tile": 6
+        },
+        {
+          "key": "kids-meal",
+          "name": "儿童套餐",
+          "price": 15,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/kids-meal.jpg",
+          "sheet": "finalMeals",
+          "tile": 7
+        },
+        {
+          "key": "value-meal-for-two",
+          "name": "超值双人餐",
+          "price": 29.9,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/value-meal-for-two.jpg",
+          "sheet": "finalMeals",
+          "tile": 8
+        },
+        {
+          "key": "deluxe-meal-for-three",
+          "name": "豪华三人餐",
+          "price": 49.9,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/deluxe-meal-for-three.jpg",
+          "sheet": "finalMeals",
+          "tile": 9
+        }
+      ]
+    },
+    {
+      "name": "饮品",
+      "products": [
+        {
+          "key": "iced-lemon-cola",
+          "name": "冰柠可乐",
+          "price": 5,
+          "hasSpiceChoice": false,
+          "featured": false,
+          "image": "images/iced-lemon-cola.jpg",
+          "sheet": "drinks",
+          "tile": 1
+        },
+        {
+          "key": "orange-soda",
+          "name": "芬达",
+          "price": 5,
+          "hasSpiceChoice": false,
+          "featured": false,
+          "image": "images/orange-soda.jpg",
+          "sheet": "drinks",
+          "tile": 2
+        },
+        {
+          "key": "lemon-lime-soda",
+          "name": "雪碧",
+          "price": 5,
+          "hasSpiceChoice": false,
+          "featured": false,
+          "image": "images/lemon-lime-soda.jpg",
+          "sheet": "drinks",
+          "tile": 3
+        },
+        {
+          "key": "orange-juice",
+          "name": "橙汁",
+          "price": 5,
+          "hasSpiceChoice": false,
+          "featured": false,
+          "image": "images/orange-juice.jpg",
+          "sheet": "drinks",
+          "tile": 4
+        },
+        {
+          "key": "lemon-water",
+          "name": "柠檬水",
+          "price": 4,
+          "hasSpiceChoice": false,
+          "featured": false,
+          "image": "images/lemon-water.jpg",
+          "sheet": "drinks",
+          "tile": 5
+        },
+        {
+          "key": "oat-milk",
+          "name": "燕麦牛奶",
+          "price": 5,
+          "hasSpiceChoice": false,
+          "featured": false,
+          "image": "images/oat-milk.jpg",
+          "sheet": "drinks",
+          "tile": 6
+        },
+        {
+          "key": "coconut-jelly-milk-tea",
+          "name": "椰果奶茶",
+          "price": 5,
+          "hasSpiceChoice": false,
+          "featured": false,
+          "image": "images/coconut-jelly-milk-tea.jpg",
+          "sheet": "drinks",
+          "tile": 7
+        }
+      ]
+    },
+    {
+      "name": "炸鸡类",
+      "products": [
+        {
+          "key": "korean-fried-chicken-10",
+          "name": "韩式炸鸡 10 块",
+          "price": 10,
+          "hasSpiceChoice": true,
+          "featured": true,
+          "image": "images/korean-fried-chicken-10.jpg",
+          "sheet": "finalMeals",
+          "tile": 1
+        },
+        {
+          "key": "korean-fried-chicken-12-rice-cakes-8",
+          "name": "韩式炸鸡 12 块＋年糕 8 个",
+          "price": 15,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/korean-fried-chicken-12-rice-cakes-8.jpg",
+          "sheet": "finalMeals",
+          "tile": 2
+        },
+        {
+          "key": "korean-fried-chicken-14-rice-cakes-10",
+          "name": "韩式炸鸡 14 块＋年糕 10 个",
+          "price": 20,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/korean-fried-chicken-14-rice-cakes-10.jpg",
+          "sheet": "finalMeals",
+          "tile": 3
+        },
+        {
+          "key": "crispy-chicken-cutlet",
+          "name": "大鸡排",
+          "price": 7.9,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/crispy-chicken-cutlet.jpg",
+          "sheet": "friedAndSides",
+          "tile": 1
+        },
+        {
+          "key": "small-fried-chicken-bucket",
+          "name": "小桶炸鸡块",
+          "price": 10,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/small-fried-chicken-bucket.jpg",
+          "sheet": "friedAndSides",
+          "tile": 2
+        },
+        {
+          "key": "large-fried-chicken-bucket",
+          "name": "大桶炸鸡块",
+          "price": 20,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/large-fried-chicken-bucket.jpg",
+          "sheet": "friedAndSides",
+          "tile": 3
+        },
+        {
+          "key": "fried-chicken-rack",
+          "name": "秘制炸鸡架",
+          "price": 10,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/fried-chicken-rack.jpg",
+          "sheet": "friedAndSides",
+          "tile": 4
+        },
+        {
+          "key": "whole-roast-chicken",
+          "name": "江湖烤鸡",
+          "price": 16.9,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/whole-roast-chicken.jpg",
+          "sheet": "friedAndSides",
+          "tile": 5
+        },
+        {
+          "key": "whole-crispy-chicken",
+          "name": "脆皮全鸡",
+          "price": 19,
+          "hasSpiceChoice": true,
+          "featured": false,
+          "image": "images/whole-crispy-chicken.jpg",
+          "sheet": "friedAndSides",
+          "tile": 6
+        }
+      ]
+    },
+    {
+      "name": "主食类",
+      "products": [
+        {
+          "key": "crispy-chicken-rice-bowl",
+          "name": "脆皮鸡拌饭",
+          "price": 12,
+          "hasSpiceChoice": true,
+          "featured": true,
+          "image": "images/crispy-chicken-rice-bowl.jpg",
+          "sheet": "friedAndSides",
+          "tile": 9
+        }
+      ]
+    }
+  ]
+}

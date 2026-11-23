@@ -1,10 +1,12 @@
 <template>
-  <view class="stepper">
-    <button class="round" :disabled="disabled || modelValue <= min" aria-label="减少数量" @tap="emitValue(modelValue - 1)">
-      <AppIcon name="minus" :size="28" tone="muted" />
-    </button>
-    <text class="count">{{ modelValue }}</text>
-    <button class="round plus" :disabled="disabled || modelValue >= max" aria-label="增加数量" @tap="emitValue(modelValue + 1)">
+  <view class="stepper" :class="{ compact }">
+    <template v-if="!collapseAtZero || modelValue > 0">
+      <button class="round" :disabled="disabled || modelValue <= min" :aria-label="itemName ? `减少${itemName}数量` : '减少数量'" @tap="emitValue(modelValue - 1)">
+        <AppIcon name="minus" :size="28" tone="muted" />
+      </button>
+      <text class="count">{{ modelValue }}</text>
+    </template>
+    <button class="round plus" :disabled="disabled || modelValue >= max" :aria-label="itemName ? `增加${itemName}数量` : '增加数量'" @tap="emitValue(modelValue + 1)">
       <AppIcon name="plus" :size="28" tone="white" />
     </button>
   </view>
@@ -19,6 +21,9 @@ const props = withDefaults(
     min?: number;
     max?: number;
     disabled?: boolean;
+    collapseAtZero?: boolean;
+    itemName?: string;
+    compact?: boolean;
   }>(),
   {
     min: 1,
@@ -71,5 +76,22 @@ function emitValue(value: number) {
   color: var(--ld-mini-text);
   font-size: 32rpx;
   font-weight: 700;
+}
+
+.compact {
+  gap: 8rpx;
+}
+
+.compact .round {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: var(--ld-radius-8, 8px);
+}
+
+.compact .count {
+  min-width: 36rpx;
+  font-size: var(--ld-font-sm, 24rpx);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
 }
 </style>

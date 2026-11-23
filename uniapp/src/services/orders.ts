@@ -2,7 +2,7 @@ import type { OrderDetailContract, OrderPageContract, OrderSummaryContract } fro
 import type { CartSummary } from "@/types/cart";
 import type { OrderDetail, OrderSource, OrderSummary, OrderStatus } from "@/types/order";
 import type { ServiceMode } from "@/types/store";
-import { formatOrderSource, resolvePickupCode } from "@/utils/order-presentation";
+import { formatOrderSource, formatOrderTime, resolvePickupCode } from "@/utils/order-presentation";
 import { usesBrowserCookieTransport } from "@/config/platform";
 import { getCurrentStoreId } from "./catalog";
 import { customerAuth } from "./auth";
@@ -19,6 +19,8 @@ type ApiOrderSummary = Omit<OrderSummaryContract, keyof ApiChannelFields> & ApiC
 type ApiOrderPage = Omit<OrderPageContract, "items"> & { items: ApiOrderSummary[] };
 type ApiOrder = ApiOrderSummary &
   Partial<Pick<OrderDetailContract, "items" | "status_logs" | "stock_expires_at">>;
+
+export const MAX_ORDER_REMARK_LENGTH = 191;
 
 const statusMap: Record<string, Exclude<OrderStatus, "unknown">> = {
   CREATING: "pendingPay",
@@ -45,9 +47,18 @@ function mapServiceMode(orderType: string): OrderSummary["serviceMode"] {
   return "takeaway";
 }
 
+function pickupCodeForDisplay(order: ApiOrderSummary): string | undefined {
+  if (!["PENDING_PAYMENT", "PAID", "PREPARING", "READY", "COMPLETED"].includes(order.status)) return;
+  return order.pickup_code?.trim() || undefined;
+}
+
+function orderCodeLabel(orderType: string): OrderSummary["pickupCodeLabel"] {
+  return orderType === "TAKEOUT" ? "订单码" : "取餐码";
+}
+
 function paymentChannelLabel(channel: string | undefined): string {
   const labels: Record<string, string> = {
-    CASH: "现金支付",
+    CASH: "线下支付",
     WECHAT: "微信支付",
     ALIPAY: "支付宝",
     UNIONPAY: "银联支付",
@@ -74,13 +85,22 @@ function checkoutStorage() {
 
 export async function createOrderFromCart(
   cart: CartSummary,
-  options: { serviceMode: ServiceMode; addressId?: string; clientRequestId?: string } = { serviceMode: "takeaway" },
+  options: {
+    serviceMode: ServiceMode;
+    addressId?: string;
+    clientRequestId?: string;
+    remark?: string;
+  } = { serviceMode: "takeaway" },
 ) {
   if (cart.items.length === 0) {
     throw new Error("购物车为空");
   }
   if (options.serviceMode === "delivery" && !options.addressId?.trim()) {
     throw new Error("配送订单必须选择收货地址");
+  }
+  const remark = options.remark?.trim() ?? "";
+  if (Array.from(remark).length > MAX_ORDER_REMARK_LENGTH) {
+    throw new Error(`订单备注最多 ${MAX_ORDER_REMARK_LENGTH} 字`);
   }
 
   const session = customerAuth.getSessionVersion();
@@ -94,6 +114,7 @@ export async function createOrderFromCart(
         ? "dine_in"
         : "pickup",
     ...(options.serviceMode === "delivery" ? { addressId: options.addressId } : {}),
+    ...(remark ? { remark } : {}),
     paymentChannel: "cash",
     items: cart.items.map((item) => ({
       sku_id: item.skuId,
@@ -164,12 +185,14 @@ export async function fetchOrders(page = 1, pageSize = 20) {
       orderNo: order.order_no,
       orderSource: order.order_source ?? null,
       pickupCode: resolvePickupCode(order.order_no, order.pickup_code),
+      pickupCodeLabel: orderCodeLabel(order.order_type),
+      pickupCardCode: pickupCodeForDisplay(order),
       pickupBusinessDate: order.pickup_business_date ?? null,
       storeName: order.store_name,
       serviceMode: mapServiceMode(order.order_type),
       status: mapStatus(order.status),
       createdAt: order.created_at,
-      totalAmount: order.payable_amount,
+      totalAmount: order.payment_required === false ? order.total_amount ?? 0 : order.payable_amount,
       itemCount: order.item_count ?? 0,
       productThumbs: [],
     })),
@@ -182,9 +205,15 @@ export async function fetchOrders(page = 1, pageSize = 20) {
 export async function fetchOrderDetail(orderId: string) {
   if (!orderId.trim()) throw new Error("订单编号不能为空");
   const order = await request<ApiOrder>(`/customer/orders/${encodeURIComponent(orderId)}`);
+  const status = mapStatus(order.status);
+  const serviceMode = mapServiceMode(order.order_type);
+  const pickupCode = resolvePickupCode(order.order_no, order.pickup_code);
+  const pickupCodeLabel = orderCodeLabel(order.order_type);
+  const pickupCardCode = pickupCodeForDisplay(order);
   const items = order.items ?? [];
   const goodsAmount = items.reduce((sum, item) => sum + item.subtotal, 0);
-  const discountAmount = Math.max(0, Math.round((goodsAmount - order.payable_amount) * 100) / 100);
+  const totalAmount = order.payment_required === false ? order.total_amount ?? goodsAmount : order.payable_amount;
+  const discountAmount = Math.max(0, Math.round((goodsAmount - totalAmount) * 100) / 100);
   const paymentMethod = paymentChannelLabel(order.payment_channel);
   const expectedTime: string | null = null;
   const servedAt = order.status_logs?.find((log) => log.to_status === "READY")?.created_at ?? null;
@@ -193,13 +222,14 @@ export async function fetchOrderDetail(orderId: string) {
     id: order.id,
     orderNo: order.order_no,
     orderSource: order.order_source ?? null,
-    pickupCode: resolvePickupCode(order.order_no, order.pickup_code),
+    pickupCode,
+    pickupCodeLabel,
     pickupBusinessDate: order.pickup_business_date ?? null,
     storeName: order.store_name,
-    serviceMode: mapServiceMode(order.order_type),
-    status: mapStatus(order.status),
+    serviceMode,
+    status,
     createdAt: order.created_at,
-    totalAmount: order.payable_amount,
+    totalAmount,
     itemCount: items.reduce((sum, item) => sum + item.quantity, 0),
     productThumbs: [],
     storeAddress: null,
@@ -209,6 +239,8 @@ export async function fetchOrderDetail(orderId: string) {
     expectedTime,
     servedAt,
     paymentMethod,
+    pickupCardCode,
+    paymentChannel: order.payment_channel,
     remark: order.remark ?? "无",
     items: items.map((item) => ({
       id: item.id,
@@ -228,14 +260,13 @@ export async function fetchOrderDetail(orderId: string) {
       },
       { label: "订单来源", value: formatOrderSource(order.order_source) },
       ...(order.delivery_address ? [{ label: "配送地址", value: order.delivery_address }] : []),
-      ...(order.pickup_business_date ? [{ label: "取餐日期", value: order.pickup_business_date }] : []),
-      { label: "取餐码", value: resolvePickupCode(order.order_no, order.pickup_code) },
+      ...(order.pickup_business_date ? [{ label: serviceMode === "delivery" ? "营业日期" : "取餐日期", value: order.pickup_business_date }] : []),
+      ...(pickupCardCode ? [] : [{ label: pickupCodeLabel, value: pickupCode }]),
       { label: "订单编号", value: order.order_no, copyable: true },
-      { label: "下单时间", value: order.created_at },
-      ...(order.status === "PENDING_PAYMENT" && order.stock_expires_at ? [{ label: "原料预留至", value: new Date(order.stock_expires_at).toLocaleString("zh-CN", { hour12: false }) }] : []),
-      { label: "预计取餐时间", value: expectedTime ?? "未记录" },
-      { label: "出餐时间", value: servedAt ?? "未记录" },
-      { label: "支付方式", value: paymentMethod },
+      { label: "下单时间", value: formatOrderTime(order.created_at) },
+      ...(order.status === "PENDING_PAYMENT" && order.stock_expires_at ? [{ label: "原料预留至", value: formatOrderTime(order.stock_expires_at) }] : []),
+      ...(servedAt ? [{ label: "出餐时间", value: formatOrderTime(servedAt) }] : []),
+      ...(order.payment_required === false ? [] : [{ label: "支付方式", value: paymentMethod }]),
       { label: "备注", value: order.remark ?? "无" },
     ],
   } satisfies OrderDetail;

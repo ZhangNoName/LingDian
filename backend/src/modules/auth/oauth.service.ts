@@ -233,7 +233,7 @@ export class OAuthService {
             privacyPolicyVersion: input.legalConsent.privacyPolicyVersion,
           },
         }, tx);
-        return tokens;
+        return phoneIdentity ? tokens : { ...tokens, isNewUser: true };
       });
     } catch (error) {
       await this.audit.record({
@@ -251,7 +251,7 @@ export class OAuthService {
       const phoneE164 = normalizeChinesePhone(input.phone);
       return await this.transactionWithRetry(async (tx) => {
         await this.verification.consume({ purpose: 'PHONE_LINK', phone: input.phone, code: input.code }, tx);
-        const resolvedUser = await this.consumePendingIntoPhoneUser(tx, input.pendingOauthId, phoneE164);
+        const { user: resolvedUser, isNewUser } = await this.consumePendingIntoPhoneUser(tx, input.pendingOauthId, phoneE164);
         if (resolvedUser.status !== 'ACTIVE') throw new UnauthorizedException('User is inactive.');
         await this.legalConsent.record(
           resolvedUser.id,
@@ -282,7 +282,7 @@ export class OAuthService {
             privacyPolicyVersion: input.legalConsent.privacyPolicyVersion,
           },
         }, tx);
-        return tokens;
+        return isNewUser ? { ...tokens, isNewUser: true } : tokens;
       });
     } catch (error) {
       await this.audit.record({ event: 'OAUTH_PHONE_LINK_REJECTED' });
@@ -346,9 +346,11 @@ export class OAuthService {
     }
   }
 
-  private async consumePendingIntoPhoneUser(tx: Prisma.TransactionClient, pendingOauthId: string, phoneE164: string): Promise<OAuthUser> {
+  private async consumePendingIntoPhoneUser(
+    tx: Prisma.TransactionClient, pendingOauthId: string, phoneE164: string,
+  ): Promise<{ user: OAuthUser; isNewUser: boolean }> {
     const pending = await this.claimPending(tx, pendingOauthId);
-    let phoneIdentity = await tx.authIdentity.findUnique({
+    const phoneIdentity = await tx.authIdentity.findUnique({
       where: { provider_subject: { provider: 'PHONE', subject: phoneE164 } },
       include: { user: { include: { roles: true } } },
     });
@@ -358,11 +360,11 @@ export class OAuthService {
         include: { roles: true },
       });
       await this.linkIdentityInTransaction(tx, { userId: user.id, provider: pending.provider, subject: pending.subject });
-      return user;
+      return { user, isNewUser: true };
     }
     if (phoneIdentity.user.status !== 'ACTIVE') throw new UnauthorizedException('User is inactive.');
     await this.linkIdentityInTransaction(tx, { userId: phoneIdentity.userId, provider: pending.provider, subject: pending.subject });
-    return phoneIdentity.user;
+    return { user: phoneIdentity.user, isNewUser: false };
   }
 
   private async claimPending(tx: Prisma.TransactionClient, pendingOauthId: string, expectedProvider?: 'WECHAT' | 'QQ'): Promise<PendingIdentity> {

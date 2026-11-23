@@ -1,6 +1,9 @@
 <template>
   <view class="pay-bar">
-    <view><text class="label">合计：</text><text class="amount">¥{{ formatAmount(amount.payableAmount) }}</text></view>
+    <view class="pay-total">
+      <text class="label">线下应付</text>
+      <text class="amount">¥{{ formatAmount(amount.payableAmount) }}</text>
+    </view>
     <AppActionButton size="large" :disabled="disabled" :loading="loading" @activate="$emit('submit')">提交订单</AppActionButton>
   </view>
 </template>
@@ -23,26 +26,30 @@ defineEmits<{
 
 <style scoped>
 .pay-bar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
   display: grid;
-  grid-template-columns: 1fr 260rpx;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12rpx;
   align-items: center;
   min-height: var(--ld-fixed-action-height, 128rpx);
   padding: 14rpx var(--ld-page-padding, 24rpx) calc(14rpx + env(safe-area-inset-bottom));
   background: #ffffff;
+  border-top: 1rpx solid var(--ld-mini-border);
 }
 
+.pay-total { min-width: 0; }
+
 .label {
-  color: #777777;
+  display: block;
+  color: var(--ld-mini-text-muted);
   font-size: var(--ld-font-base, 26rpx);
 }
 
 .amount {
-  color: var(--ld-mini-text);
+  display: block;
+  color: var(--ld-mini-primary-pressed);
   font-size: var(--ld-font-price-lg, 40rpx);
-  font-weight: 900;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
 }
 </style>

@@ -1,5 +1,5 @@
 <template>
-  <view class="hero" role="img" :aria-label="imageFailed ? '零食坊品牌图片暂无法显示' : '零食坊品牌形象'">
+  <view class="hero" role="img" :aria-label="imageFailed ? '零食坊品牌图片暂无法显示' : '炸鸡汉堡、薯条和冰可乐套餐'">
     <image v-if="!imageFailed" class="hero-image" src="/static/home-brand-hero.jpg" mode="aspectFill" @error="markImageFailed" />
     <view v-else class="hero-fallback">
       <image class="fallback-logo" src="/static/logo-xsf-red-yellow.png" mode="aspectFit" aria-label="零食坊品牌标志" />

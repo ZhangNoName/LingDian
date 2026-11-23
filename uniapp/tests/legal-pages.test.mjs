@@ -42,10 +42,11 @@ test("thin legal pages delegate rendering to LegalDocumentPage", async () => {
   }
 });
 
-test("the shared reader owns scrolling and uses WXSS-compatible class-only selectors", async () => {
+test("the legal reader uses the shared page layout and WXSS-compatible class-only selectors", async () => {
   const reader = await readProjectFile("src/components/legal/LegalDocumentPage.vue");
 
-  assert.match(reader, /<scroll-view[^>]*class="legal-scroll"[^>]*scroll-y/);
+  assert.match(reader, /<Layout :show-tab-bar="false">\s*<template #header>\s*<AppNavBar/);
+  assert.doesNotMatch(reader, /<scroll-view|height:\s*100vh|--status-bar-height/);
   assert.doesNotMatch(reader, /:deep\(|:not\(|\.[\w-]+\s+(text|view|scroll-view)/);
 });
 

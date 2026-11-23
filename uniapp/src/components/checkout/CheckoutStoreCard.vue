@@ -2,12 +2,13 @@
   <view class="card">
     <view class="title-row">
       <text class="title">{{ store.name }}</text>
-      <text class="distance">{{ store.distanceText }}</text>
     </view>
-    <text class="business-text">{{ store.businessText }}</text>
-    <ServiceModeCards v-if="modes.length" :modes="modes" :selected="serviceMode" @select="$emit('select-mode', $event)" />
+    <text v-if="store.businessText !== '营业时间未记录'" class="business-text">{{ store.businessText }}</text>
+    <view v-if="modes.length" class="service-options">
+      <ServiceModeCards :modes="modes" :selected="serviceMode" @select="$emit('select-mode', $event)" />
+    </view>
     <text v-else class="mode-unavailable">当前门店暂不支持下单</text>
-    <view class="pickup">
+    <view v-if="pickupTimeText" class="pickup">
       <text>{{ serviceMode === "delivery" ? "配送时间" : serviceMode === "dineIn" ? "就餐时间" : "取餐时间" }}</text>
       <text class="pickup-time">{{ serviceMode === "delivery" ? "时间未提供" : pickupTimeText }}</text>
     </view>
@@ -47,25 +48,25 @@ defineEmits<{
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16rpx;
 }
 
 .title {
   color: var(--ld-mini-text);
   font-size: var(--ld-font-title, 32rpx);
-  font-weight: 900;
-}
-
-.distance,
-.business-text {
-  color: #777777;
-  font-size: 26rpx;
+  font-weight: 750;
+  overflow-wrap: anywhere;
 }
 
 .business-text {
   display: block;
-  margin: 12rpx 0 22rpx;
+  margin: 10rpx 0 0;
+  color: var(--ld-mini-text-muted);
+  font-size: var(--ld-font-base);
   line-height: 1.45;
 }
+
+.service-options { margin-top: 18rpx; }
 
 .mode-unavailable {
   color: var(--ld-mini-text-muted);
@@ -78,15 +79,6 @@ defineEmits<{
   border-top: 1rpx solid #f1f1f1;
   color: var(--ld-mini-text);
   font-size: var(--ld-font-base, 26rpx);
-}
-
-.tag {
-  margin-left: 8rpx;
-  padding: 4rpx 10rpx;
-  border: 1rpx solid #e0e0e0;
-  border-radius: 8rpx;
-  color: #777777;
-  font-size: 24rpx;
 }
 
 .pickup-time {

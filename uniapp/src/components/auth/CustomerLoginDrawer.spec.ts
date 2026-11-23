@@ -2,7 +2,7 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { createRenderer, nextTick, type App, type Component, type RendererOptions } from "vue";
+import { createRenderer, h, nextTick, type App, type Component, type RendererOptions } from "vue";
 import { createServer, transformWithEsbuild, type Plugin, type ViteDevServer } from "vite";
 
 interface TestNode {
@@ -36,6 +36,7 @@ const customElements = new Set([
   "text",
   "button",
   "input",
+  "image",
   "checkbox-group",
   "label",
   "checkbox",
@@ -51,9 +52,11 @@ function actualVuePagePlugin(): Plugin {
     enforce: "pre",
     resolveId(id) {
       if (id === "virtual:uni-app-page-lifecycle") return "\0virtual:uni-app-page-lifecycle";
+      if (id === "virtual:lingdian-miniapp-icons") return "\0virtual:lingdian-miniapp-icons";
     },
     load(id) {
       if (id === "\0virtual:uni-app-page-lifecycle") return "export function onLoad() {}";
+      if (id === "\0virtual:lingdian-miniapp-icons") return 'export default { back: { text: "" }, profile: { primary: "" } }';
     },
     async transform(source, id) {
       if (!id.endsWith(".vue")) return;
@@ -154,7 +157,8 @@ const rendererOptions: RendererOptions<TestNode, TestNode> = {
 
 const testRenderer = createRenderer(rendererOptions);
 let viteServer: ViteDevServer;
-let LoginPage: Component;
+let Layout: Component;
+let openCustomerLogin: typeof import("@/services/customer-login").openCustomerLogin;
 let activeApp: App | undefined;
 let networkRequests = 0;
 let nativeLoginRequests = 0;
@@ -177,8 +181,9 @@ beforeAll(async () => {
     ssr: { external: ["@lingdian/contracts"] },
   });
 
-  const pageModule = await viteServer.ssrLoadModule("/src/pages/auth/login.vue");
-  LoginPage = pageModule.default as Component;
+  const layoutModule = await viteServer.ssrLoadModule("/src/layout/layout.vue");
+  Layout = layoutModule.default as Component;
+  ({ openCustomerLogin } = await viteServer.ssrLoadModule("/src/services/customer-login.ts"));
 });
 
 afterAll(async () => {
@@ -205,6 +210,9 @@ beforeEach(() => {
     },
     navigateTo() {},
     reLaunch() {},
+    hideKeyboard() {},
+    hideToast() {},
+    getSystemInfoSync: () => ({ uniPlatform: "mp-weixin" }),
   });
 });
 
@@ -213,11 +221,15 @@ afterEach(() => {
   activeApp = undefined;
 });
 
-function mountLoginPage(): TestNode {
+async function mountLoginDrawer() {
   const root = createTestNode("root");
-  activeApp = testRenderer.createApp(LoginPage);
+  activeApp = testRenderer.createApp({
+    render: () => h(Layout, { showTabBar: false }, () => h("text", "当前页面")),
+  });
   activeApp.mount(root);
-  return root;
+  const result = openCustomerLogin(getCurrentPages()[0]);
+  await nextTick();
+  return { root, result };
 }
 
 function flatten(root: TestNode): TestNode[] {
@@ -225,12 +237,13 @@ function flatten(root: TestNode): TestNode[] {
 }
 
 function textContent(node: TestNode): string {
+  if (node.type === "#comment") return "";
   return node.text + node.children.map(textContent).join("");
 }
 
 function findNode(root: TestNode, predicate: (node: TestNode) => boolean): TestNode {
   const node = flatten(root).find(predicate);
-  if (!node) throw new Error("Expected rendered login-page node was not found.");
+  if (!node) throw new Error("Expected rendered login drawer node was not found.");
   return node;
 }
 
@@ -238,41 +251,42 @@ function findButton(root: TestNode, text: string): TestNode {
   return findNode(root, (node) => node.type === "button" && textContent(node) === text);
 }
 
-async function setValidCredentials(root: TestNode): Promise<void> {
-  const inputs = flatten(root).filter((node) => node.type === "input");
-  (inputs[0].props["onUpdate:modelValue"] as (value: string) => void)("13800000000");
-  (inputs[1].props["onUpdate:modelValue"] as (value: string) => void)("123456");
+async function acceptLegalConsent(root: TestNode): Promise<void> {
+  const checkboxGroup = findNode(root, (node) => node.type === "checkbox-group");
+  (checkboxGroup.props.onChange as (event: { detail: { value: string[] } }) => void)({
+    detail: { value: ["accepted"] },
+  });
   await nextTick();
 }
 
 async function tap(node: TestNode): Promise<void> {
-  await (node.props.onTap as (event?: unknown) => unknown)();
+  await (node.props.onTap as (event?: unknown) => unknown)({ stopPropagation() {} });
   await nextTick();
 }
 
-describe("actual login page legal-consent behavior", () => {
-  it("does not render a native getPhoneNumber action while consent is unchecked", async () => {
-    const root = mountLoginPage();
-    await nextTick();
-
-    const wechatButton = findButton(root, "微信手机号快捷登录");
-
-    expect(wechatButton.props["open-type"]).toBeUndefined();
-    expect(wechatButton.props.onGetphonenumber).toBeUndefined();
-    expect(wechatButton.props.onTap).toBeTypeOf("function");
+describe("login drawer behavior", () => {
+  it("can be dismissed without leaving the underlying page", async () => {
+    const { root, result } = await mountLoginDrawer();
+    expect(textContent(root)).toContain("当前页面");
+    await tap(findButton(root, "×"));
+    await expect(result).resolves.toBe(false);
+    expect(textContent(root)).toBe("当前页面");
   });
 
-  it.each([
-    ["send code", "获取验证码"],
-    ["submit phone login", "登录"],
-    ["start third-party authorization", "QQ 登录"],
-    ["tap the unchecked WeChat action", "微信手机号快捷登录"],
-  ])("blocks %s before the real page reaches auth or network dependencies", async (_name, buttonText) => {
-    const root = mountLoginPage();
+  it("only offers quick phone login and waits for consent before requesting the phone number", async () => {
+    const { root } = await mountLoginDrawer();
     await nextTick();
-    await setValidCredentials(root);
 
-    await tap(findButton(root, buttonText));
+    const phoneButton = findButton(root, "手机号快捷登录");
+
+    expect(flatten(root).filter((node) => node.type === "button").map(textContent)).toEqual(["×", "手机号快捷登录"]);
+    expect(textContent(root)).not.toContain("微信");
+    expect(flatten(root).some((node) => node.type === "input")).toBe(false);
+    expect(phoneButton.props["open-type"]).toBeUndefined();
+    expect(phoneButton.props.onGetphonenumber).toBeUndefined();
+    expect(phoneButton.props.onTap).toBeTypeOf("function");
+
+    await tap(phoneButton);
 
     expect(networkRequests).toBe(0);
     expect(nativeLoginRequests).toBe(0);
@@ -280,18 +294,67 @@ describe("actual login page legal-consent behavior", () => {
   });
 
   it("renders the native getPhoneNumber action after explicit consent", async () => {
-    const root = mountLoginPage();
-    await nextTick();
-    const checkboxGroup = findNode(root, (node) => node.type === "checkbox-group");
+    const { root } = await mountLoginDrawer();
+    await acceptLegalConsent(root);
 
-    (checkboxGroup.props.onChange as (event: { detail: { value: string[] } }) => void)({
-      detail: { value: ["accepted"] },
-    });
-    await nextTick();
-
-    const wechatButton = findButton(root, "微信手机号快捷登录");
-    expect(wechatButton.props["open-type"]).toBe("getPhoneNumber");
-    expect(wechatButton.props.onGetphonenumber).toBeTypeOf("function");
-    expect(wechatButton.props.onTap).toBeUndefined();
+    const phoneButton = findButton(root, "手机号快捷登录");
+    expect(textContent(root)).not.toContain("微信");
+    expect(phoneButton.props["open-type"]).toBe("getPhoneNumber");
+    expect(phoneButton.props.onGetphonenumber).toBeTypeOf("function");
+    expect(phoneButton.props.onTap).toBeUndefined();
   });
+
+  it("keeps the drawer open when the customer declines phone authorization", async () => {
+    const { root } = await mountLoginDrawer();
+    await acceptLegalConsent(root);
+    const phoneButton = findButton(root, "手机号快捷登录");
+    await (phoneButton.props.onGetphonenumber as (event: unknown) => Promise<void>)({ detail: {} });
+
+    expect(networkRequests).toBe(0);
+    expect(nativeLoginRequests).toBe(0);
+    expect(toastMessages).toEqual(["未获取手机号，可重新快速登录"]);
+  });
+});
+
+it.each([true, false])("shows the profile step only for an account created on this login (%s)", async (isNewUser) => {
+  Object.assign(uni, {
+    login(options: UniApp.LoginOptions) {
+      options.success?.({ code: "wx-login-code", errMsg: "login:ok" } as UniApp.LoginRes);
+    },
+  });
+  uni.request = ((options: UniApp.RequestOptions) => {
+    expect(options.url).toMatch(/\/auth\/wechat\/miniapp\/phone-login$/);
+    expect(options.data).toMatchObject({ loginCode: "wx-login-code", phoneCode: "wx-phone-code" });
+    options.success?.({
+      statusCode: 200,
+      header: {},
+      cookies: [],
+      errMsg: "request:ok",
+      data: {
+        code: 0,
+        data: {
+          access_token: "user-token",
+          expires_in: 900,
+          user: { userId: "user-1", sessionId: "session-1", audience: "user-api", roles: ["USER"] },
+          ...(isNewUser ? { is_new_user: true } : {}),
+        },
+      },
+    });
+    return { abort() {} } as UniApp.RequestTask;
+  }) as typeof uni.request;
+  const { root, result } = await mountLoginDrawer();
+  await acceptLegalConsent(root);
+  const phoneButton = findButton(root, "手机号快捷登录");
+  await (phoneButton.props.onGetphonenumber as (event: unknown) => Promise<void>)({
+    detail: { code: "wx-phone-code" },
+  });
+  await nextTick();
+  if (isNewUser) {
+    expect(textContent(root)).toContain("设置头像和昵称");
+    await tap(findButton(root, "暂时跳过"));
+  } else {
+    expect(textContent(root)).not.toContain("设置头像和昵称");
+  }
+  await expect(result).resolves.toBe(true);
+  expect(textContent(root)).toBe("当前页面");
 });

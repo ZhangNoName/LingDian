@@ -32,16 +32,20 @@ test("layout is the only owner of the top safe area", async () => {
   assert.doesNotMatch(navBar, /safe-area-inset-top/);
 });
 
-test("every page is rendered inside Layout", async () => {
-  const pages = ["home/home", "order/order", "his/his", "user/user", "spec/spec", "checkout/checkout", "order-detail/order-detail"];
+test("page chrome uses the shared header slot", async () => {
+  const pages = ["home/home", "order/order", "his/his", "user/user", "spec/spec", "checkout/checkout", "order-detail/order-detail", "address/address"];
   const contents = await Promise.all(pages.map((page) => readProjectFile(`src/pages/${page}.vue`)));
 
   for (const content of contents) {
     assert.match(content, /<Layout/);
   }
 
+  for (const content of contents.slice(1)) {
+    assert.match(content, /<template #header>\s*<AppNavBar/);
+  }
+
   for (const content of contents.slice(4)) {
-    assert.match(content, /<Layout :show-tab-bar="false">/);
+    assert.match(content, /<Layout :show-tab-bar="false"/);
   }
 });
 
@@ -56,7 +60,7 @@ test("navigation uses the shared SVG image renderer", async () => {
 test("order page uses uni-app lifecycle hooks", async () => {
   const orderPage = await readProjectFile("src/pages/order/order.vue");
 
-  assert.match(orderPage, /import \{ onLoad, onShow, onUnload \} from "@dcloudio\/uni-app"/);
+  assert.match(orderPage, /import \{ onLoad, onReady, onShow, onUnload \} from "@dcloudio\/uni-app"/);
   assert.match(orderPage, /onLoad\(\(query\) => \{[\s\S]*parseServiceMode\(query\?\.mode\)[\s\S]*void loadMenu\(\)/);
   assert.doesNotMatch(orderPage, /onMounted\(/);
   assert.doesNotMatch(orderPage, /onUnmounted\(/);
@@ -91,10 +95,18 @@ test("service entry cards use static Lucide icons", async () => {
 });
 
 test("menu page uses the shared tab layout and a safe scrolling area", async () => {
-  const orderPage = await readProjectFile("src/pages/order/order.vue");
+  const [orderPage, cartBar] = await Promise.all([
+    readProjectFile("src/pages/order/order.vue"),
+    readProjectFile("src/components/menu/CartCheckoutBar.vue"),
+  ]);
 
-  assert.match(orderPage, /<Layout active="menu">/);
-  assert.match(orderPage, /padding-bottom:\s*calc\(\s*112rpx\s*\+\s*var\(--ld-page-padding,\s*24rpx\)\s*\)/);
+  assert.match(orderPage, /<Layout active="menu" :scroll-content="false"/);
+  assert.match(orderPage, /<scroll-view\s+class="product-list"\s+scroll-y/);
+  assert.match(orderPage, /@scrolltolower="loadMoreProducts"/);
+  assert.match(orderPage, /v-for="section in visibleMenuSections"/);
+  assert.match(orderPage, /<template #footer>\s*<CartCheckoutBar v-if="hasCart"/);
+  assert.match(orderPage, /<template #overlay>\s*<CartDrawer/);
+  assert.doesNotMatch(cartBar, /position:\s*fixed/);
   assert.doesNotMatch(orderPage, /height: 100vh|:deep\(/);
 });
 
@@ -130,6 +142,8 @@ test("home and menu product images have a static failure state", async () => {
   assert.match(thumbnail, /图片待更新/);
   assert.match(thumbnail, /@error=/);
   assert.match(thumbnail, /class="image-placeholder"/);
+  assert.match(thumbnail, /mode="aspectFit"/);
+  assert.doesNotMatch(thumbnail, /mode="aspectFill"/);
 });
 
 test("menu and specification controls use static Lucide icons", async () => {
@@ -143,29 +157,47 @@ test("menu and specification controls use static Lucide icons", async () => {
   assert.match(stepper, /<AppIcon name="plus"/);
 });
 
-test("checkout reserves room for a safe fixed payment action", async () => {
-  const [checkoutPage, payBar] = await Promise.all([
-    readProjectFile("src/pages/checkout/checkout.vue"),
+test("page actions stay outside the shared scroll viewport", async () => {
+  const [layout, checkoutPage, detailPage, specPage, addressPage, payBar, specBar] = await Promise.all([
+    readProjectFile("src/layout/layout.vue"),
+    ...["checkout/checkout", "order-detail/order-detail", "spec/spec", "address/address"].map((page) => readProjectFile(`src/pages/${page}.vue`)),
     readProjectFile("src/components/checkout/PayBar.vue"),
+    readProjectFile("src/components/spec/SpecActionBar.vue"),
   ]);
 
-  assert.match(checkoutPage, /padding-bottom: calc\(var\(--ld-fixed-action-height/);
+  assert.match(layout, /<view class="page-header">\s*<slot name="header"\s*\/>\s*<\/view>\s*<scroll-view[^>]*class="page-content" scroll-y/);
+  assert.match(layout, /<view class="page-footer">\s*<slot name="footer"\s*\/>\s*<AppTabBar/);
+  assert.match(layout, /\.page-content\s*\{[^}]*flex:\s*1;[^}]*height:\s*0/);
+  assert.match(checkoutPage, /<template #footer>\s*<PayBar/);
+  assert.match(detailPage, /<template #footer>\s*<view v-if="canReorder"/);
+  assert.match(specPage, /<template #footer>\s*<SpecActionBar v-if="productDetail"/);
+  assert.match(addressPage, /<template #footer>\s*<view v-if="!creating"/);
+  for (const source of [payBar, specBar, detailPage, addressPage]) {
+    assert.doesNotMatch(source, /position:\s*fixed/);
+    assert.match(source, /env\(safe-area-inset-bottom\)/);
+  }
   assert.match(payBar, /min-height: var\(--ld-fixed-action-height/);
-  assert.match(payBar, /env\(safe-area-inset-bottom\)/);
 });
 
 test("order history formats time and limits thumbnail density", async () => {
   const historyCard = await readProjectFile("src/components/orders/OrderHistoryCard.vue");
 
-  assert.match(historyCard, /function formatOrderTime/);
+  assert.match(historyCard, /formatOrderTime\(order\.createdAt\)/);
   assert.match(historyCard, /order\.productThumbs\.slice\(0, 3\)/);
-  assert.match(historyCard, /<AppIcon name="next"/);
+  assert.match(historyCard, /v-if="order\.pickupCardCode"/);
+  assert.match(historyCard, /<AppActionButton[^>]+@activate="emitAction"/);
 });
 
-test("checkout product card keeps WXSS rules class-only", async () => {
-  const productCard = await readProjectFile("src/components/checkout/CheckoutProductCard.vue");
+test("checkout and the cart drawer share product rows with class-only WXSS rules", async () => {
+  const [productCard, cartDrawer, cartItemList] = await Promise.all([
+    readProjectFile("src/components/checkout/CheckoutProductCard.vue"),
+    readProjectFile("src/components/menu/CartDrawer.vue"),
+    readProjectFile("src/components/app/CartItemList.vue"),
+  ]);
 
-  assert.doesNotMatch(productCard, /\.amount\s+text/);
-  assert.match(productCard, /<QuantityStepper :model-value="item.quantity"/);
-  assert.match(productCard, /class="amount-price"/);
+  assert.match(productCard, /<CartItemList :items="items"/);
+  assert.match(cartDrawer, /<CartItemList :items="cart.items"/);
+  assert.doesNotMatch(cartItemList, /\.amount\s+text/);
+  assert.match(cartItemList, /<QuantityStepper\s+:model-value="item.quantity"/);
+  assert.match(cartItemList, /class="amount-price"/);
 });

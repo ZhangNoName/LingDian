@@ -1,8 +1,10 @@
 <template>
-  <Layout active="orders">
-    <view class="page">
+  <Layout active="orders" :scroll-into-view="'orders-' + activeTab">
+    <template #header>
       <AppNavBar title="订单" show-back @back="goHome" />
       <OrderStatusTabs :active="activeTab" @change="activeTab = $event" />
+    </template>
+    <view :id="'orders-' + activeTab" class="orders-content">
       <OrderHistoryCard
         v-for="order in filteredOrders"
         :key="order.id"
@@ -15,7 +17,6 @@
       </button>
       <view v-if="!loadingMore && filteredOrders.length === 0 && !hasMore" class="empty">
         <text class="empty-title">{{ activeTab === "current" ? "暂无当前订单" : "暂无历史订单" }}</text>
-        <text class="empty-copy">挑选喜欢的餐品，下单后可在这里查看进度</text>
         <AppActionButton @activate="goMenu">去点餐</AppActionButton>
       </view>
     </view>
@@ -55,7 +56,7 @@ onShow(async () => {
   const current = ++generation;
   loadingMore.value = true;
   try {
-    if (!(await requireCustomerAuth("/pages/his/his")) || current !== generation) return;
+    if (!(await requireCustomerAuth()) || current !== generation) return;
     const result = await fetchOrders(1, pageSize);
     if (current !== generation) return;
     orders.value = result.items;
@@ -102,14 +103,16 @@ function goDetail(orderId: string) {
 </script>
 
 <style scoped>
-.page {
-  min-height: 100%;
-  background: #f3f3f3;
+.orders-content {
+  display: flow-root;
+  padding-bottom: 12rpx;
 }
 
 .empty {
   display: grid;
-  place-items: center;
+  align-content: center;
+  justify-items: center;
+  gap: 20rpx;
   min-height: 320rpx;
   padding: 32rpx;
   text-align: center;
@@ -119,12 +122,6 @@ function goDetail(orderId: string) {
   color: var(--ld-mini-text);
   font-size: 28rpx;
   font-weight: 800;
-}
-
-.empty-copy {
-  margin-top: 12rpx;
-  color: #666666;
-  font-size: 24rpx;
 }
 
 .load-more {

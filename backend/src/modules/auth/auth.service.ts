@@ -123,7 +123,7 @@ export class AuthService {
         } : {}),
       },
     }, tx);
-    return tokens;
+    return existingUser ? tokens : { ...tokens, isNewUser: true };
   }
 
   private async findPhoneUser(

@@ -45,16 +45,14 @@ function copyValue(data: string) {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16rpx;
   min-height: 72rpx;
   border-top: 1rpx solid #eeeeee;
 }
 
-.row:first-of-type {
-  border-top: 0;
-}
-
 .label {
-  color: #777777;
+  flex: 0 0 auto;
+  color: var(--ld-mini-text-muted);
   font-size: var(--ld-font-base, 26rpx);
 }
 
@@ -63,14 +61,17 @@ function copyValue(data: string) {
   align-items: center;
   gap: 10rpx;
   max-width: 440rpx;
+  min-width: 0;
 }
 
 .value {
   color: var(--ld-mini-text);
   font-size: var(--ld-font-base, 26rpx);
   text-align: right;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
 }
 
-.copy { margin: 0; padding: 10rpx; background: transparent; }
+.copy { flex: none; margin: 0; padding: 12rpx; background: transparent; }
 .copy::after { border: 0; }
 </style>

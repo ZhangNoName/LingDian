@@ -35,6 +35,8 @@ export type OptionGroup = {
 
 export type ProductDetail = ProductSummary & {
   skuId: string;
+  skuName?: string;
+  variants?: Array<{ id: string; name: string; price: number; optionGroups: OptionGroup[] }>;
   optionGroups: OptionGroup[];
   comboImages: string[];
   description?: string;

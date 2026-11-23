@@ -37,6 +37,7 @@ export type OrderSummaryContract = {
   delivery_address: string | null;
   order_type: OrderType;
   status: OrderStatus;
+  payment_required?: boolean;
   payment_channel?: PaymentChannel;
   total_amount?: number;
   payable_amount: number;

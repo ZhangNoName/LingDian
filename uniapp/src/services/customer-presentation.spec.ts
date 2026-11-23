@@ -31,6 +31,6 @@ describe('customer presentation', () => {
       userId: 'customer-abc123', sessionId: 'session-1', audience: 'user-api', roles: ['USER'],
     }
 
-    expect(buildCustomerPresentation(user, { nickname: '零点用户', avatar_data_url: null }).displayName).toBe('零点用户')
+    expect(buildCustomerPresentation(user, { nickname: '零点用户' }).displayName).toBe('零点用户')
   })
 })

@@ -244,11 +244,12 @@ test('user phone login consumes the code before creating a phone user and USER r
     legalConsentService,
   );
 
-  await authService.phoneLogin(
+  const issued = await authService.phoneLogin(
     { phone: '13800000000', code: '123456', audience: 'user-api', legalConsent: currentConsent },
     { deviceId: 'device-1' },
   );
 
+  assert.equal(issued.isNewUser, true);
   assert.deepEqual(events, ['consume', 'lookup', 'create']);
 });
 

@@ -6,7 +6,7 @@ export type CustomerPresentation = {
   secondaryText: string
 }
 
-export function buildCustomerPresentation(user: AuthenticatedUser | undefined, profile?: CustomerProfile): CustomerPresentation {
+export function buildCustomerPresentation(user: AuthenticatedUser | undefined, profile?: Pick<CustomerProfile, 'nickname'>): CustomerPresentation {
   if (!user) {
     return {
       isSignedIn: false,

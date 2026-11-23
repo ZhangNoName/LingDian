@@ -1,4 +1,5 @@
 import { customerAuth } from "./auth";
+import { currentCustomerPage, openCustomerLogin } from "./customer-login";
 import { buildAssetUrl } from "../config/api";
 import { usesBrowserCookieTransport } from "@/config/platform";
 import { ApiError, NetworkError, requestApiEnvelope, type HttpMethod } from "@/infra/http/uni-http-client";
@@ -18,10 +19,6 @@ export class RequestError extends Error {
 export function resolveAssetUrl(url?: string | null) {
   if (!url) return "/static/products/milk-green.jpg";
   return buildAssetUrl(url);
-}
-
-function redirectToLogin(): void {
-  uni.reLaunch({ url: "/pages/auth/login" });
 }
 
 function requestOnce<T>(path: string, options: RequestConfig): Promise<T> {
@@ -52,6 +49,7 @@ function requestOnce<T>(path: string, options: RequestConfig): Promise<T> {
 }
 
 export async function request<T>(path: string, options: RequestConfig = {}): Promise<T> {
+  const page = options.requiresAuth === false ? undefined : currentCustomerPage();
   const sessionVersion = customerAuth.getSessionVersion();
   const sentAccessToken = options.requiresAuth === false ? undefined : customerAuth.getAccessToken();
   async function send(): Promise<T> {
@@ -79,7 +77,9 @@ export async function request<T>(path: string, options: RequestConfig = {}): Pro
     }
 
     if (!alreadyRefreshed && !(await customerAuth.refresh())) {
-      if (!customerAuth.isSignedIn()) redirectToLogin();
+      const recoveryError = customerAuth.getSessionRecoveryError();
+      if (recoveryError) throw new RequestError(recoveryError);
+      if (!customerAuth.isSignedIn()) void openCustomerLogin(page);
       throw error;
     }
     if (sessionVersion !== customerAuth.getSessionVersion()) throw error;
@@ -90,7 +90,7 @@ export async function request<T>(path: string, options: RequestConfig = {}): Pro
       if (retryError instanceof RequestError && retryError.statusCode === 401 && sessionVersion === customerAuth.getSessionVersion()) {
         if (usesBrowserCookieTransport()) customerAuth.clear();
         else customerAuth.blockAutomaticRecovery();
-        redirectToLogin();
+        void openCustomerLogin(page);
       }
       throw retryError;
     }

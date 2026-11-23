@@ -18,7 +18,6 @@
         <ProductThumbnail :src="product.imageUrl" />
         <text class="name">{{ product.name }}</text>
         <PriceText :price="product.price" :original-price="product.originalPrice" size="small" />
-
       </view>
     </view>
     <view v-else class="empty">
@@ -48,8 +47,7 @@ defineEmits<{
 .recommend {
   padding: var(--ld-card-padding, 24rpx);
   border-radius: var(--ld-radius-16, 16px);
-  background: #ffffff;
-  box-shadow: var(--ld-mini-shadow-float);
+  background: var(--ld-mini-surface);
 }
 
 .section-title {
@@ -67,7 +65,7 @@ defineEmits<{
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--ld-card-gap, 20rpx);
 }
 
@@ -88,9 +86,10 @@ defineEmits<{
 .card {
   position: relative;
   display: grid;
-  grid-template-rows: 148rpx minmax(58rpx, auto) auto;
-  min-height: 246rpx;
-  padding: 16rpx;
+  grid-template-rows: auto minmax(58rpx, auto) auto;
+  min-width: 0;
+  padding: 12rpx;
+  border: 1rpx solid var(--ld-mini-border);
   border-radius: var(--ld-radius-8, 8px);
   background: var(--ld-mini-surface);
 }
@@ -101,7 +100,7 @@ defineEmits<{
   overflow: hidden;
   margin: 12rpx 0 6rpx;
   color: var(--ld-mini-text);
-  font-size: var(--ld-font-sm, 24rpx);
+  font-size: var(--ld-font-base);
   font-weight: 700;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;

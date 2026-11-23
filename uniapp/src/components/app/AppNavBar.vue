@@ -2,7 +2,7 @@
   <view class="nav">
     <view class="nav-left">
       <view v-if="showBack" class="icon-button" role="button" tabindex="0" aria-label="返回" @keydown.enter="$emit('back')" @keydown.space.prevent="$emit('back')" @tap="$emit('back')">
-        <AppIcon name="back" :size="48" />
+        <AppIcon name="back" :size="40" />
       </view>
       <slot name="left" />
     </view>
@@ -42,7 +42,6 @@ defineEmits<{
 .nav-left {
   position: relative;
   z-index: 1;
-  left: var(--ld-page-padding, 24rpx);
   display: flex;
   align-items: center;
   min-width: 88rpx;
@@ -52,13 +51,18 @@ defineEmits<{
 .icon-button {
   display: grid;
   place-items: center;
-  width: 64rpx;
-  height: 64rpx;
+  width: 88rpx;
+  height: 88rpx;
+  min-width: 44px;
+  min-height: 44px;
   border-radius: 50%;
   color: var(--ld-mini-text);
+  cursor: pointer;
 }
 
-
+.icon-button:active {
+  background: var(--ld-mini-bg);
+}
 
 .title {
   position: absolute;
