@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import FilterToggle from '@/components/FilterToggle.vue'
+import ListToolbar from '@/components/table/ListToolbar.vue'
 import DataActionButton from '@/components/DataActionButton.vue'
 import TablePagination from '@/components/table/TablePagination.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
@@ -235,15 +236,9 @@ onBeforeUnmount(() => {
       </Button>
     </div>
     <p v-if="notice" role="status" class="px-4 pt-3 text-sm text-emerald-700">{{ t('saved') }}</p>
-    <div class="flex flex-wrap gap-2 px-4 py-3 md:hidden">
-      <FilterToggle v-model="filtersOpen" controls="stock-list-filters" size="sm">{{ mt(filtersOpen ? 'hideFilters' : 'showFilters') }}</FilterToggle>
-      <DataActionButton action="refresh" :label="t('refresh')" size="icon-sm" variant="ghost" :disabled="loading || dirty" @click="load" />
-      <Button size="sm" :disabled="loading || failed" @click="edit()">{{ t('newItem') }}</Button>
-      <p v-if="filterSummary" class="w-full break-words text-xs text-muted-foreground">{{ filterSummary }}</p>
-    </div>
     <form
       id="stock-list-filters"
-      class="flex-wrap items-end gap-3 border-b p-4 md:flex"
+      class="flex-wrap items-end gap-3 px-4 pt-4 md:flex"
       :class="filtersOpen ? 'flex' : 'hidden'"
       @submit.prevent="apply"
     >
@@ -272,38 +267,26 @@ onBeforeUnmount(() => {
             { value: 'LOW', label: t('low') },
             { value: 'OUT', label: t('out') },
           ]"
-        /></label
-      ><Button type="submit" variant="outline" :disabled="loading">{{ t('searchButton') }}</Button
-      ><Button type="button" variant="ghost" :disabled="loading" @click="clear">{{ t('clear') }}</Button
-      ><DataActionButton
-        action="refresh"
-        :label="t('refresh')"
-        variant="ghost"
-        class="hidden md:inline-flex"
-        :disabled="loading || dirty"
-        @click="load"
-      /><Button
-        type="button"
-        class="hidden md:ml-auto md:inline-flex"
-        :disabled="loading || failed"
-        @click="edit()"
-        >{{ t('newItem') }}</Button
-      >
+        /></label>
     </form>
-    <div
-      class="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2 text-xs text-muted-foreground"
-    >
-      <span
-        >{{ lt(state.lifecycle) }} · {{ loading || failed ? '—' : number(inventory?.total ?? 0) }}
-        {{ t('total') }}</span
-      ><DataActionButton
+    <ListToolbar class="px-4 py-3">
+      <template #left>
+        <Button type="button" :disabled="loading || failed" @click="edit()">{{ t('newItem') }}</Button>
+        <FilterToggle v-model="filtersOpen" controls="stock-list-filters" class="md:hidden">{{ mt(filtersOpen ? 'hideFilters' : 'showFilters') }}</FilterToggle>
+      </template>
+      <DataActionButton
         action="export"
         :label="t('export')"
-        variant="ghost"
-        size="icon-sm"
         :disabled="loading || failed || dirty || !inventory?.total"
         @click="exportPage"
       />
+      <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" />
+      <Button type="submit" form="stock-list-filters" variant="outline" :disabled="loading">{{ t('searchButton') }}</Button>
+      <Button type="button" variant="ghost" :disabled="loading" @click="clear">{{ t('reset') }}</Button>
+    </ListToolbar>
+    <div class="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2 text-xs text-muted-foreground">
+      <span>{{ lt(state.lifecycle) }} · {{ loading || failed ? '—' : number(inventory?.total ?? 0) }} {{ t('total') }}</span>
+      <p v-if="filterSummary" class="break-words md:hidden">{{ filterSummary }}</p>
     </div>
     <p v-if="dirty" role="status" class="border-b px-4 py-2 text-xs text-amber-800">{{ t('unapplied') }}</p>
     <p v-if="loading" role="status" class="p-8 text-center text-sm text-muted-foreground">

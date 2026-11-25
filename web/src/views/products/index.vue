@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import FilterToggle from '@/components/FilterToggle.vue'
+import ListToolbar from '@/components/table/ListToolbar.vue'
 import DataActionButton from '@/components/DataActionButton.vue'
 import TablePagination from '@/components/table/TablePagination.vue'
 import { extendedTablePageSizes } from '@/components/table/page-size'
@@ -180,17 +181,8 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section ref="productList" tabindex="-1" class="grid min-w-0 gap-4" :lang="locale">
-    <div class="flex flex-wrap justify-end gap-2">
-      <Button variant="outline" @click="categoriesOpen = true">{{ locale === 'en-US' ? 'Categories' : '分类管理' }}</Button>
-      <Button @click="newProductOpen = true">{{ ct('newProduct') }}</Button>
-    </div>
     <SummaryMetrics :metrics="metrics" :more-label="t('moreMetrics')" desktop-columns="lg:grid-cols-5" />
-    <Card class="gap-0 p-0">
-      <div class="flex items-center justify-between gap-3 border-b p-4">
-        <FilterToggle v-model="filtersOpen" controls="product-filters" class="sm:hidden">{{ t('filters') }}</FilterToggle>
-        <h2 class="hidden text-sm font-semibold sm:block">{{ t('title') }}</h2>
-        <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" />
-      </div>
+    <Card class="min-w-0 gap-0 p-0">
       <form
         id="product-filters"
         :data-filter-open="filtersOpen"
@@ -213,13 +205,19 @@ onBeforeUnmount(() => {
             ]"
           />
         </label>
-        <Button type="button" variant="outline" :disabled="loading" @click="reset">{{ t('reset') }}</Button>
-        <Button type="submit" :disabled="loading">{{ t('apply') }}</Button>
       </form>
-    </Card>
-    <p v-if="saved" role="status" class="text-sm text-emerald-700">{{ t('saved') }}</p>
-    <p v-if="dirty" role="status" class="text-sm text-amber-800">{{ t('dirty') }}</p>
-    <Card class="min-w-0 gap-0 p-0">
+      <ListToolbar class="border-y px-4 py-3">
+        <template #left>
+          <Button @click="newProductOpen = true">{{ ct('newProduct') }}</Button>
+          <Button variant="outline" @click="categoriesOpen = true">{{ locale === 'en-US' ? 'Categories' : '分类管理' }}</Button>
+          <FilterToggle v-model="filtersOpen" controls="product-filters" class="sm:hidden">{{ t('filters') }}</FilterToggle>
+        </template>
+        <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" />
+        <Button type="submit" form="product-filters" variant="outline" :disabled="loading">{{ t('apply') }}</Button>
+        <Button type="button" variant="ghost" :disabled="loading" @click="reset">{{ t('reset') }}</Button>
+      </ListToolbar>
+      <p v-if="saved" role="status" class="px-4 pt-3 text-sm text-emerald-700">{{ t('saved') }}</p>
+      <p v-if="dirty" role="status" class="px-4 pt-3 text-sm text-amber-800">{{ t('dirty') }}</p>
       <p v-if="loading" role="status" class="p-8 text-center text-sm text-muted-foreground">{{ t('loading') }}</p>
       <div v-else-if="loadError" role="alert" class="p-8 text-sm">
         <p>{{ t('loadFailed') }}</p>

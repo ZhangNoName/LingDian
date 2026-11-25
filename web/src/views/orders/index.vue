@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import FilterToggle from '@/components/FilterToggle.vue'
+import ListToolbar from '@/components/table/ListToolbar.vue'
 import MerchantDatePicker from '@/components/MerchantDatePicker.vue'
 import DataActionButton from '@/components/DataActionButton.vue'
 import TablePagination from '@/components/table/TablePagination.vue'
@@ -137,21 +138,11 @@ onBeforeUnmount(() => { disposed = true; listSequence++; detailSequence++ })
   <section class="grid min-w-0 gap-4" :lang="locale">
     <SummaryMetrics :metrics="metrics" :more-label="t('moreSummary')" desktop-columns="xl:grid-cols-6" />
     <Card class="min-w-0 gap-0 p-0">
-      <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-        <h2 class="font-semibold">{{ t('list') }}</h2>
-        <div class="flex flex-wrap items-center gap-2">
-          <FilterToggle v-model="filtersOpen" controls="order-filters" class="sm:hidden">
-            <Filter aria-hidden="true" />{{ t('filters') }}
-          </FilterToggle>
-          <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" />
-          <Button variant="ghost" type="button" :title="t('queryLinkHint')" @click="copyLink">{{ t('copyLink') }}</Button>
-        </div>
-      </div>
       <form
         id="order-filters"
         :data-filter-open="filtersOpen"
         :aria-label="t('filters')"
-        class="order-filters grid grid-cols-2 items-start gap-3 border-t px-4 py-3 sm:grid-cols-3 xl:grid-cols-[minmax(12rem,1.5fr)_repeat(5,minmax(0,1fr))]"
+        class="order-filters grid grid-cols-2 items-start gap-3 px-4 py-3 sm:grid-cols-3 xl:grid-cols-[minmax(12rem,1.5fr)_repeat(5,minmax(0,1fr))]"
         @submit.prevent="apply"
       >
         <label class="col-span-2 sm:col-span-1">
@@ -193,11 +184,18 @@ onBeforeUnmount(() => { disposed = true; listSequence++; detailSequence++ })
         </label>
         <MerchantDatePicker class="w-full" :label="t('from')" v-model="filters.from" :required="!!filters.to" />
         <MerchantDatePicker class="w-full" :label="t('to')" v-model="filters.to" :required="!!filters.from" :min="filters.from" />
-        <div class="col-span-full flex flex-wrap justify-end gap-2">
-          <Button variant="outline" type="button" :disabled="loading" @click="reset">{{ t('reset') }}</Button>
-          <Button type="submit" :disabled="loading">{{ t('apply') }}</Button>
-        </div>
       </form>
+      <ListToolbar class="border-t px-4 py-3">
+        <template #left>
+          <FilterToggle v-model="filtersOpen" controls="order-filters" class="sm:hidden">
+            <Filter aria-hidden="true" />{{ t('filters') }}
+          </FilterToggle>
+        </template>
+        <Button variant="ghost" type="button" :title="t('queryLinkHint')" @click="copyLink">{{ t('copyLink') }}</Button>
+        <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" />
+        <Button type="submit" form="order-filters" variant="outline" :disabled="loading">{{ t('apply') }}</Button>
+        <Button type="button" variant="ghost" :disabled="loading" @click="reset">{{ t('reset') }}</Button>
+      </ListToolbar>
       <p v-if="dirty" role="status" class="border-t px-4 py-3 text-sm text-status-warning-ink">{{ t('dirty') }}</p>
       <p v-if="notice" role="status" class="border-t px-4 py-3 text-sm">{{ t(notice) }}</p>
       <div ref="listPanel" tabindex="-1" class="min-w-0 border-t focus-visible:outline-2 focus-visible:-outline-offset-2">

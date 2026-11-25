@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import DataActionButton from '@/components/DataActionButton.vue'
+import ListToolbar from '@/components/table/ListToolbar.vue'
 import TablePagination from '@/components/table/TablePagination.vue'
 import { onBeforeUnmount, ref, watch } from 'vue'
 import type { InventoryUsagePage, InventoryUsageRow, InventoryUsageView } from '@lingdian/contracts'
@@ -128,6 +129,9 @@ onBeforeUnmount(() => {
         }}<span v-if="data && !failed && !loading" class="ml-1 tabular-nums">{{ number(count(tab)) }}</span></Button
       >
     </div>
+    <ListToolbar>
+      <DataActionButton action="refresh" :label="t('refresh')" :disabled="disabled || loading" @click="load" />
+    </ListToolbar>
     <p v-if="loading" role="status" class="text-sm text-muted-foreground">{{ t('loading') }}</p>
     <div v-else-if="failed" role="alert" class="grid justify-items-start gap-2 text-sm text-destructive">
       <p>{{ t('failed') }}</p>
@@ -190,17 +194,10 @@ onBeforeUnmount(() => {
           />
         </div>
       </div>
-      <div class="flex flex-wrap gap-2">
-        <DataActionButton action="refresh" :label="t('refresh')" size="icon-sm" variant="ghost" :disabled="disabled" @click="load" /><DataActionButton
-          action="export"
-          :label="t('export')"
-          size="icon-sm"
-          variant="ghost"
-          :disabled="disabled || !data.items.length"
-          @click="exportPage"
-        />
-      </div>
-      <p class="text-xs text-muted-foreground">{{ t('snapshot') }}: {{ date(data.generatedAt) }}</p></template
+      <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+        <span>{{ t('snapshot') }}: {{ date(data.generatedAt) }}</span>
+        <DataActionButton action="export" :label="t('export')" size="icon-sm" :disabled="disabled || !data.items.length" @click="exportPage" />
+      </div></template
     >
   </section>
 </template>

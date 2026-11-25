@@ -1,3 +1,9 @@
+# 本地启动与数据库
+
+- “本地启动”指在本机运行 LingDian 应用服务。每次启动或重启本地 API，都必须连接唯一指定的远程 MySQL 库 `lingdian_cf_preview`，沿用 `backend/.env` 中的 `DATABASE_URL`。
+- 启动前检查 `127.0.0.1:43306` 是否已通过 SSH 转发到腾讯云 Lighthouse（`lighthouse@81.70.43.189`）的 `127.0.0.1:3306`。转发未运行时先恢复，再验证实际数据库名和 API readiness。端口指向其他实例或远程库暂时不可达时，先排查连接并汇报阻塞，不启动或切换到本地库、演示库或其他远程库。
+- 启动流程不对远程库执行 `db:push`、迁移、seed、账号初始化或数据重置。数据库凭据仅从现有本地配置读取，不写入仓库或输出到日志。
+
 # 管理端组件规范
 
 - 修改或审查 `web/`、`admin/` 或 `packages/console-ui/` 的界面时，使用项目 skill [$lingdian-console-ui](.codex/skills/lingdian-console-ui/SKILL.md)。

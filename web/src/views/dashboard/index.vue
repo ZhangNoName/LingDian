@@ -2,6 +2,7 @@
 import FilterToggle from '@/components/FilterToggle.vue'
 import MerchantDatePicker from '@/components/MerchantDatePicker.vue'
 import DataActionButton from '@/components/DataActionButton.vue'
+import ListToolbar from '@/components/table/ListToolbar.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import type { MerchantDashboardSnapshot } from '@lingdian/contracts'
@@ -82,9 +83,6 @@ onBeforeUnmount(() => { sequence++ })
 <template>
   <section class="grid min-w-0 gap-4 lg:gap-5" :lang="locale">
     <div class="border bg-card">
-      <div class="p-3 sm:hidden" :class="filtersOpen && 'border-b'">
-        <FilterToggle v-model="filtersOpen" controls="dashboard-filters">{{ t('filters') }}</FilterToggle>
-      </div>
       <form
         id="dashboard-filters"
         :data-filter-open="filtersOpen"
@@ -93,7 +91,6 @@ onBeforeUnmount(() => { sequence++ })
       >
         <MerchantDatePicker :label="t('from')" v-model="from" required />
         <MerchantDatePicker :label="t('to')" v-model="to" :min="from" required />
-        <Button type="submit" :disabled="loading">{{ t('apply') }}</Button>
         <div class="flex flex-wrap gap-1" role="group" :aria-label="t('filters')">
           <Button
             v-for="choice in [{ days: 1, key: 'today' as const }, { days: 7, key: 'week' as const }, { days: 30, key: 'month' as const }]"
@@ -104,8 +101,16 @@ onBeforeUnmount(() => { sequence++ })
             @click="preset(choice.days)"
           >{{ t(choice.key) }}</Button>
         </div>
-        <DataActionButton action="export" :label="t('export')" :disabled="loading || dirty || !!error" class="sm:ml-auto" @click="exportSnapshot" />
       </form>
+      <ListToolbar class="border-t px-3 py-3 sm:px-4">
+        <template #left>
+          <FilterToggle v-model="filtersOpen" controls="dashboard-filters" class="sm:hidden">{{ t('filters') }}</FilterToggle>
+        </template>
+        <DataActionButton action="export" :label="t('export')" :disabled="loading || dirty || !!error" @click="exportSnapshot" />
+        <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" />
+        <Button type="submit" form="dashboard-filters" variant="outline" :disabled="loading">{{ t('apply') }}</Button>
+        <Button type="button" variant="ghost" :disabled="loading" @click="preset(7)">{{ t('reset') }}</Button>
+      </ListToolbar>
     </div>
     <p v-if="dirty" role="status" class="text-sm text-status-warning-ink">{{ t('dirty') }}</p>
     <p v-if="loading" role="status" class="p-8 text-center text-muted-foreground">{{ t('loading') }}</p>

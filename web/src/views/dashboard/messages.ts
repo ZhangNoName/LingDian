@@ -1,5 +1,6 @@
 export const zh = {
   filters: '日期筛选',
+  reset: '重置',
   title: '经营概览', from: '开始日期', to: '结束日期', today: '今天', week: '近 7 天', month: '近 30 天', apply: '查询', refresh: '刷新', language: '语言',
   period: '下单期间', generated: '快照时间', timeZone: '日期时区', export: '导出汇总快照 · CSV', dirty: '日期已更改，请查询后查看和导出。', loading: '正在加载经营数据…', failure: '经营数据加载失败，请重试。', invalid: '请选择有效日期范围，跨度不超过 366 天。', tooLarge: '汇总数量超出安全精度范围，请缩小日期范围。',
   paidAmount: '有效成交额', paid: '有效成交订单', total: '下单数', pending: '待付款订单', operations: '当前待办', openAlerts: '预警待跟进', acknowledgedAlerts: '预警跟进中', outOfStockMaterials: '缺货原料', lowStockMaterials: '低库存原料', pendingFulfillmentOrders: '待履约订单', expiredStockHoldOrders: '到期原料占用',
@@ -10,6 +11,7 @@ export const zh = {
 export type Key = keyof typeof zh
 export const en: Record<Key, string> = {
   filters: 'Date filters',
+  reset: 'Reset',
   title: 'Business overview', from: 'Start date', to: 'End date', today: 'Today', week: 'Last 7 days', month: 'Last 30 days', apply: 'Apply', refresh: 'Refresh', language: 'Language',
   period: 'Orders placed during', generated: 'Snapshot time', timeZone: 'Date timezone', export: 'Export summary snapshot · CSV', dirty: 'Dates have changed. Apply them before viewing or exporting.', loading: 'Loading business data…', failure: 'Could not load business data. Please retry.', invalid: 'Choose a valid date range of up to 366 days.', tooLarge: 'Totals exceed safe precision. Narrow the date range.',
   paidAmount: 'Eligible sales', paid: 'Eligible paid orders', total: 'Orders placed', pending: 'Awaiting payment', operations: 'Current tasks', openAlerts: 'Alerts needing follow-up', acknowledgedAlerts: 'Alerts in progress', outOfStockMaterials: 'Out-of-stock materials', lowStockMaterials: 'Low-stock materials', pendingFulfillmentOrders: 'Orders to fulfil', expiredStockHoldOrders: 'Expired ingredient holds',

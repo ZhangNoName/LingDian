@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import MerchantDatePicker from '@/components/MerchantDatePicker.vue'
 import DataActionButton from '@/components/DataActionButton.vue'
+import ListToolbar from '@/components/table/ListToolbar.vue'
 import TablePagination from '@/components/table/TablePagination.vue'
 import TableAction from '@/components/table/TableAction.vue'
 import { ChartLine, ClipboardList, FileText, History } from '@lingdian/icons/web'
@@ -35,7 +36,20 @@ const trendSource = computed(() => trendReturnContext(route.query))
 const analysisMode = computed(() => props.mode === 'report' && route.query.reportView === 'analysis')
 function viewQuery(applied: ActivityState) { if (trendMode.value) return trendTarget(route.query, applied); return { ... (props.mode === 'history' ? trendSource.value : {}), view: props.mode, ...inventoryNavigationContext(route.query), ...activityQuery(applied), ...(analysisMode.value ? analysisQuery(parseAnalysisState(route.query)) : {}) } }
 function openTrend(itemId = state.value.itemId) { if (itemId) void router.push({ query: trendTarget(route.query, state.value, itemId, { ...parseTrendView(route.query), day: '', page: 1 }) }) }
-function reset() { const query = { ...(props.mode === 'history' ? trendSource.value : {}), view: props.mode, ...inventoryNavigationContext(route.query), ...activityQuery({ ...defaultActivityState(), pageSize: state.value.pageSize }), ...(analysisMode.value ? { reportView: 'analysis' } : {}) }; if (sameActivityQuery(route.query, query)) void load(true); else void router.push({ query }) }
+function reset() {
+  const defaults = { ...defaultActivityState(), pageSize: state.value.pageSize }
+  const query = {
+    ...(props.mode === 'history' ? trendSource.value : {}),
+    view: props.mode,
+    ...inventoryNavigationContext(route.query),
+    ...activityQuery(defaults),
+    ...(analysisMode.value ? { reportView: 'analysis' } : {}),
+  }
+  if (sameActivityQuery(route.query, query)) {
+    syncDraft(defaults)
+    void load(true)
+  } else void router.push({ query })
+}
 const t = (key: MessageKey) => (locale.value === 'en-US' ? en : zh)[key]
 const state = computed(() => {
   const value = parseActivityState(route.query)
@@ -53,6 +67,12 @@ const reportRows = computed(() => report.value?.rows.slice((state.value.page - 1
 const format = (value: number) => value.toLocaleString(locale.value, { maximumFractionDigits: 3 })
 const date = (value: string) => new Intl.DateTimeFormat(locale.value, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value))
 const dirty = computed(() => from.value !== dateInput(new Date(state.value.startAt)) || to.value !== dateInput(new Date(Date.parse(state.value.endAt) - 1)) || keyword.value.trim() !== state.value.keyword || (props.mode === 'history' && kind.value !== state.value.kind))
+function syncDraft(applied: ActivityState) {
+  from.value = dateInput(new Date(applied.startAt))
+  to.value = dateInput(new Date(Date.parse(applied.endAt) - 1))
+  keyword.value = applied.keyword
+  kind.value = applied.kind
+}
 useWarehouseViewLock(() => props.mode === 'report' && !trendMode.value && (loading.value || dirty.value))
 let sequence = 0, reportKey = ''
 
@@ -112,8 +132,7 @@ function drillDown(row: InventoryReportRow) {
 }
 watch(() => [route.fullPath, props.mode], async () => {
   const applied = state.value
-  from.value = dateInput(new Date(applied.startAt)); to.value = dateInput(new Date(Date.parse(applied.endAt) - 1))
-  keyword.value = applied.keyword; kind.value = applied.kind
+  syncDraft(applied)
   const canonical = { query: viewQuery(applied) }
   if (!sameActivityQuery(route.query, canonical.query)) { await router.replace(canonical); return }
   await load()
@@ -127,7 +146,7 @@ onBeforeUnmount(() => { sequence++ })
     <div v-if="mode === 'history' && trendSource.trendItem" class="border-b px-4 py-3"><Button size="sm" variant="outline" @click="router.push({ query: returnTrendTarget(route.query) })">{{ tt('back') }}</Button></div>
     <InventoryTrend v-if="trendMode" :key="storeId" :store-id="storeId" :store-name="storeName" :state="state" />
     <template v-else>
-    <form class="flex flex-wrap items-end gap-3 px-4 pt-4" @submit.prevent="apply">
+    <form id="inventory-activity-filters" class="flex flex-wrap items-end gap-3 px-4 pt-4" @submit.prevent="apply">
       <MerchantDatePicker :label="t('from')" v-model="from" required />
       <MerchantDatePicker :label="t('to')" v-model="to" required :min="from" />
       <label v-if="mode === 'history'">{{ t('operation') }}<SelectField
@@ -139,10 +158,13 @@ onBeforeUnmount(() => { sequence++ })
           ]"
         /></label>
       <label class="grow sm:grow-0">{{ t('search') }}<Input v-model="keyword" type="search" maxlength="120" /></label>
-      <Button type="submit" variant="outline" :disabled="loading">{{ t('apply') }}</Button>
-      <Button type="button" variant="ghost" :disabled="loading" @click="reset">{{ t('reset') }}</Button>
-      <DataActionButton action="export" :label="t(mode === 'report' ? 'exportReport' : 'export')" v-if="!analysisMode" class="sm:ml-auto" :disabled="loading || !!errorKey || !total || dirty" @click="exportRows" />
     </form>
+    <ListToolbar class="px-4 pt-3">
+      <DataActionButton v-if="!analysisMode" action="export" :label="t(mode === 'report' ? 'exportReport' : 'export')" :disabled="loading || !!errorKey || !total || dirty" @click="exportRows" />
+      <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load(true)" />
+      <Button type="submit" form="inventory-activity-filters" variant="outline" :disabled="loading">{{ t('apply') }}</Button>
+      <Button type="button" variant="ghost" :disabled="loading" @click="reset">{{ t('reset') }}</Button>
+    </ListToolbar>
     <p v-if="dirty" role="status" class="border-b px-4 py-2 text-xs text-amber-800">{{ t('unapplied') }}</p>
     <div v-if="state.itemId" class="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2 text-sm">
       <span>{{ mode === 'report' ? report?.rows[0]?.name : history?.items[0]?.itemName }}</span>

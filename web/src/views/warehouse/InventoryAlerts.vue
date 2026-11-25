@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Badge } from '@lingdian/console-ui/badge'
 import FilterToggle from '@/components/FilterToggle.vue'
+import ListToolbar from '@/components/table/ListToolbar.vue'
 import DataActionButton from '@/components/DataActionButton.vue'
 import TablePagination from '@/components/table/TablePagination.vue'
 import TableAction from '@/components/table/TableAction.vue'
@@ -232,25 +233,9 @@ onBeforeUnmount(() => {
         }}</strong>
       </div>
     </div>
-    <div class="flex flex-wrap gap-2 border-b px-4 py-3 md:hidden">
-      <FilterToggle v-model="filtersOpen" controls="alert-filters" size="sm">
-        {{ t(filtersOpen ? 'hideFilters' : 'filters') }}
-        <span v-if="filterCount" class="ml-1">({{ filterCount }})</span>
-      </FilterToggle>
-      <DataActionButton action="refresh" :label="t('refresh')" size="icon-sm" variant="ghost" :disabled="loading || dirty" @click="load" />
-      <DataActionButton
-        action="export"
-        :label="t('export')"
-        size="icon-sm"
-        variant="ghost"
-        :disabled="loading || error || dirty || !result?.total"
-        @click="exportPage"
-      />
-      <p v-if="filterSummary" class="w-full break-words text-xs text-muted-foreground">{{ filterSummary }}</p>
-    </div>
     <form
       id="alert-filters"
-      class="flex-wrap items-end gap-3 border-b p-4 md:flex"
+      class="flex-wrap items-end gap-3 px-4 pt-4 md:flex"
       :class="filtersOpen ? 'flex' : 'hidden'"
       @submit.prevent="apply"
     >
@@ -275,17 +260,26 @@ onBeforeUnmount(() => {
             { value: 'OUT', label: t('out') },
             { value: 'LOW', label: t('low') },
           ]"
-        /></label
-      ><Button type="submit" variant="outline" :disabled="loading">{{ t('apply') }}</Button
-      ><DataActionButton action="refresh" :label="t('refresh')" variant="ghost" class="hidden md:inline-flex" :disabled="loading || dirty" @click="load" /><Button type="button" variant="ghost" :disabled="loading" @click="reset">{{ t('reset') }}</Button
-      ><DataActionButton
+        /></label>
+    </form>
+    <ListToolbar class="border-b px-4 py-3">
+      <template #left>
+        <FilterToggle v-model="filtersOpen" controls="alert-filters" class="md:hidden">
+          {{ t(filtersOpen ? 'hideFilters' : 'filters') }}
+          <span v-if="filterCount" class="ml-1">({{ filterCount }})</span>
+        </FilterToggle>
+      </template>
+      <DataActionButton
         action="export"
         :label="t('export')"
-        class="hidden md:ml-auto md:inline-flex"
         :disabled="loading || error || dirty || !result?.total"
         @click="exportPage"
       />
-    </form>
+      <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" />
+      <Button type="submit" form="alert-filters" variant="outline" :disabled="loading">{{ t('apply') }}</Button>
+      <Button type="button" variant="ghost" :disabled="loading" @click="reset">{{ t('reset') }}</Button>
+    </ListToolbar>
+    <p v-if="filterSummary" class="break-words px-4 pt-2 text-xs text-muted-foreground md:hidden">{{ filterSummary }}</p>
     <p v-if="dirty" role="status" class="border-b px-4 py-2 text-xs text-amber-800">
       {{ t('filterChanged') }}
     </p>

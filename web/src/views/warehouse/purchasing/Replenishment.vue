@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import FilterToggle from '@/components/FilterToggle.vue'
+import ListToolbar from '@/components/table/ListToolbar.vue'
 import DataActionButton from '@/components/DataActionButton.vue'
 import TablePagination from '@/components/table/TablePagination.vue'
 import { PackagePlus } from '@lingdian/icons/web'
@@ -93,6 +94,13 @@ async function apply() {
   if (keyword.value.trim() === applied.value) await load()
   else await router.push({ query: { ...route.query, replenishmentKeyword: keyword.value.trim() || undefined } })
 }
+function reset() {
+  keyword.value = ''
+  page.value = 1
+  if (applied.value || state.value.itemId || subset.value !== 'NEEDED') {
+    void router.push({ query: { ...route.query, replenishmentKeyword: undefined, replenishmentItemId: undefined, replenishmentSubset: undefined } })
+  } else void load()
+}
 function create(id: string) {
   const row = snapshot.value?.rows.find((row) => row.id === id)
   if (row && row.recommendedQuantity > 0) emit('create', row)
@@ -139,21 +147,6 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section class="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
-    <div class="flex flex-wrap justify-end gap-2">
-      <FilterToggle v-model="filtersOpen" controls="replenishment-filters" class="mr-auto sm:hidden">{{ t('filters') }}</FilterToggle>
-      <DataActionButton
-        action="refresh"
-        :label="t('refresh')"
-        :disabled="loading || dirty"
-        @click="load"
-      />
-      <DataActionButton
-        action="export"
-        :label="t('exportSnapshot')"
-        :disabled="loading || dirty || !!error || !rows.length"
-        @click="exportSnapshot"
-      />
-    </div>
     <form
       id="replenishment-filters"
       :data-filter-open="filtersOpen"
@@ -176,8 +169,16 @@ onBeforeUnmount(() => {
           ]"
         />
       </label>
-      <Button type="submit" variant="outline" :disabled="loading">{{ t('find') }}</Button>
     </form>
+    <ListToolbar>
+      <template #left>
+        <FilterToggle v-model="filtersOpen" controls="replenishment-filters" class="sm:hidden">{{ t('filters') }}</FilterToggle>
+      </template>
+      <DataActionButton action="export" :label="t('exportSnapshot')" :disabled="loading || dirty || !!error || !rows.length" @click="exportSnapshot" />
+      <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" />
+      <Button type="submit" form="replenishment-filters" variant="outline" :disabled="loading">{{ t('find') }}</Button>
+      <Button type="button" variant="ghost" :disabled="loading" @click="reset">{{ t('reset') }}</Button>
+    </ListToolbar>
     <p v-if="dirty" role="status" class="text-sm text-amber-800">{{ t('dirty') }}</p>
     <div v-if="state.itemId" class="flex flex-wrap items-center justify-between gap-2 border p-3 text-sm">
       <p>

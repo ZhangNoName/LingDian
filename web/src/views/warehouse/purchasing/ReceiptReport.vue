@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import FilterToggle from '@/components/FilterToggle.vue'
+import ListToolbar from '@/components/table/ListToolbar.vue'
 import MerchantDatePicker from '@/components/MerchantDatePicker.vue'
 import DataActionButton from '@/components/DataActionButton.vue'
 import TablePagination from '@/components/table/TablePagination.vue'
@@ -97,13 +98,16 @@ async function load() {
 watch(
   () => [props.storeId, JSON.stringify(state.value)],
   () => {
-    from.value = dateInput(new Date(state.value.startAt))
-    to.value = lastDate(state.value.endAt)
-    keyword.value = state.value.keyword ?? ''
+    syncDraft(state.value)
     void load()
   },
   { immediate: true },
 )
+function syncDraft(applied: PurchaseReportFilter) {
+  from.value = dateInput(new Date(applied.startAt))
+  to.value = lastDate(applied.endAt)
+  keyword.value = applied.keyword ?? ''
+}
 watch(group, () => {
   page.value = 1
 })
@@ -128,7 +132,10 @@ async function apply() {
   }
 }
 function reset() {
-  void navigate(receiptState({}))
+  const defaults = receiptState({})
+  syncDraft(defaults)
+  if (JSON.stringify(defaults) === JSON.stringify(state.value)) void load()
+  else void navigate(defaults)
   filtersOpen.value = false
 }
 function action(value: string) {
@@ -195,18 +202,6 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section class="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
-    <div class="flex flex-wrap justify-between gap-2">
-      <FilterToggle v-model="filtersOpen" controls="receipt-filters" class="sm:hidden">{{ t('filters') }}</FilterToggle>
-      <div class="ml-auto flex gap-2">
-        <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" />
-        <DataActionButton
-          action="export"
-          :label="t('exportSnapshot')"
-          :disabled="loading || dirty || !!error || !report?.rows.length"
-          @click="exportSnapshot"
-        />
-      </div>
-    </div>
     <form
       id="receipt-filters"
       :data-filter-open="filtersOpen"
@@ -219,9 +214,21 @@ onBeforeUnmount(() => {
         {{ t('search') }}
         <Input v-model="keyword" type="search" maxlength="120" />
       </label>
-      <Button type="button" variant="outline" :disabled="loading" @click="reset">{{ t('reset') }}</Button>
-      <Button type="submit" :disabled="loading">{{ t('apply') }}</Button>
     </form>
+    <ListToolbar>
+      <template #left>
+        <FilterToggle v-model="filtersOpen" controls="receipt-filters" class="sm:hidden">{{ t('filters') }}</FilterToggle>
+      </template>
+      <DataActionButton
+        action="export"
+        :label="t('exportSnapshot')"
+        :disabled="loading || dirty || !!error || !report?.rows.length"
+        @click="exportSnapshot"
+      />
+      <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" />
+      <Button type="submit" form="receipt-filters" variant="outline" :disabled="loading">{{ t('apply') }}</Button>
+      <Button type="button" variant="ghost" :disabled="loading" @click="reset">{{ t('reset') }}</Button>
+    </ListToolbar>
     <div v-if="state.supplierId || state.itemId" class="flex flex-wrap items-center gap-2 text-sm">
       <span>{{ t('filterActive') }}</span>
       <Button size="sm" variant="outline" @click="navigate({ ...state, supplierId: undefined, itemId: undefined })">

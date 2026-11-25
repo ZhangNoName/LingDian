@@ -74,6 +74,7 @@ const zh = {
   page: '页',
   filter: '盘点名称',
   apply: '查询',
+  reset: '重置',
   saved: '盘点单已保存',
   countedAt: '盘点结果以已保存记录为准',
 } as const
@@ -155,6 +156,7 @@ const en: Record<Key, string> = {
   page: 'Page',
   filter: 'Stocktake name',
   apply: 'Apply',
+  reset: 'Reset',
   saved: 'Stocktake saved',
   countedAt: 'Count results use saved values',
 }

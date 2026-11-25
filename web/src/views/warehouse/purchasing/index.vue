@@ -4,6 +4,7 @@ import MerchantDatePicker from '@/components/MerchantDatePicker.vue'
 import DataActionButton from '@/components/DataActionButton.vue'
 import TablePagination from '@/components/table/TablePagination.vue'
 import TableAction from '@/components/table/TableAction.vue'
+import ListToolbar from '@/components/table/ListToolbar.vue'
 import { EyeIcon, Pencil } from '@lingdian/icons/web'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -269,19 +270,6 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section class="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 p-4">
-    <div v-if="view === 'orders' || view === 'suppliers'" class="flex flex-wrap justify-end gap-2">
-      <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading" @click="load" />
-      <DataActionButton
-        action="export"
-        :label="t('export')"
-        v-if="view === 'orders'"
-        :disabled="loading || failed || !orders.length || dirty"
-        @click="exportPage"
-      />
-      <Button @click="view === 'orders' ? createOrder() : edit()">
-        {{ t(view === 'orders' ? 'newOrder' : 'newSupplier') }}
-      </Button>
-    </div>
     <ReceiptReport
       v-if="view === 'report'"
       :key="'report' + revision"
@@ -318,7 +306,6 @@ onBeforeUnmount(() => {
           >
         </div>
       </div>
-      <FilterToggle v-model="filtersOpen" controls="purchase-filters" class="justify-self-start sm:hidden">{{ t('filters') }}</FilterToggle>
       <form
         id="purchase-filters"
         :data-filter-open="filtersOpen"
@@ -326,7 +313,7 @@ onBeforeUnmount(() => {
         @submit.prevent="search"
       >
         <label class="grow sm:max-w-sm">
-          {{ t('search') }}
+          {{ t(view === 'suppliers' ? 'supplierSearch' : 'search') }}
           <Input v-model="keyword" type="search" maxlength="120" />
         </label>
         <label v-if="view === 'orders' && !pendingItemId">
@@ -356,9 +343,25 @@ onBeforeUnmount(() => {
           /></label
         >
         <MerchantDatePicker v-if="view === 'orders' && delivery === 'BEFORE'" :label="t('exclusiveBefore')" v-model="before" required />
-        <Button type="submit" variant="outline" :disabled="loading">{{ t('find') }}</Button
-        ><Button type="button" variant="ghost" :disabled="loading" @click="resetFilters">{{ t('reset') }}</Button>
       </form>
+      <ListToolbar>
+        <template #left>
+          <Button @click="view === 'orders' ? createOrder() : edit()">
+            {{ t(view === 'orders' ? 'newOrder' : 'newSupplier') }}
+          </Button>
+          <FilterToggle v-model="filtersOpen" controls="purchase-filters" class="sm:hidden">{{ t('filters') }}</FilterToggle>
+        </template>
+        <DataActionButton
+          v-if="view === 'orders'"
+          action="export"
+          :label="t('export')"
+          :disabled="loading || failed || !orders.length || dirty"
+          @click="exportPage"
+        />
+        <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" />
+        <Button type="submit" form="purchase-filters" variant="outline" :disabled="loading">{{ t('find') }}</Button>
+        <Button type="button" variant="ghost" :disabled="loading" @click="resetFilters">{{ t('reset') }}</Button>
+      </ListToolbar>
       <p v-if="filterError" role="alert" class="error">{{ t('invalidDelivery') }}</p>
       <p v-if="dirty" role="status" class="help">{{ t('dirty') }}</p>
       <p v-if="view === 'orders'" class="help break-words">
@@ -373,7 +376,7 @@ onBeforeUnmount(() => {
         <p>{{ t('failed') }}</p>
         <DataActionButton action="refresh" :label="t('refresh')" @click="load" />
       </div>
-      <p v-else-if="!total" class="help py-8 text-center">{{ t('empty') }}</p>
+      <p v-else-if="!total && view === 'orders'" class="help py-8 text-center">{{ t('empty') }}</p>
       <template v-else-if="view === 'orders'">
         <Table framed tabindex="0" container-class="hidden md:block" class="border-collapse text-start">
           <thead>
@@ -431,20 +434,46 @@ onBeforeUnmount(() => {
           </li>
         </ul>
       </template>
-      <ul v-else class="table-scroll grid gap-3 sm:grid-cols-2">
-        <li v-for="record in suppliers" :key="record.id" class="grid gap-2 border p-3 text-sm">
-          <div class="flex justify-between gap-3">
-            <strong class="break-words">{{ record.name }}</strong>
-            <span v-if="!record.isActive" class="help">{{ t('disabled') }}</span>
-          </div>
-          <p class="help break-words">{{ record.code }} · {{ record.contact }}</p>
-          <p v-if="record.note" class="help break-words">{{ record.note }}</p>
-          <TableAction :icon="Pencil" :label="t('edit')"
-            class="justify-self-end"
-            :aria-label="`${t('edit')} ${record.name}`"
-            @click="edit(record)" />
-        </li>
-      </ul>
+      <template v-else>
+        <Table framed tabindex="0" container-class="hidden md:block" :aria-label="t('suppliers')" class="border-collapse text-start">
+          <thead>
+            <tr>
+              <th scope="col">{{ t('name') }}</th>
+              <th scope="col">{{ t('code') }}</th>
+              <th scope="col">{{ t('contact') }}</th>
+              <th scope="col">{{ t('note') }}</th>
+              <th scope="col">{{ t('status') }}</th>
+              <th scope="col">{{ t('edit') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="!total"><td colspan="6" class="help py-8 text-center">{{ t('empty') }}</td></tr>
+            <tr v-for="record in suppliers" :key="record.id">
+              <th scope="row" class="min-w-32 max-w-56 whitespace-normal break-words font-medium">{{ record.name }}</th>
+              <td class="break-words">{{ record.code }}</td>
+              <td class="min-w-28 max-w-56 whitespace-normal break-words">{{ record.contact || '—' }}</td>
+              <td class="min-w-28 max-w-72 whitespace-normal break-words">{{ record.note || '—' }}</td>
+              <td><Badge :variant="record.isActive ? 'success' : 'secondary'">{{ t(record.isActive ? 'enabled' : 'disabled') }}</Badge></td>
+              <td><TableAction :icon="Pencil" :label="t('edit')" :aria-label="`${t('edit')} ${record.name}`" @click="edit(record)" /></td>
+            </tr>
+          </tbody>
+        </Table>
+        <ul class="table-scroll grid gap-3 sm:grid-cols-2 md:hidden">
+          <li v-for="record in suppliers" :key="record.id" class="grid gap-2 border p-3 text-sm">
+            <div class="flex justify-between gap-3">
+              <strong class="break-words">{{ record.name }}</strong>
+              <span v-if="!record.isActive" class="help">{{ t('disabled') }}</span>
+            </div>
+            <p class="help break-words">{{ record.code }} · {{ record.contact }}</p>
+            <p v-if="record.note" class="help break-words">{{ record.note }}</p>
+            <TableAction :icon="Pencil" :label="t('edit')"
+              class="justify-self-end"
+              :aria-label="`${t('edit')} ${record.name}`"
+              @click="edit(record)" />
+          </li>
+        </ul>
+        <p v-if="!total" class="help py-8 text-center md:hidden">{{ t('empty') }}</p>
+      </template>
       <div v-if="!loading && !failed" class="flex flex-wrap items-center justify-between gap-3 border-t pt-3 text-sm">
         <span>{{ total }} {{ t('records') }}</span>
         <div class="flex gap-2">

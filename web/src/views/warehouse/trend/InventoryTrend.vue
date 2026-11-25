@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import FilterToggle from '@/components/FilterToggle.vue'
+import ListToolbar from '@/components/table/ListToolbar.vue'
 import MerchantDatePicker from '@/components/MerchantDatePicker.vue'
 import DataActionButton from '@/components/DataActionButton.vue'
 import TablePagination from '@/components/table/TablePagination.vue'
@@ -254,16 +255,6 @@ onBeforeUnmount(() => {
             {{ data.item.code }} · {{ data.item.unit }}
           </p>
         </div>
-        <div class="flex flex-wrap gap-2">
-          <FilterToggle v-model="filtersOpen" controls="trend-filters" size="sm">{{ t(filtersOpen ? 'hideFilters' : 'filters') }}</FilterToggle>
-          <DataActionButton action="refresh" :label="t('refresh')" size="icon-sm" variant="ghost" :disabled="loading || dirty" @click="load" /><DataActionButton
-            action="export"
-            :label="t('export')"
-            size="icon-sm"
-            :disabled="loading || failed || dirty || !data"
-            @click="exportData"
-          />
-        </div>
       </div>
       <form
         id="trend-filters"
@@ -282,11 +273,17 @@ onBeforeUnmount(() => {
             :disabled="loading"
             :options="zones.map((zone) => ({ value: zone, label: zone }))"
           /></label
-        ><Button type="submit" :disabled="loading">{{ t('apply') }}</Button
-        ><Button type="button" variant="ghost" :disabled="loading" @click="resetDraft">{{
-          t('reset')
-        }}</Button>
+        >
       </form>
+      <ListToolbar>
+        <template #left>
+          <FilterToggle v-model="filtersOpen" controls="trend-filters">{{ t(filtersOpen ? 'hideFilters' : 'filters') }}</FilterToggle>
+        </template>
+        <DataActionButton action="export" :label="t('export')" :disabled="loading || failed || dirty || !data" @click="exportData" />
+        <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" />
+        <Button v-if="filtersOpen" type="submit" form="trend-filters" variant="outline" :disabled="loading">{{ t('apply') }}</Button>
+        <Button v-if="filtersOpen" type="button" variant="ghost" :disabled="loading" @click="resetDraft">{{ t('reset') }}</Button>
+      </ListToolbar>
       <p v-if="dirty" role="status" class="text-xs text-amber-800">{{ t('dirty') }}</p>
       <p v-if="loading" role="status" class="py-8 text-sm text-muted-foreground">{{ t('loading') }}</p>
       <div

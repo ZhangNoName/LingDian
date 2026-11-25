@@ -4,7 +4,7 @@ import { RouterLink, useRoute } from 'vue-router'
 import { Button } from '@lingdian/console-ui/button'
 import { Collapsible } from '@lingdian/console-ui/collapsible'
 import { ChevronDownIcon, Package } from '@lingdian/icons/web'
-import { warehouseSection, warehouseSections, warehouseSectionTarget } from '@/config/warehouse-navigation'
+import { warehouseGroup, warehouseGroups, warehouseSection, warehouseSectionTarget, type WarehouseGroup } from '@/config/warehouse-navigation'
 import { warehouseViewLockKey } from '@/config/warehouse-view-lock'
 import { useLocale } from '@/i18n/locale'
 
@@ -14,6 +14,7 @@ const emit = defineEmits<{ navigate: []; expand: [] }>()
 const route = useRoute()
 const { locale } = useLocale()
 const activeSection = computed(() => route.name === 'warehouse' ? warehouseSection(route.query) : undefined)
+const activeGroup = computed(() => activeSection.value && warehouseGroup(activeSection.value))
 const viewLock = inject(warehouseViewLockKey)
 const open = ref(false)
 const groupTrigger = ref<InstanceType<typeof Button>>()
@@ -22,12 +23,12 @@ watch(activeSection, (view) => {
   if (view) open.value = true
 }, { immediate: true })
 
-function isLocked(section: typeof warehouseSections[number]) {
-  return section.view === activeSection.value?.view && !!viewLock?.value
+function isLocked(group: WarehouseGroup) {
+  return group.sections[0].view === activeSection.value?.view && !!viewLock?.value
 }
 
-function selectSection(event: MouseEvent, section: typeof warehouseSections[number], navigate: (event: MouseEvent) => void) {
-  if (isLocked(section)) return
+function selectGroup(event: MouseEvent, group: WarehouseGroup, navigate: (event: MouseEvent) => void) {
+  if (isLocked(group)) return
   navigate(event)
   emit('navigate')
 }
@@ -68,17 +69,17 @@ async function expand() {
       </Button>
     </template>
     <ul class="ml-5 mt-1 space-y-0.5 border-l pl-2">
-      <li v-for="section in warehouseSections" :key="section.view + (section.subview ?? '')">
-        <RouterLink :to="warehouseSectionTarget(section, route.name === 'warehouse' ? route.query : {})" custom v-slot="{ href, navigate }">
+      <li v-for="group in warehouseGroups" :key="group.sections[0].view">
+        <RouterLink :to="warehouseSectionTarget(group.sections[0], route.name === 'warehouse' ? route.query : {})" custom v-slot="{ href, navigate }">
           <a
-            :href="isLocked(section) ? undefined : href"
-            :role="isLocked(section) ? 'link' : undefined"
-            :aria-disabled="isLocked(section) || undefined"
-            :aria-current="activeSection === section ? 'page' : undefined"
-            class="block truncate border-l-2 border-transparent px-3 py-2 text-sm leading-5 transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:-outline-offset-2 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-[current=page]:hover:bg-sidebar-accent"
-            :class="activeSection === section && 'border-l-sidebar-primary bg-sidebar-accent font-semibold text-sidebar-primary'"
-            @click="selectSection($event, section, navigate)"
-          >{{ section.label[locale] }}</a>
+            :href="isLocked(group) ? undefined : href"
+            :role="isLocked(group) ? 'link' : undefined"
+            :aria-disabled="isLocked(group) || undefined"
+            :aria-current="activeGroup === group ? 'location' : undefined"
+            class="block truncate border-l-2 border-transparent px-3 py-2 text-sm leading-5 transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:-outline-offset-2 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-[current=location]:hover:bg-sidebar-accent"
+            :class="activeGroup === group && 'border-l-sidebar-primary bg-sidebar-accent font-semibold text-sidebar-primary'"
+            @click="selectGroup($event, group, navigate)"
+          >{{ group.label[locale] }}</a>
         </RouterLink>
       </li>
     </ul>

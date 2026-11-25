@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import DataActionButton from '@/components/DataActionButton.vue'
+import ListToolbar from '@/components/table/ListToolbar.vue'
 import TablePagination from '@/components/table/TablePagination.vue'
 import TableAction from '@/components/table/TableAction.vue'
 import { EyeIcon } from '@lingdian/icons/web'
@@ -39,6 +40,10 @@ async function load() {
   finally { if (current === sequence) loading.value = false }
 }
 function apply() { page.value = 1; appliedKeyword.value = keyword.value.trim(); void load() }
+function reset() {
+  keyword.value = ''
+  changeState('EXPIRED')
+}
 function changeState(value: typeof state.value) {
   state.value = value
   apply()
@@ -63,7 +68,7 @@ onBeforeUnmount(() => { disposed = true; sequence++; detailSequence++ })
 </script>
 <template>
   <section class="min-w-0">
-    <form class="flex flex-wrap items-end gap-3 border-b p-4" @submit.prevent="apply">
+    <form id="inventory-hold-filters" class="flex flex-wrap items-end gap-3 px-4 pt-4" @submit.prevent="apply">
       <label>
         {{ t('search') }}
         <Input v-model="keyword" type="search" maxlength="64" />
@@ -81,9 +86,12 @@ onBeforeUnmount(() => { disposed = true; sequence++; detailSequence++ })
           @update:model-value="changeState"
         />
       </label>
-      <Button type="submit" variant="outline" :disabled="loading">{{ t('searchButton') }}</Button>
-      <DataActionButton action="refresh" :label="t('refresh')" variant="ghost" :disabled="loading || dirty" @click="load" />
     </form>
+    <ListToolbar class="border-b px-4 py-3">
+      <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" />
+      <Button type="submit" form="inventory-hold-filters" variant="outline" :disabled="loading">{{ t('searchButton') }}</Button>
+      <Button type="button" variant="ghost" :disabled="loading" @click="reset">{{ t('reset') }}</Button>
+    </ListToolbar>
     <p v-if="loading" role="status" class="p-8 text-center text-sm text-muted-foreground">{{ t('loading') }}</p><div v-else-if="error" role="alert" class="p-8 text-sm text-destructive"><p>{{ t('failure') }}</p><DataActionButton action="refresh" :label="t('refresh')" class="mt-3" @click="load" /></div><p v-else-if="!result?.total" class="p-8 text-center text-sm text-muted-foreground">{{ t('empty') }}</p>
     <Table framed container-class="mx-4 mt-4" v-else tabindex="0" :aria-label="t('title')" class="border-collapse text-start"><thead><tr><th>{{ t('order') }}</th><th>{{ t('deadline') }}</th><th>{{ t('payment') }}</th><th>{{ t('materials') }}</th><th></th></tr></thead><tbody><tr v-for="row in result?.items" :key="row.orderId"><th scope="row" class="font-medium">{{ row.orderNo }}<span class="mt-1 block text-xs font-normal text-muted-foreground">{{ row.pickupCode ?? '—' }}</span></th><td>{{ date(row.expiresAt) }}</td><td>{{ t(row.paymentState) }}</td><td class="tabular-nums">{{ number(row.heldMaterialCount) }}</td><td><TableAction :icon="EyeIcon" :label="t('detail')" :aria-label="`${t('detail')} ${row.orderNo}`" @click="view(row.orderId)" /></td></tr></tbody></Table>
     <div v-if="!loading && !error" class="flex flex-wrap items-center justify-between gap-3 border-t p-4 text-sm text-muted-foreground"><span>{{ result?.total ?? 0 }} {{ t('total') }}</span><div class="flex gap-2"><TablePagination :page="page" :page-size="pageSize" @update:page-size="pageSize = $event; page = 1; load()" :pages="Math.ceil((result?.total ?? 0) / pageSize)" :disabled="dirty" @update:page="page = $event; load()" /></div></div>

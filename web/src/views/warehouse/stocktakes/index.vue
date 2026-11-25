@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Badge } from '@lingdian/console-ui/badge'
 import DataActionButton from '@/components/DataActionButton.vue'
+import ListToolbar from '@/components/table/ListToolbar.vue'
 import TablePagination from '@/components/table/TablePagination.vue'
 import { parseTablePageSize } from '@/components/table/page-size'
 import TableAction from '@/components/table/TableAction.vue'
@@ -11,6 +12,7 @@ import type { StocktakePage, StocktakeStatus } from '@lingdian/contracts'
 import { Button } from '@lingdian/console-ui/button'
 import { Input } from '@lingdian/console-ui/input'
 import { SelectField } from '@lingdian/console-ui/select'
+import { Table } from '@lingdian/console-ui/table'
 import { listStocktakes } from '@/services/stocktakes'
 import { useStocktakeLocale } from './locale'
 import CreateStocktake from './CreateStocktake.vue'
@@ -78,6 +80,11 @@ function search() {
     void load()
   else void navigate()
 }
+function reset() {
+  keyword.value = ''
+  status.value = 'ALL'
+  search()
+}
 function open(id: string) {
   void router.push({ query: { ...route.query, stocktakeId: id || undefined } })
 }
@@ -91,10 +98,7 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section class="grid min-w-0 gap-4 p-4">
-    <div class="flex flex-wrap justify-end gap-2">
-      <DataActionButton action="refresh" :label="t('reload')" :disabled="loading || filterDirty" @click="load" /><Button @click="creating = true">{{ t('new') }}</Button>
-    </div>
-    <form class="flex flex-wrap items-end gap-3" @submit.prevent="search">
+    <form id="stocktake-filters" class="flex flex-wrap items-end gap-3" @submit.prevent="search">
       <label class="grow">{{ t('filter') }}<Input v-model="keyword" type="search" maxlength="120" /></label
       ><label
         >{{ t('status')
@@ -103,31 +107,51 @@ onBeforeUnmount(() => {
           :aria-label="t('status')"
           :options="(['ALL', 'DRAFT', 'POSTED', 'CANCELLED'] as const).map((value) => ({ value, label: t(value) }))"
         /></label
-      ><Button type="submit" variant="outline" :disabled="loading">{{ t('apply') }}</Button>
+      >
     </form>
+    <ListToolbar>
+      <template #left><Button @click="creating = true">{{ t('new') }}</Button></template>
+      <DataActionButton action="refresh" :label="t('reload')" :disabled="loading || filterDirty" @click="load" />
+      <Button type="submit" form="stocktake-filters" variant="outline" :disabled="loading">{{ t('apply') }}</Button>
+      <Button type="button" variant="ghost" :disabled="loading" @click="reset">{{ t('reset') }}</Button>
+    </ListToolbar>
     <p v-if="loading" role="status" class="help py-8 text-center">{{ t('loading') }}</p>
     <div v-else-if="failed" role="alert">
       <p>{{ t('failed') }}</p>
       <DataActionButton action="refresh" :label="t('reload')" @click="load" />
     </div>
     <p v-else-if="!result?.total" class="help py-8 text-center">{{ t('empty') }}</p>
-    <ul v-else class="table-scroll grid gap-3">
-      <li
-        v-for="row in result.items"
-        :key="row.id"
-        class="flex flex-wrap items-center justify-between gap-3 border p-3 text-sm"
-      >
-        <div class="min-w-0">
-          <strong class="break-words">{{ row.title }}</strong>
-          <p class="help mt-1">
-            <Badge :variant="row.status === 'POSTED' ? 'success' : row.status === 'DRAFT' ? 'warning' : 'secondary'">{{ t(row.status) }}</Badge> · {{ t('progress') }}
-            {{ row.lines.filter((line) => line.countedQuantity !== null).length }} / {{ row.lines.length }} ·
-            {{ date(row.createdAt) }}
-          </p>
-        </div>
-        <TableAction :icon="EyeIcon" :label="t('detail')" :aria-label="`${t('detail')} ${row.title}`" @click="open(row.id)" />
-      </li>
-    </ul>
+    <template v-else>
+      <Table framed tabindex="0" container-class="hidden md:block" :aria-label="t('title')" class="border-collapse text-start">
+        <thead><tr><th scope="col">{{ t('name') }}</th><th scope="col">{{ t('status') }}</th><th scope="col">{{ t('progress') }}</th><th scope="col">{{ t('created') }}</th><th scope="col">{{ t('detail') }}</th></tr></thead>
+        <tbody>
+          <tr v-for="row in result.items" :key="row.id">
+            <th scope="row" class="min-w-32 break-words font-medium">{{ row.title }}</th>
+            <td><Badge :variant="row.status === 'POSTED' ? 'success' : row.status === 'DRAFT' ? 'warning' : 'secondary'">{{ t(row.status) }}</Badge></td>
+            <td class="tabular-nums">{{ row.lines.filter((line) => line.countedQuantity !== null).length }} / {{ row.lines.length }}</td>
+            <td class="whitespace-nowrap">{{ date(row.createdAt) }}</td>
+            <td><TableAction :icon="EyeIcon" :label="t('detail')" :aria-label="`${t('detail')} ${row.title}`" @click="open(row.id)" /></td>
+          </tr>
+        </tbody>
+      </Table>
+      <ul class="table-scroll grid gap-3 md:hidden">
+        <li
+          v-for="row in result.items"
+          :key="row.id"
+          class="flex flex-wrap items-center justify-between gap-3 border p-3 text-sm"
+        >
+          <div class="min-w-0">
+            <strong class="break-words">{{ row.title }}</strong>
+            <p class="help mt-1">
+              <Badge :variant="row.status === 'POSTED' ? 'success' : row.status === 'DRAFT' ? 'warning' : 'secondary'">{{ t(row.status) }}</Badge> · {{ t('progress') }}
+              {{ row.lines.filter((line) => line.countedQuantity !== null).length }} / {{ row.lines.length }} ·
+              {{ date(row.createdAt) }}
+            </p>
+          </div>
+          <TableAction :icon="EyeIcon" :label="t('detail')" :aria-label="`${t('detail')} ${row.title}`" @click="open(row.id)" />
+        </li>
+      </ul>
+    </template>
     <div v-if="!loading && !failed" class="flex flex-wrap items-center justify-between gap-2 text-sm">
       <span>{{ result?.total ?? 0 }} {{ t('total') }}</span>
       <div class="flex gap-2">

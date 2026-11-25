@@ -1,10 +1,12 @@
 export const holdZh = {
+  reset: '重置',
   title: '原料占用', hint: '先核对支付关单，再处理到期订单；支付未明确关闭时继续保留原料。', expired: '已到期', all: '全部待付款占用', search: '订单号或取餐码', searchButton: '查询', refresh: '刷新', loading: '正在加载原料占用…', failure: '无法加载原料占用，请重试。', empty: '没有符合条件的原料占用',
   order: '订单', deadline: '预留截止', payment: '支付核验状态', materials: '占用原料种类', detail: '查看占用', previous: '上一页', next: '下一页', total: '条', close: '关闭', created: '下单时间', count: '预占量', ingredient: '原料', recheck: '重新核验并处理到期订单', checking: '正在核验…', retryHint: '核验只在支付已确认关闭或无活动支付时终止到期订单、释放原料。不会强制改写支付结果。', resolved: '该订单已不再占用原料。', blocked: '支付尚未明确关闭，原料继续保留。请核对支付渠道，稍后重新核验。', retry: '订单正在变化，请刷新后再试。', notExpired: '尚未到预留截止时间，不能提前释放。', unexpected: '核验未完成，请检查网络或联系管理员。', viewOrder: '查看订单',
   NONE: '无活动支付', ACTIVE: '支付处理中', REVIEW: '支付需人工核对', CONFIRMED: '已确认支付，待状态核对',
 } as const
 export type HoldKey = keyof typeof holdZh
 export const holdEn: Record<HoldKey, string> = {
+  reset: 'Reset',
   title: 'Ingredient holds', hint: 'Payment closure is checked before an expired order is terminated. Uncertain payments keep their ingredients reserved.', expired: 'Expired', all: 'All unpaid holds', search: 'Order or pickup code', searchButton: 'Apply', refresh: 'Refresh', loading: 'Loading ingredient holds…', failure: 'Could not load ingredient holds. Please retry.', empty: 'No matching ingredient holds',
   order: 'Order', deadline: 'Reserved until', payment: 'Payment verification', materials: 'Materials held', detail: 'View hold', previous: 'Previous', next: 'Next', total: 'records', close: 'Close', created: 'Placed at', count: 'Reserved quantity', ingredient: 'Material', recheck: 'Recheck and process expired order', checking: 'Checking…', retryHint: 'An expired order is terminated and ingredients released only after payment is closed or no active payment exists. This does not force a payment result.', resolved: 'This order no longer holds ingredients.', blocked: 'Payment closure is not confirmed. Ingredients remain reserved. Check the payment channel and retry later.', retry: 'The order is changing. Refresh and retry.', notExpired: 'The reservation has not expired. It cannot be released early.', unexpected: 'Could not complete verification. Check your connection or contact an administrator.', viewOrder: 'View order',
   NONE: 'No active payment', ACTIVE: 'Payment in progress', REVIEW: 'Payment needs review', CONFIRMED: 'Payment confirmed; check order state',
