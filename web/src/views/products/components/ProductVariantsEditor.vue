@@ -13,8 +13,7 @@ function selectDefault(value: unknown) {
 </script>
 <template>
   <section class="grid gap-3">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <h3 class="text-sm font-semibold">{{ t('variants') }}</h3>
+    <div class="flex justify-end">
       <Button
         type="button"
         size="sm"
@@ -25,16 +24,16 @@ function selectDefault(value: unknown) {
         {{ t('addVariant') }}
       </Button>
     </div>
-    <p class="text-xs leading-5 text-muted-foreground">{{ t('stockHint') }}</p>
     <RadioGroup
       :model-value="currentDefaultIndex"
       :aria-label="t('defaultVariant')"
+      class="gap-4"
       @update:model-value="selectDefault"
     >
       <div
         v-for="(variant, index) in modelValue"
         :key="variant.id ?? index"
-        class="grid gap-3 border p-3 sm:grid-cols-3"
+        class="grid min-w-0 gap-3 not-first:border-t not-first:pt-4 sm:grid-cols-3"
       >
         <label>
           {{ t('variantName') }} {{ index + 1 }}
@@ -64,6 +63,7 @@ function selectDefault(value: unknown) {
             class="ml-auto"
             :disabled="modelValue.length <= 1"
             :aria-label="`${t('remove')} ${variant.sku_name || index + 1}`"
+            :title="variant.id && !variant.id.startsWith('draft_') ? t('configurationHint') : undefined"
             @click="$emit('remove-variant', index)"
           >
             {{ t('remove') }}

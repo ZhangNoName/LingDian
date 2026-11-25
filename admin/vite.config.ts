@@ -5,6 +5,7 @@ import type { Plugin } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueInspector from 'vite-plugin-vue-inspector'
 import tailwindcss from '@tailwindcss/vite'
+import { holdOptionInspector, vueInspectorOptions } from '../packages/console-ui/dev/vue-inspector'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -38,13 +39,8 @@ export default defineConfig({
     vue(),
     tailwindcss(),
     bundleSizeBudget(),
-    vueInspector({
-      toggleComboKey: 'alt',
-      toggleButtonVisibility: 'never',
-      disableInspectorOnEditorOpen: true,
-      launchEditor: 'code',
-      viteDevtools: false,
-    }),
+    vueInspector(vueInspectorOptions),
+    holdOptionInspector(),
   ],
   server: {
     proxy: {

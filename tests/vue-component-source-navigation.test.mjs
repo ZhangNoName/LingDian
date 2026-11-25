@@ -7,10 +7,11 @@ const requireFromAdmin = createRequire(new URL('../admin/package.json', import.m
 const { loadConfigFromFile } = await import(pathToFileURL(requireFromAdmin.resolve('vite')).href)
 
 const apps = ['admin', 'web']
+const holdOption = process.platform === 'darwin'
 const expectedOptions = {
-  toggleComboKey: 'alt',
+  toggleComboKey: holdOption ? false : 'alt',
   toggleButtonVisibility: 'never',
-  disableInspectorOnEditorOpen: true,
+  disableInspectorOnEditorOpen: !holdOption,
   launchEditor: 'code',
   viteDevtools: false,
 }
@@ -21,7 +22,7 @@ async function invokeHook(hook, ...args) {
 }
 
 for (const app of apps) {
-  test(`${app} configures Alt-click Vue source navigation`, async () => {
+  test(`${app} configures Vue source navigation for the local platform`, async () => {
     const configPath = fileURLToPath(new URL(`../${app}/vite.config.ts`, import.meta.url))
     const loaded = await loadConfigFromFile({ command: 'serve', mode: 'development' }, configPath)
     assert.ok(loaded, `${app} Vite config should load`)
@@ -29,6 +30,10 @@ for (const app of apps) {
     const plugins = loaded.config.plugins.flat(Infinity).filter(Boolean)
     const inspector = plugins.find(plugin => plugin.name === 'vite-plugin-vue-inspector')
     assert.ok(inspector, `${app} should register vite-plugin-vue-inspector`)
+    const holdInspector = plugins.find(plugin => plugin.name === 'lingdian:hold-option-inspector')
+    assert.ok(holdInspector, `${app} should register the hold-to-inspect controller`)
+    assert.equal(holdInspector.apply({}, { command: 'serve' }), holdOption && process.env.NODE_ENV !== 'test')
+    assert.equal(holdInspector.apply({}, { command: 'build' }), false)
 
     await invokeHook(inspector.configResolved, { base: '/' })
     const loadedOptions = await invokeHook(inspector.load, 'virtual:vue-inspector-options')

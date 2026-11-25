@@ -10,11 +10,6 @@ label {
   font-size: 0.75rem;
   color: var(--ld-text-muted);
 }
-.help {
-  font-size: 0.75rem;
-  line-height: 1.6;
-  color: var(--ld-text-muted);
-}
 .check {
   display: flex;
   gap: 0.5rem;

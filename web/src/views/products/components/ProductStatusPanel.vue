@@ -4,23 +4,43 @@ import { RouterLink } from 'vue-router'
 import type { ProductRecordContract, ProductStatus } from '@lingdian/contracts'
 import { catalogStatusActions, catalogStatusBadge } from '../catalog-lifecycle'
 import { Badge } from '@lingdian/console-ui/badge'
-import { Button } from '@lingdian/console-ui/button'
+import { Button, IconButton } from '@lingdian/console-ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@lingdian/console-ui/dialog'
+import { DropdownMenu } from '@lingdian/console-ui/dropdown'
+import { MoreHorizontal } from '@lingdian/icons/web'
 import { updateMerchantProductStatus } from '@/services/products'
 import { useCatalogLocale, catalogError, type CatalogKey } from '../catalog-management-locale'
-const props = defineProps<{ product: ProductRecordContract; storeId: string; disabled: boolean }>(),
+const props = defineProps<{ product: ProductRecordContract; storeId: string; disabled: boolean; dirty: boolean }>(),
   emit = defineEmits<{ busy: [boolean]; saved: [ProductRecordContract] }>(),
   { t } = useCatalogLocale(),
   target = ref<ProductStatus>(),
   saving = ref(false),
   error = ref<CatalogKey>()
-const actions = computed(() => catalogStatusActions(props.product.status))
-function choose(status: ProductStatus) {
-  target.value = status
+const trigger = ref<InstanceType<typeof IconButton>>()
+const actions = computed(() => catalogStatusActions(props.product.status).map(action => ({ value: action.status, label: t(action.label) })))
+const actionLabel = computed(() => actions.value.find(action => action.value === target.value)?.label)
+function choose(status: string) {
+  if (props.disabled || props.dirty || saving.value) return
+  target.value = actions.value.find(action => action.value === status)?.value
   error.value = undefined
+}
+
+function close(open: boolean) {
+  if (!open && !saving.value) target.value = undefined
+}
+
+function closeOnEscape(event: KeyboardEvent) {
+  event.preventDefault()
+  close(false)
+}
+
+function restoreFocus(event: Event) {
+  event.preventDefault()
+  trigger.value?.$el.focus({ preventScroll: true })
 }
 let disposed = false
 async function submit() {
-  if (!target.value || saving.value || props.disabled || props.product.configuration_version === undefined) return
+  if (!target.value || saving.value || props.disabled || props.dirty || props.product.configuration_version === undefined) return
   saving.value = true
   emit('busy', true)
   error.value = undefined
@@ -44,41 +64,40 @@ onBeforeUnmount(() => {
 })
 </script>
 <template>
-  <section class="grid min-w-0 gap-3 border p-3">
-    <div class="flex flex-wrap items-center justify-between gap-2">
-      <p class="text-sm">
-        <Badge :variant="catalogStatusBadge(product.status)">{{ t(product.status) }}</Badge>
-      </p>
-      <div v-if="!target" class="flex flex-wrap gap-2">
-        <Button
-          v-for="action in actions"
-          :key="action.status"
-          type="button"
-          size="sm"
-          variant="outline"
-          :disabled="disabled || saving || product.configuration_version === undefined"
-          @click="choose(action.status)"
-        >
-          {{ t(action.label) }}
-        </Button>
-      </div>
-    </div>
-    <div v-if="target" class="grid gap-3 bg-muted/30 p-3">
-      <p class="text-sm font-medium">{{ t('statusSelect') }}: {{ t(target) }}</p>
-      <p class="help">{{ t(target === 'ACTIVE' ? 'publishHint' : 'unpublishHint') }}</p>
+  <div class="flex shrink-0 items-center gap-2" :title="dirty ? t('saveBeforeStatus') : undefined">
+    <Badge :variant="catalogStatusBadge(product.status)">{{ t(product.status) }}</Badge>
+    <DropdownMenu v-if="actions.length" :items="actions" @select="choose">
+      <IconButton
+        ref="trigger"
+        :icon="MoreHorizontal"
+        :label="t('statusActions')"
+        :disabled="disabled || dirty || saving || product.configuration_version === undefined"
+      />
+    </DropdownMenu>
+  </div>
+
+  <Dialog :open="!!target" @update:open="close">
+    <DialogContent
+      class="w-[min(92vw,27rem)]"
+      :close-label="t('close')"
+      :close-disabled="saving"
+      @close-auto-focus="restoreFocus"
+      @escape-key-down="closeOnEscape"
+    >
+      <DialogHeader>
+        <DialogTitle>{{ actionLabel }}</DialogTitle>
+        <DialogDescription>{{ t(target === 'ACTIVE' ? 'publishHint' : 'unpublishHint') }}</DialogDescription>
+      </DialogHeader>
       <RouterLink v-if="target === 'ACTIVE'" class="text-sm text-primary" to="/warehouse?view=recipes">
         {{ t('recipe') }}
       </RouterLink>
-      <div class="flex flex-wrap justify-end gap-2">
-        <Button type="button" variant="outline" :disabled="saving" @click="target = undefined">
-          {{ t('cancel') }}
-        </Button>
+      <p v-if="error" role="alert" class="text-sm text-destructive">{{ t(error) }}</p>
+      <DialogFooter>
+        <Button type="button" variant="outline" :disabled="saving" @click="close(false)">{{ t('cancel') }}</Button>
         <Button type="button" :disabled="saving || disabled" @click="submit">
           {{ t(saving ? 'saving' : 'confirm') }}
         </Button>
-      </div>
-    </div>
-    <p v-if="error" role="alert" class="text-sm text-destructive">{{ t(error) }}</p>
-  </section>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>
-<style scoped src="../catalog-management.css"></style>

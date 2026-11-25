@@ -13,4 +13,4 @@
 - 刷新、重试和导出使用 `web/src/components/DataActionButton.vue`。标签用原有业务文案，须能区分当前页、完整报表和完整快照。表格行内操作使用 `TableAction`，其他图标按钮使用共享 `IconButton`。图标按钮提供悬停提示和无障碍名称。
 - 表格使用共享 `Table`，分页使用 `TablePagination`。宽表和长表在容器内滚动。调整样式时检查键盘操作、禁用状态、现有筛选和导出范围。
 - 商家端日期字段使用 `MerchantDatePicker`，由共享 New York v4 的 `Calendar` 和 `Popover` 组成。表单继续使用 `YYYY-MM-DD` 日期值，时区与查询边界由业务页面处理。
-- 圆角由 `theme/console.css` 的组件令牌统一管理，商家端的取值在 `web/src/style.css`。导航项、表格行、筛选区和内嵌信息区使用直角。下拉框使用直角，其他输入控件和表框使用 4px，卡片和浮层使用 6px，状态标签使用 2px。仅开关、单选等有控件语义的形状使用全圆角。页面优先使用布局、分隔线和背景区分层次，圆角交由组件处理。
+- 商家端基础控件沿用 shadcn-vue New York v4 的圆角和阴影，使用中性底色与零点紫色主色。主题变量在 `theme/console.css` 和 `web/src/style.css` 中管理。页面优先使用布局、分隔线和背景区分层次，圆角交由组件处理。

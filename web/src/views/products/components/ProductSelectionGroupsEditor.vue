@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Button } from '@lingdian/console-ui/button'
+import { Button, IconButton } from '@lingdian/console-ui/button'
 import { Checkbox, Input } from '@lingdian/console-ui/input'
 import { SelectField } from '@lingdian/console-ui/select'
+import { Trash2 } from '@lingdian/icons/web'
 import type { ProductSelectionBindingForm, ProductVariantForm } from '../types'
 import { useProductLocale } from '../use-product-locale'
 const props = defineProps<{
@@ -30,36 +31,25 @@ const referenceChoices = computed(() => [
 </script>
 <template>
   <section class="grid gap-3">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <h3 class="text-sm font-semibold">{{ t('groups') }}</h3>
+    <div class="flex justify-end">
       <Button type="button" size="sm" variant="outline" :disabled="modelValue.length >= 20" @click="$emit('add-group')">
         {{ t('addGroup') }}
       </Button>
     </div>
-    <p class="text-xs leading-5 text-muted-foreground">{{ t('referenceHint') }}</p>
-    <p v-if="!modelValue.length" class="border p-6 text-center text-sm text-muted-foreground">
+    <p v-if="!modelValue.length" class="text-sm text-muted-foreground">
       {{ t('noGroups') }}
     </p>
     <section
       v-for="(binding, groupIndex) in modelValue"
       :key="binding.id ?? groupIndex"
-      class="grid gap-3 border p-3"
+      class="@container grid min-w-0 gap-3"
+      :class="groupIndex > 0 && 'mt-2 border-t pt-4'"
+      :aria-label="binding.group.name || `${t('groupName')} ${groupIndex + 1}`"
     >
-      <div class="flex items-center justify-between gap-3">
-        <h4 class="min-w-0 break-words text-sm font-medium">
-          {{ binding.group.name || `${t('groupName')} ${groupIndex + 1}` }}
-        </h4>
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          :aria-label="`${t('remove')} ${binding.group.name || groupIndex + 1}`"
-          @click="$emit('remove-group', groupIndex)"
-        >
-          {{ t('remove') }}
-        </Button>
-      </div>
-      <div class="grid gap-3 sm:grid-cols-2">
+      <div
+        class="group-fields grid min-w-0 items-end gap-2.5 @min-[20rem]:grid-cols-2"
+        :class="{ 'group-fields--variant': binding.scope === 'VARIANT' }"
+      >
         <label>
           {{ t('groupName') }} {{ groupIndex + 1 }}
           <Input v-model="binding.group.name" maxlength="191" required />
@@ -107,6 +97,8 @@ const referenceChoices = computed(() => [
             ]"
           />
         </label>
+      </div>
+      <div class="group-rules grid min-w-0 grid-cols-2 items-end gap-2.5">
         <label>
           {{ t('min') }}
           <Input v-model.number="binding.group.min_select" type="number" min="0" max="50" step="1" required />
@@ -115,29 +107,36 @@ const referenceChoices = computed(() => [
           {{ t('max') }}
           <Input v-model.number="binding.group.max_select" type="number" min="0" max="50" step="1" required />
         </label>
-        <label class="sm:col-span-2">
+        <label class="group-description col-span-full">
           {{ t('description') }}
           <Input v-model="binding.group.description" maxlength="191" />
         </label>
-      </div>
-      <div class="flex flex-wrap gap-4">
-        <label class="check">
-          <Checkbox v-model="binding.group.is_required" />
-          {{ t('required') }}
-        </label>
-        <label class="check">
-          <Checkbox v-model="binding.group.is_active" />
-          {{ t('enabled') }}
-        </label>
-        <label class="check">
-          <Checkbox v-model="binding.is_enabled" />
-          {{ t('groupEnabled') }}
-        </label>
+        <div class="group-actions col-span-full flex min-h-9 flex-wrap items-center gap-x-3 gap-y-2">
+          <label class="check whitespace-nowrap">
+            <Checkbox v-model="binding.group.is_required" />
+            {{ t('required') }}
+          </label>
+          <label class="check whitespace-nowrap">
+            <Checkbox v-model="binding.group.is_active" />
+            {{ t('enabled') }}
+          </label>
+          <label class="check whitespace-nowrap">
+            <Checkbox v-model="binding.is_enabled" />
+            {{ t('groupEnabled') }}
+          </label>
+          <IconButton
+            :icon="Trash2"
+            :label="`${t('removeGroup')} ${binding.group.name || groupIndex + 1}`"
+            class="ms-auto"
+            @click="$emit('remove-group', groupIndex)"
+          />
+        </div>
       </div>
       <div
         v-for="(option, optionIndex) in binding.group.options"
         :key="option.id ?? optionIndex"
-        class="grid gap-3 bg-muted/40 p-3 sm:grid-cols-2"
+        class="option-row grid min-w-0 items-end gap-2.5 bg-muted/40 px-3 py-2.5 @min-[28rem]:grid-cols-2"
+        :class="{ 'option-row--reference': option.option_type === 'VARIANT' }"
       >
         <label>
           {{ t('optionName') }} {{ optionIndex + 1 }}
@@ -168,26 +167,22 @@ const referenceChoices = computed(() => [
           {{ t('surcharge') }}
           <Input v-model.number="option.price_delta" type="number" min="0" max="99999999.99" step="0.01" required />
         </label>
-        <div class="flex flex-wrap items-center gap-4 sm:col-span-2">
-          <label class="check">
+        <div class="option-actions col-span-full flex min-h-9 flex-wrap items-center gap-x-3 gap-y-2">
+          <label class="check whitespace-nowrap">
             <Checkbox v-model="option.is_default" />
             {{ t('defaultOption') }}
           </label>
-          <label class="check">
+          <label class="check whitespace-nowrap">
             <Checkbox v-model="option.is_active" />
             {{ t('enabled') }}
           </label>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            class="ml-auto"
+          <IconButton
+            :icon="Trash2"
+            :label="`${t('remove')} ${option.name || optionIndex + 1}`"
+            class="ms-auto"
             :disabled="binding.group.options.length <= 1"
-            :aria-label="`${t('remove')} ${option.name || optionIndex + 1}`"
             @click="$emit('remove-option', groupIndex, optionIndex)"
-          >
-            {{ t('remove') }}
-          </Button>
+          />
         </div>
       </div>
       <Button
@@ -215,5 +210,31 @@ label.check {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+@container (min-width: 46rem) {
+  .group-fields {
+    grid-template-columns: minmax(0, 1.3fr) repeat(3, minmax(0, 1fr));
+  }
+  .group-fields--variant {
+    grid-template-columns: minmax(0, 1.3fr) repeat(4, minmax(0, 1fr));
+  }
+  .group-rules {
+    grid-template-columns: minmax(6.5rem, 0.8fr) minmax(6.5rem, 0.8fr) minmax(0, 2fr) auto;
+  }
+  .group-description {
+    grid-column: auto;
+  }
+  .option-row {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(6.75rem, 0.6fr) auto;
+  }
+  .option-row--reference {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr) minmax(6.75rem, 0.65fr) auto;
+  }
+  .group-actions,
+  .option-actions {
+    grid-column: auto;
+    flex-wrap: nowrap;
+  }
 }
 </style>

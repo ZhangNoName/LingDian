@@ -12,7 +12,7 @@
     "@vueuse/core": "^14.2.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "reka-ui": "^2.9.6",
+    "reka-ui": "^2.11.0",
     "tailwind-merge": "^3.5.0"
   },
   "peerDependencies": {

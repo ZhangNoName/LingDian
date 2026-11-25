@@ -1,20 +1,20 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, useId, watch } from 'vue'
 import type { CategoryContract, ProductRecordContract } from '@lingdian/contracts'
 import { Button } from '@lingdian/console-ui/button'
+import { ComboboxField } from '@lingdian/console-ui/combobox'
 import { Checkbox, Input } from '@lingdian/console-ui/input'
-import { SelectField } from '@lingdian/console-ui/select'
 import { Textarea } from '@lingdian/console-ui/textarea'
 import {
   merchantCategories,
   createMerchantCategory,
   createMerchantProduct,
-  updateMerchantProductDetails,
 } from '@/services/products'
 import { useCatalogLocale, catalogError, type CatalogKey } from '../catalog-management-locale'
 const props = defineProps<{ storeId: string; product?: ProductRecordContract; disabled?: boolean }>(),
-  emit = defineEmits<{ saved: [ProductRecordContract]; busy: [boolean]; dirty: [boolean]; cancel: [] }>(),
+  emit = defineEmits<{ saved: [ProductRecordContract]; busy: [boolean]; dirty: [boolean]; cancel: []; submit: [] }>(),
   { t } = useCatalogLocale()
+const categoryInputId = useId()
 const name = ref(''),
   description = ref(''),
   category = ref(''),
@@ -27,9 +27,11 @@ const name = ref(''),
   newCategory = ref(false),
   categoryName = ref(''),
   loading = ref(false),
+  categoryLookupFailed = ref(false),
   saving = ref(false),
   error = ref<CatalogKey>(),
   categoryNotice = ref(false)
+const loadingCurrentCategory = computed(() => loading.value && !!category.value && !selectedCategory.value)
 const dirty = computed(
   () =>
     !!props.product &&
@@ -40,47 +42,80 @@ const dirty = computed(
 )
 watch(dirty, (value) => emit('dirty', value), { immediate: true })
 const options = computed(() =>
-  selectedCategory.value && !categories.value.some((row) => row.id === selectedCategory.value?.id)
+  !keyword.value && selectedCategory.value && !categories.value.some((row) => row.id === selectedCategory.value?.id)
     ? [selectedCategory.value, ...categories.value]
     : categories.value,
 )
-function selectCategory(id: string) {
-  category.value = id
-  selectedCategory.value = categories.value.find((row) => row.id === id) ?? selectedCategory.value
+
+const categoryLabel = (row: CategoryContract) => row.is_visible ? row.name : `${row.name} (${t('hidden')})`
+const selectedLabel = computed(() =>
+  selectedCategory.value ? categoryLabel(selectedCategory.value) :
+    category.value && props.product?.category_id === category.value ? props.product.category : undefined,
+)
+
+function selectCategory(value: string | string[] | null) {
+  const row = options.value.find((option) => option.id === value)
+  if (!row?.is_visible) return
+  category.value = row.id
+  selectedCategory.value = row
+  if (error.value === 'categoryUnavailable' || error.value === 'invalid') error.value = undefined
 }
 let requestId = '',
   sequence = 0,
   disposed = false
+let searchTimer: ReturnType<typeof setTimeout> | undefined
 watch(
-  () => [props.product, props.storeId],
+  [
+    () => props.storeId,
+    () => props.product?.id,
+    () => props.product?.name,
+    () => props.product?.description,
+    () => props.product?.category_id,
+    () => props.product?.is_featured,
+  ],
   () => {
     name.value = props.product?.name ?? ''
     description.value = props.product?.description ?? ''
     category.value = props.product?.category_id ?? ''
     selectedCategory.value = undefined
+    categories.value = []
+    keyword.value = ''
     featured.value = props.product?.is_featured ?? false
     skuName.value = t('regular')
     price.value = 0
     error.value = undefined
     requestId = crypto.randomUUID()
-    void lookup()
+    clearTimeout(searchTimer)
+    void lookup(++sequence, '')
   },
   { immediate: true },
 )
-async function lookup() {
+function searchCategories(value: string) {
+  const query = value.trim().slice(0, 120)
+  if (query === keyword.value && !categoryLookupFailed.value) return
   const current = ++sequence
+  keyword.value = query
+  categories.value = []
   loading.value = true
-  error.value = undefined
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => void lookup(current, query), query ? 220 : 0)
+}
+
+async function lookup(current: number, query: string) {
+  const storeId = props.storeId
+  const categoryId = category.value
+  loading.value = true
+  categoryLookupFailed.value = false
   try {
     const [result, selected] = await Promise.all([
-      merchantCategories(props.storeId, keyword.value.trim()),
-      props.product && !selectedCategory.value
-        ? merchantCategories(props.storeId, '', props.product.category_id)
+      merchantCategories(storeId, query),
+      categoryId && !selectedCategory.value
+        ? merchantCategories(storeId, '', categoryId)
         : null,
     ])
     if (current === sequence) {
       categories.value = result.items
-      if (selected) {
+      if (selected && category.value === categoryId) {
         selectedCategory.value = selected.items[0]
         if (!selectedCategory.value) {
           category.value = ''
@@ -89,13 +124,13 @@ async function lookup() {
       }
     }
   } catch {
-    if (current === sequence) error.value = 'failed'
+    if (current === sequence) categoryLookupFailed.value = true
   } finally {
     if (current === sequence) loading.value = false
   }
 }
 async function addCategory() {
-  if (saving.value || !categoryName.value.trim()) return
+  if (saving.value || props.disabled || !categoryName.value.trim()) return
   saving.value = true
   emit('busy', true)
   error.value = undefined
@@ -115,33 +150,38 @@ async function addCategory() {
     emit('busy', false)
   }
 }
-async function submit() {
-  if (saving.value || props.disabled || loading.value) return
+function prepareUpdate() {
+  if (loadingCurrentCategory.value) return
   if (!name.value.trim() || !category.value) {
     error.value = 'invalid'
     return
   }
+  return {
+    category_id: category.value,
+    name: name.value.trim(),
+    description: description.value.trim(),
+    is_featured: featured.value,
+  }
+}
+
+async function submit() {
+  if (saving.value || props.disabled || loadingCurrentCategory.value) return
+  if (props.product) {
+    emit('submit')
+    return
+  }
+  const body = prepareUpdate()
+  if (!body) return
   saving.value = true
   emit('busy', true)
   error.value = undefined
   try {
-    const body = {
-      category_id: category.value,
-      name: name.value.trim(),
-      description: description.value.trim(),
-      is_featured: featured.value,
-    }
-    const result = props.product
-      ? await updateMerchantProductDetails(props.storeId, props.product.id, {
-          ...body,
-          expected_version: props.product.configuration_version!,
-        })
-      : await createMerchantProduct(props.storeId, {
-          ...body,
-          requestId,
-          sku_name: skuName.value.trim(),
-          price: price.value,
-        })
+    const result = await createMerchantProduct(props.storeId, {
+      ...body,
+      requestId,
+      sku_name: skuName.value.trim(),
+      price: price.value,
+    })
     if (disposed) return
     emit('saved', result)
   } catch (e) {
@@ -155,45 +195,54 @@ onBeforeUnmount(() => {
   emit('dirty', false)
   disposed = true
   sequence++
+  clearTimeout(searchTimer)
 })
+defineExpose({ prepareUpdate, loading: loadingCurrentCategory })
 </script>
 <template>
   <form class="catalog-form" @submit.prevent="submit">
     <fieldset :disabled="saving || disabled" class="grid min-w-0 gap-4">
-      <p v-if="!product" class="help">{{ t('createHint') }}</p>
-      <label>
-        {{ t('name') }}
-        <Input v-model="name" required maxlength="191" />
-      </label>
+      <div class="grid min-w-0 gap-3" :class="$slots.type && 'sm:grid-cols-[minmax(0,1fr)_minmax(9rem,0.55fr)]'">
+        <label>
+          {{ t('name') }}
+          <Input v-model="name" required maxlength="191" />
+        </label>
+        <slot name="type" />
+      </div>
       <label>
         {{ t('description') }}
         <Textarea v-model="description" maxlength="2000" rows="3" />
       </label>
-      <div class="flex items-end gap-2">
-        <label class="grow">
-          {{ t('findCategory') }}
-          <Input v-model="keyword" type="search" maxlength="120" @keydown.enter.prevent="lookup" />
-        </label>
-        <Button type="button" variant="outline" :disabled="loading" @click="lookup">{{ t('find') }}</Button>
-      </div>
-      <label>
-        {{ t('category') }}
-        <SelectField
-          :model-value="category"
-          @update:model-value="selectCategory"
-          :aria-label="t('category')"
+      <div class="grid min-w-0 gap-1.5">
+        <label :for="categoryInputId">{{ t('category') }}</label>
+        <ComboboxField
+          :input-id="categoryInputId"
+          :model-value="category || null"
+          :selected-label="selectedLabel"
+          :label="t('category')"
+          :placeholder="t('chooseCategory')"
+          :trigger-label="t('expandCategory')"
+          :empty-label="t(categoryLookupFailed ? 'failed' : 'noCategories')"
+          :loading-label="loading ? t('loading') : undefined"
+          :disabled="saving || disabled"
+          :options="options.map((row) => ({ value: row.id, label: categoryLabel(row), disabled: !row.is_visible }))"
+          remote-search
           required
-          :options="[
-            { value: '', label: t('choose') },
-            ...options.map((row) => ({ value: row.id, label: `${row.name}${row.is_visible ? '' : ` (${t('hidden')})`}`, disabled: !row.is_visible })),
-          ]"
+          @search="searchCategories"
+          @update:model-value="selectCategory"
         />
-      </label>
-      <Button type="button" class="justify-self-start" variant="outline" @click="newCategory = !newCategory">
-        {{ t('addCategory') }}
-      </Button>
-      <div v-if="newCategory" class="flex items-end gap-2 border p-3">
-        <label class="grow">
+      </div>
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <label class="check">
+          <Checkbox v-model="featured" />
+          {{ t('featured') }}
+        </label>
+        <Button type="button" size="sm" variant="outline" :aria-expanded="newCategory" @click="newCategory = !newCategory">
+          {{ t('addCategory') }}
+        </Button>
+      </div>
+      <div v-if="newCategory" class="flex min-w-0 items-end gap-2">
+        <label class="min-w-0 grow">
           {{ t('categoryName') }}
           <Input v-model="categoryName" maxlength="120" @keydown.enter.prevent="addCategory" />
         </label>
@@ -202,7 +251,6 @@ onBeforeUnmount(() => {
         </Button>
       </div>
       <p v-if="categoryNotice" role="status" class="text-sm text-emerald-700">{{ t('categoryAdded') }}</p>
-      <p v-if="loading" role="status" class="help">{{ t('loading') }}</p>
       <template v-if="!product">
         <label>
           {{ t('skuName') }}
@@ -213,25 +261,19 @@ onBeforeUnmount(() => {
           <Input v-model.number="price" type="number" min="0" max="99999999.99" step="0.01" required />
         </label>
       </template>
-      <label class="check">
-        <Checkbox v-model="featured" />
-        {{ t('featured') }}
-      </label>
     </fieldset>
     <p v-if="error" role="alert" class="text-sm text-destructive">{{ t(error) }}</p>
-    <p v-if="product && product.configuration_version === undefined" role="alert" class="text-sm text-destructive">
-      {{ t('versionRequired') }}
-    </p>
-    <div class="flex justify-end gap-2 border-t pt-4">
+    <Button v-if="product" type="submit" class="hidden" :disabled="disabled || loadingCurrentCategory">{{ t('saveChanges') }}</Button>
+    <div v-if="!product" class="flex justify-end gap-2 border-t pt-4">
       <Button type="button" variant="outline" :disabled="saving || disabled" @click="$emit('cancel')">
         {{ t('cancel') }}
       </Button>
       <Button
         type="submit"
         class="justify-self-end"
-        :disabled="saving || disabled || loading || (product && product.configuration_version === undefined)"
+        :disabled="saving || disabled || loadingCurrentCategory"
       >
-        {{ t(saving ? 'saving' : product ? 'save' : 'saveDraft') }}
+        {{ t(saving ? 'saving' : 'saveDraft') }}
       </Button>
     </div>
   </form>

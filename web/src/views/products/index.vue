@@ -19,7 +19,6 @@ import {
   getMerchantProductStats,
   listMerchantProducts,
   listMerchantSkuOptions,
-  saveMerchantProductConfig,
 } from '@/services/products'
 import { merchantStore } from '@/auth/merchant-store'
 import NewProductDialog from './components/NewProductDialog.vue'
@@ -29,8 +28,7 @@ import ProductConfigDialog from './components/ProductConfigDialog.vue'
 import SummaryMetrics from '@/components/SummaryMetrics.vue'
 import { useProductLocale } from './use-product-locale'
 import { parseProductState, productListKey, productStateQuery, type ProductFilterState } from './filter-state'
-import type { ProductConfigForm, ProductListRecord, ProductRecord, ProductStats } from './types'
-import type { ProductMessageKey } from './messages'
+import type { ProductListRecord, ProductRecord, ProductStats } from './types'
 const { locale, t, money } = useProductLocale(),
   route = useRoute(),
   router = useRouter()
@@ -49,9 +47,9 @@ const products = ref<ProductListRecord[]>([]),
 const active = ref<ProductRecord | null>(null),
   configOpen = ref(false),
   configLoading = ref(false),
-  configError = ref<ProductMessageKey>(),
-  saving = ref(false),
   choices = ref<Array<{ value: string; label: string }>>([])
+const productList = ref<HTMLElement>()
+let configTrigger: HTMLElement | undefined
 const dirty = computed(() => filters.keyword.trim() !== state.value.keyword || filters.type !== state.value.type)
 const pageCount = computed(() => Math.max(1, Math.ceil(total.value / state.value.pageSize)))
 const metrics = computed(() =>
@@ -96,7 +94,6 @@ async function load() {
 async function loadConfig() {
   const current = ++configSequence
   configLoading.value = true
-  configError.value = undefined
   active.value = null
   saved.value = false
   try {
@@ -106,41 +103,15 @@ async function loadConfig() {
       choices.value = skuOptions
     }
   } catch {
-    if (current === configSequence) configError.value = 'loadFailed'
+    if (current === configSequence) choices.value = []
   } finally {
     if (current === configSequence) configLoading.value = false
   }
 }
-async function save(payload: ProductConfigForm) {
-  if (!active.value || saving.value) return
-  const id = active.value.id
-  saving.value = true
-  configError.value = undefined
-  try {
-    await saveMerchantProductConfig(id, payload)
-    if (disposed) return
-    saved.value = true
-    await navigate({ ...state.value, productId: '' })
-    await load()
-  } catch (value) {
-    if (!disposed) {
-      const key = value instanceof Error ? value.message : ''
-      configError.value =
-        key === 'catalog.stale'
-          ? 'stale'
-          : key === 'catalog.versionRequired'
-            ? 'versionRequired'
-            : key === 'catalog.variantUnavailable'
-              ? 'unavailable'
-              : 'saveFailed'
-    }
-  } finally {
-    saving.value = false
-  }
-}
-function updated(record: ProductRecord) {
+function updated(record: ProductRecord, complete: boolean) {
+  if (disposed || selectedId !== record.id) return
   active.value = record
-  saved.value = true
+  saved.value = complete
   void load()
 }
 async function created(record: ProductRecord) {
@@ -162,7 +133,17 @@ function reset() {
   void apply()
 }
 function close(open: boolean) {
-  if (!open && !saving.value) void navigate({ ...state.value, productId: '' })
+  if (!open) void navigate({ ...state.value, productId: '' })
+}
+function configure(productId: string, event: MouseEvent) {
+  configTrigger = event.currentTarget instanceof HTMLElement ? event.currentTarget : undefined
+  void navigate({ ...state.value, productId })
+}
+function restoreConfigFocus(event: Event) {
+  event.preventDefault()
+  const target = configTrigger?.isConnected && configTrigger.getClientRects().length ? configTrigger : productList.value
+  configTrigger = undefined
+  target?.focus({ preventScroll: true })
 }
 watch(
   () => route.fullPath,
@@ -198,7 +179,7 @@ onBeforeUnmount(() => {
 })
 </script>
 <template>
-  <section class="grid min-w-0 gap-4" :lang="locale">
+  <section ref="productList" tabindex="-1" class="grid min-w-0 gap-4" :lang="locale">
     <div class="flex flex-wrap justify-end gap-2">
       <Button variant="outline" @click="categoriesOpen = true">{{ locale === 'en-US' ? 'Categories' : '分类管理' }}</Button>
       <Button @click="newProductOpen = true">{{ ct('newProduct') }}</Button>
@@ -280,7 +261,7 @@ onBeforeUnmount(() => {
               <td>
                 <TableAction :icon="Settings" :label="t('configure')"
                   :aria-label="`${t('configure')} ${product.name}`"
-                  @click="navigate({ ...state, productId: product.id })" />
+                  @click="configure(product.id, $event)" />
               </td>
             </tr>
           </tbody>
@@ -301,7 +282,7 @@ onBeforeUnmount(() => {
               <strong class="tabular-nums">{{ money(product.price) }}</strong>
               <TableAction :icon="Settings" :label="t('configure')"
                 :aria-label="`${t('configure')} ${product.name}`"
-                @click="navigate({ ...state, productId: product.id })" />
+                @click="configure(product.id, $event)" />
             </div>
           </li>
         </ul>
@@ -335,12 +316,10 @@ onBeforeUnmount(() => {
       :open="configOpen"
       :store-id="merchantStore.selectedId.value"
       :product="active"
-      :saving="saving"
       :loading="configLoading"
-      :error="configError"
       :external-sku-choices="choices"
       @update:open="close"
-      @save="save"
+      @close-auto-focus="restoreConfigFocus"
       @retry="loadConfig"
       @updated="updated"
     />

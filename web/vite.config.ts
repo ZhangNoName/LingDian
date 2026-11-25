@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import { defineConfig, type Plugin } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueInspector from 'vite-plugin-vue-inspector'
+import { holdOptionInspector, vueInspectorOptions } from '../packages/console-ui/dev/vue-inspector'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -35,13 +36,8 @@ export default defineConfig({
   publicDir: path.resolve(__dirname, "../packages/icons/public"),
   plugins: [
     vue(),
-    vueInspector({
-      toggleComboKey: 'alt',
-      toggleButtonVisibility: 'never',
-      disableInspectorOnEditorOpen: true,
-      launchEditor: 'code',
-      viteDevtools: false,
-    }),
+    vueInspector(vueInspectorOptions),
+    holdOptionInspector(),
     tailwindcss(),
     bundleSizeBudget(),
   ],

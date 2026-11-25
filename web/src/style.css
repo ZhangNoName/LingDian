@@ -4,15 +4,24 @@
 @import "../../theme/console.css";
 @source "../../packages/console-ui/src";
 
-:root {
-  --console-radius-control: 4px;
-  --console-radius-option: 0px;
-  --console-radius-overlay: 6px;
-  --console-radius-panel: 6px;
-  --console-radius-select: 0px;
-  --console-radius-table: 4px;
-  --console-radius-status: 2px;
-  --console-panel-shadow: 0 0 transparent;
+:root,
+:root.light,
+:root.dark {
+  /* shadcn-vue Neutral surfaces with the existing LingDian primary color. */
+  --ld-text-body: var(--ld-text-heading);
+  --ld-text-heading: light-dark(oklch(0.145 0 0), oklch(0.985 0 0));
+  --ld-text-muted: light-dark(oklch(0.556 0 0), oklch(0.708 0 0));
+  --ld-text-inverse: light-dark(oklch(0.985 0 0), oklch(0.205 0 0));
+  --ld-bg-page: light-dark(oklch(1 0 0), oklch(0.145 0 0));
+  --ld-bg-elevated: light-dark(oklch(1 0 0), oklch(0.205 0 0));
+  --ld-bg-muted: light-dark(oklch(0.97 0 0), oklch(0.269 0 0));
+  --ld-border-default: light-dark(oklch(0.922 0 0), oklch(1 0 0 / 10%));
+  --secondary-foreground: light-dark(oklch(0.205 0 0), oklch(0.985 0 0));
+  --destructive: light-dark(oklch(0.577 0.245 27.325), oklch(0.704 0.191 22.216));
+  --input: light-dark(oklch(0.922 0 0), oklch(1 0 0 / 15%));
+  --ring: light-dark(oklch(0.708 0 0), oklch(0.556 0 0));
+  --sidebar: light-dark(oklch(0.985 0 0), oklch(0.205 0 0));
+  --console-panel-shadow: var(--shadow-sm);
 }
 
 @layer components {
@@ -60,7 +69,13 @@
   }
 
   :where([data-slot="table-container"] > table) tbody > tr:hover {
-    background: color-mix(in oklab, var(--muted) 60%, var(--card));
+    background: color-mix(in oklab, var(--accent) 65%, var(--card));
+  }
+}
+
+@media (hover: hover) {
+  [data-slot="select-trigger"]:enabled:hover {
+    background-color: var(--accent);
   }
 }
 

@@ -18,7 +18,7 @@ description: 在 LingDian 仓库实现或审查商家端 web、平台后台 admi
 
 - 刷新、重试和导出使用 [DataActionButton](../../../web/src/components/DataActionButton.vue)。表格行内操作使用 `TableAction`，通用图标按钮使用 `IconButton`。保留原有标签、禁用条件、点击事件和导出范围，提供可访问名称和悬停提示。
 - 清理仅用于解释统计口径、数据来源、计算方式或导出范围的独立入口。保留实际可展开的业务数据、字段标签、校验、错误反馈和确认提示。业务数据展开使用共享 `Disclosure`。
-- 圆角沿用 [共享主题变量](../../../theme/console.css) 和 [商家端变量](../../../web/src/style.css)。导航、下拉框、表格行和内嵌信息区使用直角。由共享组件为常规控件、表框、浮层和卡片应用相应圆角。页面采用分隔线、留白和背景区分层次。
+- 商家端基础控件沿用 shadcn-vue New York v4 的圆角和阴影。中性底色与零点紫色主色由 [共享主题变量](../../../theme/console.css) 和 [商家端主题变量](../../../web/src/style.css) 管理。页面采用分隔线、留白和背景区分层次。
 
 ## 审查与验证
 
