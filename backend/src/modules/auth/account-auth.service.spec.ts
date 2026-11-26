@@ -115,25 +115,18 @@ test('forgot-password response does not reveal an unknown account', async () => 
   assert.equal(issueCalled, false);
 });
 
-test('merchant password reset consumes PASSWORD_RESET and revokes sessions', async () => {
+test('merchant password reset consumes PASSWORD_RESET before replacing the password', async () => {
   let consumedPurpose = '';
   let replaced: unknown[] | undefined;
-  let clearedMandatoryPassword = false;
   const accountAuth = new AccountAuthService(
-    {
-      authIdentity: { findUnique: async () => merchantAccount() },
-      user: { update: async ({ data }: { data: { mustChangePassword?: boolean } }) => {
-        clearedMandatoryPassword = data.mustChangePassword === false;
-        return {};
-      } },
-    } as never,
+    { authIdentity: { findUnique: async () => merchantAccount() } } as never,
     {
       consume: async ({ purpose }: { purpose: string }) => { consumedPurpose = purpose; },
       issue: async () => ({ messageId: 'message-1' }),
     } as never,
     {} as never,
     {
-      replace: async (...args: unknown[]) => { replaced = args; },
+      replace: async (...args: unknown[]) => { assert.equal(consumedPurpose, 'PASSWORD_RESET'); replaced = args; },
       verify: async () => true,
     } as never,
     { record: async () => undefined } as never,
@@ -144,9 +137,7 @@ test('merchant password reset consumes PASSWORD_RESET and revokes sessions', asy
     context,
   );
 
-  assert.equal(consumedPurpose, 'PASSWORD_RESET');
-  assert.deepEqual(replaced?.slice(0, 3), ['account-identity', 'replacement-password-123', 'merchant-user']);
-  assert.equal(clearedMandatoryPassword, true);
+  assert.deepEqual(replaced, ['account-identity', 'replacement-password-123', 'merchant-user', context]);
 });
 
 test('password reset gives unknown merchants the same generic failure as an invalid code', async () => {
@@ -225,8 +216,8 @@ test('password-change code is issued only for the signed-in merchant account pho
   assert.deepEqual(issued, [{ purpose: 'PASSWORD_RESET', phone: '+8613800000000', ip: '127.0.0.1', deviceId: 'web' }]);
 });
 
-test('current account password change verifies the old password and clears mandatory-change state', async () => {
-  const effects: string[] = [];
+test('current account password change verifies the old password and replaces its exact credential', async () => {
+  let replaced: unknown[] | undefined;
   const accountAuth = new AccountAuthService(
     {
       user: {
@@ -234,12 +225,14 @@ test('current account password change verifies the old password and clears manda
           id: 'admin-user', status: 'ACTIVE', sessionVersion: 1, mustChangePassword: true, roles: [],
           identities: [{ id: 'account-1', provider: 'ACCOUNT', phoneE164: null, verifiedAt: null, passwordCredential: { passwordHash: 'old-hash' } }],
         }),
-        update: async () => { effects.push('clear'); return {}; },
       },
     } as never,
     {} as never,
     {} as never,
-    { verify: async (password: string) => password === 'old-password', replace: async () => { effects.push('replace'); } } as never,
+    {
+      verify: async (password: string, hash: string) => password === 'old-password' && hash === 'old-hash',
+      replace: async (...args: unknown[]) => { replaced = args; },
+    } as never,
     { record: async () => undefined } as never,
   );
 
@@ -249,7 +242,7 @@ test('current account password change verifies the old password and clears manda
     context,
   );
 
-  assert.deepEqual(effects, ['replace', 'clear']);
+  assert.deepEqual(replaced, ['account-1', 'new-password-123', 'admin-user', context, 'old-hash']);
 });
 
 async function rejection(operation: () => Promise<unknown>): Promise<unknown> {

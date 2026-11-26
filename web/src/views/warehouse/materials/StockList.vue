@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { readMerchantViewData } from '@/lib/merchant-view-data'
 import FilterToggle from '@/components/FilterToggle.vue'
 import ListToolbar from '@/components/table/ListToolbar.vue'
 import DataActionButton from '@/components/DataActionButton.vue'
@@ -8,7 +9,7 @@ import { useRoute, useRouter } from 'vue-router'
 import type { InventoryItemContract, InventoryPage, InventoryStatus } from '@lingdian/contracts'
 import { Button } from '@lingdian/console-ui/button'
 import { Input } from '@lingdian/console-ui/input'
-import { SelectField } from '@lingdian/console-ui/select'
+import { SearchSelectField } from '@lingdian/console-ui/select'
 import { useLocale } from '@/i18n/locale'
 import { listInventory } from '@/services/inventory'
 import InventoryEditor from '../InventoryEditor.vue'
@@ -70,19 +71,21 @@ function navigate(next: StockState, selectedId = id.value, replace = false) {
   const target = { query: stockTarget(route.query, next, selectedId) }
   return replace ? router.replace(target) : router.push(target)
 }
-async function load() {
+async function load(refresh = true) {
   const token = ++sequence,
     snapshot = state.value
   loading.value = true
   failed.value = false
   try {
-    const result = await listInventory(props.storeId, {
+    const store = props.storeId
+    const filter = {
       page: snapshot.page,
       pageSize: snapshot.pageSize ?? 20,
       keyword: snapshot.keyword,
       status: snapshot.status || undefined,
       lifecycle: snapshot.lifecycle,
-    })
+    }
+    const result = await readMerchantViewData(['inventory', store, filter], () => listInventory(store, filter), refresh)
     if (token !== sequence) return
     const last = Math.max(1, Math.ceil(result.total / (snapshot.pageSize ?? 20)))
     if (snapshot.page > last) {
@@ -105,7 +108,7 @@ watch(
     status.value = next.status
     scope.value = next.lifecycle
     if (!canonicalStock(route.query, next, id.value)) await navigate(next, id.value, true)
-    if (!disposed && token === sequence) await load()
+    if (!disposed && token === sequence) await load(false)
   },
   { immediate: true },
 )
@@ -245,7 +248,7 @@ onBeforeUnmount(() => {
       <label>{{ t('search') }}<Input v-model="keyword" type="search" maxlength="120" /></label
       ><label
         >{{ lt('scope')
-        }}<SelectField
+        }}<SearchSelectField
           v-model="scope"
           :aria-label="lt('scope')"
           :disabled="loading"
@@ -257,7 +260,7 @@ onBeforeUnmount(() => {
         /></label
       ><label v-if="scope !== 'ARCHIVED'"
         >{{ t('status')
-        }}<SelectField
+        }}<SearchSelectField
           v-model="status"
           :aria-label="t('status')"
           :disabled="loading"
@@ -280,7 +283,7 @@ onBeforeUnmount(() => {
         :disabled="loading || failed || dirty || !inventory?.total"
         @click="exportPage"
       />
-      <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" />
+      <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load()" />
       <Button type="submit" form="stock-list-filters" variant="outline" :disabled="loading">{{ t('searchButton') }}</Button>
       <Button type="button" variant="ghost" :disabled="loading" @click="clear">{{ t('reset') }}</Button>
     </ListToolbar>
@@ -294,7 +297,7 @@ onBeforeUnmount(() => {
     </p>
     <div v-else-if="failed" role="alert" class="grid justify-items-start gap-3 p-8 text-sm text-destructive">
       <p>{{ t('loadFailed') }}</p>
-      <DataActionButton action="refresh" :label="t('refresh')" @click="load" />
+      <DataActionButton action="refresh" :label="t('refresh')" @click="load()" />
     </div>
     <div
       v-else-if="!inventory?.total"

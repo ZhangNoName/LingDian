@@ -93,6 +93,7 @@ test('uses exclusive account-type filters for both count and page queries', asyn
 test('disabling an account revokes sessions and increments its session version', async () => {
   const writes: string[] = [];
   const tx = {
+    $queryRaw: async () => [],
     user: {
       findUnique: async () => ({ id: 'target', roles: [{ role: 'USER', status: 'ACTIVE', scopeType: 'GLOBAL', scopeId: '' }], identities: [{ id: 'account-1', provider: 'ACCOUNT' }, { id: 'phone-1', provider: 'PHONE' }] }),
       update: async () => { writes.push('user'); return {}; },
@@ -136,6 +137,7 @@ test('creates a platform account with global roles and store-scoped merchant ass
 test('editing roles revokes sessions so stale authority cannot continue', async () => {
   const writes: string[] = [];
   const tx = {
+    $queryRaw: async () => [],
     store: { findMany: async () => [{ id: 'store-1' }] },
     user: {
       findUnique: async () => ({ id: 'target', roles: [{ role: 'USER', status: 'ACTIVE', scopeType: 'GLOBAL', scopeId: '' }], identities: [{ id: 'account-1', provider: 'ACCOUNT' }, { id: 'phone-1', provider: 'PHONE' }] }),
@@ -154,9 +156,56 @@ test('editing roles revokes sessions so stale authority cannot continue', async 
   assert.deepEqual(writes, ['user', 'roles-delete', 'roles-create', 'sessions', 'audit']);
 });
 
+test('a phone-only customer gets merchant authorization and a temporary login on the same user', async () => {
+  const writes: string[] = [];
+  const tx = {
+    $queryRaw: async (_query: TemplateStringsArray, id: string) => { assert.equal(id, 'customer'); writes.push('lock'); },
+    store: { findMany: async () => [{ id: 'store-1' }] },
+    user: {
+      findUnique: async () => ({ id: 'customer', roles: [{ role: 'USER', status: 'ACTIVE' }], identities: [{ provider: 'PHONE', id: 'phone-1' }] }),
+      update: async ({ data }: { data: unknown }) => {
+        assert.deepEqual(data, { nickname: undefined, mustChangePassword: true, sessionVersion: { increment: 1 } });
+        writes.push('user');
+      },
+    },
+    authIdentity: { create: async ({ data }: { data: unknown }) => {
+      assert.deepEqual(data, { userId: 'customer', provider: 'ACCOUNT', subject: 'new-merchant', accountName: 'new-merchant',
+        passwordCredential: { create: { passwordHash: 'hash' } } });
+      writes.push('credential');
+    } },
+    userRoleAssignment: {
+      deleteMany: async () => writes.push('roles-delete'),
+      createMany: async ({ data }: { data: unknown }) => {
+        assert.deepEqual(data, [
+          { userId: 'customer', role: 'USER', scopeId: '', scopeType: 'GLOBAL' },
+          { userId: 'customer', role: 'MERCHANT', scopeId: 'store-1', scopeType: 'STORE' },
+        ]);
+        writes.push('roles-create');
+      },
+    },
+    authSession: { updateMany: async () => writes.push('sessions') },
+    authAuditLog: { create: async ({ data }: { data: { metadata: unknown } }) => {
+      assert.deepEqual(data.metadata, { operatorId: 'operator', rolesChanged: true, scopeChanged: true, accountAdded: true });
+      writes.push('audit');
+    } },
+  };
+  const service = new AdminUsersService(
+    { $transaction: async (work: (client: typeof tx) => Promise<unknown>) => work(tx) } as never,
+    { hash: async () => 'hash' } as never, storeContext as never,
+  );
+  const operator = { userId: 'operator', roles: ['ADMIN'] } as never;
+  const assignment = { roles: ['USER', 'MERCHANT'] as ['USER', 'MERCHANT'], storeIds: ['store-1'] };
+  await assert.rejects(service.update(operator, 'customer', assignment), /同时设置登录账号和临时密码/);
+  assert.deepEqual(writes, ['lock']);
+  writes.length = 0;
+  await service.update(operator, 'customer', { ...assignment, username: 'New-Merchant', password: 'temporary-pass-123' });
+  assert.deepEqual(writes, ['lock', 'user', 'credential', 'roles-delete', 'roles-create', 'sessions', 'audit']);
+});
+
 test('administrator password reset forces next-login change and revokes sessions', async () => {
   const writes: string[] = [];
   const tx = {
+    $queryRaw: async () => [],
     user: {
       findUnique: async () => ({ id: 'target', roles: [{ role: 'USER', status: 'ACTIVE', scopeType: 'GLOBAL', scopeId: '' }], identities: [{ id: 'identity-1', provider: 'ACCOUNT' }] }),
       update: async () => { writes.push('user'); return {}; },

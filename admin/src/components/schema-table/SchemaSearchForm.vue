@@ -1,7 +1,7 @@
 <script setup lang="ts" generic="Row extends object">
 import { ComboboxField } from '@lingdian/console-ui/combobox'
 import { Input } from '@lingdian/console-ui/input'
-import { SelectField } from '@lingdian/console-ui/select'
+import { SearchSelectField } from '@lingdian/console-ui/select'
 import { ArrowDown, ArrowUp } from '@lingdian/icons/admin'
 import { computed, onMounted, ref, watch } from 'vue'
 import { Button } from '@lingdian/console-ui/button'
@@ -123,7 +123,7 @@ watch(() => props.columns, loadOptions)
             :options="choices(column)"
             @update:model-value="updateChoice(column, $event)"
           />
-          <SelectField
+          <SearchSelectField
             v-else-if="column.searchType === 'select'"
             :model-value="JSON.stringify(query[queryKey(column)]) ?? ''"
             :aria-labelledby="`schema-label-${columnKey(column)}`"

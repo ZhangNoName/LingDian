@@ -6,7 +6,7 @@ import { validate } from 'class-validator';
 import { AccessTokenGuard } from '../../common/auth/access-token.guard';
 import { UserApiGuard } from '../../common/auth/user-api.guard';
 import { AddressesController } from './addresses.controller';
-import { CreateAddressDto } from './dto/create-address.dto';
+import { CreateAddressDto, UpdateAddressDto } from './dto/create-address.dto';
 
 test('address DTO validates required fields, lengths, and Chinese mobile numbers', async () => {
   const invalid = plainToInstance(CreateAddressDto, {
@@ -20,6 +20,10 @@ test('address DTO validates required fields, lengths, and Chinese mobile numbers
 
   assert.ok((await validate(invalid)).length >= 5);
   assert.deepEqual(await validate(valid), []);
+  assert.ok((await validate(plainToInstance(UpdateAddressDto, valid))).some((item) => item.property === 'expectedUpdatedAt'));
+  assert.deepEqual(await validate(plainToInstance(UpdateAddressDto, {
+    ...valid, expectedUpdatedAt: '2026-11-25T18:00:00.001Z',
+  })), []);
 });
 
 test('all address routes require access-token and user-api guards', () => {
@@ -33,6 +37,7 @@ test('address routes scope every operation to the authenticated user', async () 
   const service = {
     list: async (...args: unknown[]) => { calls.push(['list', ...args]); return []; },
     create: async (...args: unknown[]) => { calls.push(['create', ...args]); return { id: 'address-1' }; },
+    update: async (...args: unknown[]) => { calls.push(['update', ...args]); return { id: 'address-1' }; },
     setDefault: async (...args: unknown[]) => { calls.push(['default', ...args]); return { id: 'address-1' }; },
     remove: async (...args: unknown[]) => { calls.push(['remove', ...args]); },
   };
@@ -42,15 +47,18 @@ test('address routes scope every operation to the authenticated user', async () 
     recipientName: '张三', phoneNumber: '13800000000', provinceName: '北京市', cityName: '北京市', countyName: '西城区',
     streetName: '太平街', detailInfo: '甲6号', postalCode: '', nationalCode: '',
   });
+  const update = plainToInstance(UpdateAddressDto, { ...input, expectedUpdatedAt: '2026-11-25T18:00:00.001Z' });
 
   await controller.list(user);
   await controller.create(user, input);
+  await controller.update(user, 'address-1', update);
   await controller.setDefault(user, 'address-1');
   await controller.remove(user, 'address-1');
 
   assert.deepEqual(calls, [
     ['list', 'user-1'],
     ['create', 'user-1', input],
+    ['update', 'user-1', 'address-1', update],
     ['default', 'user-1', 'address-1'],
     ['remove', 'user-1', 'address-1'],
   ]);

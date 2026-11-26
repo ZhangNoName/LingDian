@@ -1,3 +1,4 @@
+import type { OrderSource } from "@lingdian/contracts";
 import type { CartItem } from "./cart";
 import type { ServiceMode, StoreSummary } from "./store";
 
@@ -14,12 +15,7 @@ export type OrderStatus =
   | "refunded"
   | "unknown";
 
-export type OrderSource =
-  | "MINIAPP"
-  | "MEITUAN_WAIMAI"
-  | "JD_DAOJIA"
-  | "POS"
-  | "MANUAL";
+export type { OrderSource };
 
 export type OrderSummary = {
   id: string;

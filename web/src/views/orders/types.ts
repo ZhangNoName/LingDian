@@ -47,5 +47,9 @@ export type OrderFilters = {
 export type OrderStatusAction = {
   label: string
   value: OrderStatus
-  type?: 'primary' | 'success' | 'warning' | 'danger' | 'info'
+}
+
+export type OrderQuickAction = {
+  label: string
+  value: OrderStatus | 'WECHAT_PAYMENT'
 }

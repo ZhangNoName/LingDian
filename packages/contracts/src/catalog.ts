@@ -115,6 +115,7 @@ export type ProductInputContract = {
 
 export type MenuContract = {
   paymentRequired?: boolean;
+  storeSelectionEnabled?: boolean;
   store: {
     id: string;
     code?: string;
@@ -132,6 +133,8 @@ export type MenuContract = {
     products: ProductRecordContract[];
   }>;
 };
+
+export type PublicMenuStore = Pick<MenuContract['store'], 'id' | 'name' | 'status' | 'businessHours'>;
 
 export type ProductConfigVariantContract = {
   id?: string;

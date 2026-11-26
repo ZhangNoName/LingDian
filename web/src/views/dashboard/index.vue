@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { readMerchantViewData } from '@/lib/merchant-view-data'
 import FilterToggle from '@/components/FilterToggle.vue'
 import MerchantDatePicker from '@/components/MerchantDatePicker.vue'
 import DataActionButton from '@/components/DataActionButton.vue'
@@ -52,9 +53,13 @@ const tasks = computed(() => [
   { key: 'expiredStockHoldOrders' as const, route: { path: '/warehouse', query: { view: 'holds' } } },
 ])
 let sequence = 0
-async function load() {
+async function load(refresh = true) {
   const current = ++sequence; loading.value = true; error.value = undefined
-  try { const data = await getMerchantDashboard(period.value); if (current === sequence) result.value = data }
+  try {
+    const range = period.value
+    const data = await readMerchantViewData(['dashboard', range.startAt, range.endAt], () => getMerchantDashboard(range), refresh)
+    if (current === sequence) result.value = data
+  }
   catch (value) { if (current === sequence) error.value = value instanceof Error && value.message === 'dashboard.tooLarge' ? 'tooLarge' : 'failure' }
   finally { if (current === sequence) loading.value = false }
 }
@@ -76,7 +81,7 @@ function exportSnapshot() {
 watch(() => [route.query.startAt, route.query.endAt], () => {
   period.value = parseDashboardPeriod(route.query); from.value = dateInput(new Date(period.value.startAt)); to.value = dateInput(new Date(Date.parse(period.value.endAt) - 1))
   if (route.query.startAt !== period.value.startAt || route.query.endAt !== period.value.endAt) { void router.replace({ query: period.value }); return }
-  void load()
+  void load(false)
 }, { immediate: true })
 onBeforeUnmount(() => { sequence++ })
 </script>
@@ -107,7 +112,7 @@ onBeforeUnmount(() => { sequence++ })
           <FilterToggle v-model="filtersOpen" controls="dashboard-filters" class="sm:hidden">{{ t('filters') }}</FilterToggle>
         </template>
         <DataActionButton action="export" :label="t('export')" :disabled="loading || dirty || !!error" @click="exportSnapshot" />
-        <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" />
+        <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load()" />
         <Button type="submit" form="dashboard-filters" variant="outline" :disabled="loading">{{ t('apply') }}</Button>
         <Button type="button" variant="ghost" :disabled="loading" @click="preset(7)">{{ t('reset') }}</Button>
       </ListToolbar>
@@ -116,7 +121,7 @@ onBeforeUnmount(() => { sequence++ })
     <p v-if="loading" role="status" class="p-8 text-center text-muted-foreground">{{ t('loading') }}</p>
     <Card v-else-if="error" role="alert" class="items-start gap-3 p-6 text-sm">
       <p>{{ t(error) }}</p>
-      <DataActionButton action="refresh" :label="t('refresh')" @click="load" />
+      <DataActionButton action="refresh" :label="t('refresh')" @click="load()" />
     </Card>
     <template v-else-if="result">
       <dl class="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">

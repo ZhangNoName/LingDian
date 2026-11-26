@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { readMerchantViewData } from '@/lib/merchant-view-data'
 import FilterToggle from '@/components/FilterToggle.vue'
 import MerchantDatePicker from '@/components/MerchantDatePicker.vue'
 import DataActionButton from '@/components/DataActionButton.vue'
@@ -12,7 +13,7 @@ import type { PurchaseDeliveryFilter, PurchaseRecord, SupplierRecord, Replenishm
 import { Badge, type BadgeVariants } from '@lingdian/console-ui/badge'
 import { Button } from '@lingdian/console-ui/button'
 import { Input } from '@lingdian/console-ui/input'
-import { SelectField } from '@lingdian/console-ui/select'
+import { SearchSelectField } from '@lingdian/console-ui/select'
 import { Table } from '@lingdian/console-ui/table'
 import { useWarehouseViewLock } from '@/config/warehouse-view-lock'
 import { purchaseList, supplierList } from '@/services/purchasing'
@@ -95,19 +96,29 @@ function navigate(next: PurchasingListState, replace = false) {
   const target = { query: listTarget(route.query, next, view.value === 'suppliers') }
   return replace ? router.replace(target) : router.push(target)
 }
-async function load() {
+async function load(refresh = true) {
   const current = ++sequence,
     state = listState.value,
     isOrders = view.value === 'orders'
   loading.value = true
   failed.value = false
   try {
+    const store = props.storeId
+    const pending = pendingItemId.value
     const result = isOrders
-      ? await purchaseList(props.storeId, state.page, state.keyword, state.status, pendingItemId.value, {
-          delivery: state.delivery,
-          ...(state.delivery === 'BEFORE' ? { expectedBefore: state.expectedBefore } : {}),
-        }, state.pageSize)
-      : await supplierList(props.storeId, state.page, state.keyword, false, state.pageSize)
+      ? await readMerchantViewData(
+          ['purchase-orders', store, state, pending],
+          () => purchaseList(store, state.page, state.keyword, state.status, pending, {
+            delivery: state.delivery,
+            ...(state.delivery === 'BEFORE' ? { expectedBefore: state.expectedBefore } : {}),
+          }, state.pageSize),
+          refresh,
+        )
+      : await readMerchantViewData(
+          ['suppliers', store, state.page, state.keyword, state.pageSize],
+          () => supplierList(store, state.page, state.keyword, false, state.pageSize),
+          refresh,
+        )
     if (current !== sequence) return
     const last = Math.max(1, Math.ceil(result.total / (state.pageSize ?? 20)))
     if (state.page > last) {
@@ -140,7 +151,7 @@ watch(
     }
     if (!isCanonicalList(route.query, state, view.value === 'suppliers'))
       await router.replace({ query: listTarget(route.query, state, view.value === 'suppliers') })
-    if (current === sequence && !disposed && props.storeId) await load()
+    if (current === sequence && !disposed && props.storeId) await load(false)
   },
   { immediate: true },
 )
@@ -318,7 +329,7 @@ onBeforeUnmount(() => {
         </label>
         <label v-if="view === 'orders' && !pendingItemId">
           <span>{{ t('status') }}</span>
-          <SelectField
+          <SearchSelectField
             v-model="status"
             :aria-label="t('status')"
             :disabled="loading || delivery !== 'ALL'"
@@ -331,7 +342,7 @@ onBeforeUnmount(() => {
         </label>
         <label v-if="view === 'orders'"
           >{{ t('deliveryFilter')
-          }}<SelectField
+          }}<SearchSelectField
             v-model="delivery"
             :aria-label="t('deliveryFilter')"
             :disabled="loading"
@@ -358,7 +369,7 @@ onBeforeUnmount(() => {
           :disabled="loading || failed || !orders.length || dirty"
           @click="exportPage"
         />
-        <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" />
+        <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load()" />
         <Button type="submit" form="purchase-filters" variant="outline" :disabled="loading">{{ t('find') }}</Button>
         <Button type="button" variant="ghost" :disabled="loading" @click="resetFilters">{{ t('reset') }}</Button>
       </ListToolbar>
@@ -374,7 +385,7 @@ onBeforeUnmount(() => {
       <p v-if="loading" role="status" class="help py-6 text-center">{{ t('loading') }}</p>
       <div v-else-if="failed" role="alert">
         <p>{{ t('failed') }}</p>
-        <DataActionButton action="refresh" :label="t('refresh')" @click="load" />
+        <DataActionButton action="refresh" :label="t('refresh')" @click="load()" />
       </div>
       <p v-else-if="!total && view === 'orders'" class="help py-8 text-center">{{ t('empty') }}</p>
       <template v-else-if="view === 'orders'">

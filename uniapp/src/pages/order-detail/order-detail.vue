@@ -24,6 +24,12 @@
             <text v-if="statusHint" class="status-hint">{{ statusHint }}</text>
           </view>
           <view v-if="detail.rewardPoints != null" class="reward">本单获得{{ detail.rewardPoints }}积分</view>
+          <view v-if="pickupSubscription" class="pickup-subscription">
+            <text v-if="pickupSubscription.subscribed" role="status" class="status-hint">已订阅取餐提醒</text>
+            <AppActionButton v-else variant="outline" size="small" :loading="subscribing" @activate="subscribePickup">
+              订阅取餐提醒
+            </AppActionButton>
+          </view>
         </view>
 
         <OrderDetailGoodsCard :detail="detail" />
@@ -52,8 +58,13 @@ import { fetchOrderDetail } from "@/services/orders";
 import { customerAuth } from "@/services/auth";
 import { navigateBackOrRedirect, requireCustomerAuth } from "@/services/auth-navigation";
 import type { OrderDetail } from "@/types/order";
+import { miniProgramAuthProvider } from "@/config/platform";
+import type { OrderPickupSubscription } from "@lingdian/contracts";
+import { getPickupSubscription, subscribeToPickup } from "@/services/pickup-notification";
 
 const detail = ref<OrderDetail | null>(null);
+const pickupSubscription = ref<OrderPickupSubscription | null>(null);
+const subscribing = ref(false);
 const statusHint = computed(() => {
   if (detail.value?.pickupCardCode && detail.value.status === "ready" && detail.value.serviceMode !== "delivery") {
     return "请向店员出示取餐码。";
@@ -99,7 +110,10 @@ onHide(() => { sequence++; loading.value = false; });
 
 async function loadDetail() {
   if (loading.value) return;
-  if (!customerAuth.isSignedIn() || detailSession !== customerAuth.getSessionVersion()) detail.value = null;
+  if (!customerAuth.isSignedIn() || detailSession !== customerAuth.getSessionVersion()) {
+    detail.value = null;
+    pickupSubscription.value = null;
+  }
   const current = ++sequence;
   loading.value = true;
   loadError.value = "";
@@ -111,6 +125,17 @@ async function loadDetail() {
     if (current !== sequence || session !== customerAuth.getSessionVersion()) return;
     detail.value = result;
     detailSession = session;
+    if (miniProgramAuthProvider() === "WECHAT" && result.serviceMode !== "delivery" &&
+        result.orderSource === "MINIAPP" && result.pickupCardCode &&
+        ["pendingPay", "paid", "making", "ready"].includes(result.status)) {
+      void getPickupSubscription(result.id).then(subscription => {
+        if (current === sequence && session === customerAuth.getSessionVersion() && !pickupSubscription.value?.subscribed) {
+          pickupSubscription.value = subscription;
+        }
+      }).catch(() => undefined);
+    } else {
+      pickupSubscription.value = null;
+    }
   } catch (error) {
     if (current === sequence) {
       if (detailSession !== customerAuth.getSessionVersion()) detail.value = null;
@@ -120,6 +145,23 @@ async function loadDetail() {
     }
   } finally {
     if (current === sequence) loading.value = false;
+  }
+}
+
+async function subscribePickup() {
+  const order = detail.value;
+  const subscription = pickupSubscription.value;
+  if (!order || !subscription || subscription.subscribed || subscribing.value) return;
+  subscribing.value = true;
+  try {
+    const result = await subscribeToPickup(order.id, subscription.template_id);
+    if (result && detail.value?.id === order.id && detailSession === customerAuth.getSessionVersion()) {
+      pickupSubscription.value = result;
+    }
+  } catch (error) {
+    uni.showToast({ title: error instanceof Error ? error.message : "取餐提醒订阅失败，请重试", icon: "none" });
+  } finally {
+    subscribing.value = false;
   }
 }
 
@@ -160,6 +202,10 @@ function goMenu() {
   color: var(--ld-mini-text-muted);
   font-size: var(--ld-font-base);
   line-height: 1.5;
+}
+
+.pickup-subscription {
+  margin-top: 16rpx;
 }
 
 .pickup-card {

@@ -50,6 +50,7 @@ export class AdminUsersService {
 
   async setStatus(operator: AuthenticatedUser, userId: string, status: PlatformUserStatus): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
+      await lockUser(tx, userId);
       const target = await tx.user.findUnique({ where: { id: userId }, include: { roles: true } });
       if (!target) throw new NotFoundException('User not found.');
       const roles = target.roles.filter((role) => role.status === 'ACTIVE').map((role) => role.role as AuthRole);
@@ -89,6 +90,7 @@ export class AdminUsersService {
 
   async update(operator: AuthenticatedUser, userId: string, input: UpdatePlatformUserRequest): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
+      await lockUser(tx, userId);
       const target = await tx.user.findUnique({ where: { id: userId }, include: { roles: true, identities: true } });
       if (!target) throw new NotFoundException('User not found.');
       const currentRoles = target.roles.filter((role) => role.status === 'ACTIVE').map((role) => role.role as AuthRole);
@@ -101,23 +103,49 @@ export class AdminUsersService {
       AdminUserPolicy.assertCanManage(operator.roles, currentRoles, input.roles ? requestedRoles : undefined, operator.userId === userId);
       await assertStoresExist(tx, requestedRoles, storeIds);
 
-      await tx.user.update({ where: { id: userId }, data: { nickname: input.nickname === undefined ? undefined : input.nickname.trim() || null, ...(input.roles || input.storeIds ? { sessionVersion: { increment: 1 } } : {}) } });
       const account = target.identities.find((identity) => identity.provider === 'ACCOUNT');
       const phone = target.identities.find((identity) => identity.provider === 'PHONE');
-      if (input.username !== undefined && account) { const username = normalizeAccountName(input.username); await tx.authIdentity.update({ where: { id: account.id }, data: { subject: username, accountName: username } }); }
+      const username = input.username == null ? undefined : normalizeAccountName(input.username);
+      const hasPassword = input.password != null;
+      if (hasPassword && account) throw new BadRequestException('已有登录账号，请使用重置密码。');
+      const needsMerchantAccount = requestedRoles.includes('MERCHANT') && !currentRoles.includes('MERCHANT') && !account;
+      const credentials = !account && username && input.password != null ? { username, password: input.password } : undefined;
+      if (!account && (needsMerchantAccount || username !== undefined || hasPassword)
+        && (!requestedRoles.includes('MERCHANT') || !credentials)) {
+        throw new BadRequestException('请为商家身份同时设置登录账号和临时密码。');
+      }
+      const addingAccount = !!credentials;
+      const revokeSessions = Boolean(input.roles || input.storeIds || addingAccount);
+      await tx.user.update({ where: { id: userId }, data: {
+        nickname: input.nickname === undefined ? undefined : input.nickname.trim() || null,
+        ...(revokeSessions ? { sessionVersion: { increment: 1 } } : {}),
+        ...(addingAccount ? { mustChangePassword: true } : {}),
+      } });
+      if (credentials) {
+        const passwordHash = await this.passwords.hash(credentials.password);
+        await tx.authIdentity.create({ data: {
+          userId, provider: 'ACCOUNT', subject: credentials.username, accountName: credentials.username,
+          passwordCredential: { create: { passwordHash } },
+        } });
+      } else if (username !== undefined && account) {
+        await tx.authIdentity.update({ where: { id: account.id }, data: { subject: username, accountName: username } });
+      }
       if (input.phone !== undefined && phone) { const phoneE164 = normalizeChinesePhone(input.phone); await tx.authIdentity.update({ where: { id: phone.id }, data: { subject: phoneE164, phoneE164 } }); }
       if (input.roles || input.storeIds) {
         await tx.userRoleAssignment.deleteMany({ where: { userId } });
         await tx.userRoleAssignment.createMany({ data: roleAssignments(requestedRoles, storeIds).map((assignment) => ({ userId, ...assignment })) });
-        await tx.authSession.updateMany({ where: { userId, status: 'ACTIVE' }, data: { status: 'REVOKED', activeDeviceKey: null, revokedAt: new Date() } });
       }
-      await tx.authAuditLog.create({ data: { event: 'ADMIN_USER_UPDATED', userId, metadata: { operatorId: operator.userId, rolesChanged: Boolean(input.roles), scopeChanged: Boolean(input.storeIds) } } });
+      if (revokeSessions) await tx.authSession.updateMany({ where: { userId, status: 'ACTIVE' }, data: { status: 'REVOKED', activeDeviceKey: null, revokedAt: new Date() } });
+      await tx.authAuditLog.create({ data: { event: 'ADMIN_USER_UPDATED', userId, metadata: {
+        operatorId: operator.userId, rolesChanged: Boolean(input.roles), scopeChanged: Boolean(input.storeIds), accountAdded: addingAccount,
+      } } });
     });
   }
 
   async resetPassword(operator: AuthenticatedUser, userId: string, password: string): Promise<void> {
     const passwordHash = await this.passwords.hash(password);
     await this.prisma.$transaction(async (tx) => {
+      await lockUser(tx, userId);
       const target = await tx.user.findUnique({ where: { id: userId }, include: { roles: true, identities: true } });
       if (!target) throw new NotFoundException('User not found.');
       const roles = target.roles.filter((role) => role.status === 'ACTIVE').map((role) => role.role as AuthRole);
@@ -180,6 +208,10 @@ export class AdminUsersService {
       createdAt: user.createdAt.toISOString(),
     };
   }
+}
+
+async function lockUser(tx: Prisma.TransactionClient, userId: string) {
+  await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId} FOR UPDATE`;
 }
 
 function normalizeAccountName(value: string): string {

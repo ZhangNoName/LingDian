@@ -10,10 +10,11 @@ import { useRoute, useRouter } from 'vue-router'
 import type { InventoryMovementKind, InventoryMovementPage, InventoryPeriodReport, InventoryReportRow } from '@lingdian/contracts'
 import { Button } from '@lingdian/console-ui/button'
 import { Input } from '@lingdian/console-ui/input'
-import { SelectField } from '@lingdian/console-ui/select'
+import { SearchSelectField } from '@lingdian/console-ui/select'
 import { Table } from '@lingdian/console-ui/table'
 import { useLocale } from '@/i18n/locale'
 import { useWarehouseViewLock } from '@/config/warehouse-view-lock'
+import { hasMerchantViewData, readMerchantViewData } from '@/lib/merchant-view-data'
 import { getInventoryReport, listInventoryMovements } from '@/services/inventory'
 import { activityQuery, dateInput, defaultActivityState, movementKinds, parseActivityState, editedActivityPeriod, sameActivityQuery, type ActivityState } from './activity-state'
 import { en, zh, type MessageKey } from './messages'
@@ -74,7 +75,7 @@ function syncDraft(applied: ActivityState) {
   kind.value = applied.kind
 }
 useWarehouseViewLock(() => props.mode === 'report' && !trendMode.value && (loading.value || dirty.value))
-let sequence = 0, reportKey = ''
+let sequence = 0
 
 async function navigate(next: ActivityState, replace = false) {
   const target = { query: viewQuery(next) }
@@ -91,17 +92,22 @@ async function load(force = false) {
   if (trendMode.value) { loading.value = false; return }
   errorKey.value = ''
   const applied = state.value
-  const key = JSON.stringify({ ...applied, page: 1, pageSize: undefined, kind: '' })
-  if (props.mode === 'report' && !force && report.value && key === reportKey) { loading.value = false; return }
-  loading.value = true
+  const store = props.storeId
+  const filter = { startAt: applied.startAt, endAt: applied.endAt, itemId: applied.itemId || undefined, keyword: applied.keyword || undefined }
+  const reportKey = ['inventory-report', store, filter]
+  loading.value = props.mode === 'history' || force || !hasMerchantViewData(reportKey)
   try {
-    const filter = { startAt: applied.startAt, endAt: applied.endAt, itemId: applied.itemId || undefined, keyword: applied.keyword || undefined }
     if (props.mode === 'report') {
-      const result = await getInventoryReport(props.storeId, filter)
+      const result = await readMerchantViewData(reportKey, () => getInventoryReport(store, filter), force)
       if (current !== sequence) return
-      report.value = result; reportKey = key
+      report.value = result
     } else {
-      const result = await listInventoryMovements(props.storeId, applied.page, { ...filter, kind: applied.kind || undefined }, applied.pageSize)
+      const historyFilter = { ...filter, kind: applied.kind || undefined }
+      const result = await readMerchantViewData(
+        ['inventory-movements', store, historyFilter, applied.page, applied.pageSize],
+        () => listInventoryMovements(store, applied.page, historyFilter, applied.pageSize),
+        force,
+      )
       if (current !== sequence) return
       history.value = result
     }
@@ -149,7 +155,7 @@ onBeforeUnmount(() => { sequence++ })
     <form id="inventory-activity-filters" class="flex flex-wrap items-end gap-3 px-4 pt-4" @submit.prevent="apply">
       <MerchantDatePicker :label="t('from')" v-model="from" required />
       <MerchantDatePicker :label="t('to')" v-model="to" required :min="from" />
-      <label v-if="mode === 'history'">{{ t('operation') }}<SelectField
+      <label v-if="mode === 'history'">{{ t('operation') }}<SearchSelectField
           v-model="kind"
           :aria-label="t('operation')"
           :options="[

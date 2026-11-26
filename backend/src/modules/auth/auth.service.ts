@@ -18,6 +18,7 @@ type AuthUser = {
 };
 
 const PHONE_USER_TRANSACTION_MAX_ATTEMPTS = 3;
+type PhoneLoginOptions = { expectedUserId?: string; requireCustomerRole?: boolean; legalConsentChannel?: 'mobile' };
 
 @Injectable()
 export class AuthService {
@@ -29,14 +30,14 @@ export class AuthService {
     private readonly legalConsent: LegalConsentService,
   ) {}
 
-  async phoneLogin(input: PhoneLoginRequest, context: AuthRequestContext): Promise<SessionTokens> {
+  async phoneLogin(input: PhoneLoginRequest, context: AuthRequestContext, options: PhoneLoginOptions = {}): Promise<SessionTokens> {
     try {
-      this.legalConsent.assertCurrentForAudience(input.audience, input.legalConsent);
+      this.legalConsent.assertCurrentForAudience(input.audience, input.legalConsent, options.legalConsentChannel);
       const purpose = input.audience === 'admin-api' ? 'ADMIN_LOGIN' : 'PHONE_LOGIN';
       await this.verification.consume({ purpose, phone: input.phone, code: input.code });
 
       const phoneE164 = normalizeChinesePhone(input.phone);
-      return await this.createPhoneLoginSession(phoneE164, input, context);
+      return await this.createPhoneLoginSession(phoneE164, input, context, options);
     } catch (error) {
       await this.audit?.record({ event: 'PHONE_LOGIN_REJECTED', ip: context.ip, device: context.deviceId, metadata: { audience: input.audience, phone: maskPhone(input.phone), reason: error instanceof Error ? error.name : 'unknown' } });
       throw error;
@@ -47,11 +48,12 @@ export class AuthService {
     phoneE164: string,
     input: PhoneLoginRequest,
     context: AuthRequestContext,
+    options: PhoneLoginOptions,
   ): Promise<SessionTokens> {
     for (let attempt = 1; attempt <= PHONE_USER_TRANSACTION_MAX_ATTEMPTS; attempt += 1) {
       try {
         return await this.prisma.$transaction(
-          (tx) => this.createPhoneLoginSessionInTransaction(tx, phoneE164, input, context),
+          (tx) => this.createPhoneLoginSessionInTransaction(tx, phoneE164, input, context, options),
           { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
         );
       } catch (error) {
@@ -71,8 +73,12 @@ export class AuthService {
     phoneE164: string,
     input: PhoneLoginRequest,
     context: AuthRequestContext,
+    options: PhoneLoginOptions,
   ): Promise<SessionTokens> {
     const existingUser = await this.findPhoneUser(tx, phoneE164);
+    if (options.expectedUserId && existingUser?.id !== options.expectedUserId) {
+      throw new ForbiddenException('The verified phone does not belong to the current account.');
+    }
     let user = existingUser;
 
     if (!user) {
@@ -98,6 +104,9 @@ export class AuthService {
     }
 
     if (input.audience === 'user-api') {
+      if (options.requireCustomerRole && !roles.includes('USER')) {
+        throw new ForbiddenException('Customer role required.');
+      }
       await this.legalConsent.record(user.id, input.legalConsent!, context, tx);
     }
     const tokens = await this.sessions.create(

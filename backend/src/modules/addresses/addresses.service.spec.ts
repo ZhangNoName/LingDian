@@ -47,9 +47,9 @@ class AddressPersistence {
       return { count: matched.length };
     };
     this.userAddress.update = async ({ where, data }: any) => {
-      const row = this.rows.find((candidate) => candidate.id === where.id);
+      const row = this.rows.find((candidate) => this.matches(candidate, where));
       if (!row) throw new Error('missing row');
-      Object.assign(row, data, { updatedAt: new Date() });
+      Object.assign(row, { updatedAt: new Date(), ...data });
       return row;
     };
     this.userAddress.delete = async ({ where }: any) => {
@@ -130,13 +130,47 @@ test('deleting the default address promotes the most recently updated remaining 
   assert.equal(persistence.rows.find((row) => row.id === second.id)?.isDefault, true);
 });
 
-test('address ownership is enforced for lookup, defaulting, and deletion', async () => {
+test('address ownership is enforced for lookup, editing, defaulting, and deletion', async () => {
   const persistence = new AddressPersistence();
   const service = new AddressesService(persistence as never);
   const address = await service.create('user-1', addressInput);
 
   await assert.rejects(() => service.findOwnedAddress('user-2', address.id), /not found/i);
+  await assert.rejects(() => service.update('user-2', address.id, { ...addressInput, expectedUpdatedAt: address.updatedAt }), /not found/i);
   await assert.rejects(() => service.setDefault('user-2', address.id), /not found/i);
   await assert.rejects(() => service.remove('user-2', address.id), /not found/i);
   assert.equal(persistence.rows.length, 1);
+});
+
+test('editing preserves the address identity and default, handles a repeated request, and rejects a stale write', async () => {
+  const persistence = new AddressPersistence();
+  const service = new AddressesService(persistence as never);
+  const saved = await service.create('user-1', addressInput);
+  const change = { ...addressInput, expectedUpdatedAt: saved.updatedAt, detailInfo: ' 丙9号 ' };
+  const updated = await service.update('user-1', saved.id, change);
+  assert.equal(updated.id, saved.id);
+  assert.equal(updated.isDefault, true);
+  assert.equal(updated.createdAt, saved.createdAt);
+  assert.equal(updated.nationalCode, '110102');
+  assert.equal(updated.detailInfo, '丙9号');
+  assert.ok(updated.updatedAt > saved.updatedAt);
+  assert.deepEqual(await service.update('user-1', saved.id, change), updated);
+  await assert.rejects(service.update('user-1', saved.id, { ...change, detailInfo: '丁10号' }), {
+    status: 409, message: '这条地址已更新，请加载最新地址。',
+  });
+  assert.deepEqual(await service.list('user-1'), [updated]);
+});
+
+test('editing rejects a duplicate or an empty required field without changing the saved address', async () => {
+  const persistence = new AddressPersistence();
+  const service = new AddressesService(persistence as never);
+  const saved = await service.create('user-1', addressInput);
+  await service.create('user-1', { ...addressInput, detailInfo: '乙8号' });
+  await assert.rejects(service.update('user-1', saved.id, {
+    ...addressInput, expectedUpdatedAt: saved.updatedAt, detailInfo: '乙8号',
+  }), { status: 409, message: '地址簿中已有相同的地址。' });
+  await assert.rejects(service.update('user-1', saved.id, {
+    ...addressInput, expectedUpdatedAt: saved.updatedAt, detailInfo: ' ',
+  }), { status: 400 });
+  assert.deepEqual(await service.findOwnedAddress('user-1', saved.id), saved);
 });

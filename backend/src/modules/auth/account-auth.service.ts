@@ -1,11 +1,13 @@
 import { BadRequestException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
-import type { AccountLoginRequest, AuthenticatedUser, PasswordResetRequest } from '@lingdian/contracts';
+import type { AccountLoginRequest, AuthenticatedUser, MobileAccountLoginRequest, MobileAccountRoleChoices, PasswordResetRequest } from '@lingdian/contracts';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditContext, AuditService } from './audit.service';
 import type { AuthRequestContext } from './auth-request-context';
 import { PasswordService } from './password.service';
 import { SessionService, SessionTokens } from './session.service';
 import { VerificationService } from './verification.service';
+
+const accountAudiences = ['merchant-api', 'admin-api'] as const;
 
 type PasswordForgotInput = Pick<PasswordResetRequest, 'username' | 'audience'>;
 type PasswordChangeInput = Pick<PasswordResetRequest, 'code' | 'password'>;
@@ -40,18 +42,37 @@ export class AccountAuthService {
     private readonly audit: AuditService,
   ) {}
 
-  async login(input: AccountLoginRequest, context: AuthRequestContext): Promise<SessionTokens> {
+  login(input: AccountLoginRequest, context: AuthRequestContext, expectedUserId?: string): Promise<SessionTokens> {
+    return this.authenticate(input, context, expectedUserId);
+  }
+
+  loginWithRoleDetection(input: MobileAccountLoginRequest, context: AuthRequestContext): Promise<SessionTokens | MobileAccountRoleChoices> {
+    return this.authenticate({ username: input.username, password: input.password }, context);
+  }
+
+  private authenticate(input: AccountLoginRequest, context: AuthRequestContext, expectedUserId?: string): Promise<SessionTokens>;
+  private authenticate(input: MobileAccountLoginRequest & { audience?: never }, context: AuthRequestContext): Promise<SessionTokens | MobileAccountRoleChoices>;
+  private async authenticate(
+    input: MobileAccountLoginRequest & { audience?: AccountLoginRequest['audience'] },
+    context: AuthRequestContext,
+    expectedUserId?: string,
+  ): Promise<SessionTokens | MobileAccountRoleChoices> {
     try {
       const username = normalizeAccountName(input.username);
       const account = await this.findAccount(username);
       const credential = account?.passwordCredential;
-      if (!account || !credential || !isEligibleForAudience(account.user, input.audience)) {
+      const requestedAudiences = input.audience ? [input.audience] : accountAudiences;
+      const permitted = account ? requestedAudiences.filter((audience) => isEligibleForAudience(account.user, audience)) : [];
+      if (!account || !credential || !permitted.length) {
         await this.passwords.verify(input.password, DUMMY_PASSWORD_HASH);
         throw invalidCredentials();
       }
       if (!await this.passwords.verify(input.password, credential.passwordHash)) {
         throw invalidCredentials();
       }
+      if (expectedUserId && expectedUserId !== account.user.id) throw invalidCredentials();
+      if (permitted.length > 1) return { audiences: permitted };
+      const selectedAudience = permitted[0];
 
       await this.prisma.user.update({ where: { id: account.user.id }, data: { lastLoginAt: new Date() } });
 
@@ -63,19 +84,19 @@ export class AccountAuthService {
           ...(account.user.mustChangePassword ? { mustChangePassword: true } : {}),
           merchantStoreIds: activeMerchantStoreIds(account.user),
         },
-        input.audience,
+        selectedAudience,
         context.deviceId,
         context,
       );
       await this.audit.record({
         event: 'ACCOUNT_LOGIN_SUCCEEDED', userId: account.user.id, sessionId: tokens.user.sessionId,
-        ip: context.ip, device: context.deviceId, metadata: { audience: input.audience },
+        ip: context.ip, device: context.deviceId, metadata: { audience: selectedAudience },
       });
       return tokens;
     } catch (error) {
       await this.audit.record({
         event: 'ACCOUNT_LOGIN_REJECTED', ip: context.ip, device: context.deviceId,
-        metadata: { audience: input.audience, reason: error instanceof Error ? error.name : 'unknown' },
+        metadata: { audience: input.audience ?? 'auto', reason: error instanceof Error ? error.name : 'unknown' },
       });
       throw error;
     }
@@ -158,8 +179,7 @@ export class AccountAuthService {
     if (!account?.passwordCredential || !await this.passwords.verify(input.currentPassword, account.passwordCredential.passwordHash)) {
       throw new UnauthorizedException('Current password is invalid.');
     }
-    await this.passwords.replace(account.id, input.password, user.userId, context);
-    await this.prisma.user.update({ where: { id: user.userId }, data: { mustChangePassword: false } });
+    await this.passwords.replace(account.id, input.password, user.userId, context, account.passwordCredential.passwordHash);
     await this.audit.record({ event: 'CURRENT_PASSWORD_CHANGED', userId: user.userId, sessionId: user.sessionId, ip: context.ip, device: context.deviceId });
   }
 
@@ -174,7 +194,6 @@ export class AccountAuthService {
     if (!phone) throw invalidPasswordReset();
     await this.verification.consume({ purpose: 'PASSWORD_RESET', phone, code });
     await this.passwords.replace(account.id, password, account.user.id, context);
-    await this.prisma.user.update({ where: { id: account.user.id }, data: { mustChangePassword: false } });
     await this.audit.record({ event, userId: account.user.id, ip: context.ip, device: context.deviceId });
   }
 

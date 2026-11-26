@@ -80,7 +80,7 @@ export class WechatOAuthProvider implements OAuthProvider {
     throw new Error('WeChat phone number exchange failed.');
   }
 
-  private async getMiniAccessToken(forceRefresh: boolean): Promise<string> {
+  async getMiniAccessToken(forceRefresh: boolean): Promise<string> {
     const refreshMarginMs = 5 * 60 * 1000;
     if (!forceRefresh && this.miniAccessToken && Date.now() < this.miniAccessToken.expiresAt - refreshMarginMs) {
       return this.miniAccessToken.value;
@@ -88,6 +88,7 @@ export class WechatOAuthProvider implements OAuthProvider {
 
     const response = await fetch('https://api.weixin.qq.com/cgi-bin/stable_token', {
       method: 'POST',
+      signal: AbortSignal.timeout(5_000),
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         grant_type: 'client_credential',
@@ -132,6 +133,6 @@ export class WechatOAuthProvider implements OAuthProvider {
   }
 }
 
-function isInvalidAccessToken(errcode: number | undefined): boolean {
+export function isInvalidAccessToken(errcode: number | undefined): boolean {
   return errcode === 40001 || errcode === 40014 || errcode === 42001;
 }

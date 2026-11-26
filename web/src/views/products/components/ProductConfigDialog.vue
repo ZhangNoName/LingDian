@@ -3,7 +3,7 @@ import DataActionButton from '@/components/DataActionButton.vue'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { Button } from '@lingdian/console-ui/button'
 import { Disclosure } from '@lingdian/console-ui/collapsible'
-import { SelectField } from '@lingdian/console-ui/select'
+import { SearchSelectField } from '@lingdian/console-ui/select'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@lingdian/console-ui/dialog'
 import { saveMerchantProductConfig, updateMerchantProductDetails } from '@/services/products'
 import ProductVariantsEditor from './ProductVariantsEditor.vue'
@@ -263,7 +263,7 @@ async function save() {
                 <template #type>
                   <label class="grid gap-1.5 text-xs text-muted-foreground">
                     {{ t('type') }}
-                    <SelectField
+                    <SearchSelectField
                       v-model="draft.type"
                       :aria-label="t('type')"
                       :disabled="busy"

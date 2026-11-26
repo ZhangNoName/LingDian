@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsISO8601, IsOptional, IsString, Matches, Max, MaxLength, Min } from 'class-validator';
+import { OrderSource } from '@lingdian/db';
+import { Transform, Type } from 'class-transformer';
+import { IsEnum, IsIn, IsInt, IsISO8601, IsOptional, IsString, Length, Matches, Max, MaxLength, Min } from 'class-validator';
 
 export const ORDER_QUERY_PAYMENT_CHANNELS = [
   'CASH',
@@ -79,6 +80,18 @@ export class QueryOrdersDto {
   @IsOptional()
   @IsIn(['DINE_IN', 'TAKEOUT', 'PICKUP'])
   orderType?: string;
+
+  @ApiPropertyOptional({ description: 'Order source', enum: OrderSource })
+  @IsOptional()
+  @IsEnum(OrderSource)
+  orderSource?: OrderSource;
+
+  @ApiPropertyOptional({ description: 'Restrict results to one store within the current order scope' })
+  @IsOptional()
+  @Transform(({ value }) => typeof value === 'string' ? value.trim() : value)
+  @IsString()
+  @Length(1, 191)
+  storeId?: string;
 
   @ApiPropertyOptional({
     description: 'Payment channel',

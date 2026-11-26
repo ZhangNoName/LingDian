@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { Button, IconButton } from '@lingdian/console-ui/button'
 import { Checkbox, Input } from '@lingdian/console-ui/input'
-import { SelectField } from '@lingdian/console-ui/select'
+import { SearchSelectField } from '@lingdian/console-ui/select'
 import { Trash2 } from '@lingdian/icons/web'
 import type { ProductSelectionBindingForm, ProductVariantForm } from '../types'
 import { useProductLocale } from '../use-product-locale'
@@ -56,7 +56,7 @@ const referenceChoices = computed(() => [
         </label>
         <label>
           {{ t('scope') }}
-          <SelectField
+          <SearchSelectField
             v-model="binding.scope"
             :aria-label="t('scope')"
             :options="[
@@ -67,7 +67,7 @@ const referenceChoices = computed(() => [
         </label>
         <label v-if="binding.scope === 'VARIANT'">
           {{ t('targetVariant') }}
-          <SelectField
+          <SearchSelectField
             :model-value="binding.target_variant_id ?? ''"
             :aria-label="t('targetVariant')"
             required
@@ -77,7 +77,7 @@ const referenceChoices = computed(() => [
         </label>
         <label>
           {{ t('groupType') }}
-          <SelectField
+          <SearchSelectField
             v-model="binding.group.group_type"
             :aria-label="t('groupType')"
             :options="[
@@ -88,7 +88,7 @@ const referenceChoices = computed(() => [
         </label>
         <label>
           {{ t('mode') }}
-          <SelectField
+          <SearchSelectField
             v-model="binding.group.selection_mode"
             :aria-label="t('mode')"
             :options="[
@@ -144,7 +144,7 @@ const referenceChoices = computed(() => [
         </label>
         <label>
           {{ t('optionType') }}
-          <SelectField
+          <SearchSelectField
             v-model="option.option_type"
             :aria-label="t('optionType')"
             :options="[
@@ -155,7 +155,7 @@ const referenceChoices = computed(() => [
         </label>
         <label v-if="option.option_type === 'VARIANT'">
           {{ t('reference') }}
-          <SelectField
+          <SearchSelectField
             :model-value="option.referenced_sku_id ?? ''"
             :aria-label="t('reference')"
             required

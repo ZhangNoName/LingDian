@@ -7,6 +7,11 @@ export const LEGAL_DOCUMENT_VERSIONS = {
   PRIVACY_POLICY: '2026-11-23',
 } as const;
 
+export const MOBILE_LEGAL_DOCUMENT_VERSIONS = {
+  USER_AGREEMENT: 'app-2026-11-26',
+  PRIVACY_POLICY: 'app-2026-11-26',
+} as const;
+
 export const SUPPORTED_LEGAL_DOCUMENT_VERSIONS = [
   LEGAL_DOCUMENT_VERSIONS,
   {
@@ -119,6 +124,7 @@ export interface CreatePlatformUserRequest {
 export interface UpdatePlatformUserRequest {
   nickname?: string;
   username?: string;
+  password?: string;
   phone?: string;
   roles?: AuthRole[];
   storeIds?: string[];
@@ -170,6 +176,10 @@ export interface CreateUserAddressRequest {
   detailInfo: string;
   postalCode: string;
   nationalCode: string;
+}
+
+export interface UpdateUserAddressRequest extends CreateUserAddressRequest {
+  expectedUpdatedAt: string;
 }
 
 export interface UserAddress extends CreateUserAddressRequest {

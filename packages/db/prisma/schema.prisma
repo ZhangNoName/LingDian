@@ -36,6 +36,7 @@ enum OrderSource {
   JD_DAOJIA
   POS
   MANUAL
+  APP
 }
 
 enum OrderStatus {
@@ -203,6 +204,16 @@ enum IntegrationDeliveryStatus {
   DEAD_LETTER
 }
 
+enum PickupNotificationStatus {
+  SUBSCRIBED
+  PENDING
+  SENDING
+  SENT
+  SKIPPED
+  FAILED
+  UNKNOWN
+}
+
 model Store {
   id                  String               @id @default(cuid())
   code                String               @unique
@@ -346,6 +357,7 @@ model InventoryAlert {
   @@unique([id, storeId])
   @@index([itemId, storeId], map: "inventory_alerts_itemId_storeId_fkey")
   @@index([storeId, status, detectedAt])
+  @@index([storeId, detectedAt], map: "inventory_alerts_store_detected_idx")
   @@map("inventory_alerts")
 }
 
@@ -587,6 +599,7 @@ model Order {
   customerUser       User?            @relation(fields: [customerUserId], references: [id], onDelete: SetNull)
   items              OrderItem[]
   statusLogs         OrderStatusLog[]
+  pickupNotification OrderPickupNotification?
   paymentIntents     PaymentIntent[]
   stockExpiresAt     DateTime?
   inventoryReservations InventoryReservation[]
@@ -732,7 +745,27 @@ model OrderStatusLog {
   order        Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([orderId, createdAt])
+  @@index([createdAt, orderId], map: "order_status_logs_created_order_idx")
   @@map("order_status_logs")
+}
+
+model OrderPickupNotification {
+  orderId         String                   @id
+  customerUserId  String
+  recipientOpenId String                   @db.VarChar(128)
+  templateId      String                   @db.VarChar(128)
+  status          PickupNotificationStatus @default(SUBSCRIBED)
+  readyAt         DateTime?
+  nextAttemptAt   DateTime                 @default(now())
+  attempts        Int                      @default(0)
+  lockedAt        DateTime?
+  lastErrorCode   Int?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  order           Order                    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextAttemptAt], map: "order_pickup_notification_dispatch_idx")
+  @@map("order_pickup_notifications")
 }
 
 model OrderItem {
@@ -796,8 +829,20 @@ model User {
   addresses          UserAddress[]
   legalConsents      UserLegalConsent[]
   orders             Order[]
+  mobileInboxReads   MobileInboxRead[]
 
   @@map("users")
+}
+
+model MobileInboxRead {
+  userId  String
+  scope   String   @db.VarChar(64)
+  eventId String   @db.VarChar(64)
+  readAt  DateTime @default(now())
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, scope, eventId])
+  @@map("mobile_inbox_reads")
 }
 
 model UserLegalConsent {

@@ -452,7 +452,7 @@ export class OAuthService {
   }
 }
 
-function identitySubject(
+export function identitySubject(
   provider: OAuthProvider,
   profile: { openId: string; unionId?: string },
   subjectAppId: string,

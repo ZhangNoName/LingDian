@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { SUPPORTED_LEGAL_DOCUMENT_VERSIONS, type LegalConsentInput } from '@lingdian/contracts';
+import { MOBILE_LEGAL_DOCUMENT_VERSIONS, SUPPORTED_LEGAL_DOCUMENT_VERSIONS, type LegalConsentInput } from '@lingdian/contracts';
 import type { Prisma } from '@lingdian/db';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { AuthRequestContext } from './auth-request-context';
@@ -11,15 +11,15 @@ type ConsentClient = Pick<PrismaService, 'userLegalConsent'> | Prisma.Transactio
 export class LegalConsentService {
   constructor(private readonly prisma: PrismaService) {}
 
-  assertCurrentForAudience(audience: string, input?: LegalConsentInput): asserts input is LegalConsentInput {
+  assertCurrentForAudience(audience: string, input?: LegalConsentInput, channel: 'mobile' | 'miniapp' = 'miniapp'): asserts input is LegalConsentInput {
     if (audience !== 'user-api') return;
-    if (!input) throw new LegalConsentUpdateRequiredException();
-    const supported = SUPPORTED_LEGAL_DOCUMENT_VERSIONS.some((versions) =>
+    const published = channel === 'mobile' ? [MOBILE_LEGAL_DOCUMENT_VERSIONS] : SUPPORTED_LEGAL_DOCUMENT_VERSIONS;
+    const supported = input && published.some((versions) =>
       input.userAgreementVersion === versions.USER_AGREEMENT &&
       input.privacyPolicyVersion === versions.PRIVACY_POLICY,
     );
     if (!supported) {
-      throw new LegalConsentUpdateRequiredException();
+      throw new LegalConsentUpdateRequiredException(channel === 'mobile' ? '请更新零点 App 后重试' : undefined);
     }
   }
 

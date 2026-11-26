@@ -1,39 +1,24 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsEnum, IsOptional, IsString, MaxLength, ValidateIf } from 'class-validator';
+import { OrderStatus, PaymentChannel } from '@lingdian/db';
 
 export class UpdateOrderStatusDto {
   @ApiProperty({
     description: 'Target order status',
-    enum: [
-      'CREATING',
-      'PENDING_PAYMENT',
-      'PAID',
-      'PREPARING',
-      'READY',
-      'COMPLETED',
-      'TIMED_OUT',
-      'REFUNDING',
-      'REFUNDED',
-      'CANCELLED',
-      'FAILED',
-      'DELETED',
-    ],
+    enum: OrderStatus,
   })
-  @IsIn([
-    'CREATING',
-    'PENDING_PAYMENT',
-    'PAID',
-    'PREPARING',
-    'READY',
-    'COMPLETED',
-    'TIMED_OUT',
-    'REFUNDING',
-    'REFUNDED',
-    'CANCELLED',
-    'FAILED',
-    'DELETED',
-  ])
-  status!: string;
+  @IsEnum(OrderStatus)
+  status!: OrderStatus;
+
+  @ApiPropertyOptional({ description: 'Order status displayed at confirmation', enum: OrderStatus })
+  @ValidateIf((_object, value) => value !== undefined)
+  @IsEnum(OrderStatus)
+  expectedStatus?: OrderStatus;
+
+  @ApiPropertyOptional({ description: 'Payment channel displayed at confirmation', enum: PaymentChannel })
+  @ValidateIf((_object, value) => value !== undefined)
+  @IsEnum(PaymentChannel)
+  expectedPaymentChannel?: PaymentChannel;
 
   @ApiPropertyOptional({
     description: 'Operator name',

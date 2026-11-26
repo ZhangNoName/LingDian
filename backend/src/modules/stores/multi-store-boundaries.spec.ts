@@ -53,7 +53,11 @@ test('selected store scopes product, order and summary requests and rejects tamp
   products.getMerchantProducts(merchant, { page: 1, pageSize: 20 }, 'store-b');
   orders.getMerchantOrders(merchant, { page: 1, pageSize: 20 }, 'store-b');
   orders.getMerchantOrderSummary(merchant, { page: 1, pageSize: 20 }, 'store-a');
-  assert.deepEqual(seen, [['store-b'], { storeIds: ['store-b'] }, { storeIds: ['store-a'] }]);
+  assert.deepEqual(seen, [
+    ['store-b'],
+    { storeIds: ['store-b'], includeCustomerNickname: true, includeManualTransitions: true },
+    { storeIds: ['store-a'], includeCustomerNickname: true, includeManualTransitions: true },
+  ]);
   assert.throws(() => products.getMerchantProducts(merchant, { page: 1, pageSize: 20 }, 'store-c'), /not authorized/);
   assert.throws(() => orders.getMerchantOrders(merchant, { page: 1, pageSize: 20 }), /Select a store/);
   assert.equal(seen.length, 3);

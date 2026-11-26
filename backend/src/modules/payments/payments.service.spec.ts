@@ -20,7 +20,7 @@ const storeContext = {
   },
 };
 
-test('an offline mini-program order cannot create a customer or merchant online payment', async () => {
+test('an offline customer order cannot create a customer or merchant online payment', async () => {
   const order = {
     id: 'order-1', storeId: 'store-1', status: 'PENDING_PAYMENT', orderSource: 'MINIAPP',
     paymentChannel: 'CASH', payableAmount: 18.8, paymentIntents: [],
@@ -35,6 +35,11 @@ test('an offline mini-program order cannot create a customer or merchant online 
   await assert.rejects(service.createIntent(order.id, 'owner', {
     provider: 'WECHAT_PAY', channel: 'WECHAT', clientRequestId: 'offline',
   }), /仅支持线下支付/);
+  assert.equal((await service.createMerchantWechatNativePayment(order.id, ['store-1'])).state, 'UNAVAILABLE');
+  order.orderSource = 'APP';
+  await assert.rejects(service.createIntent(order.id, 'owner', {
+    provider: 'WECHAT_PAY', channel: 'WECHAT', clientRequestId: 'offline-app',
+  }), /App 订单仅支持线下支付/);
   assert.equal((await service.createMerchantWechatNativePayment(order.id, ['store-1'])).state, 'UNAVAILABLE');
 });
 

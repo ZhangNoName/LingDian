@@ -6,7 +6,7 @@ import { ProductsService } from './products.service';
 import { ProductConfigurationService } from './product-configuration.service';
 import {
   PRODUCT_MANAGEMENT_INCLUDE,
-  PRODUCT_MENU_INCLUDE,
+  productMenuInclude,
 } from './product-query-shapes';
 
 const primaryStoreId = 'store-1';
@@ -225,16 +225,25 @@ test('selection configuration rejects impossible selection rules before writing'
 test('management details retain disabled bindings and options while the public menu filters them', () => {
   const managementSkuBindings = (PRODUCT_MANAGEMENT_INCLUDE.skus.include as any).selectionBindings;
   const managementProductBindings = PRODUCT_MANAGEMENT_INCLUDE.selectionBindings as any;
-  const menuSkuBindings = (PRODUCT_MENU_INCLUDE.skus.include as any).selectionBindings;
-  const menuProductBindings = PRODUCT_MENU_INCLUDE.selectionBindings as any;
+  const menu = productMenuInclude(primaryStoreId);
+  const menuSkuBindings = menu.skus.include.selectionBindings;
+  const menuProductBindings = menu.selectionBindings;
 
   assert.equal(managementSkuBindings.where, undefined);
   assert.equal(managementSkuBindings.include.group.include.options.where, undefined);
   assert.equal(managementProductBindings.where, undefined);
   assert.equal(managementProductBindings.include.group.include.options.where, undefined);
-  assert.deepEqual((PRODUCT_MENU_INCLUDE.skus as any).where, { isActive: true });
+  assert.deepEqual(menu.skus.where, { isActive: true });
   assert.deepEqual(menuSkuBindings.where, { isEnabled: true, group: { isActive: true } });
-  assert.deepEqual(menuSkuBindings.include.group.include.options.where, { isActive: true });
+  const available = {
+    isActive: true,
+    OR: [
+      { optionType: 'VALUE' },
+      { optionType: 'VARIANT', referencedSku: { isActive: true, product: { storeId: primaryStoreId, status: 'ACTIVE' } } },
+    ],
+  };
+  assert.deepEqual(menuSkuBindings.include.group.include.options.where, available);
+  assert.deepEqual(menuProductBindings.include.group.include.options.where, available);
   assert.deepEqual(menuProductBindings.where, { isEnabled: true, group: { isActive: true } });
 });
 

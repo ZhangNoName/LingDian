@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  canCollectOrderPayment,
   canDeleteOrderStatus,
+  orderCustomerName,
   orderSourceLabel,
   orderStatusActions,
+  orderStatusLogNote,
   paymentChannelLabel,
   pickupBusinessDateLabel,
   pickupCodeLabel,
@@ -10,8 +13,30 @@ import {
 } from './order-presentation'
 
 describe('order presentation', () => {
+  it('omits automatic notes that repeat order creation transitions', () => {
+    expect(orderStatusLogNote({ from_status: null, to_status: 'CREATING', operator_name: null, note: 'Order created' })).toBeUndefined()
+    expect(orderStatusLogNote({ from_status: 'CREATING', to_status: 'PENDING_PAYMENT', operator_name: null, note: 'Waiting for payment' })).toBeUndefined()
+    expect(orderStatusLogNote({ from_status: 'CREATING', to_status: 'PREPARING', operator_name: null, note: 'Order accepted for preparation' })).toBeUndefined()
+  })
+
+  it('keeps operator notes and other system notes in the timeline', () => {
+    expect(orderStatusLogNote({ from_status: 'CREATING', to_status: 'PENDING_PAYMENT', operator_name: '商家', note: 'Waiting for payment' })).toBe('Waiting for payment')
+    const note = '已核对现金\n  已交班'
+    expect(orderStatusLogNote({ from_status: 'PENDING_PAYMENT', to_status: 'PAID', operator_name: '商家', note })).toBe(note)
+    expect(orderStatusLogNote({ from_status: 'CREATING', to_status: 'PENDING_PAYMENT', operator_name: null, note: 'Waiting for payment at the counter' })).toBe('Waiting for payment at the counter')
+    expect(orderStatusLogNote({ from_status: 'PENDING_PAYMENT', to_status: 'TIMED_OUT', operator_name: null, note: 'Waiting for payment' })).toBe('Waiting for payment')
+  })
+
+  it('uses a saved nickname and falls back to the order name or a localized customer label', () => {
+    expect(orderCustomerName({ customer_name: 'Customer', customer_nickname: '  小栗子  ' })).toBe('小栗子')
+    expect(orderCustomerName({ customer_name: '收货人', customer_nickname: ' ' })).toBe('收货人')
+    expect(orderCustomerName({ customer_name: 'Customer' })).toBe('顾客')
+    expect(orderCustomerName({ customer_name: 'Customer', customer_nickname: null }, 'en-US')).toBe('Customer')
+  })
+
   it.each([
     ['MINIAPP', '小程序'],
+    ['APP', '零点 App'],
     ['MEITUAN_WAIMAI', '美团外卖'],
     ['JD_DAOJIA', '京东到家'],
     ['POS', '收银台'],
@@ -43,36 +68,31 @@ describe('order presentation', () => {
     expect(paymentChannelLabel('PAYPAL')).toBe('PayPal')
   })
 
-  it('keeps status transitions and deletion capabilities in one presentation module', () => {
-    expect(orderStatusActions('PENDING_PAYMENT', 'CASH').map((action) => action.value))
-      .toEqual(['PAID', 'TIMED_OUT', 'CANCELLED', 'FAILED'])
+  it('renders only status transitions returned by the server, in their original order', () => {
+    expect(orderStatusActions({ status: 'PAID', allowed_statuses: ['READY', 'COMPLETED'] })).toEqual([
+      { value: 'READY', label: '待取餐' },
+      { value: 'COMPLETED', label: '已完成' },
+    ])
+    expect(orderStatusActions({ status: 'PENDING_PAYMENT', allowed_statuses: [] })).toEqual([])
+    expect(orderStatusActions({ status: 'PENDING_PAYMENT' })).toEqual([])
     expect(canDeleteOrderStatus('COMPLETED')).toBe(true)
     expect(canDeleteOrderStatus('PAID')).toBe(false)
   })
 
-  it('only lets cash orders be marked paid manually', () => {
-    expect(orderStatusActions('PENDING_PAYMENT', 'CASH').map((action) => action.value))
-      .toContain('PAID')
-    expect(orderStatusActions('PENDING_PAYMENT', 'WECHAT').map((action) => action.value))
-      .toEqual(['TIMED_OUT', 'CANCELLED', 'FAILED'])
-    expect(orderStatusActions('PENDING_PAYMENT', undefined).map((action) => action.value))
-      .not.toContain('PAID')
+  it('offers QR collection only for pending orders eligible to receive payment', () => {
+    const order = { status: 'PENDING_PAYMENT', payment_required: true, payable_amount: 18, order_source: 'POS', payment_channel: 'CASH' } as const
+    expect(canCollectOrderPayment(order)).toBe(true)
+    expect(canCollectOrderPayment({ ...order, order_source: 'MINIAPP', payment_channel: 'WECHAT' })).toBe(true)
+    expect(canCollectOrderPayment({ ...order, order_source: 'MINIAPP' })).toBe(false)
+    expect(canCollectOrderPayment({ ...order, order_source: 'APP' })).toBe(false)
+    expect(canCollectOrderPayment({ ...order, payment_required: false })).toBe(false)
+    expect(canCollectOrderPayment({ ...order, payable_amount: 0 })).toBe(false)
+    expect(canCollectOrderPayment({ ...order, status: 'PAID' })).toBe(false)
   })
 
-  it.each(['PAID', 'PREPARING', 'READY', 'COMPLETED', 'REFUNDING'] as const)(
-    'does not expose manual online refund transitions from %s',
-    (status) => {
-      const actions = orderStatusActions(status, 'ALIPAY').map((action) => action.value)
-      expect(actions).not.toContain('REFUNDING')
-      expect(actions).not.toContain('REFUNDED')
-    },
-  )
-
-  it('retains cash refund operations handled by the merchant workflow', () => {
-    expect(orderStatusActions('PAID', 'CASH').map((action) => action.value))
-      .toEqual(['PREPARING', 'READY', 'COMPLETED', 'REFUNDING', 'REFUNDED'])
-    expect(orderStatusActions('REFUNDING', 'CASH').map((action) => action.value))
-      .toEqual(['REFUNDED', 'FAILED'])
+  it('distinguishes a direct cash refund from completing a refund in progress', () => {
+    expect(orderStatusActions({ status: 'PAID', allowed_statuses: ['REFUNDED'] })[0]?.label).toBe('直接退款')
+    expect(orderStatusActions({ status: 'REFUNDING', allowed_statuses: ['REFUNDED'] })[0]?.label).toBe('退款完成')
   })
 
   it('does not present an unknown future status as a known workflow state', () => {
@@ -81,15 +101,15 @@ describe('order presentation', () => {
 })
 
 describe('localized order workflow', () => {
-  it('translates labels while preserving cash-only payment and refund invariants', () => {
+  it('translates labels from the workflow', () => {
     expect(statusLabel('PAID', 'en-US')).toBe('Paid')
     expect(orderSourceLabel('MINIAPP', 'en-US')).toBe('Mini app')
+    expect(orderSourceLabel('APP', 'en-US')).toBe('LingDian app')
     expect(paymentChannelLabel('WECHAT', 'en-US')).toBe('WeChat Pay')
-    expect(orderStatusActions('PENDING_PAYMENT', 'CASH', 'en-US').find(action => action.value === 'PAID')?.label).toBe('Confirm cash payment')
-    expect(orderStatusActions('PAID', 'WECHAT', 'en-US').some(action => ['REFUNDING','REFUNDED'].includes(action.value))).toBe(false)
+    expect(orderStatusActions({ status: 'PENDING_PAYMENT', allowed_statuses: ['PAID'] }, 'en-US')[0]?.label).toBe('Confirm cash payment')
   })
   it('fails closed on a future status instead of crashing the order detail', () => {
-    expect(orderStatusActions('WAITING_FOR_DRIVER' as never, 'CASH', 'en-US')).toEqual([])
+    expect(orderStatusActions({ status: 'PAID', allowed_statuses: ['WAITING_FOR_DRIVER' as never] }, 'en-US')).toEqual([])
     expect(statusLabel('WAITING_FOR_DRIVER', 'en-US')).toBe('Unknown status (WAITING_FOR_DRIVER)')
   })
 })

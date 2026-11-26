@@ -2,6 +2,7 @@ import { RES_CODE, isResponseEnvelope, type ResponseEnvelope } from '@lingdian/c
 import type { AuthTokens, AuthenticatedUser } from '@lingdian/contracts'
 import { merchantStore } from './merchant-store'
 import { apiUrl } from '../config/api'
+import { clearMerchantViewData } from '@/lib/merchant-view-data'
 
 let accessToken: string | undefined
 let accessTokenExpiresAt = 0
@@ -17,6 +18,8 @@ export const merchantSession = {
       this.clear()
       throw new Error('Merchant session required.')
     }
+    if (currentUser?.sessionId !== tokens.user.sessionId || currentUser?.userId !== tokens.user.userId)
+      clearMerchantViewData()
     accessToken = tokens.access_token
     accessTokenExpiresAt = Date.now() + tokens.expires_in * 1000
     currentUser = tokens.user
@@ -36,6 +39,7 @@ export const merchantSession = {
     accessToken = undefined
     accessTokenExpiresAt = 0
     currentUser = undefined
+    clearMerchantViewData()
     merchantStore.clear()
   },
 

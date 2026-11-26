@@ -9,6 +9,7 @@ import { UserApiGuard } from '../../common/auth/user-api.guard';
 import { SmsProviderModule } from './providers/sms-provider.module';
 import { AuditService } from './audit.service';
 import { AuthController } from './auth.controller';
+import { MobileAuthController } from './mobile-auth.controller';
 import { AuthService } from './auth.service';
 import { SessionService } from './session.service';
 import { AUTH_REFRESH_PEPPER, VerificationService } from './verification.service';
@@ -33,7 +34,7 @@ import { StoresModule } from '../stores/stores.module';
       useFactory: (config: ConfigService) => ({ secret: config.getOrThrow<string>('auth.jwtAccessSecret') }),
     }),
   ],
-  controllers: [AuthController, MerchantAdminController],
+  controllers: [AuthController, MobileAuthController, MerchantAdminController],
   providers: [
     {
       provide: AUTH_REFRESH_PEPPER,

@@ -4,7 +4,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { InventoryItemContract, InventoryRecipeRecord } from '@lingdian/contracts'
 import { Button } from '@lingdian/console-ui/button'
 import { Input } from '@lingdian/console-ui/input'
-import { SelectField } from '@lingdian/console-ui/select'
+import { SearchSelectField } from '@lingdian/console-ui/select'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@lingdian/console-ui/dialog'
 import { useLocale } from '@/i18n/locale'
 import { getInventoryRecipe, listInventory, saveInventoryRecipe } from '@/services/inventory'
@@ -147,7 +147,7 @@ onBeforeUnmount(() => {
             >
               <label
                 >{{ t('ingredient')
-                }}<SelectField
+                }}<SearchSelectField
                   v-model="entry.itemId"
                   required
                   :aria-label="`${t('ingredient')} ${index + 1}`"

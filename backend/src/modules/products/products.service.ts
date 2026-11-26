@@ -23,7 +23,7 @@ import { ProductConfigurationService } from './product-configuration.service';
 import {
   PRODUCT_LIST_SELECT,
   PRODUCT_MANAGEMENT_INCLUDE,
-  PRODUCT_MENU_INCLUDE,
+  productMenuInclude,
 } from './product-query-shapes';
 
 @Injectable()
@@ -333,12 +333,13 @@ export class ProductsService {
             status: ProductStatus.ACTIVE,
           },
           orderBy: [{ isFeatured: 'desc' }, { updatedAt: 'desc' }],
-          include: PRODUCT_MENU_INCLUDE,
+          include: productMenuInclude(store.id),
         },
       },
     });
 
     return {
+      storeSelectionEnabled: this.stores.mode === 'multi',
       store: {
         id: store.id,
         code: store.code,

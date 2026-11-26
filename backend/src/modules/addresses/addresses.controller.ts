@@ -1,11 +1,11 @@
-import { Controller, Delete, Get, HttpCode, Param, Patch, Post, Body, UseGuards } from '@nestjs/common';
+import { Controller, Delete, Get, HttpCode, Param, Patch, Post, Put, Body, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AccessTokenGuard } from '../../common/auth/access-token.guard';
 import { UserApiGuard } from '../../common/auth/user-api.guard';
 import { CurrentUser } from '../../common/auth/current-user.decorator';
 import type { AuthenticatedUser } from '../../common/auth/authenticated-user.type';
 import { AddressesService } from './addresses.service';
-import { CreateAddressDto } from './dto/create-address.dto';
+import { CreateAddressDto, UpdateAddressDto } from './dto/create-address.dto';
 
 @ApiTags('Customer Addresses')
 @ApiBearerAuth()
@@ -24,6 +24,12 @@ export class AddressesController {
   @Post()
   create(@CurrentUser() user: AuthenticatedUser, @Body() body: CreateAddressDto) {
     return this.addresses.create(user.userId, body);
+  }
+
+  @ApiOperation({ summary: 'Update a current customer address using the last seen revision' })
+  @Put(':id')
+  update(@CurrentUser() user: AuthenticatedUser, @Param('id') addressId: string, @Body() body: UpdateAddressDto) {
+    return this.addresses.update(user.userId, addressId, body);
   }
 
   @ApiOperation({ summary: 'Set the current customer default address' })

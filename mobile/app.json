@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "零点",
+    "slug": "lingdian",
+    "version": "0.1.0",
+    "scheme": "lingdian",
+    "orientation": "portrait",
+    "ios": {
+      "bundleIdentifier": "com.lingdian.mobile",
+      "supportsTablet": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "userInterfaceStyle": "light"
+    },
+    "android": {
+      "package": "com.lingdian.mobile",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/android-foreground.png",
+        "backgroundColor": "#5937B7"
+      }
+    },
+    "plugins": [
+      "./with-ios-scene.cjs",
+      "./with-ios-resource-target.cjs",
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "允许零点选择头像或商品图片。",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ]
+    ],
+    "icon": "./assets/icon.png"
+  }
+}

@@ -15,6 +15,7 @@ test('pickup code formats are distinct per order source', async () => {
     [OrderSource.JD_DAOJIA, 381920, 'JD-381920'],
     [OrderSource.POS, 188, 'S-0188'],
     [OrderSource.MANUAL, 65, 'A-00065'],
+    [OrderSource.APP, 65, 'APP-0065'],
   ];
 
   for (const [orderSource, lastValue, expected] of cases) {
@@ -65,6 +66,7 @@ test('each source configuration uses the required width and capacity', () => {
     JD_DAOJIA: { prefix: 'JD-', width: 6 },
     POS: { prefix: 'S-', width: 4 },
     MANUAL: { prefix: 'A-', width: 5 },
+    APP: { prefix: 'APP-', width: 4 },
   });
 });
 

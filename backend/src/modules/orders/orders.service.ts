@@ -3,11 +3,11 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { randomBytes } from 'node:crypto';
 import { orderPaymentRequired } from '../../config/order-payment';
 import {
-  OrderStatus,
   OrderSource,
   Prisma,
 } from '@lingdian/db';
@@ -16,7 +16,7 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { QueryOrdersDto } from './dto/query-orders.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { AddressesService } from '../addresses/addresses.service';
-import type { UserAddress } from '@lingdian/contracts';
+import { isDirectCustomerOrder, type UserAddress } from '@lingdian/contracts';
 import { IntegrationOutboxService } from '../integrations/integration-outbox.service';
 import { StoreContextResolver } from '../stores/store-context.resolver';
 import { OrderStockService } from '../inventory/order-stock.service';
@@ -24,6 +24,7 @@ import { allocatePickupCode } from './pickup-code.service';
 import {
   amountToCents,
   assertManualOrderTransition,
+  BLOCKING_ORDER_PAYMENT_STATUSES,
   centsToAmount,
   formatDeliveryAddress,
   isDeletableOrderStatus,
@@ -34,11 +35,22 @@ import {
 } from './order-policy';
 import { mapOrderDetail, ORDER_DETAIL_INCLUDE, type OrderDetailRecord } from './order-presenter';
 import { OrdersQueryService, type OrderScope } from './orders-query.service';
+import { OrderPickupNotificationService } from './order-pickup-notification.service';
 
 const NOOP_INTEGRATION_OUTBOX = {
   enqueueOrderCreated: async () => undefined,
   kick: () => undefined,
 } as Pick<IntegrationOutboxService, 'enqueueOrderCreated' | 'kick'>;
+
+const appPriceChanged = () => new ConflictException({
+  message: '订单金额已更新，请核对后重新提交。',
+  data: { reason: 'APP_CHECKOUT_PRICE_CHANGED' },
+});
+
+const appAddressChanged = () => new ConflictException({
+  message: '收货地址已更新，请核对后重新提交。',
+  data: { reason: 'APP_CHECKOUT_ADDRESS_CHANGED' },
+});
 
 @Injectable()
 export class OrdersService {
@@ -49,6 +61,7 @@ export class OrdersService {
     private readonly queries: OrdersQueryService,
     private readonly stock: OrderStockService,
     private readonly integrationOutbox: IntegrationOutboxService = NOOP_INTEGRATION_OUTBOX as IntegrationOutboxService,
+    @Optional() private readonly pickupNotifications?: OrderPickupNotificationService,
   ) {}
 
   async createOrder(
@@ -64,11 +77,14 @@ export class OrdersService {
       body.clientRequestId,
     );
     if (existingOrder) return mapOrderDetail(existingOrder);
-    if (orderSource === 'MINIAPP' && body.paymentChannel && body.paymentChannel !== 'cash') {
-      throw new BadRequestException('小程序订单仅支持线下支付。');
+    const directCustomerOrder = isDirectCustomerOrder(orderSource);
+    if (directCustomerOrder && body.paymentChannel && body.paymentChannel !== 'cash') {
+      throw new BadRequestException(orderSource === 'APP' ? 'App 订单仅支持线下支付。' : '小程序订单仅支持线下支付。');
     }
 
-    const delivery = await this.resolveDelivery(body, customerUserId);
+    const mobileAttemptUserId = orderSource === 'APP' && body.clientRequestId ? customerUserId : undefined;
+    const addressRevision = orderSource === 'APP' ? body.expectedAddressUpdatedAt : undefined;
+    const initialDelivery = mobileAttemptUserId ? undefined : await this.resolveDelivery(body, customerUserId, addressRevision);
     const normalizedItems = body.items.map((item) => {
       const skuId = item.skuId ?? item.sku_id;
 
@@ -83,6 +99,10 @@ export class OrdersService {
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
+      if (mobileAttemptUserId) {
+        // A retry waits for the previous checkout to commit before it checks inventory and availability.
+        await tx.$queryRaw(Prisma.sql`SELECT id FROM users WHERE id = ${mobileAttemptUserId} FOR UPDATE`);
+      }
       const duplicateOrder = await this.findIdempotentOrder(
         tx,
         storeId,
@@ -91,6 +111,7 @@ export class OrdersService {
       );
       if (duplicateOrder) return mapOrderDetail(duplicateOrder);
 
+      const delivery = mobileAttemptUserId ? await this.resolveDelivery(body, mobileAttemptUserId, addressRevision, tx) : initialDelivery;
       const customer = await this.resolveCustomer(tx, body, customerUserId, delivery?.address);
       const store = await this.stores.resolveCurrentStore(tx, storeId);
       const serviceEnabled = body.orderType === 'dine_in'
@@ -194,8 +215,8 @@ export class OrdersService {
           }
 
           const quantity = selection.quantity ?? 1;
-          if (option.optionType === 'VARIANT' && option.referencedSkuId) {
-            if (!option.referencedSku?.isActive || option.referencedSku.product.storeId !== storeId || option.referencedSku.product.status !== 'ACTIVE') {
+          if (option.optionType === 'VARIANT') {
+            if (!option.referencedSkuId || !option.referencedSku?.isActive || option.referencedSku.product.storeId !== storeId || option.referencedSku.product.status !== 'ACTIVE') {
               throw new BadRequestException('Selected component is not available for this store');
             }
             stockLines.push({ skuId: option.referencedSkuId, quantity: quantity * item.quantity });
@@ -228,6 +249,9 @@ export class OrdersService {
           (sum, selection) => sum + amountToCents(selection.priceDelta),
           0,
         );
+        if (orderSource === 'APP' && item.expectedUnitCents != null && item.expectedUnitCents !== unitPriceInCents + selectionPriceInCents) {
+          throw appPriceChanged();
+        }
         const subtotalInCents = (unitPriceInCents + selectionPriceInCents) * item.quantity;
         if (subtotalInCents < 0) throw new BadRequestException('Order item subtotal cannot be negative');
         totalAmountInCents += subtotalInCents;
@@ -247,7 +271,11 @@ export class OrdersService {
         });
       }
 
-      const paymentRequired = orderSource !== 'MINIAPP' || orderPaymentRequired();
+      const paymentRequired = !directCustomerOrder || orderPaymentRequired();
+      const payableCents = paymentRequired ? totalAmountInCents : 0;
+      if (orderSource === 'APP' && body.expectedPayableCents != null && body.expectedPayableCents !== payableCents) {
+        throw appPriceChanged();
+      }
       const initialStatus = paymentRequired ? 'PENDING_PAYMENT' : 'PREPARING';
       const pickup = await allocatePickupCode(tx, { storeId, orderSource });
       const order = await tx.order.create({
@@ -269,7 +297,7 @@ export class OrdersService {
             : 'CASH',
           status: initialStatus,
           totalAmount: centsToAmount(totalAmountInCents),
-          payableAmount: paymentRequired ? centsToAmount(totalAmountInCents) : 0,
+          payableAmount: centsToAmount(payableCents),
           remark: body.remark,
           items: {
             create: orderItems,
@@ -368,11 +396,19 @@ export class OrdersService {
   private async resolveDelivery(
     body: CreateOrderDto,
     customerUserId: string | undefined,
+    expectedUpdatedAt?: string,
+    tx?: Prisma.TransactionClient,
   ): Promise<{ address: UserAddress; snapshot: string } | undefined> {
     if (body.orderType !== 'takeout') return undefined;
     if (!body.addressId) throw new BadRequestException('Delivery address is required.');
     if (!customerUserId) throw new BadRequestException('An authenticated customer is required for delivery.');
-    const address = await this.addresses.findOwnedAddress(customerUserId, body.addressId);
+    const address = await this.addresses.findOwnedAddress(customerUserId, body.addressId, tx).catch((error: unknown) => {
+      if (expectedUpdatedAt && error instanceof NotFoundException) throw appAddressChanged();
+      throw error;
+    });
+    if (expectedUpdatedAt && new Date(address.updatedAt).getTime() !== new Date(expectedUpdatedAt).getTime()) {
+      throw appAddressChanged();
+    }
     return { address, snapshot: formatDeliveryAddress(address) };
   }
 
@@ -389,7 +425,7 @@ export class OrdersService {
   }
 
   async updateOrderStatus(orderId: string, body: UpdateOrderStatusDto, scope: OrderScope = {}) {
-    const targetStatus = body.status as OrderStatus;
+    const targetStatus = body.status;
     const order = await this.prisma.order.findFirst({
       where: {
         id: orderId,
@@ -401,6 +437,11 @@ export class OrdersService {
       throw new NotFoundException('Order not found');
     }
 
+    if ((body.expectedStatus !== undefined && body.expectedStatus !== order.status)
+      || (body.expectedPaymentChannel !== undefined && body.expectedPaymentChannel !== order.paymentChannel)) {
+      throw new ConflictException('Order changed concurrently. Reload and try again.');
+    }
+
     if (order.isDeleted || order.status === 'DELETED') {
       throw new BadRequestException('Deleted orders cannot be updated');
     }
@@ -409,7 +450,10 @@ export class OrdersService {
       return this.getOrderDetail(orderId, scope);
     }
 
-    assertManualOrderTransition(order.status, targetStatus, order.paymentChannel);
+    assertManualOrderTransition(order.status, targetStatus, order.paymentRequired === false ? undefined : order.paymentChannel);
+    const terminate = isPendingPaymentTermination(order.status, targetStatus);
+    const collectCash = order.status === 'PENDING_PAYMENT' && targetStatus === 'PAID';
+    let notifyPickup = false;
 
     await this.prisma.$transaction(async (tx) => {
       const updated = await tx.order.updateMany({
@@ -426,6 +470,9 @@ export class OrdersService {
         },
       });
       if (updated.count !== 1) {
+        if (body.expectedStatus !== undefined || body.expectedPaymentChannel !== undefined) {
+          throw new ConflictException('Order changed concurrently. Reload and try again.');
+        }
         const current = await tx.order.findFirst({
           where: { id: orderId, isDeleted: false, ...this.queries.scopeWhere(scope) },
           select: { status: true },
@@ -433,22 +480,22 @@ export class OrdersService {
         if (current?.status === targetStatus) return;
         throw new ConflictException('Order changed concurrently. Reload and try again.');
       }
-      if (isPendingPaymentTermination(order.status, targetStatus)) {
+      if (terminate || collectCash) {
         const activePayment = await tx.paymentIntent.findFirst({
           where: {
             orderId,
-            status: { in: ['CREATED', 'PENDING', 'PROCESSING', 'SUCCEEDED'] },
+            status: { in: BLOCKING_ORDER_PAYMENT_STATUSES },
           },
           select: { paymentNo: true },
         });
         if (activePayment) {
           throw new ConflictException(
-            `Order has an active payment attempt (${activePayment.paymentNo}) and cannot be terminated`,
+            `Order has an active payment attempt (${activePayment.paymentNo})`,
           );
         }
       }
-      if (order.status === 'PENDING_PAYMENT' && targetStatus === 'PAID') await this.stock.commit(tx, order, body.operatorName ?? 'merchant');
-      if (isPendingPaymentTermination(order.status, targetStatus)) await this.stock.release(tx, order, body.operatorName ?? 'merchant');
+      if (collectCash) await this.stock.commit(tx, order, body.operatorName ?? 'merchant');
+      if (terminate) await this.stock.release(tx, order, body.operatorName ?? 'merchant');
       await tx.orderStatusLog.create({
         data: {
           orderId,
@@ -458,8 +505,12 @@ export class OrdersService {
           note: body.note,
         },
       });
+      if (targetStatus === 'READY' && this.pickupNotifications) {
+        notifyPickup = await this.pickupNotifications.enqueueReady(tx, orderId);
+      }
     }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
 
+    if (notifyPickup) this.pickupNotifications?.kick();
     return this.getOrderDetail(orderId, scope);
   }
 

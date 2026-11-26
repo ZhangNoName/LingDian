@@ -397,3 +397,25 @@ test('audits successful and rejected phone logins with request IP, device, metho
     privacyPolicyVersion: '2026-08-17',
   });
 });
+
+test('native customer role switching cannot authenticate another person or an account without the customer role', async () => {
+  let user = { id: 'customer-1', status: 'ACTIVE', sessionVersion: 1, roles: [{ role: 'USER', status: 'ACTIVE' }] };
+  const events: string[] = [];
+  const auth = new AuthService(
+    { $transaction: async (run: (db: unknown) => Promise<unknown>) =>
+      run({ authIdentity: { findUnique: async () => ({ user }) } }) } as never,
+    { consume: async () => undefined } as never,
+    { create: async () => { events.push('session'); return {}; } } as never,
+    undefined,
+    { assertCurrentForAudience: () => undefined, record: async () => { events.push('consent'); } } as never,
+  );
+  const input = { phone: '13800000000', code: '123456', audience: 'user-api' as const, legalConsent: currentConsent };
+  const context = { deviceId: 'app' };
+  await assert.rejects(auth.phoneLogin(input, context, { requireCustomerRole: true, expectedUserId: 'different-user' }), /current account/);
+  user = { ...user, roles: [{ role: 'ADMIN', status: 'ACTIVE' }] };
+  await assert.rejects(auth.phoneLogin(input, context, { requireCustomerRole: true, expectedUserId: user.id }), /customer role/i);
+  assert.deepEqual(events, []);
+  user = { ...user, roles: [{ role: 'USER', status: 'ACTIVE' }] };
+  await auth.phoneLogin(input, context, { requireCustomerRole: true, expectedUserId: user.id });
+  assert.deepEqual(events, ['consent', 'session']);
+});

@@ -1,5 +1,7 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
+import { NotFoundException } from '@nestjs/common';
+import type { CreateOrderDto } from './dto/create-order.dto';
 import { OrdersService } from './orders.service';
 import { OrdersQueryService } from './orders-query.service';
 
@@ -48,6 +50,36 @@ test('new mini-program orders reject an online payment channel', async () => {
     storeId: 'store-1', orderType: 'pickup', paymentChannel: 'wechat',
     items: [{ sku_id: 'sku-1', quantity: 1 }],
   }), /仅支持线下支付/);
+});
+
+test('new app orders reject an online payment channel before reserving stock', async () => {
+  const service = createOrdersService({ $transaction: async () => assert.fail('must reject before creating the order') });
+  await assert.rejects(service.createOrder({
+    storeId: 'store-1', orderType: 'pickup', paymentChannel: 'wechat',
+    items: [{ sku_id: 'sku-1', quantity: 1 }],
+  }, 'customer-1', 'APP'), /App 订单仅支持线下支付/);
+});
+
+test('app checkout rejects a changed option price or payable amount before allocating a pickup code', async () => {
+  const group = { id: 'group-1', name: '加料', minSelect: 1, maxSelect: 1, isRequired: true, selectionMode: 'SINGLE' };
+  const tx = {
+    store: { findUnique: async () => ({ status: 'OPEN', pickupEnabled: true }) },
+    productSKU: { findMany: async () => [{
+      id: 'sku-1', productId: 'product-1', price: 18, skuName: '标准', selectionBindings: [],
+      product: { name: '拿铁', status: 'ACTIVE', selectionBindings: [{ groupId: group.id, group }] },
+    }] },
+    selectionOption: { findMany: async () => [{ id: 'option-1', groupId: group.id, name: '加奶', priceDelta: 2.75, optionType: 'VALUE', group }] },
+    pickupCodeSequence: { upsert: async () => assert.fail('a rejected quote must not allocate a pickup code') },
+    order: { create: async () => assert.fail('a rejected quote must not create an order') },
+  };
+  const service = createOrdersService({ $transaction: async (work: (client: typeof tx) => unknown) => work(tx) });
+  const order: CreateOrderDto = {
+    orderType: 'pickup', customerName: '测试用户', mobile: '13800000000', expectedPayableCents: 1999,
+    items: [{ sku_id: 'sku-1', quantity: 1, expectedUnitCents: 1800, selections: [{ selectionGroupId: group.id, selectionOptionId: 'option-1' }] }],
+  };
+  await assert.rejects(service.createOrder(order, undefined, 'APP'), { status: 409, message: '订单金额已更新，请核对后重新提交。' });
+  order.items[0].expectedUnitCents = 2075;
+  await assert.rejects(service.createOrder(order, undefined, 'APP'), { status: 409, message: '订单金额已更新，请核对后重新提交。' });
 });
 
 test('createOrder does not block checkout when sku stock is zero', async () => {
@@ -346,13 +378,14 @@ for (const paymentMode of ['true', 'false', undefined]) {
       fakeStores(),
     );
 
-    const result = await service.createOrder({
+    const body: CreateOrderDto = {
       storeId: 'store-1', orderType: 'pickup', customerName: '顾客', mobile: '13800000000',
       items: [
         { sku_id: 'sku-1', quantity: 2, selections: [{ selectionOptionId: 'option-1', quantity: 1 }] },
         { sku_id: 'sku-1', quantity: 1 },
       ],
-    });
+    };
+    const result = await service.createOrder(body);
 
     assert.deepEqual(skuQuery.where.id.in, ['sku-1']);
     assert.equal(createdData.items.create[0].subtotal, 0.6);
@@ -361,6 +394,11 @@ for (const paymentMode of ['true', 'false', undefined]) {
     assert.equal(result.payable_amount, paymentMode === 'false' ? 0 : 0.7);
     assert.equal(result.status, paymentMode === 'false' ? 'PREPARING' : 'PENDING_PAYMENT');
     assert.equal(result.payment_required, paymentMode === 'false' ? false : undefined);
+    const mobile = await service.createOrder(body, undefined, 'APP');
+    assert.equal(mobile.order_source, 'APP');
+    assert.equal(mobile.pickup_code, 'APP-0001');
+    assert.equal(mobile.payable_amount, result.payable_amount);
+    assert.equal(mobile.status, result.status);
   });
 }
 
@@ -429,6 +467,65 @@ test('authenticated checkout reuses an existing order with the same client reque
 
   assert.equal(result.order_no, 'LD-existing');
   assert.equal(transactionCalls, 0);
+});
+
+test('an App checkout retry checks for the committed order before validating a changed delivery address', async () => {
+  const existing = orderRecord({
+    orderNo: 'LD-existing', storeId: 'store-1', customerName: '顾客', customerMobile: '13800000000',
+    orderType: 'TAKEOUT', status: 'PENDING_PAYMENT', paymentChannel: 'CASH', totalAmount: 18, payableAmount: 18,
+    items: { create: [] },
+  });
+  let locked = false;
+  const tx = {
+    $queryRaw: async (query: { sql: string; values: unknown[] }) => {
+      assert.match(query.sql, /FROM users WHERE id = .* FOR UPDATE/);
+      assert.deepEqual(query.values, ['user-1']);
+      locked = true;
+    },
+    order: { findFirst: async () => {
+      assert.equal(locked, true);
+      return existing;
+    } },
+  };
+  const service = createOrdersService({
+    order: { findFirst: async () => null },
+    $transaction: async (callback: (client: typeof tx) => Promise<unknown>) => callback(tx),
+  }, { findOwnedAddress: async () => assert.fail('must reuse the order before reading the address') }, fakeStores());
+
+  const result = await service.createOrder({
+    clientRequestId: 'checkout-request-1', storeId: 'store-1', orderType: 'takeout', addressId: 'removed-address',
+    expectedAddressUpdatedAt: '2026-11-25T18:00:00.000Z',
+    items: [{ sku_id: 'sku-1', quantity: 1 }],
+  }, 'user-1', 'APP');
+
+  assert.equal(result.order_no, 'LD-existing');
+});
+
+test('App checkout rejects an updated or deleted delivery address before reading inventory or reserving stock', async () => {
+  const tx = {
+    $queryRaw: async () => undefined,
+    order: { findFirst: async () => null },
+    store: { findUnique: async () => assert.fail('a stale delivery address must fail before checking availability') },
+  };
+  let deleted = false;
+  const service = createOrdersService({
+    order: tx.order,
+    $transaction: async (work: (client: typeof tx) => unknown) => work(tx),
+  }, {
+    findOwnedAddress: async (userId: string, addressId: string, client: typeof tx) => {
+      assert.deepEqual([userId, addressId, client], ['user-1', 'address-1', tx]);
+      if (deleted) throw new NotFoundException('Address not found.');
+      return { updatedAt: '2026-11-25T18:00:00.005Z' };
+    },
+  });
+  const draft: CreateOrderDto = {
+    clientRequestId: 'checkout-request-1', orderType: 'takeout', addressId: 'address-1',
+    expectedAddressUpdatedAt: '2026-11-25T18:00:00.000Z', items: [{ sku_id: 'sku-1', quantity: 1 }],
+  };
+  const conflict = { status: 409, message: '收货地址已更新，请核对后重新提交。' };
+  await assert.rejects(service.createOrder(draft, 'user-1', 'APP'), conflict);
+  deleted = true;
+  await assert.rejects(service.createOrder(draft, 'user-1', 'APP'), conflict);
 });
 
 test('order list returns a stable pagination contract and applies ownership scope', async () => {
@@ -510,6 +607,17 @@ test('status update rejects a concurrent payment-channel change and does not wri
   );
   assert.equal(updateWhere.paymentChannel, 'CASH');
   assert.equal(logWrites, 0);
+});
+
+test('a confirmation from before an order was deleted requires a refresh', async () => {
+  const service = createOrdersService({
+    order: { findFirst: async () => ({ id: 'order-1', status: 'DELETED', paymentChannel: 'CASH', isDeleted: true }) },
+    $transaction: async () => assert.fail('a deleted order must not enter a status transaction'),
+  });
+  await assert.rejects(service.updateOrderStatus('order-1', {
+    status: 'COMPLETED', expectedStatus: 'READY', expectedPaymentChannel: 'CASH',
+  }), { status: 409 });
+  await assert.rejects(service.updateOrderStatus('order-1', { status: 'COMPLETED' }), { status: 400 });
 });
 
 test('online orders cannot enter refund states without a verified refund transaction', async () => {

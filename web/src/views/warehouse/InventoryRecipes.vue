@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { readMerchantViewData } from '@/lib/merchant-view-data'
 import DataActionButton from '@/components/DataActionButton.vue'
 import ListToolbar from '@/components/table/ListToolbar.vue'
 import TablePagination from '@/components/table/TablePagination.vue'
@@ -28,9 +29,13 @@ const error = ref<MessageKey | ''>('')
 const editing = ref<InventoryRecipeRecord>(), saved = ref(false)
 let sequence = 0
 function errorKey(value: unknown, fallback: MessageKey = 'loadFailed'): MessageKey { const key = value instanceof Error ? value.message : ''; return Object.hasOwn(zh, key) ? key as MessageKey : fallback }
-async function load() {
+async function load(refresh = true) {
   const current = ++sequence; loading.value = true; error.value = ''
-  try { const data = await listInventoryRecipes(props.storeId, page.value, appliedKeyword.value, pageSize.value); if (current === sequence) result.value = data }
+  try {
+    const query = [props.storeId, page.value, appliedKeyword.value, pageSize.value] as const
+    const data = await readMerchantViewData(['inventory-recipes', ...query], () => listInventoryRecipes(...query), refresh)
+    if (current === sequence) result.value = data
+  }
   catch (value) { if (current === sequence) error.value = errorKey(value) }
   finally { if (current === sequence) loading.value = false }
 }
@@ -52,7 +57,7 @@ function ingredients(item: InventoryRecipeRecord) {
 }
 function edit(item: InventoryRecipeRecord) { editing.value = item; saved.value = false }
 function savedRecipe() { saved.value = true; void load() }
-onMounted(load)
+onMounted(() => void load(false))
 onBeforeUnmount(() => { sequence++ })
 </script>
 
@@ -62,13 +67,13 @@ onBeforeUnmount(() => { sequence++ })
       <label>{{ t('search') }}<Input v-model="keyword" type="search" maxlength="120" /></label>
     </form>
     <ListToolbar class="border-b px-4 py-3">
-      <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" />
+      <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load()" />
       <Button type="submit" form="inventory-recipe-filters" variant="outline" :disabled="loading">{{ t('searchButton') }}</Button>
       <Button type="button" variant="ghost" :disabled="loading" @click="reset">{{ t('reset') }}</Button>
     </ListToolbar>
     <p v-if="saved" role="status" class="px-4 pt-3 text-sm text-emerald-700">{{ t('recipeSaved') }}</p>
     <p v-if="loading" role="status" class="p-8 text-center text-sm text-muted-foreground">{{ t('loading') }}</p>
-    <div v-else-if="error" role="alert" class="grid justify-items-start gap-3 p-8 text-sm text-destructive"><p>{{ t(error) }}</p><DataActionButton action="refresh" :label="t('refresh')" @click="load" /></div>
+    <div v-else-if="error" role="alert" class="grid justify-items-start gap-3 p-8 text-sm text-destructive"><p>{{ t(error) }}</p><DataActionButton action="refresh" :label="t('refresh')" @click="load()" /></div>
     <p v-else-if="!result?.items.length" class="p-8 text-center text-sm text-muted-foreground">{{ t('noResults') }}</p>
     <template v-else>
       <Table framed tabindex="0" container-class="mx-4 mt-4 hidden md:block" :aria-label="t('recipes')" class="border-collapse text-start">

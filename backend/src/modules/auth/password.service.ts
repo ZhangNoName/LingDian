@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditContext, AuditService } from './audit.service';
@@ -29,16 +29,20 @@ export class PasswordService {
     return candidate.length === parsed.hash.length && timingSafeEqual(candidate, parsed.hash);
   }
 
-  async replace(identityId: string, newPassword: string, userId: string, context: AuditContext = {}): Promise<void> {
+  async replace(identityId: string, newPassword: string, userId: string, context: AuditContext = {}, expectedHash?: string): Promise<void> {
     const passwordHash = await this.hash(newPassword);
     const now = new Date();
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.passwordCredential.update({
-        where: { identityId },
+      await tx.user.update({
+        where: { id: userId },
+        data: { mustChangePassword: false, sessionVersion: { increment: 1 } },
+      });
+      const updated = await tx.passwordCredential.updateMany({
+        where: { identityId, passwordHash: expectedHash },
         data: { passwordHash, passwordChangedAt: now },
       });
-      await tx.user.update({ where: { id: userId }, data: { sessionVersion: { increment: 1 } } });
+      if (updated.count !== 1) throw new UnauthorizedException('Current password is invalid.');
       await tx.authSession.updateMany({
         where: { userId, status: 'ACTIVE' },
         data: { status: 'REVOKED', activeDeviceKey: null, revokedAt: now },

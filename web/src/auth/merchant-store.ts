@@ -1,4 +1,5 @@
-import { readonly, ref } from 'vue'
+import { readonly, ref, watch } from 'vue'
+import { clearMerchantViewData } from '@/lib/merchant-view-data'
 
 export interface AuthorizedStore { id: string; code: string; name: string; status: 'OPEN' | 'CLOSED' | 'RESTING' }
 
@@ -39,3 +40,4 @@ export function createMerchantStoreContext(storage?: Pick<Storage, 'getItem' | '
 let storage: Storage | undefined
 try { storage = globalThis.sessionStorage } catch { /* Storage is optional. */ }
 export const merchantStore = createMerchantStoreContext(storage)
+watch(merchantStore.selectedId, clearMerchantViewData, { flush: 'sync' })

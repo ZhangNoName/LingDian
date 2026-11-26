@@ -5,6 +5,7 @@ import {
   type ResponseEnvelope,
 } from '@lingdian/common'
 import { authenticatedFetch } from '@/auth/api-client'
+import { invalidateMerchantViewData } from './merchant-view-data'
 
 async function parseErrorMessage(response: Response) {
   const fallbackMessage = getResCodeMessage(RES_CODE.BUSINESS_ERROR)
@@ -33,6 +34,15 @@ async function parseErrorMessage(response: Response) {
 }
 
 export async function requestData<T>(input: RequestInfo | URL, init?: RequestInit) {
+  const method = init?.method ?? (input instanceof Request ? input.method : 'GET')
+  try {
+    return await fetchData<T>(input, init)
+  } finally {
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase())) invalidateMerchantViewData()
+  }
+}
+
+async function fetchData<T>(input: RequestInfo | URL, init?: RequestInit) {
   const response = await authenticatedFetch(input, init)
 
   if (!response.ok) {

@@ -1,7 +1,7 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import { validateSync } from 'class-validator';
-import { LEGAL_DOCUMENT_VERSIONS } from '@lingdian/contracts';
+import { LEGAL_DOCUMENT_VERSIONS, MOBILE_LEGAL_DOCUMENT_VERSIONS } from '@lingdian/contracts';
 import { LegalConsentDto } from './dto/legal-consent.dto';
 import { LegalConsentService } from './legal-consent.service';
 
@@ -31,6 +31,23 @@ test('accepts published versions as matching pairs for user-api logins', () => {
     /请更新小程序后重试/,
   );
   assert.doesNotThrow(() => service.assertCurrentForAudience('admin-api', undefined));
+});
+
+test('mobile allows its own published pair and rejects cross-channel consent', () => {
+  const service = new LegalConsentService({} as never);
+  const mobileConsent = {
+    userAgreementVersion: MOBILE_LEGAL_DOCUMENT_VERSIONS.USER_AGREEMENT,
+    privacyPolicyVersion: MOBILE_LEGAL_DOCUMENT_VERSIONS.PRIVACY_POLICY,
+  };
+  assert.deepEqual(validateSync(Object.assign(new LegalConsentDto(), mobileConsent)), []);
+  assert.doesNotThrow(() => service.assertCurrentForAudience('user-api', mobileConsent, 'mobile'));
+  assert.throws(() => service.assertCurrentForAudience('user-api', mobileConsent), /请更新小程序后重试/);
+  assert.throws(() => service.assertCurrentForAudience('user-api', consent, 'mobile'), /请更新零点 App 后重试/);
+  assert.throws(
+    () => service.assertCurrentForAudience('user-api', { ...mobileConsent, privacyPolicyVersion: consent.privacyPolicyVersion }, 'mobile'),
+    /请更新零点 App 后重试/,
+  );
+  assert.doesNotThrow(() => service.assertCurrentForAudience('admin-api', undefined, 'mobile'));
 });
 
 test('uses one stable API error contract for missing and stale consumer legal consent', () => {

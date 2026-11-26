@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { readMerchantViewData } from '@/lib/merchant-view-data'
 import DataActionButton from '@/components/DataActionButton.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
@@ -21,13 +22,18 @@ const { t, locale } = useSettingsLocale(),
   notice = ref(false)
 let sequence = 0,
   disposed = false
-async function load() {
+async function load(refresh = true) {
   const current = ++sequence
   loading.value = true
   error.value = undefined
   notice.value = false
   try {
-    const result = await loadSingleStoreCapabilities(stores.value, listStoreIntegrations)
+    const selected = stores.value
+    const result = await readMerchantViewData(
+      ['store-integrations', store.value?.id],
+      () => loadSingleStoreCapabilities(selected, listStoreIntegrations),
+      refresh,
+    )
     if (current === sequence) capabilities.value = result.capabilities
   } catch (e) {
     if (current === sequence)
@@ -41,7 +47,7 @@ watch(
   () => {
     sequence++
     capabilities.value = []
-    void load()
+    void load(false)
   },
   { immediate: true },
 )
@@ -96,12 +102,12 @@ onBeforeUnmount(() => {
           <h2 class="font-semibold">{{ t('integrations') }}</h2>
           <p v-if="store" class="mt-1 break-words text-sm">{{ store.name }} · {{ store.code }}</p>
         </div>
-        <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || !!changing || !store" @click="load" />
+        <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || !!changing || !store" @click="load()" />
       </div>
       <p v-if="notice" role="status" class="text-sm text-status-success-ink">{{ t('saved') }}</p>
       <div v-if="error" role="alert">
         <p class="text-sm text-destructive">{{ t(error) }}</p>
-        <DataActionButton action="refresh" :label="t('refresh')" v-if="!changing" class="mt-3" @click="load" />
+        <DataActionButton action="refresh" :label="t('refresh')" v-if="!changing" class="mt-3" @click="load()" />
       </div>
       <p v-if="!store" role="status" class="text-sm text-muted-foreground">{{ t('noStore') }}</p>
       <p v-else-if="loading" role="status" class="py-5 text-center text-sm text-muted-foreground">{{ t('loading') }}</p>

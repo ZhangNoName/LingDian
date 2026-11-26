@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { readMerchantViewData } from '@/lib/merchant-view-data'
 import DataActionButton from '@/components/DataActionButton.vue'
 import ListToolbar from '@/components/table/ListToolbar.vue'
 import TablePagination from '@/components/table/TablePagination.vue'
@@ -9,7 +10,7 @@ import { RouterLink } from 'vue-router'
 import type { StockHoldPage, StockHoldDetail } from '@lingdian/contracts'
 import { Button } from '@lingdian/console-ui/button'
 import { Input } from '@lingdian/console-ui/input'
-import { SelectField } from '@lingdian/console-ui/select'
+import { SearchSelectField } from '@lingdian/console-ui/select'
 import { Table } from '@lingdian/console-ui/table'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@lingdian/console-ui/dialog'
 import { useLocale } from '@/i18n/locale'
@@ -33,9 +34,13 @@ const dirty = computed(() => keyword.value.trim() !== appliedKeyword.value)
 const date = (value: string | null) => value ? new Intl.DateTimeFormat(locale.value, { dateStyle: 'short', timeStyle: 'short' }).format(new Date(value)) : '—'
 const number = (value: number) => value.toLocaleString(locale.value, { maximumFractionDigits: 3 })
 let sequence = 0, detailSequence = 0, disposed = false
-async function load() {
+async function load(refresh = true) {
   const current = ++sequence; loading.value = true; error.value = false
-  try { const data = await listStockHolds(page.value, state.value, appliedKeyword.value, pageSize.value); if (current === sequence) result.value = data }
+  try {
+    const query = [page.value, state.value, appliedKeyword.value, pageSize.value] as const
+    const data = await readMerchantViewData(['stock-holds', ...query], () => listStockHolds(...query), refresh)
+    if (current === sequence) result.value = data
+  }
   catch { if (current === sequence) error.value = true }
   finally { if (current === sequence) loading.value = false }
 }
@@ -63,7 +68,7 @@ async function recheck() {
   catch (value) { notice.value = value instanceof Error && value.message === 'stockHold.notExpired' ? 'notExpired' : 'unexpected' }
   finally { checking.value = false }
 }
-onMounted(load)
+onMounted(() => void load(false))
 onBeforeUnmount(() => { disposed = true; sequence++; detailSequence++ })
 </script>
 <template>
@@ -75,7 +80,7 @@ onBeforeUnmount(() => { disposed = true; sequence++; detailSequence++ })
       </label>
       <label>
         {{ t('deadline') }}
-        <SelectField
+        <SearchSelectField
           :model-value="state"
           :aria-label="t('deadline')"
           :disabled="loading"
@@ -88,11 +93,11 @@ onBeforeUnmount(() => { disposed = true; sequence++; detailSequence++ })
       </label>
     </form>
     <ListToolbar class="border-b px-4 py-3">
-      <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" />
+      <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load()" />
       <Button type="submit" form="inventory-hold-filters" variant="outline" :disabled="loading">{{ t('searchButton') }}</Button>
       <Button type="button" variant="ghost" :disabled="loading" @click="reset">{{ t('reset') }}</Button>
     </ListToolbar>
-    <p v-if="loading" role="status" class="p-8 text-center text-sm text-muted-foreground">{{ t('loading') }}</p><div v-else-if="error" role="alert" class="p-8 text-sm text-destructive"><p>{{ t('failure') }}</p><DataActionButton action="refresh" :label="t('refresh')" class="mt-3" @click="load" /></div><p v-else-if="!result?.total" class="p-8 text-center text-sm text-muted-foreground">{{ t('empty') }}</p>
+    <p v-if="loading" role="status" class="p-8 text-center text-sm text-muted-foreground">{{ t('loading') }}</p><div v-else-if="error" role="alert" class="p-8 text-sm text-destructive"><p>{{ t('failure') }}</p><DataActionButton action="refresh" :label="t('refresh')" class="mt-3" @click="load()" /></div><p v-else-if="!result?.total" class="p-8 text-center text-sm text-muted-foreground">{{ t('empty') }}</p>
     <Table framed container-class="mx-4 mt-4" v-else tabindex="0" :aria-label="t('title')" class="border-collapse text-start"><thead><tr><th>{{ t('order') }}</th><th>{{ t('deadline') }}</th><th>{{ t('payment') }}</th><th>{{ t('materials') }}</th><th></th></tr></thead><tbody><tr v-for="row in result?.items" :key="row.orderId"><th scope="row" class="font-medium">{{ row.orderNo }}<span class="mt-1 block text-xs font-normal text-muted-foreground">{{ row.pickupCode ?? '—' }}</span></th><td>{{ date(row.expiresAt) }}</td><td>{{ t(row.paymentState) }}</td><td class="tabular-nums">{{ number(row.heldMaterialCount) }}</td><td><TableAction :icon="EyeIcon" :label="t('detail')" :aria-label="`${t('detail')} ${row.orderNo}`" @click="view(row.orderId)" /></td></tr></tbody></Table>
     <div v-if="!loading && !error" class="flex flex-wrap items-center justify-between gap-3 border-t p-4 text-sm text-muted-foreground"><span>{{ result?.total ?? 0 }} {{ t('total') }}</span><div class="flex gap-2"><TablePagination :page="page" :page-size="pageSize" @update:page-size="pageSize = $event; page = 1; load()" :pages="Math.ceil((result?.total ?? 0) / pageSize)" :disabled="dirty" @update:page="page = $event; load()" /></div></div>
     <Dialog :open="!!selectedId" @update:open="close"><DialogContent class="max-h-[90dvh] max-w-2xl overflow-y-auto" :close-label="t('close')"><DialogHeader><DialogTitle>{{ t('title') }} · {{ detail?.order.orderNo }}</DialogTitle><DialogDescription>{{ t('retryHint') }}</DialogDescription></DialogHeader>

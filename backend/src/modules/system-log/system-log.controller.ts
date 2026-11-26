@@ -1,4 +1,4 @@
-import { Body, Controller, ForbiddenException, Get, HttpCode, HttpStatus, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, ForbiddenException, Get, Header, HttpCode, HttpStatus, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AccessTokenGuard } from '../../common/auth/access-token.guard';
 import { SuperAdminGuard } from '../../common/auth/super-admin.guard';
@@ -63,5 +63,12 @@ export class SystemLogAdminController {
       page: query.page,
       pageSize: query.pageSize,
     });
+  }
+
+  @ApiOperation({ summary: 'Read a specific operational log as a super administrator' })
+  @Get(':id')
+  @Header('Cache-Control', 'no-store')
+  detail(@Param('id') id: string) {
+    return this.logs.find(id);
   }
 }

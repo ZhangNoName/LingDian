@@ -9,6 +9,7 @@ export const PICKUP_CODE_FORMATS = Object.freeze({
   JD_DAOJIA: { prefix: 'JD-', width: 6 },
   POS: { prefix: 'S-', width: 4 },
   MANUAL: { prefix: 'A-', width: 5 },
+  APP: { prefix: 'APP-', width: 4 },
 } satisfies Record<OrderSource, { prefix: string; width: number }>);
 
 export interface AllocatePickupCodeInput {

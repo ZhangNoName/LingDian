@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { readMerchantViewData } from '@/lib/merchant-view-data'
 import FilterToggle from '@/components/FilterToggle.vue'
 import ListToolbar from '@/components/table/ListToolbar.vue'
 import MerchantDatePicker from '@/components/MerchantDatePicker.vue'
@@ -10,7 +11,7 @@ import { useRoute, useRouter } from 'vue-router'
 import type { PurchaseReceiptReport, PurchaseReportFilter } from '@lingdian/contracts'
 import { Button } from '@lingdian/console-ui/button'
 import { Input } from '@lingdian/console-ui/input'
-import { SelectField } from '@lingdian/console-ui/select'
+import { SearchSelectField } from '@lingdian/console-ui/select'
 import { purchaseReport } from '@/services/purchasing'
 import { dateInput, periodFromDates } from '../activity-state'
 import { downloadCsv } from '../report'
@@ -81,13 +82,15 @@ const display = computed<AnalysisRow[]>(() => {
 const visible = computed(() => display.value.slice((page.value - 1) * pageSize.value, page.value * pageSize.value)),
   pages = computed(() => Math.max(1, Math.ceil(display.value.length / pageSize.value)))
 let sequence = 0
-async function load() {
+async function load(refresh = true) {
   const current = ++sequence
   loading.value = true
   error.value = undefined
   page.value = 1
   try {
-    const result = await purchaseReport(props.storeId, state.value)
+    const store = props.storeId
+    const filter = state.value
+    const result = await readMerchantViewData(['receipt-report', store, filter], () => purchaseReport(store, filter), refresh)
     if (current === sequence) report.value = result
   } catch (e) {
     if (current === sequence) error.value = errorKey(e) === 'saveFailed' ? 'failed' : errorKey(e)
@@ -99,7 +102,7 @@ watch(
   () => [props.storeId, JSON.stringify(state.value)],
   () => {
     syncDraft(state.value)
-    void load()
+    void load(false)
   },
   { immediate: true },
 )
@@ -225,7 +228,7 @@ onBeforeUnmount(() => {
         :disabled="loading || dirty || !!error || !report?.rows.length"
         @click="exportSnapshot"
       />
-      <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" />
+      <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load()" />
       <Button type="submit" form="receipt-filters" variant="outline" :disabled="loading">{{ t('apply') }}</Button>
       <Button type="button" variant="ghost" :disabled="loading" @click="reset">{{ t('reset') }}</Button>
     </ListToolbar>
@@ -239,7 +242,7 @@ onBeforeUnmount(() => {
     <p v-if="loading" role="status" class="help py-6 text-center">{{ t('loading') }}</p>
     <div v-else-if="error" role="alert">
       <p class="error">{{ t(error) }}</p>
-      <DataActionButton action="refresh" :label="t('refresh')" @click="load" />
+      <DataActionButton action="refresh" :label="t('refresh')" @click="load()" />
     </div>
     <template v-else-if="report && !dirty">
       <dl class="grid grid-cols-3 divide-x border">
@@ -258,7 +261,7 @@ onBeforeUnmount(() => {
       </dl>
       <label class="max-w-xs">
         {{ t('summaryView') }}
-        <SelectField
+        <SearchSelectField
           v-model="group"
           :aria-label="t('summaryView')"
           :options="[

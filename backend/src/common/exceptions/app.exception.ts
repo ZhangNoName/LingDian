@@ -42,10 +42,10 @@ export class StatusConflictException extends AppException {
 }
 
 export class LegalConsentUpdateRequiredException extends AppException {
-  constructor() {
+  constructor(message = '请更新小程序后重试') {
     super(
       RES_CODE.LEGAL_CONSENT_UPDATE_REQUIRED,
-      '请更新小程序后重试',
+      message,
       HttpStatus.BAD_REQUEST,
     );
   }

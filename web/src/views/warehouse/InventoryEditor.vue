@@ -4,7 +4,7 @@ import type { InventoryItemContract, InventoryAdjustmentKind } from '@lingdian/c
 import { Button } from '@lingdian/console-ui/button'
 import { Input } from '@lingdian/console-ui/input'
 import { Textarea } from '@lingdian/console-ui/textarea'
-import { SelectField } from '@lingdian/console-ui/select'
+import { SearchSelectField } from '@lingdian/console-ui/select'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@lingdian/console-ui/dialog'
 import { useLocale } from '@/i18n/locale'
 import { adjustInventory, createInventoryItem } from '@/services/inventory'
@@ -77,7 +77,7 @@ onBeforeUnmount(() => { sequence++ })
             <p class="help">{{ t('thresholdHint') }}</p>
           </template>
           <template v-else>
-            <label>{{ t('operation') }}<SelectField
+            <label>{{ t('operation') }}<SearchSelectField
                 v-model="form.kind"
                 :aria-label="t('operation')"
                 :options="operationKinds.map((value) => ({ value, label: t(operationKeys[value]) }))"

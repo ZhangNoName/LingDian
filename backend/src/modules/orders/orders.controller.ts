@@ -21,6 +21,7 @@ import { CreateOrderDto } from './dto/create-order.dto';
 import { QueryOrdersDto } from './dto/query-orders.dto';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { OrdersService } from './orders.service';
+import type { OrderScope } from './orders-query.service';
 import { MerchantStoreScope } from '../merchant/merchant-store-scope';
 
 @ApiTags('Orders')
@@ -30,6 +31,14 @@ export class OrdersController {
     private readonly ordersService: OrdersService,
     private readonly merchantStores: MerchantStoreScope,
   ) {}
+
+  private merchantOrderScope(user: AuthenticatedUser, storeId?: string): OrderScope {
+    return {
+      storeIds: this.merchantStores.forRequest(user, storeId),
+      includeCustomerNickname: true,
+      includeManualTransitions: true,
+    };
+  }
 
   @ApiOperation({ summary: 'Get order summary metrics' })
   @UseGuards(AccessTokenGuard, AdminGuard)
@@ -49,7 +58,7 @@ export class OrdersController {
   @UseGuards(AccessTokenGuard, AdminGuard)
   @Get('orders/:id')
   getOrderDetail(@Param('id') id: string) {
-    return this.ordersService.getOrderDetail(id);
+    return this.ordersService.getOrderDetail(id, { includeManualTransitions: true });
   }
 
   @ApiOperation({ summary: 'Get current customer order list' })
@@ -70,21 +79,21 @@ export class OrdersController {
   @UseGuards(AccessTokenGuard, MerchantGuard)
   @Get('merchant/orders/summary')
   getMerchantOrderSummary(@CurrentUser() user: AuthenticatedUser, @Query() query: QueryOrdersDto, @Headers('x-store-id') storeId?: string) {
-    return this.ordersService.getOrderSummary(query, { storeIds: this.merchantStores.forRequest(user, storeId) });
+    return this.ordersService.getOrderSummary(query, this.merchantOrderScope(user, storeId));
   }
 
   @ApiOperation({ summary: 'Get merchant order list' })
   @UseGuards(AccessTokenGuard, MerchantGuard)
   @Get('merchant/orders')
   getMerchantOrders(@CurrentUser() user: AuthenticatedUser, @Query() query: QueryOrdersDto, @Headers('x-store-id') storeId?: string) {
-    return this.ordersService.getOrders(query, { storeIds: this.merchantStores.forRequest(user, storeId) });
+    return this.ordersService.getOrders(query, this.merchantOrderScope(user, storeId));
   }
 
   @ApiOperation({ summary: 'Get merchant order detail' })
   @UseGuards(AccessTokenGuard, MerchantGuard)
   @Get('merchant/orders/:id')
   getMerchantOrderDetail(@Param('id') id: string, @CurrentUser() user: AuthenticatedUser, @Headers('x-store-id') storeId?: string) {
-    return this.ordersService.getOrderDetail(id, { storeIds: this.merchantStores.forRequest(user, storeId) });
+    return this.ordersService.getOrderDetail(id, this.merchantOrderScope(user, storeId));
   }
 
   @ApiOperation({ summary: 'Update merchant order status' })
@@ -99,7 +108,7 @@ export class OrdersController {
     return this.ordersService.updateOrderStatus(
       id,
       { ...body, operatorName: user.userId },
-      { storeIds: this.merchantStores.forRequest(user, storeId) },
+      this.merchantOrderScope(user, storeId),
     );
   }
 
@@ -111,7 +120,7 @@ export class OrdersController {
     @CurrentUser() user: AuthenticatedUser,
     @Headers('x-store-id') storeId?: string,
   ) {
-    return this.ordersService.deleteOrder(id, user.userId, { storeIds: this.merchantStores.forRequest(user, storeId) });
+    return this.ordersService.deleteOrder(id, user.userId, this.merchantOrderScope(user, storeId));
   }
 
   @ApiOperation({ summary: 'Create order using the legacy path' })
@@ -132,6 +141,16 @@ export class OrdersController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.ordersService.createOrder(body, user.userId);
+  }
+
+  @ApiOperation({ summary: 'Create an order from the native customer app' })
+  @UseGuards(AccessTokenGuard, UserApiGuard)
+  @Post('mobile/orders')
+  createMobileOrder(
+    @Body() body: CreateOrderDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.ordersService.createOrder(body, user.userId, 'APP');
   }
 
   @ApiOperation({ summary: 'Update order status' })

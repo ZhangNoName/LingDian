@@ -20,6 +20,7 @@ type SessionRecord = {
     id: string;
     status: 'ACTIVE' | 'DISABLED';
     sessionVersion: number;
+    mustChangePassword?: boolean;
     roles: Array<{ role: 'USER' | 'ADMIN'; status: 'ACTIVE' | 'DISABLED' }>;
   };
 };
@@ -184,6 +185,26 @@ test('does not disclose merchant store scopes in a non-merchant audience token',
   assert.equal(claims.merchantStoreIds, undefined);
 });
 
+test('refresh preserves the merchant password change requirement without blocking the same customer account', async () => {
+  const { jwt, service, user } = createService();
+  user.mustChangePassword = true;
+  user.roles = [
+    { role: 'USER', status: 'ACTIVE' },
+    { role: 'MERCHANT', status: 'ACTIVE', scopeType: 'STORE', scopeId: 'store-a' },
+  ] as never;
+  const customer = await service.create({ id: user.id, sessionVersion: user.sessionVersion, roles: ['USER', 'MERCHANT'] }, 'user-api', 'device-1');
+  const merchant = await service.create({
+    id: user.id, sessionVersion: user.sessionVersion, roles: ['USER', 'MERCHANT'], merchantStoreIds: ['store-a'], mustChangePassword: true,
+  }, 'merchant-api', 'device-1');
+
+  const refreshedCustomer = await service.refresh(customer.refreshToken);
+  const refreshedMerchant = await service.refresh(merchant.refreshToken);
+  assert.equal(refreshedCustomer.user.mustChangePassword, undefined);
+  assert.equal((await jwt.verifyAsync(refreshedCustomer.accessToken)).mustChangePassword, undefined);
+  assert.equal(refreshedMerchant.user.mustChangePassword, true);
+  assert.equal((await jwt.verifyAsync(refreshedMerchant.accessToken)).mustChangePassword, true);
+});
+
 test('same-device login creates a fresh session and keeps the previous access token revoked', async () => {
   const { jwt, service, sessions } = createService();
   const first = await service.create(
@@ -295,4 +316,24 @@ test('audits session create, refresh, replay rejection, revoke, and revoke-all w
     'SESSION_CREATED', 'SESSION_REFRESHED', 'SESSION_REVOKED', 'SESSION_REFRESH_REJECTED', 'SESSION_REVOKED', 'SESSION_REVOKED_ALL',
   ]);
   assert.ok(auditEvents.every((entry) => entry.ip === '127.0.0.1' && entry.device === 'device-1'));
+});
+
+test('keeps native refresh rotation tied to the originating installation and transport', async () => {
+  const { service, sessions, user } = createService();
+  const device = 'lingdian-app:5ee04679-9b59-4a69-9892-8cee3688e438';
+  const other = 'lingdian-app:169b4679-9b59-4a69-9892-8cee3688e438';
+  const subject = { id: user.id, sessionVersion: 4, roles: ['USER'] as const };
+  const native = await service.create({ ...subject, roles: [...subject.roles] }, 'user-api', device);
+  const browser = await service.create({ ...subject, roles: [...subject.roles] }, 'user-api', 'browser');
+
+  await assert.rejects(service.refresh(native.refreshToken), /transport/);
+  await assert.rejects(service.refresh(native.refreshToken, {}, other), /transport/);
+  await assert.rejects(service.refresh(browser.refreshToken, {}, device), /transport/);
+  const rotated = await service.refresh(native.refreshToken, {}, device);
+  assert.equal(rotated.user.sessionId, native.user.sessionId);
+  assert.notEqual(rotated.refreshToken, native.refreshToken);
+  await assert.rejects(service.refresh(native.refreshToken, {}, other), /transport/);
+  assert.equal(sessions[0].status, 'ACTIVE');
+  await assert.rejects(service.refresh(native.refreshToken, {}, device), /replay/);
+  assert.equal(sessions[0].status, 'REVOKED');
 });

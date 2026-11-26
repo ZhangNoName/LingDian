@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { readMerchantViewData } from '@/lib/merchant-view-data'
 import { Badge } from '@lingdian/console-ui/badge'
 import DataActionButton from '@/components/DataActionButton.vue'
 import ListToolbar from '@/components/table/ListToolbar.vue'
@@ -11,7 +12,7 @@ import { useRoute, useRouter } from 'vue-router'
 import type { StocktakePage, StocktakeStatus } from '@lingdian/contracts'
 import { Button } from '@lingdian/console-ui/button'
 import { Input } from '@lingdian/console-ui/input'
-import { SelectField } from '@lingdian/console-ui/select'
+import { SearchSelectField } from '@lingdian/console-ui/select'
 import { Table } from '@lingdian/console-ui/table'
 import { listStocktakes } from '@/services/stocktakes'
 import { useStocktakeLocale } from './locale'
@@ -38,12 +39,13 @@ const state = computed(() => ({
   id = computed(() => (typeof route.query.stocktakeId === 'string' ? route.query.stocktakeId : ''))
 const filterDirty = computed(() => keyword.value.trim() !== state.value.keyword || status.value !== state.value.status)
 let sequence = 0
-async function load() {
+async function load(refresh = true) {
   const current = ++sequence
   loading.value = true
   failed.value = false
   try {
-    const data = await listStocktakes(props.storeId, state.value.page, state.value.keyword, state.value.status, state.value.pageSize)
+    const query = [props.storeId, state.value.page, state.value.keyword, state.value.status, state.value.pageSize] as const
+    const data = await readMerchantViewData(['stocktakes', ...query], () => listStocktakes(...query), refresh)
     if (current === sequence) {
       result.value = data
       const last = Math.max(1, Math.ceil(data.total / state.value.pageSize))
@@ -60,7 +62,7 @@ watch(
   () => {
     keyword.value = state.value.keyword
     status.value = state.value.status
-    void load()
+    void load(false)
   },
   { immediate: true },
 )
@@ -102,7 +104,7 @@ onBeforeUnmount(() => {
       <label class="grow">{{ t('filter') }}<Input v-model="keyword" type="search" maxlength="120" /></label
       ><label
         >{{ t('status')
-        }}<SelectField
+        }}<SearchSelectField
           v-model="status"
           :aria-label="t('status')"
           :options="(['ALL', 'DRAFT', 'POSTED', 'CANCELLED'] as const).map((value) => ({ value, label: t(value) }))"
@@ -111,14 +113,14 @@ onBeforeUnmount(() => {
     </form>
     <ListToolbar>
       <template #left><Button @click="creating = true">{{ t('new') }}</Button></template>
-      <DataActionButton action="refresh" :label="t('reload')" :disabled="loading || filterDirty" @click="load" />
+      <DataActionButton action="refresh" :label="t('reload')" :disabled="loading || filterDirty" @click="load()" />
       <Button type="submit" form="stocktake-filters" variant="outline" :disabled="loading">{{ t('apply') }}</Button>
       <Button type="button" variant="ghost" :disabled="loading" @click="reset">{{ t('reset') }}</Button>
     </ListToolbar>
     <p v-if="loading" role="status" class="help py-8 text-center">{{ t('loading') }}</p>
     <div v-else-if="failed" role="alert">
       <p>{{ t('failed') }}</p>
-      <DataActionButton action="refresh" :label="t('reload')" @click="load" />
+      <DataActionButton action="refresh" :label="t('reload')" @click="load()" />
     </div>
     <p v-else-if="!result?.total" class="help py-8 text-center">{{ t('empty') }}</p>
     <template v-else>
@@ -171,7 +173,7 @@ onBeforeUnmount(() => {
       :store-id="storeId"
       :store-name="storeName"
       @close="open('')"
-      @saved="load"
+      @saved="load()"
     />
   </section>
 </template>

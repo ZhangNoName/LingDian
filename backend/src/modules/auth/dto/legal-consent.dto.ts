@@ -1,10 +1,12 @@
-import { SUPPORTED_LEGAL_DOCUMENT_VERSIONS, type LegalConsentInput } from '@lingdian/contracts';
+import { MOBILE_LEGAL_DOCUMENT_VERSIONS, SUPPORTED_LEGAL_DOCUMENT_VERSIONS, type LegalConsentInput } from '@lingdian/contracts';
 import { IsIn } from 'class-validator';
 
+const documentVersions = [...SUPPORTED_LEGAL_DOCUMENT_VERSIONS, MOBILE_LEGAL_DOCUMENT_VERSIONS];
+
 export class LegalConsentDto implements LegalConsentInput {
-  @IsIn(SUPPORTED_LEGAL_DOCUMENT_VERSIONS.map((versions) => versions.USER_AGREEMENT))
+  @IsIn(documentVersions.map((versions) => versions.USER_AGREEMENT))
   userAgreementVersion!: string;
 
-  @IsIn(SUPPORTED_LEGAL_DOCUMENT_VERSIONS.map((versions) => versions.PRIVACY_POLICY))
+  @IsIn(documentVersions.map((versions) => versions.PRIVACY_POLICY))
   privacyPolicyVersion!: string;
 }

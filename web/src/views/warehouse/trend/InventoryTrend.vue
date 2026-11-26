@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import FilterToggle from '@/components/FilterToggle.vue'
+import { readMerchantViewData } from '@/lib/merchant-view-data'
 import ListToolbar from '@/components/table/ListToolbar.vue'
 import MerchantDatePicker from '@/components/MerchantDatePicker.vue'
 import DataActionButton from '@/components/DataActionButton.vue'
@@ -9,7 +10,7 @@ import { useRoute, useRouter } from 'vue-router'
 import type { InventoryDailyTrend, InventoryTrendDay, InventoryTrendFilter } from '@lingdian/contracts'
 import type { ActivityState } from '../activity-state'
 import { Button } from '@lingdian/console-ui/button'
-import { SelectField } from '@lingdian/console-ui/select'
+import { SearchSelectField } from '@lingdian/console-ui/select'
 import { inventoryDailyTrend } from '@/services/inventory'
 import { useLocale } from '@/i18n/locale'
 import { downloadCsv } from '../report'
@@ -106,11 +107,17 @@ function failure(e: unknown): TrendKey {
           ? 'unavailable'
           : 'failed'
 }
-async function request(filter: InventoryTrendFilter) {
+async function request(filter: InventoryTrendFilter, refresh = true) {
+  const store = props.storeId
+  const item = props.state.itemId
+  return readMerchantViewData(['inventory-trend', store, item, filter], () => fetchTrend(store, item, filter), refresh)
+}
+
+async function fetchTrend(store: string, item: string, filter: InventoryTrendFilter) {
   const result = validateTrend(
-    await inventoryDailyTrend(props.storeId, props.state.itemId, filter),
-    props.storeId,
-    props.state.itemId,
+    await inventoryDailyTrend(store, item, filter),
+    store,
+    item,
   )
   if (
     'startAt' in filter &&
@@ -120,7 +127,7 @@ async function request(filter: InventoryTrendFilter) {
     throw Error('unexpected trend range')
   return result
 }
-async function load() {
+async function load(refresh = true) {
   if (!props.state.itemId) {
     loading.value = false
     return
@@ -133,7 +140,7 @@ async function load() {
       startAt: props.state.startAt,
       endAt: props.state.endAt,
       timeZone: view.value.timeZone,
-    })
+    }, refresh)
     if (token === sequence) {
       data.value = result
       cacheKey = sourceKey.value
@@ -157,7 +164,7 @@ watch(
       failed.value = false
     } else {
       data.value = undefined
-      void load()
+      void load(false)
     }
   },
   { immediate: true },
@@ -266,7 +273,7 @@ onBeforeUnmount(() => {
         <MerchantDatePicker :label="t('to')" v-model="to" required :min="from" />
         <label class="min-w-0 grow"
           >{{ t('zone')
-          }}<SelectField
+          }}<SearchSelectField
             v-model="timeZone"
             :aria-label="t('zone')"
             class="max-w-full"
@@ -280,7 +287,7 @@ onBeforeUnmount(() => {
           <FilterToggle v-model="filtersOpen" controls="trend-filters">{{ t(filtersOpen ? 'hideFilters' : 'filters') }}</FilterToggle>
         </template>
         <DataActionButton action="export" :label="t('export')" :disabled="loading || failed || dirty || !data" @click="exportData" />
-        <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" />
+        <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load()" />
         <Button v-if="filtersOpen" type="submit" form="trend-filters" variant="outline" :disabled="loading">{{ t('apply') }}</Button>
         <Button v-if="filtersOpen" type="button" variant="ghost" :disabled="loading" @click="resetDraft">{{ t('reset') }}</Button>
       </ListToolbar>

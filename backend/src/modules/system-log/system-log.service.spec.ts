@@ -91,6 +91,23 @@ test('SystemLogService returns a filtered offset page with a total count', async
   assert.deepEqual(calls[1].where, { source: 'SERVER', level: 'ERROR' });
 });
 
+test('a system alert detail retains redaction and returns 404 when the log has expired', async () => {
+  const service = new SystemLogService({
+    systemLog: {
+      findUnique: async ({ where: { id } }: { where: { id: string } }) => id === 'log-1' ? {
+        id, source: 'SERVER', level: 'FATAL', category: 'HTTP', event: 'REQUEST_FAILED', message: 'Error',
+        requestId: null, userId: null, method: null, path: null, statusCode: null, ip: null,
+        details: { password: 'test-value', reason: 'test-error' }, createdAt: new Date('2026-11-25T00:00:00.000Z'),
+      } : null,
+    },
+  } as never);
+
+  const log = await service.find('log-1');
+  assert.equal(log.id, 'log-1');
+  assert.deepEqual(log.details, { password: '[REDACTED]', reason: 'test-error' });
+  await assert.rejects(service.find('expired'), { status: 404 });
+});
+
 test('SystemLogService accepts at most twenty client events per source and IP each minute', async () => {
   const created: unknown[] = [];
   const service = new SystemLogService({

@@ -98,7 +98,7 @@ export class SessionService {
     return tokens;
   }
 
-  async refresh(rawToken: string, context: SessionAuditContext = {}): Promise<SessionTokens> {
+  async refresh(rawToken: string, context: SessionAuditContext = {}, mobileDevice?: string): Promise<SessionTokens> {
     const rawTokenHash = this.hash(rawToken);
     const currentSession = await this.prisma.authSession.findUnique({
       where: { refreshTokenHash: rawTokenHash },
@@ -117,6 +117,12 @@ export class SessionService {
     if (!session || session.status !== 'ACTIVE' || session.expiresAt <= new Date()) {
       await this.audit?.record({ event: 'SESSION_REFRESH_REJECTED', ip: context.ip, device: context.device, metadata: { reason: 'inactive-or-expired' } });
       throw new UnauthorizedException('Session is inactive or expired.');
+    }
+    if (mobileDevice !== undefined
+      ? session.device !== mobileDevice || !isMobileSessionDevice(session.device)
+      : isMobileSessionDevice(session.device)) {
+      await this.audit?.record({ event: 'SESSION_REFRESH_REJECTED', ip: context.ip, device: context.device, metadata: { reason: 'transport-mismatch' } });
+      throw new UnauthorizedException('Session refresh transport does not match.');
     }
     if (!currentSession) {
       await this.revoke(session.id, context, 'refresh-token-replay');
@@ -187,11 +193,11 @@ export class SessionService {
   async revokeAll(userId: string, context: SessionAuditContext = {}): Promise<void> {
     const now = new Date();
     await this.prisma.$transaction([
+      this.prisma.user.update({ where: { id: userId }, data: { sessionVersion: { increment: 1 } } }),
       this.prisma.authSession.updateMany({
         where: { userId, status: 'ACTIVE' },
         data: { status: 'REVOKED', activeDeviceKey: null, revokedAt: now },
       }),
-      this.prisma.user.update({ where: { id: userId }, data: { sessionVersion: { increment: 1 } } }),
     ]);
     await this.audit?.record({ event: 'SESSION_REVOKED_ALL', userId, ip: context.ip, device: context.device });
   }
@@ -222,13 +228,17 @@ export class SessionService {
   }
 }
 
+export function isMobileSessionDevice(device: string | null | undefined): boolean {
+  return typeof device === 'string' && /^lingdian-app:[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/.test(device);
+}
+
 function toAuthenticatedUser(user: SessionUser, sessionId: string, audience: AuthAudience): AuthenticatedUser {
   return {
     userId: user.id,
     sessionId,
     audience,
     roles: user.roles,
-    ...(user.mustChangePassword ? { mustChangePassword: true } : {}),
+    ...(audience !== 'user-api' && user.mustChangePassword ? { mustChangePassword: true } : {}),
     ...(audience === 'merchant-api' && user.merchantStoreIds?.length
       ? { merchantStoreIds: normalizeStoreIds(user.merchantStoreIds) }
       : {}),

@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { toDataURL } from 'qrcode'
 import { Button } from '@lingdian/console-ui/button'
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@lingdian/console-ui/card'
 import type { MerchantWechatNativePayment } from '@lingdian/contracts'
 import DataActionButton from '@/components/DataActionButton.vue'
 import { createMerchantWechatNativePayment, getMerchantWechatNativePayment } from '@/services/orders'
@@ -69,27 +70,31 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <section v-if="payment?.state !== 'ORDER_UPDATED'" class="grid gap-3 border-y py-4" :aria-label="t('wechatScanTitle')">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <h3 class="text-sm font-semibold">{{ t('wechatScanTitle') }}</h3>
-      <Button v-if="canGenerate" :disabled="disabled || creating" @click="refresh(true)">
-        {{ t(creating ? 'wechatScanCreating' : payment?.state === 'EXPIRED' ? 'wechatScanRenew' : 'wechatScanGenerate') }}
-      </Button>
-    </div>
-    <div v-if="visibleCode && payment" class="grid justify-items-center gap-1.5 text-center">
-      <strong class="text-2xl tabular-nums">{{ money(payment.amount_minor / 100) }}</strong>
-      <img :src="image" :alt="t('wechatScanTitle')" width="240" height="240" class="h-auto w-60 max-w-full bg-white">
-      <p role="status" class="text-sm font-medium">{{ t('wechatScanPrompt') }}</p>
-      <p class="text-xs text-muted-foreground">{{ t('wechatScanExpires') }} {{ date(payment.expires_at) }}</p>
-    </div>
-    <p v-else-if="payment?.state === 'EXPIRED' || hasExpired" role="status" class="text-sm text-muted-foreground">{{ t('wechatScanExpired') }}</p>
-    <p v-else-if="payment?.state === 'WAITING'" role="status" class="text-sm text-muted-foreground">{{ t('wechatScanWaiting') }}</p>
-    <p v-else-if="payment?.state === 'BLOCKED'" role="status" class="text-sm text-muted-foreground">{{ t('wechatScanBlocked') }}</p>
-    <p v-else-if="payment?.state === 'UNAVAILABLE'" class="text-sm text-muted-foreground">{{ t('wechatScanUnavailable') }}</p>
-    <p v-else-if="!payment && !failed" role="status" class="text-sm text-muted-foreground">{{ t('loading') }}</p>
-    <div v-if="failed" class="flex flex-wrap items-center gap-2 text-sm text-destructive" role="alert">
-      <p>{{ t('wechatScanError') }}</p>
-      <DataActionButton action="refresh" :label="t('refresh')" :disabled="creating" @click="refresh()" />
-    </div>
-  </section>
+  <Card v-if="payment?.state !== 'ORDER_UPDATED'" size="sm" role="region" :aria-label="t('wechatScanTitle')">
+    <CardHeader class="flex flex-wrap items-center justify-between gap-3">
+      <CardTitle class="text-sm leading-5"><h3>{{ t('wechatScanTitle') }}</h3></CardTitle>
+      <CardAction v-if="canGenerate">
+        <Button :disabled="disabled || creating" @click="refresh(true)">
+          {{ t(creating ? 'wechatScanCreating' : payment?.state === 'EXPIRED' ? 'wechatScanRenew' : 'wechatScanGenerate') }}
+        </Button>
+      </CardAction>
+    </CardHeader>
+    <CardContent class="grid gap-3">
+      <div v-if="visibleCode && payment" class="grid justify-items-center gap-1.5 text-center">
+        <strong class="text-2xl tabular-nums">{{ money(payment.amount_minor / 100) }}</strong>
+        <img :src="image" :alt="t('wechatScanTitle')" width="240" height="240" class="h-auto w-60 max-w-full bg-white">
+        <p role="status" class="text-sm font-medium">{{ t('wechatScanPrompt') }}</p>
+        <p class="text-xs text-muted-foreground">{{ t('wechatScanExpires') }} {{ date(payment.expires_at) }}</p>
+      </div>
+      <p v-else-if="payment?.state === 'EXPIRED' || hasExpired" role="status" class="text-sm text-muted-foreground">{{ t('wechatScanExpired') }}</p>
+      <p v-else-if="payment?.state === 'WAITING'" role="status" class="text-sm text-muted-foreground">{{ t('wechatScanWaiting') }}</p>
+      <p v-else-if="payment?.state === 'BLOCKED'" role="status" class="text-sm text-muted-foreground">{{ t('wechatScanBlocked') }}</p>
+      <p v-else-if="payment?.state === 'UNAVAILABLE'" class="text-sm text-muted-foreground">{{ t('wechatScanUnavailable') }}</p>
+      <p v-else-if="!payment && !failed" role="status" class="text-sm text-muted-foreground">{{ t('loading') }}</p>
+      <div v-if="failed" class="flex flex-wrap items-center gap-2 text-sm text-destructive" role="alert">
+        <p>{{ t('wechatScanError') }}</p>
+        <DataActionButton action="refresh" :label="t('refresh')" :disabled="creating" @click="refresh()" />
+      </div>
+    </CardContent>
+  </Card>
 </template>

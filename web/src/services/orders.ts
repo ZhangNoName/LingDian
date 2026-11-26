@@ -65,14 +65,19 @@ export function createMerchantWechatNativePayment(orderId: string): Promise<Merc
 }
 
 export function updateMerchantOrderStatus(
-  orderId: string,
+  order: Pick<OrderDetail, 'id' | 'status' | 'payment_channel'>,
   status: OrderStatus,
   note?: string,
 ): Promise<OrderDetail> {
-  return requestData(apiUrl(`/merchant/orders/${encodeURIComponent(orderId)}/status`), {
+  return requestData(apiUrl(`/merchant/orders/${encodeURIComponent(order.id)}/status`), {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status, note: note || undefined }),
+    body: JSON.stringify({
+      status,
+      expectedStatus: order.status,
+      expectedPaymentChannel: order.payment_channel,
+      note: note || undefined,
+    }),
   })
 }
 

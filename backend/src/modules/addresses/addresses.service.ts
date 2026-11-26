@@ -1,5 +1,5 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import type { CreateUserAddressRequest, UserAddress } from '@lingdian/contracts';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import type { CreateUserAddressRequest, UpdateUserAddressRequest, UserAddress } from '@lingdian/contracts';
 import { Prisma } from '@lingdian/db';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -52,6 +52,29 @@ export class AddressesService {
     });
   }
 
+  async update(userId: string, addressId: string, input: UpdateUserAddressRequest): Promise<UserAddress> {
+    const normalized = normalizeAddress(input);
+    if (![normalized.recipientName, normalized.provinceName, normalized.cityName, normalized.countyName, normalized.detailInfo].every(Boolean)) {
+      throw new BadRequestException('请填写收货人和完整地址。');
+    }
+    return this.transactionWithRetry(async (tx) => {
+      const owned = await tx.userAddress.findFirst({ where: { id: addressId, userId } });
+      if (!owned) throw new NotFoundException('Address not found.');
+      const fields = Object.keys(normalized) as (keyof CreateUserAddressRequest)[];
+      if (fields.every((field) => owned[field] === normalized[field])) return toContract(owned);
+      if (owned.updatedAt.getTime() !== new Date(input.expectedUpdatedAt).getTime()) {
+        throw new ConflictException({ message: '这条地址已更新，请加载最新地址。', data: { reason: 'ADDRESS_CHANGED' } });
+      }
+      const duplicate = await tx.userAddress.findFirst({ where: { userId, ...normalized, NOT: { id: addressId } } });
+      if (duplicate) throw new ConflictException('地址簿中已有相同的地址。');
+      const updated = await tx.userAddress.update({
+        where: { id: addressId, userId },
+        data: { ...normalized, updatedAt: new Date(Math.max(Date.now(), owned.updatedAt.getTime() + 1)) },
+      });
+      return toContract(updated);
+    });
+  }
+
   async setDefault(userId: string, addressId: string): Promise<UserAddress> {
     return this.transactionWithRetry(async (tx) => {
       const owned = await tx.userAddress.findFirst({ where: { id: addressId, userId } });
@@ -88,8 +111,8 @@ export class AddressesService {
     });
   }
 
-  async findOwnedAddress(userId: string, addressId: string): Promise<UserAddress> {
-    const address = await this.prisma.userAddress.findFirst({ where: { id: addressId, userId } });
+  async findOwnedAddress(userId: string, addressId: string, client: Pick<Prisma.TransactionClient, 'userAddress'> = this.prisma): Promise<UserAddress> {
+    const address = await client.userAddress.findFirst({ where: { id: addressId, userId } });
     if (!address) throw new NotFoundException('Address not found.');
     return toContract(address);
   }

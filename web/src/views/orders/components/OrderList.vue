@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { Badge } from '@lingdian/console-ui/badge'
 import { statusTagType } from '../order-presentation'
-import TableAction from '@/components/table/TableAction.vue'
-import { EyeIcon } from '@lingdian/icons/web'
 import { Table } from '@lingdian/console-ui/table'
 import { useOrderLocale } from '../use-order-locale'
-import type { OrderListItem } from '../types'
+import type { OrderListItem, OrderQuickAction } from '../types'
+import OrderRowActions from './OrderRowActions.vue'
 defineProps<{ orders: OrderListItem[] }>()
-defineEmits<{ detail: [id: string, event: MouseEvent] }>()
-const { t, status, source, type, date, money } = useOrderLocale()
+defineEmits<{ detail: [id: string, event: MouseEvent]; action: [id: string, action: OrderQuickAction, trigger: HTMLElement] }>()
+const { t, status, source, type, customer, date, money } = useOrderLocale()
 </script>
 <template>
   <Table
@@ -29,18 +28,18 @@ const { t, status, source, type, date, money } = useOrderLocale()
       </tr>
     </thead>
     <tbody>
-      <tr v-for="row in orders" :key="row.id">
+      <tr v-for="row in orders" :key="row.id" :data-order-id="row.id" class="cursor-pointer" @click="$emit('detail', row.id, $event)">
         <th scope="row" class="font-medium">
-          <span class="font-mono">{{ row.order_no }}</span>
-          <span class="mt-1 block text-xs font-normal text-muted-foreground">
-            <template v-if="row.pickup_code">
-              {{ t('pickup') }} <strong class="font-mono text-sm text-foreground">{{ row.pickup_code }}</strong> ·
-            </template>
-            {{ source(row.order_source) }}
+          <span class="flex items-center gap-1.5">
+            <Badge v-if="row.pickup_code" variant="info">
+              {{ t('pickup') }} <strong class="font-mono">{{ row.pickup_code }}</strong>
+            </Badge>
+            <Badge variant="secondary">{{ source(row.order_source) }}</Badge>
           </span>
+          <span class="mt-1 block font-mono text-xs font-normal text-muted-foreground">{{ row.order_no }}</span>
         </th>
         <td>
-          {{ row.customer_name }}
+          <span class="block max-w-40 whitespace-normal wrap-anywhere">{{ customer(row) }}</span>
           <span class="mt-1 block text-xs text-muted-foreground">{{ row.customer_mobile }}</span>
         </td>
         <td class="min-w-48 max-w-72 whitespace-normal">
@@ -56,35 +55,35 @@ const { t, status, source, type, date, money } = useOrderLocale()
         <td class="numeric-column font-semibold">{{ money(row.payment_required === false ? row.total_amount : row.payable_amount) }}</td>
         <td class="text-xs text-muted-foreground">{{ date(row.created_at) }}</td>
         <td class="numeric-column">
-          <TableAction :icon="EyeIcon" :label="t('detail')" :aria-label="`${t('detail')} ${row.order_no}`" @click="$emit('detail', row.id, $event)" />
+          <OrderRowActions :order="row" @detail="$emit('detail', row.id, $event)" @action="(action, trigger) => $emit('action', row.id, action, trigger)" />
         </td>
       </tr>
     </tbody>
   </Table>
   <ul class="table-scroll divide-y md:hidden" :aria-label="t('list')">
-    <li v-for="row in orders" :key="row.id" class="grid min-w-0 gap-2 p-4 text-sm">
-      <div class="flex flex-wrap items-center justify-between gap-2">
+    <li v-for="row in orders" :key="row.id" :data-order-id="row.id" class="grid min-w-0 cursor-pointer gap-2 p-4 text-sm hover:bg-accent/50" @click="$emit('detail', row.id, $event)">
+      <div class="flex flex-wrap items-start justify-between gap-2">
         <div class="min-w-0">
-          <template v-if="row.pickup_code">
-            <span class="me-2 text-xs text-muted-foreground">{{ t('pickup') }}</span>
-            <strong class="break-all font-mono text-lg">{{ row.pickup_code }}</strong>
-          </template>
-          <span v-else class="font-medium">{{ type(row.order_type) }}</span>
+          <div class="flex flex-wrap items-center gap-1.5">
+            <Badge v-if="row.pickup_code" variant="info">
+              {{ t('pickup') }} <strong class="font-mono">{{ row.pickup_code }}</strong>
+            </Badge>
+            <Badge variant="secondary">{{ source(row.order_source) }}</Badge>
+          </div>
+          <p class="mt-1 break-all font-mono text-xs text-muted-foreground">{{ row.order_no }}</p>
         </div>
         <Badge :variant="statusTagType(row.status)">{{ status(row.status) }}</Badge>
       </div>
-      <p class="break-all font-mono text-xs text-muted-foreground">{{ row.order_no }}</p>
       <p v-for="item in row.item_summary.slice(0, 2)" :key="item.id" class="break-words">
         {{ item.name }}<span v-if="item.sku_name"> · {{ item.sku_name }}</span> × {{ item.quantity }}
       </p>
       <p v-if="row.item_summary.length > 2" class="text-xs text-muted-foreground">{{ t('moreItems') }}</p>
       <p class="break-words text-xs text-muted-foreground">
-        <template v-if="row.pickup_code">{{ type(row.order_type) }} · </template>
-        {{ row.customer_name }} · {{ date(row.created_at) }}
+        {{ type(row.order_type) }} · {{ customer(row) }} · {{ date(row.created_at) }}
       </p>
       <div class="flex items-center justify-between gap-3">
         <strong class="text-base tabular-nums">{{ money(row.payment_required === false ? row.total_amount : row.payable_amount) }}</strong>
-        <TableAction :icon="EyeIcon" :label="t('detail')" :aria-label="`${t('detail')} ${row.order_no}`" @click="$emit('detail', row.id, $event)" />
+        <OrderRowActions :order="row" @detail="$emit('detail', row.id, $event)" @action="(action, trigger) => $emit('action', row.id, action, trigger)" />
       </div>
     </li>
   </ul>

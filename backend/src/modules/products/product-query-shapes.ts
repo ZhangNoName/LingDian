@@ -52,45 +52,38 @@ export const PRODUCT_MANAGEMENT_INCLUDE = {
   },
 } satisfies Prisma.ProductInclude;
 
-export const PRODUCT_MENU_INCLUDE = {
-  category: PRODUCT_MANAGEMENT_INCLUDE.category,
-  skus: {
-    where: { isActive: true },
-    orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
-    include: {
-      selectionBindings: {
-        where: { isEnabled: true, group: { isActive: true } },
-        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
-        include: {
-          group: {
-            include: {
-              options: {
-                where: { isActive: true },
-                orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
-                include: { referencedSku: REFERENCED_SKU_INCLUDE },
-              },
-            },
-          },
-        },
-      },
-    },
-  },
-  selectionBindings: {
+export function productMenuInclude(storeId: string) {
+  const selectionBindings = {
     where: { isEnabled: true, group: { isActive: true } },
     orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
     include: {
       group: {
         include: {
           options: {
-            where: { isActive: true },
+            where: {
+              isActive: true,
+              OR: [
+                { optionType: 'VALUE' },
+                { optionType: 'VARIANT', referencedSku: { isActive: true, product: { storeId, status: 'ACTIVE' } } },
+              ],
+            },
             orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
             include: { referencedSku: REFERENCED_SKU_INCLUDE },
           },
         },
       },
     },
-  },
-} satisfies Prisma.ProductInclude;
+  } satisfies Prisma.ProductSelectionGroupFindManyArgs;
+  return {
+    category: PRODUCT_MANAGEMENT_INCLUDE.category,
+    skus: {
+      where: { isActive: true },
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+      include: { selectionBindings },
+    },
+    selectionBindings,
+  } satisfies Prisma.ProductInclude;
+}
 
 export const PRODUCT_LIST_SELECT = {
   configurationVersion: true,

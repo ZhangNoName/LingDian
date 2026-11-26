@@ -8,7 +8,7 @@
     ".": {
       "types": "./dist/index.d.ts",
       "require": "./dist/index.js",
-      "import": "./dist/index.js"
+      "import": "./dist/esm/index.js"
     }
   },
   "files": [
@@ -19,7 +19,7 @@
   ],
   "scripts": {
     "prebuild": "node scripts/clean-dist.mjs",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && tsc -p tsconfig.esm.json && node scripts/write-esm-package.mjs",
     "type-check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json",
     "test": "pnpm run build && tsc --noEmit -p tsconfig.test.json && node --test test/*.test.mjs"
   },

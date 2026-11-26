@@ -4,7 +4,7 @@ import { onBeforeUnmount, ref, watch } from 'vue'
 import type { InventoryItemContract, SupplierRecord, ReplenishmentRow } from '@lingdian/contracts'
 import { Button } from '@lingdian/console-ui/button'
 import { Input } from '@lingdian/console-ui/input'
-import { SelectField } from '@lingdian/console-ui/select'
+import { SearchSelectField } from '@lingdian/console-ui/select'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@lingdian/console-ui/dialog'
 import { supplierList, createPurchase, replenishmentSnapshot } from '@/services/purchasing'
 import { listInventory } from '@/services/inventory'
@@ -166,7 +166,7 @@ onBeforeUnmount(() => {
           </div>
           <label>
             {{ t('supplier') }}
-            <SelectField
+            <SearchSelectField
               v-model="supplier"
               :aria-label="t('supplier')"
               required
@@ -201,7 +201,7 @@ onBeforeUnmount(() => {
           <div class="flex gap-2">
             <label class="grow">
               <span class="sr-only">{{ t('material') }}</span>
-              <SelectField
+              <SearchSelectField
                 v-model="selectedItem"
                 :aria-label="t('material')"
                 :options="[

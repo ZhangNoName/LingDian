@@ -19,6 +19,7 @@ import { IntegrationsModule } from './modules/integrations/integrations.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { MetricsModule } from './modules/metrics/metrics.module';
 import { InventoryModule } from './modules/inventory/inventory.module';
+import { MobileInboxModule } from './modules/mobile-inbox/mobile-inbox.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { InventoryModule } from './modules/inventory/inventory.module';
     AuthModule,
     MerchantModule,
     InventoryModule,
+    MobileInboxModule,
     HealthModule,
     StoresModule,
     MenuModule,

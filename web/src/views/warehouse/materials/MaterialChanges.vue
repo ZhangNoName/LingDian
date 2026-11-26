@@ -4,7 +4,7 @@ import ListToolbar from '@/components/table/ListToolbar.vue'
 import TablePagination from '@/components/table/TablePagination.vue'
 import { onBeforeUnmount, ref, watch } from 'vue'
 import type { InventoryMaterialChangeKind, InventoryMaterialChangePage } from '@lingdian/contracts'
-import { SelectField } from '@lingdian/console-ui/select'
+import { SearchSelectField } from '@lingdian/console-ui/select'
 import { useLocale } from '@/i18n/locale'
 import { inventoryMaterialChanges } from '@/services/inventory'
 import { downloadCsv } from '../report'
@@ -88,7 +88,7 @@ onBeforeUnmount(() => {
     <div class="flex flex-wrap items-center justify-between gap-2">
       <label class="grid gap-1 text-xs text-muted-foreground"
         >{{ t('filter')
-        }}<SelectField
+        }}<SearchSelectField
           :model-value="kind"
           :aria-label="t('filter')"
           :disabled="loading"

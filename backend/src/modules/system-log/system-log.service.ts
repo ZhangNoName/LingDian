@@ -1,6 +1,6 @@
-import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
-import { Prisma } from '@lingdian/db';
-import type { SystemLogCategory, SystemLogLevel, SystemLogPage, SystemLogSource } from '@lingdian/contracts';
+import { Injectable, NotFoundException, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Prisma, type SystemLog } from '@lingdian/db';
+import type { SystemLogCategory, SystemLogLevel, SystemLogPage, SystemLogRecord, SystemLogSource } from '@lingdian/contracts';
 import { PrismaService } from '../../prisma/prisma.service';
 
 const SECRET_KEY = /authorization|cookie|password|secret|token|credential/i;
@@ -112,16 +112,13 @@ export class SystemLogService implements OnModuleInit, OnModuleDestroy {
         take: pageSize,
       }),
     ]);
-    const items = records.map((record) => ({
-      ...record,
-      source: record.source as SystemLogSource,
-      level: record.level as SystemLogLevel,
-      category: record.category as SystemLogCategory,
-      details: record.details ? sanitizeLogDetails(record.details) : null,
-      createdAt: record.createdAt.toISOString(),
-    }));
+    return { items: records.map(logRecord), total, page, pageSize };
+  }
 
-    return { items, total, page, pageSize };
+  async find(id: string): Promise<SystemLogRecord> {
+    const record = await this.prisma.systemLog.findUnique({ where: { id } });
+    if (!record) throw new NotFoundException('System log was not found.');
+    return logRecord(record);
   }
 
   private acceptClientEvent(source: SystemLogSource, ip?: string): boolean {
@@ -145,6 +142,14 @@ export class SystemLogService implements OnModuleInit, OnModuleDestroy {
       where: { createdAt: { lt: new Date(now.getTime() - RETENTION_DAYS * 24 * 60 * 60 * 1000) } },
     });
   }
+}
+
+function logRecord(record: SystemLog): SystemLogRecord {
+  return {
+    ...record,
+    details: record.details ? sanitizeLogDetails(record.details) : null,
+    createdAt: record.createdAt.toISOString(),
+  };
 }
 
 export function sanitizeLogDetails(value: unknown): Record<string, unknown> {

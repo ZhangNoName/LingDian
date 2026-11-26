@@ -8,6 +8,7 @@ import { OrderStatus, OrderType, PaymentChannel, Prisma } from '@lingdian/db';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StoreContextResolver } from '../stores/store-context.resolver';
 import { QueryOrdersDto } from './dto/query-orders.dto';
+import { BLOCKING_ORDER_PAYMENT_STATUSES, manualOrderTransitions } from './order-policy';
 import {
   mapOrderDetail,
   ORDER_DETAIL_INCLUDE,
@@ -15,7 +16,32 @@ import {
   toNumber,
 } from './order-presenter';
 
-export type OrderScope = { storeIds?: string[]; customerUserId?: string };
+export type OrderScope = {
+  storeIds?: string[];
+  customerUserId?: string;
+  includeCustomerNickname?: boolean;
+  includeManualTransitions?: boolean;
+};
+
+const CUSTOMER_NICKNAME_INCLUDE = { customerUser: { select: { nickname: true } } } as const;
+const BLOCKING_PAYMENT_INCLUDE = {
+  paymentIntents: {
+    where: { status: { in: BLOCKING_ORDER_PAYMENT_STATUSES } },
+    select: { id: true },
+    take: 1,
+  },
+} satisfies Prisma.OrderInclude;
+
+function allowedStatuses(order: {
+  status: OrderStatus;
+  isDeleted: boolean;
+  paymentRequired: boolean;
+  paymentChannel: PaymentChannel;
+  paymentIntents?: { id: string }[];
+}): OrderStatus[] {
+  if (order.isDeleted || (order.status === 'PENDING_PAYMENT' && order.paymentIntents?.length)) return [];
+  return manualOrderTransitions(order.status, order.paymentRequired === false ? undefined : order.paymentChannel);
+}
 
 @Injectable()
 export class OrdersQueryService {
@@ -59,6 +85,8 @@ export class OrdersQueryService {
         where,
         include: {
           store: { select: { id: true, name: true } },
+          ...(scope.includeCustomerNickname && CUSTOMER_NICKNAME_INCLUDE),
+          ...(scope.includeManualTransitions && BLOCKING_PAYMENT_INCLUDE),
           items: {
             select: {
               id: true,
@@ -86,10 +114,12 @@ export class OrdersQueryService {
       store_id: order.storeId,
       store_name: order.store.name,
       customer_name: order.customerName,
+      ...(scope.includeCustomerNickname && { customer_nickname: order.customerUser?.nickname ?? null }),
       customer_mobile: order.customerMobile,
       delivery_address: order.deliveryAddress,
       order_type: order.orderType,
       status: order.status,
+      ...(scope.includeManualTransitions && { allowed_statuses: allowedStatuses(order) }),
       ...(order.paymentRequired === false ? { payment_required: false } : { payment_channel: order.paymentChannel }),
       total_amount: toNumber(order.totalAmount),
       payable_amount: toNumber(order.payableAmount),
@@ -112,10 +142,17 @@ export class OrdersQueryService {
   async getOrderDetail(orderId: string, scope: OrderScope = {}) {
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, ...this.scopeWhere(scope) },
-      include: ORDER_DETAIL_INCLUDE,
+      include: {
+        ...ORDER_DETAIL_INCLUDE,
+        ...(scope.includeCustomerNickname && CUSTOMER_NICKNAME_INCLUDE),
+        ...(scope.includeManualTransitions && BLOCKING_PAYMENT_INCLUDE),
+      },
     });
     if (!order) throw new NotFoundException('Order not found');
-    return mapOrderDetail(order);
+    const detail = mapOrderDetail(order);
+    if (scope.includeCustomerNickname) detail.customer_nickname = order.customerUser?.nickname ?? null;
+    if (scope.includeManualTransitions) detail.allowed_statuses = allowedStatuses(order);
+    return detail;
   }
 
   scopeWhere(scope: OrderScope): Prisma.OrderWhereInput {
@@ -133,12 +170,14 @@ export class OrdersQueryService {
   ): Prisma.OrderWhereInput {
     const createdAt = this.buildDateRange(query.startDate, query.endDate, query.endBefore);
     const where: Prisma.OrderWhereInput = this.scopeWhere(scope);
+    if (query.storeId) where.AND = { storeId: query.storeId };
     if (excludeDeleted) where.isDeleted = false;
     if (query.status) {
       where.status = query.status as OrderStatus;
       if (query.status === 'DELETED') delete where.isDeleted;
     }
     if (query.orderType) where.orderType = query.orderType as OrderType;
+    if (query.orderSource) where.orderSource = query.orderSource;
     if (query.paymentChannel) {
       where.paymentRequired = true;
       where.paymentChannel = query.paymentChannel as PaymentChannel;
@@ -153,6 +192,7 @@ export class OrdersQueryService {
         { customerMobile: { contains: keyword } },
         { remark: { contains: keyword } },
       ];
+      if (scope.includeCustomerNickname) where.OR.push({ customerUser: { is: { nickname: { contains: keyword } } } });
     }
     return where;
   }

@@ -1,4 +1,7 @@
+import { isDirectCustomerOrder } from '@lingdian/contracts'
 import type {
+  OrderDetail,
+  OrderListItem,
   OrderSource,
   OrderStatus,
   OrderStatusAction,
@@ -8,6 +11,14 @@ import type {
 import type { BadgeVariants } from '@lingdian/console-ui/badge'
 
 export type OrderTagType = 'primary' | 'success' | 'warning' | 'danger' | 'info'
+
+export function orderCustomerName(order: Pick<OrderListItem, 'customer_name' | 'customer_nickname'>, locale = 'zh-CN'): string {
+  const nickname = order.customer_nickname?.trim()
+  if (nickname) return nickname
+  const name = order.customer_name.trim()
+  if (name && name !== 'Customer') return name
+  return locale === 'en-US' ? 'Customer' : '顾客'
+}
 
 export const statusOptions: Array<{ label: string; value: OrderStatus }> = [
   { label: '创建中', value: 'CREATING' },
@@ -47,6 +58,7 @@ const orderSourceLabels: Record<OrderSource, string> = {
   JD_DAOJIA: '京东到家',
   POS: '收银台',
   MANUAL: '人工录单',
+  APP: '零点 App',
 }
 
 const statusLabels: Record<OrderStatus, string> = Object.fromEntries(
@@ -76,49 +88,17 @@ const statusTagTypes: Record<OrderStatus, NonNullable<BadgeVariants['variant']>>
   DELETED: 'secondary',
 }
 
-const actionsByStatus: Record<OrderStatus, OrderStatusAction[]> = {
-  CREATING: [
-    { label: '转待支付', value: 'PENDING_PAYMENT', type: 'primary' },
-    { label: '标记取消', value: 'CANCELLED', type: 'warning' },
-    { label: '标记失败', value: 'FAILED', type: 'danger' },
-  ],
-  PENDING_PAYMENT: [
-    { label: '标记已支付', value: 'PAID', type: 'success' },
-    { label: '标记超时', value: 'TIMED_OUT', type: 'warning' },
-    { label: '取消订单', value: 'CANCELLED', type: 'info' },
-    { label: '标记失败', value: 'FAILED', type: 'danger' },
-  ],
-  PAID: [
-    { label: '进入制作', value: 'PREPARING', type: 'primary' },
-    { label: '待取餐', value: 'READY', type: 'primary' },
-    { label: '已完成', value: 'COMPLETED', type: 'success' },
-    { label: '发起退款', value: 'REFUNDING', type: 'warning' },
-    { label: '直接退款', value: 'REFUNDED', type: 'danger' },
-  ],
-  PREPARING: [
-    { label: '待取餐', value: 'READY', type: 'primary' },
-    { label: '已完成', value: 'COMPLETED', type: 'success' },
-    { label: '发起退款', value: 'REFUNDING', type: 'warning' },
-    { label: '直接退款', value: 'REFUNDED', type: 'danger' },
-  ],
-  READY: [
-    { label: '已完成', value: 'COMPLETED', type: 'success' },
-    { label: '发起退款', value: 'REFUNDING', type: 'warning' },
-    { label: '直接退款', value: 'REFUNDED', type: 'danger' },
-  ],
-  COMPLETED: [
-    { label: '发起退款', value: 'REFUNDING', type: 'warning' },
-    { label: '直接退款', value: 'REFUNDED', type: 'danger' },
-  ],
-  REFUNDING: [
-    { label: '退款完成', value: 'REFUNDED', type: 'danger' },
-    { label: '标记失败', value: 'FAILED', type: 'warning' },
-  ],
-  TIMED_OUT: [],
-  REFUNDED: [],
-  CANCELLED: [],
-  FAILED: [],
-  DELETED: [],
+const manualActionLabels: Partial<Record<OrderStatus, readonly [zh: string, en: string]>> = {
+  PENDING_PAYMENT: ['转待支付', 'Await payment'],
+  PAID: ['标记已支付', 'Confirm cash payment'],
+  PREPARING: ['进入制作', 'Start preparation'],
+  READY: ['待取餐', 'Ready for pickup'],
+  COMPLETED: ['已完成', 'Complete order'],
+  TIMED_OUT: ['标记超时', 'Mark timed out'],
+  REFUNDING: ['发起退款', 'Start cash refund'],
+  REFUNDED: ['直接退款', 'Record cash refund'],
+  CANCELLED: ['取消订单', 'Cancel order'],
+  FAILED: ['标记失败', 'Mark failed'],
 }
 
 const deletableStatuses = new Set<OrderStatus>([
@@ -133,11 +113,10 @@ const englishLabels: Record<string, string> = {
   CREATING: 'Creating', PENDING_PAYMENT: 'Awaiting payment', PAID: 'Paid', PREPARING: 'Preparing', READY: 'Ready for pickup', COMPLETED: 'Completed', TIMED_OUT: 'Timed out', REFUNDING: 'Refunding', REFUNDED: 'Refunded', CANCELLED: 'Cancelled', FAILED: 'Failed', DELETED: 'Deleted',
   DINE_IN: 'Dine-in', TAKEOUT: 'Delivery', PICKUP: 'Pickup', CASH: 'Cash', WECHAT: 'WeChat Pay', ALIPAY: 'Alipay', UNIONPAY: 'UnionPay', STRIPE: 'Stripe', PAYPAL: 'PayPal', CUSTOMER_SCAN: 'Customer scan', OTHER: 'Other', MINIAPP: 'Mini app', MEITUAN_WAIMAI: 'Meituan delivery', JD_DAOJIA: 'JD Daojia', POS: 'Point of sale', MANUAL: 'Manual entry',
 }
-const englishActions: Partial<Record<OrderStatus, string>> = { PENDING_PAYMENT: 'Await payment', PAID: 'Confirm cash payment', PREPARING: 'Start preparation', READY: 'Ready for pickup', COMPLETED: 'Complete order', REFUNDING: 'Start cash refund', REFUNDED: 'Record cash refund', CANCELLED: 'Cancel order', TIMED_OUT: 'Mark timed out', FAILED: 'Mark failed' }
 
 export function orderSourceLabel(source: OrderSource | string | null | undefined, locale = 'zh-CN') {
   if (!source) return locale === 'en-US' ? 'Historical order' : '历史订单'
-  if (locale === 'en-US') return englishLabels[source] ?? source
+  if (locale === 'en-US') return source === 'APP' ? 'LingDian app' : (englishLabels[source] ?? source)
   return orderSourceLabels[source as OrderSource] ?? source
 }
 
@@ -169,6 +148,19 @@ export function statusTagType(status: OrderStatus): NonNullable<BadgeVariants['v
   return statusTagTypes[status]
 }
 
+export function orderStatusLogNote({
+  from_status, to_status, operator_name, note,
+}: Pick<OrderDetail['status_logs'][number], 'from_status' | 'to_status' | 'operator_name' | 'note'>): string | undefined {
+  if (!note?.trim()) return
+  if (operator_name) return note
+
+  // These automatic notes repeat the transition already shown in the timeline.
+  if (from_status === null && to_status === 'CREATING' && note === 'Order created') return
+  if (from_status === 'CREATING' && to_status === 'PENDING_PAYMENT' && note === 'Waiting for payment') return
+  if (from_status === 'CREATING' && to_status === 'PREPARING' && note === 'Order accepted for preparation') return
+  return note
+}
+
 export function timelineType(status: OrderStatus): OrderTagType {
   const types: Partial<Record<OrderStatus, OrderTagType>> = {
     PAID: 'success',
@@ -182,24 +174,31 @@ export function timelineType(status: OrderStatus): OrderTagType {
 }
 
 export function orderStatusActions(
-  status: OrderStatus | undefined,
-  paymentChannel: PaymentChannel | undefined,
+  order: Pick<OrderListItem, 'status' | 'allowed_statuses'> | null,
   locale = 'zh-CN',
 ): OrderStatusAction[] {
-  if (!status) return []
-
-  const actions = (actionsByStatus[status] ?? []).map(action => ({ ...action, label: locale === 'en-US' ? (englishActions[action.value] ?? action.value) : action.label }))
-  if (paymentChannel === 'CASH') return actions
-
-  // Online payment and refund states are advanced only by verified provider
-  // callbacks. Missing historical channel data is also treated conservatively.
-  return actions.filter(
-    (action) => !['PAID', 'REFUNDING', 'REFUNDED'].includes(action.value),
-  )
+  return (order?.allowed_statuses ?? []).flatMap(value => {
+    const labels = manualActionLabels[value]
+    if (!Array.isArray(labels)) return []
+    const label = locale === 'en-US' ? labels[1]
+      : value === 'CANCELLED' && order?.status === 'CREATING' ? '标记取消'
+        : value === 'REFUNDED' && order?.status === 'REFUNDING' ? '退款完成'
+          : labels[0]
+    return [{ value, label }]
+  })
 }
 
 export function canDeleteOrderStatus(status: OrderStatus | undefined): boolean {
   return status ? deletableStatuses.has(status) : false
+}
+
+export function canCollectOrderPayment(
+  order: Pick<OrderListItem, 'status' | 'payment_required' | 'payable_amount' | 'order_source' | 'payment_channel'>,
+): boolean {
+  return order.status === 'PENDING_PAYMENT'
+    && order.payment_required !== false
+    && order.payable_amount > 0
+    && !(isDirectCustomerOrder(order.order_source) && order.payment_channel === 'CASH')
 }
 
 export function formatDateTime(value: string | undefined, locale = 'zh-CN'): string {

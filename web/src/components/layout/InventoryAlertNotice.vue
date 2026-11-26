@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink } from 'vue-router'
 import { Badge } from '@lingdian/console-ui/badge'
 import { listInventoryAlerts } from '@/services/inventory'
 import { useLocale } from '@/i18n/locale'
+import { merchantDataRevision } from '@/lib/merchant-view-data'
 const props = defineProps<{ storeId: string }>()
-const { locale } = useLocale(), route = useRoute()
+const { locale } = useLocale()
 const open = ref<number>(), failed = ref(false)
 let sequence = 0, timer: ReturnType<typeof setInterval> | undefined
 async function load() {
@@ -21,7 +22,7 @@ function changed(event: Event) {
   } else { void load() }
 }
 function visible() { if (!document.hidden) void load() }
-watch(() => route.fullPath, load)
+watch(merchantDataRevision, load)
 onMounted(() => { void load(); timer = setInterval(load, 60000); document.addEventListener('visibilitychange', visible); window.addEventListener('inventory-alerts-changed', changed) })
 onBeforeUnmount(() => { sequence++; if (timer) clearInterval(timer); document.removeEventListener('visibilitychange', visible); window.removeEventListener('inventory-alerts-changed', changed) })
 </script>

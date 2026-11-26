@@ -7,7 +7,7 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { InventoryMovementKind, InventoryPeriodReport } from '@lingdian/contracts'
 import { Button } from '@lingdian/console-ui/button'
-import { SelectField } from '@lingdian/console-ui/select'
+import { SearchSelectField } from '@lingdian/console-ui/select'
 import { Table } from '@lingdian/console-ui/table'
 import { inventoryNavigationContext } from '../materials/state'
 import { activityQuery, type ActivityState } from '../activity-state'
@@ -171,7 +171,7 @@ function exportSnapshot() {
       <div class="flex flex-wrap items-end gap-3">
         <label class="grid min-w-0 gap-1 text-xs text-muted-foreground"
           >{{ t('filter')
-          }}<SelectField
+          }}<SearchSelectField
             v-model="subset"
             :disabled="dirty"
             :aria-label="t('filter')"
@@ -179,7 +179,7 @@ function exportSnapshot() {
           /></label
         ><label class="grid min-w-0 gap-1 text-xs text-muted-foreground"
           >{{ t('order')
-          }}<SelectField
+          }}<SearchSelectField
             v-model="order"
             :disabled="dirty"
             :aria-label="t('order')"

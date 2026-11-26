@@ -1,12 +1,20 @@
 import assert from 'node:assert/strict'
 import { readdirSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import test from 'node:test'
-import { LEGAL_DOCUMENT_VERSIONS } from '../dist/index.js'
+import { isDirectCustomerOrder, LEGAL_DOCUMENT_VERSIONS } from '@lingdian/contracts'
 
 test('production build excludes test fixtures', () => {
   const distFiles = readdirSync(new URL('../dist', import.meta.url))
 
   assert.equal(distFiles.some((file) => /(?:spec|test)\.[^.]+$/.test(file)), false)
+})
+
+test('publishes the browser runtime as ESM and retains the CommonJS entrypoint', () => {
+  const require = createRequire(import.meta.url)
+  assert.match(import.meta.resolve('@lingdian/contracts'), /\/dist\/esm\/index\.js$/)
+  assert.equal(isDirectCustomerOrder('APP'), true)
+  assert.equal(require('@lingdian/contracts').isDirectCustomerOrder('POS'), false)
 })
 
 test('customer contract runtime values are exported only through the public entrypoint', () => {

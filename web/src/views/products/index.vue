@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { readMerchantViewData } from '@/lib/merchant-view-data'
 import FilterToggle from '@/components/FilterToggle.vue'
 import ListToolbar from '@/components/table/ListToolbar.vue'
 import DataActionButton from '@/components/DataActionButton.vue'
@@ -13,7 +14,7 @@ import { catalogStatusBadge } from './catalog-lifecycle'
 import { Button } from '@lingdian/console-ui/button'
 import { Card } from '@lingdian/console-ui/card'
 import { Input } from '@lingdian/console-ui/input'
-import { SelectField } from '@lingdian/console-ui/select'
+import { SearchSelectField } from '@lingdian/console-ui/select'
 import { Table } from '@lingdian/console-ui/table'
 import {
   getMerchantProduct,
@@ -70,12 +71,17 @@ let listSequence = 0,
 function navigate(next: ProductFilterState) {
   return router.push({ query: productStateQuery(next) })
 }
-async function load() {
+async function load(refresh = true) {
   const current = ++listSequence
   loading.value = true
   loadError.value = false
   try {
-    const [data, counts] = await Promise.all([listMerchantProducts(state.value), getMerchantProductStats()])
+    const query = state.value
+    const [data, counts] = await readMerchantViewData(
+      ['products', productListKey(query)],
+      () => Promise.all([listMerchantProducts(query), getMerchantProductStats()]),
+      refresh,
+    )
     if (current === listSequence) {
       const last = Math.max(1, Math.ceil(data.total / state.value.pageSize))
       if (state.value.page > last) {
@@ -161,7 +167,7 @@ watch(
       lastList = key
       filters.keyword = next.keyword
       filters.type = next.type
-      void load()
+      void load(false)
     }
     if (next.productId !== selectedId) {
       selectedId = next.productId
@@ -195,7 +201,7 @@ onBeforeUnmount(() => {
         </label>
         <label>
           {{ t('type') }}
-          <SelectField
+          <SearchSelectField
             v-model="filters.type"
             :aria-label="t('type')"
             :options="[
@@ -212,7 +218,7 @@ onBeforeUnmount(() => {
           <Button variant="outline" @click="categoriesOpen = true">{{ locale === 'en-US' ? 'Categories' : '分类管理' }}</Button>
           <FilterToggle v-model="filtersOpen" controls="product-filters" class="sm:hidden">{{ t('filters') }}</FilterToggle>
         </template>
-        <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" />
+        <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load()" />
         <Button type="submit" form="product-filters" variant="outline" :disabled="loading">{{ t('apply') }}</Button>
         <Button type="button" variant="ghost" :disabled="loading" @click="reset">{{ t('reset') }}</Button>
       </ListToolbar>
@@ -221,7 +227,7 @@ onBeforeUnmount(() => {
       <p v-if="loading" role="status" class="p-8 text-center text-sm text-muted-foreground">{{ t('loading') }}</p>
       <div v-else-if="loadError" role="alert" class="p-8 text-sm">
         <p>{{ t('loadFailed') }}</p>
-        <DataActionButton action="refresh" :label="t('refresh')" class="mt-3" @click="load" />
+        <DataActionButton action="refresh" :label="t('refresh')" class="mt-3" @click="load()" />
       </div>
       <p v-else-if="!products.length" class="p-8 text-center text-sm text-muted-foreground">{{ t('empty') }}</p>
       <div v-else>
@@ -308,7 +314,7 @@ onBeforeUnmount(() => {
         {{ t('recipeLink') }}
       </RouterLink>
     </footer>
-    <CategoryManager v-model:open="categoriesOpen" :store-id="merchantStore.selectedId.value" @changed="load" />
+    <CategoryManager v-model:open="categoriesOpen" :store-id="merchantStore.selectedId.value" @changed="load()" />
     <NewProductDialog v-model:open="newProductOpen" :store-id="merchantStore.selectedId.value" @saved="created" />
     <ProductConfigDialog
       :open="configOpen"

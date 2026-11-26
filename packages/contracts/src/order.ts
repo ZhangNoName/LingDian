@@ -13,8 +13,17 @@ export type OrderStatus =
   | 'DELETED';
 
 export type OrderType = 'DINE_IN' | 'TAKEOUT' | 'PICKUP';
+
+export type OrderPickupSubscription = {
+  template_id: string;
+  subscribed: boolean;
+};
 export type PaymentChannel = 'CASH' | 'WECHAT' | 'ALIPAY' | 'UNIONPAY' | 'STRIPE' | 'PAYPAL' | 'CUSTOMER_SCAN' | 'OTHER';
-export type OrderSource = 'MINIAPP' | 'MEITUAN_WAIMAI' | 'JD_DAOJIA' | 'POS' | 'MANUAL';
+export type OrderSource = 'MINIAPP' | 'MEITUAN_WAIMAI' | 'JD_DAOJIA' | 'POS' | 'MANUAL' | 'APP';
+
+export function isDirectCustomerOrder(source: OrderSource | null | undefined): boolean {
+  return source === 'MINIAPP' || source === 'APP';
+}
 
 export type OrderItemSummaryContract = {
   id: string;
@@ -33,10 +42,12 @@ export type OrderSummaryContract = {
   store_id?: string;
   store_name: string;
   customer_name: string;
+  customer_nickname?: string | null;
   customer_mobile: string;
   delivery_address: string | null;
   order_type: OrderType;
   status: OrderStatus;
+  allowed_statuses?: OrderStatus[];
   payment_required?: boolean;
   payment_channel?: PaymentChannel;
   total_amount?: number;

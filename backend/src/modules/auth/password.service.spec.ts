@@ -15,7 +15,7 @@ type Session = {
 };
 
 function createService() {
-  const user = { id: 'user-id', sessionVersion: 1 };
+  const user = { id: 'user-id', sessionVersion: 1, mustChangePassword: true };
   const credential: PasswordCredential = {
     identityId: 'account-id',
     passwordHash: 'scrypt$32768$8$1$AAAAAAAAAAAAAAAAAAAAAA$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
@@ -25,16 +25,18 @@ function createService() {
   const auditEvents: Array<{ event: string; userId?: string; ip?: string; device?: string; metadata?: Record<string, string | number | boolean> }> = [];
   const tx = {
     passwordCredential: {
-      update: async ({ where, data }: { where: { identityId: string }; data: Pick<PasswordCredential, 'passwordHash' | 'passwordChangedAt'> }) => {
+      updateMany: async ({ where, data }: { where: { identityId: string; passwordHash?: string }; data: Pick<PasswordCredential, 'passwordHash' | 'passwordChangedAt'> }) => {
         assert.equal(where.identityId, credential.identityId);
+        if (where.passwordHash !== undefined && where.passwordHash !== credential.passwordHash) return { count: 0 };
         Object.assign(credential, data);
-        return credential;
+        return { count: 1 };
       },
     },
     user: {
-      update: async ({ where, data }: { where: { id: string }; data: { sessionVersion: { increment: number } } }) => {
+      update: async ({ where, data }: { where: { id: string }; data: { sessionVersion: { increment: number }; mustChangePassword: boolean } }) => {
         assert.equal(where.id, user.id);
         user.sessionVersion += data.sessionVersion.increment;
+        user.mustChangePassword = data.mustChangePassword;
         return user;
       },
     },
@@ -73,9 +75,10 @@ test('replacing a password invalidates existing sessions', async () => {
   const { passwords, user, credential, session, auditEvents } = createService();
   const context = { ip: '127.0.0.1', device: 'device-1' };
 
-  await passwords.replace('account-id', 'replacement-password-123', 'user-id', context);
+  await passwords.replace('account-id', 'replacement-password-123', 'user-id', context, credential.passwordHash);
 
   assert.equal(user.sessionVersion, 2);
+  assert.equal(user.mustChangePassword, false);
   assert.equal(session.status, 'REVOKED');
   assert.ok(session.revokedAt instanceof Date);
   assert.equal(await passwords.verify('replacement-password-123', credential.passwordHash), true);

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { readMerchantViewData } from '@/lib/merchant-view-data'
 import { Badge } from '@lingdian/console-ui/badge'
 import FilterToggle from '@/components/FilterToggle.vue'
 import ListToolbar from '@/components/table/ListToolbar.vue'
@@ -11,7 +12,7 @@ import { useRoute, useRouter } from 'vue-router'
 import type { InventoryAlertPage, InventoryAlertRecord } from '@lingdian/contracts'
 import { Button } from '@lingdian/console-ui/button'
 import { Input } from '@lingdian/console-ui/input'
-import { SelectField } from '@lingdian/console-ui/select'
+import { SearchSelectField } from '@lingdian/console-ui/select'
 import { Table } from '@lingdian/console-ui/table'
 import { useLocale } from '@/i18n/locale'
 import { listInventoryAlerts } from '@/services/inventory'
@@ -87,14 +88,18 @@ function navigate(next: AlertState, selected = id.value, replace = false) {
   const target = { query: alertTarget(route.query, next, selected) }
   return replace ? router.replace(target) : router.push(target)
 }
-async function load() {
+async function load(refresh = true) {
   const current = ++sequence,
     snapshot = state.value,
     store = props.storeId
   loading.value = true
   error.value = false
   try {
-    const data = await listInventoryAlerts(store, { ...snapshot, severity: snapshot.severity || undefined })
+    const data = await readMerchantViewData(
+      ['inventory-alerts', store, snapshot],
+      () => listInventoryAlerts(store, { ...snapshot, severity: snapshot.severity || undefined }),
+      refresh,
+    )
     if (current !== sequence) return
     const last = Math.max(1, Math.ceil(data.total / (snapshot.pageSize ?? 20)))
     if (snapshot.page > last) {
@@ -120,7 +125,7 @@ watch(
     status.value = value.status
     severity.value = value.severity
     if (!canonicalAlerts(route.query, value, id.value)) await navigate(value, id.value, true)
-    if (!disposed && token === sequence) await load()
+    if (!disposed && token === sequence) await load(false)
   },
   { immediate: true },
 )
@@ -243,7 +248,7 @@ onBeforeUnmount(() => {
         >{{ t('search') }}<Input v-model="keyword" type="search" maxlength="120" /></label
       ><label
         >{{ t('status')
-        }}<SelectField
+        }}<SearchSelectField
           v-model="status"
           :aria-label="t('status')"
           :disabled="loading"
@@ -251,7 +256,7 @@ onBeforeUnmount(() => {
         /></label
       ><label
         >{{ t('severity')
-        }}<SelectField
+        }}<SearchSelectField
           v-model="severity"
           :aria-label="t('severity')"
           :disabled="loading"
@@ -275,7 +280,7 @@ onBeforeUnmount(() => {
         :disabled="loading || error || dirty || !result?.total"
         @click="exportPage"
       />
-      <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" />
+      <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load()" />
       <Button type="submit" form="alert-filters" variant="outline" :disabled="loading">{{ t('apply') }}</Button>
       <Button type="button" variant="ghost" :disabled="loading" @click="reset">{{ t('reset') }}</Button>
     </ListToolbar>
@@ -288,7 +293,7 @@ onBeforeUnmount(() => {
     </p>
     <div v-else-if="error" role="alert" class="grid justify-items-start gap-3 p-8 text-sm text-destructive">
       <p>{{ t('failure') }}</p>
-      <DataActionButton action="refresh" :label="t('refresh')" @click="load" />
+      <DataActionButton action="refresh" :label="t('refresh')" @click="load()" />
     </div>
     <div v-else-if="!result?.total" class="p-8 text-center text-sm text-muted-foreground">
       <p class="font-medium text-foreground">{{ t('empty') }}</p>
@@ -390,7 +395,7 @@ onBeforeUnmount(() => {
       :store-id="storeId"
       :id="id"
       @close="close"
-      @saved="load"
+      @saved="load()"
       @stock="stock"
       @replenish="replenish"
     />

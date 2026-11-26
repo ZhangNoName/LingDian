@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { readMerchantViewData } from '@/lib/merchant-view-data'
 import FilterToggle from '@/components/FilterToggle.vue'
 import ListToolbar from '@/components/table/ListToolbar.vue'
 import MerchantDatePicker from '@/components/MerchantDatePicker.vue'
@@ -10,7 +11,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { Button } from '@lingdian/console-ui/button'
 import { Card } from '@lingdian/console-ui/card'
 import { Input } from '@lingdian/console-ui/input'
-import { SelectField } from '@lingdian/console-ui/select'
+import { SearchSelectField } from '@lingdian/console-ui/select'
 import { Filter } from '@lingdian/icons/web'
 import { deleteMerchantOrder, getMerchantOrder, listMerchantOrders, summarizeMerchantOrders } from '@/services/orders'
 import { updateMerchantOrderStatus } from '@/services/orders'
@@ -20,7 +21,7 @@ import SummaryMetrics from '@/components/SummaryMetrics.vue'
 import { useOrderLocale } from './use-order-locale'
 import { canDeleteOrderStatus, orderStatusActions, statusOptions, orderTypeOptions, paymentChannelOptions } from './order-presentation'
 import { dateInput, orderListFingerprint, orderPeriodForDraft, orderStateQuery, parseOrderState, type OrderFilterState } from './filter-state'
-import type { OrderDetail, OrderListItem, OrderStatus, OrderSummaryResponse, OrderSummaryMetric } from './types'
+import type { OrderDetail, OrderListItem, OrderQuickAction, OrderStatus, OrderSummaryResponse, OrderSummaryMetric } from './types'
 import type { OrderMessageKey } from './messages'
 const route = useRoute(), router = useRouter(), { locale, t, status, type, channel, money } = useOrderLocale()
 const state = ref(parseOrderState(route.query)), filters = reactive({ keyword: '', status: '' as OrderFilterState['status'], orderType: '' as OrderFilterState['orderType'], paymentChannel: '' as OrderFilterState['paymentChannel'], from: '', to: '' })
@@ -28,10 +29,12 @@ const listPanel = ref<HTMLElement>()
 const filtersOpen = ref(false), loading = ref(true), error = ref<OrderMessageKey>(), notice = ref<OrderMessageKey>()
 const orders = ref<OrderListItem[]>([]), total = ref(0), summary = ref<OrderSummaryResponse>()
 const detailOpen = ref(false), detailLoading = ref(false), detailError = ref(false), activeOrder = ref<OrderDetail | null>(null), actionNote = ref(''), savingStatus = ref<OrderStatus | null>(null), deleting = ref(false), actionError = ref(false)
+const actionSelection = ref<{ id: string; action: OrderQuickAction }>()
+const quickAction = computed(() => actionSelection.value?.id === state.value.orderId ? actionSelection.value.action : undefined)
 const busy = computed(() => !!savingStatus.value || deleting.value)
 const pageCount = computed(() => Math.max(1, Math.ceil(total.value / state.value.pageSize)))
 const dirty = computed(() => filters.keyword.trim() !== state.value.keyword || filters.status !== state.value.status || filters.orderType !== state.value.orderType || filters.paymentChannel !== state.value.paymentChannel || filters.from !== (state.value.startAt ? dateInput(new Date(state.value.startAt)) : '') || filters.to !== (state.value.endAt ? dateInput(new Date(Date.parse(state.value.endAt) - 1)) : ''))
-const detailActions = computed(() => orderStatusActions(activeOrder.value?.status, activeOrder.value?.payment_channel, locale.value))
+const detailActions = computed(() => orderStatusActions(activeOrder.value, locale.value))
 const metrics = computed<OrderSummaryMetric[]>(() => {
   const value = summary.value, valid = !loading.value && !error.value
   const metrics = [
@@ -51,11 +54,15 @@ const metrics = computed<OrderSummaryMetric[]>(() => {
   }))
 })
 let listSequence = 0, detailSequence = 0, lastList = '', selectedId = '', disposed = false
-async function load() {
+async function load(refresh = true) {
   const current = ++listSequence; loading.value = true; error.value = undefined
   const query = { ...state.value, dateRange: [] as [] }
   try {
-    const [summaryData, listData] = await Promise.all([summarizeMerchantOrders(query), listMerchantOrders(query)])
+    const [summaryData, listData] = await readMerchantViewData(
+      ['orders', orderListFingerprint(query)],
+      () => Promise.all([summarizeMerchantOrders(query), listMerchantOrders(query)]),
+      refresh,
+    )
     if (current === listSequence) {
       const lastPage = Math.max(1, Math.ceil(listData.total / state.value.pageSize))
       if (state.value.page > lastPage) { await navigate({ ...state.value, page: lastPage }); return }
@@ -82,35 +89,73 @@ async function apply() {
 }
 function reset() { const next = parseOrderState({}); next.orderId = state.value.orderId; if (orderListFingerprint(next) === orderListFingerprint(state.value)) { filters.keyword = ''; filters.status = ''; filters.orderType = ''; filters.paymentChannel = ''; filters.from = ''; filters.to = ''; void load() } else void navigate(next) }
 let detailTrigger: HTMLElement | undefined
+let detailTriggerOrder: string | undefined
 function openDetail(id: string, event: MouseEvent) {
   if (busy.value) return
-  detailTrigger = event.currentTarget instanceof HTMLElement ? event.currentTarget : undefined
+  actionSelection.value = undefined
+  detailTriggerOrder = id
+  const target = event.currentTarget
+  detailTrigger = target instanceof HTMLButtonElement ? target : undefined
+  if (!detailTrigger && target instanceof HTMLElement)
+    detailTrigger = target.querySelector<HTMLElement>('[data-order-detail]') ?? undefined
+  void navigate({ ...state.value, orderId: id })
+}
+function openQuickAction(id: string, action: OrderQuickAction, trigger: HTMLElement) {
+  if (busy.value) return
+  detailTrigger = trigger
+  detailTriggerOrder = id
+  actionSelection.value = { id, action }
   void navigate({ ...state.value, orderId: id })
 }
 function restoreDetailFocus(event: Event) {
   event.preventDefault()
-  const target = detailTrigger?.isConnected && detailTrigger.getClientRects().length ? detailTrigger : listPanel.value
+  const panel = listPanel.value
+  let target = detailTrigger?.getClientRects().length ? detailTrigger : undefined
+  if (!target && detailTriggerOrder && panel) {
+    const row = `[data-order-id="${CSS.escape(detailTriggerOrder)}"]`
+    const buttons = detailTrigger?.hasAttribute('data-order-actions')
+      ? ['[data-order-actions]', '[data-order-detail]']
+      : ['[data-order-detail]']
+    target = buttons.flatMap(button => Array.from(panel.querySelectorAll<HTMLElement>(`${row} ${button}`)))
+      .find(button => button.getClientRects().length)
+  }
   detailTrigger = undefined
-  target?.focus({ preventScroll: true })
+  detailTriggerOrder = undefined
+  const focusTarget = target ?? panel
+  focusTarget?.focus({ preventScroll: true })
 }
 function closeDetail(open: boolean) { if (!open && !busy.value) void navigate({ ...state.value, orderId: '' }) }
 function reflectNativePayment() {
-  if (activeOrder.value?.status === 'PENDING_PAYMENT' && activeOrder.value.payment_channel !== 'WECHAT') {
-    activeOrder.value = { ...activeOrder.value, payment_channel: 'WECHAT' }
+  const order = activeOrder.value
+  if (order?.status !== 'PENDING_PAYMENT') return
+  const paymentUpdate = { payment_channel: 'WECHAT' as const, allowed_statuses: [] }
+  if (order.payment_channel !== 'WECHAT' || order.allowed_statuses?.length !== 0) {
+    activeOrder.value = { ...order, ...paymentUpdate }
+  }
+  const row = orders.value.find(item => item.id === order.id)
+  if (row?.status === 'PENDING_PAYMENT' && (row.payment_channel !== 'WECHAT' || row.allowed_statuses?.length !== 0)) {
+    orders.value = orders.value.map(item => item === row ? { ...item, ...paymentUpdate } : item)
   }
 }
-function refreshAfterPayment() {
-  void loadDetail()
-  void load()
+async function refreshAfterPayment() {
+  const id = selectedId
+  await Promise.all([loadDetail(), load()])
+  if (id === selectedId && quickAction.value?.value === 'WECHAT_PAYMENT' && activeOrder.value?.status === 'PAID') {
+    notice.value = 'saved'
+    closeDetail(false)
+  }
 }
 async function saveStatus(target: OrderStatus) {
-  if (!activeOrder.value || busy.value || !detailActions.value.some(action => action.value === target)) return
-  const id = activeOrder.value.id; savingStatus.value = target; actionError.value = false; notice.value = undefined
+  const order = activeOrder.value
+  if (!order || busy.value || actionError.value || !detailActions.value.some(action => action.value === target)) return
+  const id = order.id, closeAfterSave = !!quickAction.value
+  savingStatus.value = target; actionError.value = false; notice.value = undefined
   try {
-    const updated = await updateMerchantOrderStatus(id, target, actionNote.value.trim())
+    const updated = await updateMerchantOrderStatus(order, target, actionNote.value.trim())
     if (disposed) return
     if (activeOrder.value?.id === id) { activeOrder.value = updated; actionNote.value = '' }
     notice.value = 'saved'; await load()
+    if (closeAfterSave && id === selectedId && !disposed) await navigate({ ...state.value, orderId: '' })
   } catch { if (!disposed) actionError.value = true }
   finally { savingStatus.value = null }
 }
@@ -128,9 +173,17 @@ watch(() => route.fullPath, () => {
   state.value = next
   const fingerprint = orderListFingerprint(next)
   if (fingerprint !== lastList) {
-    lastList = fingerprint; filters.keyword = next.keyword; filters.status = next.status; filters.orderType = next.orderType; filters.paymentChannel = next.paymentChannel; filters.from = next.startAt ? dateInput(new Date(next.startAt)) : ''; filters.to = next.endAt ? dateInput(new Date(Date.parse(next.endAt) - 1)) : ''; void load()
+    lastList = fingerprint; filters.keyword = next.keyword; filters.status = next.status; filters.orderType = next.orderType; filters.paymentChannel = next.paymentChannel; filters.from = next.startAt ? dateInput(new Date(next.startAt)) : ''; filters.to = next.endAt ? dateInput(new Date(Date.parse(next.endAt) - 1)) : ''; void load(false)
   }
-  if (next.orderId !== selectedId) { selectedId = next.orderId; detailSequence++; activeOrder.value = null; actionNote.value = ''; detailOpen.value = !!selectedId; if (selectedId) { notice.value = undefined; void loadDetail() } }
+  if (next.orderId !== selectedId) {
+    selectedId = next.orderId
+    if (actionSelection.value?.id !== selectedId) actionSelection.value = undefined
+    detailSequence++
+    activeOrder.value = null
+    actionNote.value = ''
+    detailOpen.value = !!selectedId
+    if (selectedId) { notice.value = undefined; void loadDetail() }
+  }
 }, { immediate: true })
 onBeforeUnmount(() => { disposed = true; listSequence++; detailSequence++ })
 </script>
@@ -151,7 +204,7 @@ onBeforeUnmount(() => { disposed = true; listSequence++; detailSequence++ })
         </label>
         <label>
           {{ t('status') }}
-          <SelectField
+          <SearchSelectField
             v-model="filters.status"
             :aria-label="t('status')"
             :options="[
@@ -162,7 +215,7 @@ onBeforeUnmount(() => { disposed = true; listSequence++; detailSequence++ })
         </label>
         <label>
           {{ t('type') }}
-          <SelectField
+          <SearchSelectField
             v-model="filters.orderType"
             :aria-label="t('type')"
             :options="[
@@ -173,7 +226,7 @@ onBeforeUnmount(() => { disposed = true; listSequence++; detailSequence++ })
         </label>
         <label class="col-span-2 sm:col-span-1">
           {{ t('channel') }}
-          <SelectField
+          <SearchSelectField
             v-model="filters.paymentChannel"
             :aria-label="t('channel')"
             :options="[
@@ -192,20 +245,19 @@ onBeforeUnmount(() => { disposed = true; listSequence++; detailSequence++ })
           </FilterToggle>
         </template>
         <Button variant="ghost" type="button" :title="t('queryLinkHint')" @click="copyLink">{{ t('copyLink') }}</Button>
-        <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" />
+        <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load()" />
         <Button type="submit" form="order-filters" variant="outline" :disabled="loading">{{ t('apply') }}</Button>
         <Button type="button" variant="ghost" :disabled="loading" @click="reset">{{ t('reset') }}</Button>
       </ListToolbar>
-      <p v-if="dirty" role="status" class="border-t px-4 py-3 text-sm text-status-warning-ink">{{ t('dirty') }}</p>
       <p v-if="notice" role="status" class="border-t px-4 py-3 text-sm">{{ t(notice) }}</p>
       <div ref="listPanel" tabindex="-1" class="min-w-0 border-t focus-visible:outline-2 focus-visible:-outline-offset-2">
         <p v-if="loading" role="status" class="p-8 text-center text-sm text-muted-foreground">{{ t('loading') }}</p>
         <div v-else-if="error" role="alert" class="p-8 text-sm">
           <p>{{ t(error) }}</p>
-          <DataActionButton action="refresh" :label="t('refresh')" class="mt-3" @click="load" />
+          <DataActionButton action="refresh" :label="t('refresh')" class="mt-3" @click="load()" />
         </div>
         <p v-else-if="!orders.length" class="p-8 text-center text-sm text-muted-foreground">{{ t('empty') }}</p>
-        <OrderList v-else :orders="orders" @detail="openDetail" />
+        <OrderList v-else :orders="orders" @detail="openDetail" @action="openQuickAction" />
         <div v-if="!error" class="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 text-sm text-muted-foreground">
           <span>{{ total.toLocaleString(locale) }} {{ t('records') }}</span>
           <div class="flex gap-2">
@@ -222,7 +274,7 @@ onBeforeUnmount(() => { disposed = true; listSequence++; detailSequence++ })
         </div>
       </div>
     </Card>
-    <OrderDetailDialog :open="detailOpen" :loading="detailLoading" :error="detailError" :action-error="actionError" :feedback="notice === 'saved' || notice === 'deleted' ? t(notice) : undefined" :order="activeOrder" :actions="detailActions" :can-delete="canDeleteOrderStatus(activeOrder?.status)" :action-note="actionNote" :saving-status="savingStatus" :deleting="deleting" @update:open="closeDetail" @close-auto-focus="restoreDetailFocus" @update:action-note="actionNote = $event" @change-status="saveStatus" @delete-order="remove" @payment-started="reflectNativePayment" @payment-updated="refreshAfterPayment" @retry="loadDetail" />
+    <OrderDetailDialog :open="detailOpen" :loading="detailLoading" :error="detailError" :action-error="actionError" :feedback="notice === 'saved' || notice === 'deleted' ? t(notice) : undefined" :order="activeOrder" :actions="detailActions" :quick-action="quickAction" :can-delete="canDeleteOrderStatus(activeOrder?.status)" :action-note="actionNote" :saving-status="savingStatus" :deleting="deleting" @update:open="closeDetail" @close-auto-focus="restoreDetailFocus" @update:action-note="actionNote = $event" @change-status="saveStatus" @delete-order="remove" @payment-started="reflectNativePayment" @payment-updated="refreshAfterPayment" @retry="loadDetail" />
   </section>
 </template>
 <style scoped>

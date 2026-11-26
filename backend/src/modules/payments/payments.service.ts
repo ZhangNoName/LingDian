@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { createHash, randomBytes } from 'node:crypto';
 import { PaymentChannel, PaymentProvider, Prisma } from '@lingdian/db';
-import type { MerchantWechatNativePayment, PaymentIntentContract } from '@lingdian/contracts';
+import { isDirectCustomerOrder, type MerchantWechatNativePayment, type OrderSource, type PaymentIntentContract } from '@lingdian/contracts';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
 import { UpsertPaymentAccountDto } from './dto/upsert-payment-account.dto';
@@ -23,8 +23,8 @@ const providerChannels: Record<PaymentProvider, PaymentChannel> = {
 const intentOrder = { order: { select: { status: true } } } as const;
 type CustomerIntent = Prisma.PaymentIntentGetPayload<{ include: typeof intentOrder }>;
 
-function isOfflineMiniAppOrder(order: { orderSource: string; paymentChannel: PaymentChannel }): boolean {
-  return order.orderSource === 'MINIAPP' && order.paymentChannel === 'CASH';
+function isOfflineCustomerOrder(order: { orderSource: OrderSource; paymentChannel: PaymentChannel }): boolean {
+  return isDirectCustomerOrder(order.orderSource) && order.paymentChannel === 'CASH';
 }
 
 type PaymentAccountView = {
@@ -116,7 +116,7 @@ export class PaymentsService {
       const action = intent.clientAction as { code_url?: string } | null;
       return { ...status('WAITING'), code_url: action?.code_url ?? null, expires_at: intent.expiresAt.toISOString() };
     }
-    if (isOfflineMiniAppOrder(order)) return status('UNAVAILABLE');
+    if (isOfflineCustomerOrder(order)) return status('UNAVAILABLE');
     const account = await this.prisma.paymentAccount.findUnique({
       where: { storeId_provider_channel: { storeId: order.storeId, provider: 'WECHAT_PAY', channel: 'WECHAT' } },
     });
@@ -191,7 +191,9 @@ export class PaymentsService {
       }
       if (existing) return this.mapIntent(existing);
     }
-    if (isOfflineMiniAppOrder(order)) throw new BadRequestException('小程序订单仅支持线下支付。');
+    if (isOfflineCustomerOrder(order)) {
+      throw new BadRequestException(order.orderSource === 'APP' ? 'App 订单仅支持线下支付。' : '小程序订单仅支持线下支付。');
+    }
     await this.expiry.recoverExpiredAttempt(orderId, storeId);
     if (order.status !== 'PENDING_PAYMENT') throw new ConflictException('Order is not awaiting payment');
     const amountMinor = this.toMinor(order.payableAmount);

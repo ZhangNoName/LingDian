@@ -6,6 +6,7 @@ import {
   IsArray,
   IsIn,
   IsInt,
+  IsISO8601,
   Length,
   IsMobilePhone,
   IsNotEmpty,
@@ -71,6 +72,13 @@ export class OrderItemDto {
   @Max(99)
   quantity!: number;
 
+  @ApiPropertyOptional({ description: 'App checkout unit amount in cents, including selected options' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(9_999_999_999)
+  expectedUnitCents?: number;
+
   @ApiPropertyOptional({
     description: 'Item remark',
     example: 'Less ice',
@@ -92,6 +100,13 @@ export class OrderItemDto {
 }
 
 export class CreateOrderDto {
+  @ApiPropertyOptional({ description: 'App checkout payable amount in cents shown to the customer' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(9_999_999_999)
+  expectedPayableCents?: number;
+
   @ApiPropertyOptional({
     description: 'Stable client request id used to make authenticated checkout idempotent',
     example: 'checkout-m5z8v8k2-a1b2c3d4',
@@ -124,6 +139,12 @@ export class CreateOrderDto {
   @IsOptional()
   @IsString()
   addressId?: string;
+
+  @ApiPropertyOptional({ description: 'Last seen address revision for App delivery checkout' })
+  @IsOptional()
+  @IsISO8601({ strict: true, strictSeparator: true })
+  @MaxLength(32)
+  expectedAddressUpdatedAt?: string;
 
   @ApiPropertyOptional({
     description: 'Payment channel',

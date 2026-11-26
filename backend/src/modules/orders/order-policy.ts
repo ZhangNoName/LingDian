@@ -1,6 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import type { UserAddress } from '@lingdian/contracts';
-import type { OrderStatus, OrderType, PaymentChannel, Prisma } from '@lingdian/db';
+import type { OrderStatus, OrderType, PaymentChannel, PaymentIntentStatus, Prisma } from '@lingdian/db';
 import type { CreateOrderDto } from './dto/create-order.dto';
 
 export const ORDER_TYPE_BY_API_VALUE: Record<CreateOrderDto['orderType'], OrderType> = {
@@ -52,18 +52,24 @@ const PENDING_PAYMENT_TERMINAL_STATUSES = new Set<OrderStatus>([
   'FAILED',
 ]);
 
+export const BLOCKING_ORDER_PAYMENT_STATUSES: PaymentIntentStatus[] = ['CREATED', 'PENDING', 'PROCESSING', 'SUCCEEDED'];
+const CASH_ONLY_TRANSITIONS = new Set<OrderStatus>(['PAID', 'REFUNDING', 'REFUNDED']);
+
+export function manualOrderTransitions(status: OrderStatus, paymentChannel: PaymentChannel | undefined): OrderStatus[] {
+  return (EDITABLE_TRANSITIONS[status] ?? []).filter(target => paymentChannel === 'CASH' || !CASH_ONLY_TRANSITIONS.has(target));
+}
+
 export function assertManualOrderTransition(
   currentStatus: OrderStatus,
   targetStatus: OrderStatus,
-  paymentChannel: PaymentChannel,
+  paymentChannel: PaymentChannel | undefined,
 ): void {
-  if (targetStatus === 'PAID' && paymentChannel !== 'CASH') {
-    throw new BadRequestException('Online payments can only be marked paid by a verified payment webhook');
+  if (paymentChannel !== 'CASH' && CASH_ONLY_TRANSITIONS.has(targetStatus)) {
+    throw new BadRequestException(targetStatus === 'PAID'
+      ? 'Online payments can only be marked paid by a verified payment webhook'
+      : 'Online refunds require a verified payment refund transaction');
   }
-  if ((targetStatus === 'REFUNDING' || targetStatus === 'REFUNDED') && paymentChannel !== 'CASH') {
-    throw new BadRequestException('Online refunds require a verified payment refund transaction');
-  }
-  if (!(EDITABLE_TRANSITIONS[currentStatus] ?? []).includes(targetStatus)) {
+  if (!manualOrderTransitions(currentStatus, paymentChannel).includes(targetStatus)) {
     throw new BadRequestException(
       `Order status cannot change from ${currentStatus} to ${targetStatus}`,
     );

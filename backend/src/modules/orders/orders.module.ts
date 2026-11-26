@@ -12,10 +12,12 @@ import { AddressesModule } from '../addresses/addresses.module';
 import { IntegrationsModule } from '../integrations/integrations.module';
 import { MerchantModule } from '../merchant/merchant.module';
 import { StoresModule } from '../stores/stores.module';
+import { OrderPickupNotificationController } from './order-pickup-notification.controller';
+import { OrderPickupNotificationService } from './order-pickup-notification.service';
 
 @Module({
   imports: [PaymentsModule, InventoryModule, AuthModule, AddressesModule, IntegrationsModule, MerchantModule, StoresModule],
-  controllers: [OrdersController, StockHoldController],
-  providers: [StockHoldService, OrdersService, OrdersQueryService, OrderStockExpiryService],
+  controllers: [OrdersController, StockHoldController, OrderPickupNotificationController],
+  providers: [StockHoldService, OrdersService, OrdersQueryService, OrderStockExpiryService, OrderPickupNotificationService],
 })
 export class OrdersModule {}

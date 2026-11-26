@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { readMerchantViewData } from '@/lib/merchant-view-data'
 import FilterToggle from '@/components/FilterToggle.vue'
 import ListToolbar from '@/components/table/ListToolbar.vue'
 import DataActionButton from '@/components/DataActionButton.vue'
@@ -9,7 +10,7 @@ import { useRoute, useRouter } from 'vue-router'
 import type { ReplenishmentSnapshot, ReplenishmentRow } from '@lingdian/contracts'
 import { Button } from '@lingdian/console-ui/button'
 import { Input } from '@lingdian/console-ui/input'
-import { SelectField } from '@lingdian/console-ui/select'
+import { SearchSelectField } from '@lingdian/console-ui/select'
 import { replenishmentSnapshot } from '@/services/purchasing'
 import { downloadCsv } from '../report'
 import AnalysisTable from './AnalysisTable.vue'
@@ -62,16 +63,15 @@ const display = computed(() =>
   })),
 )
 let sequence = 0
-async function load() {
+async function load(refresh = true) {
   const current = ++sequence
   loading.value = true
   error.value = undefined
   page.value = 1
   try {
-    const result = await replenishmentSnapshot(props.storeId, {
-      keyword: applied.value,
-      itemId: state.value.itemId || undefined,
-    })
+    const store = props.storeId
+    const filter = { keyword: applied.value, itemId: state.value.itemId || undefined }
+    const result = await readMerchantViewData(['replenishment', store, filter], () => replenishmentSnapshot(store, filter), refresh)
     if (current === sequence) snapshot.value = result
   } catch (e) {
     if (current === sequence) error.value = errorKey(e) === 'saveFailed' ? 'failed' : errorKey(e)
@@ -83,7 +83,7 @@ watch(
   () => [props.storeId, applied.value, state.value.itemId],
   () => {
     keyword.value = applied.value
-    void load()
+    void load(false)
   },
   { immediate: true },
 )
@@ -159,7 +159,7 @@ onBeforeUnmount(() => {
       </label>
       <label>
         {{ t('status') }}
-        <SelectField
+        <SearchSelectField
           v-model="subset"
           :aria-label="t('status')"
           :options="[
@@ -175,7 +175,7 @@ onBeforeUnmount(() => {
         <FilterToggle v-model="filtersOpen" controls="replenishment-filters" class="sm:hidden">{{ t('filters') }}</FilterToggle>
       </template>
       <DataActionButton action="export" :label="t('exportSnapshot')" :disabled="loading || dirty || !!error || !rows.length" @click="exportSnapshot" />
-      <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load" />
+      <DataActionButton action="refresh" :label="t('refresh')" :disabled="loading || dirty" @click="load()" />
       <Button type="submit" form="replenishment-filters" variant="outline" :disabled="loading">{{ t('find') }}</Button>
       <Button type="button" variant="ghost" :disabled="loading" @click="reset">{{ t('reset') }}</Button>
     </ListToolbar>
@@ -195,7 +195,7 @@ onBeforeUnmount(() => {
     <p v-if="loading" role="status" class="help py-6 text-center">{{ t('loading') }}</p>
     <div v-else-if="error" role="alert">
       <p class="error">{{ t(error) }}</p>
-      <DataActionButton action="refresh" :label="t('refresh')" @click="load" />
+      <DataActionButton action="refresh" :label="t('refresh')" @click="load()" />
     </div>
     <template v-else-if="snapshot && !dirty">
       <dl class="grid grid-cols-2 divide-x border">

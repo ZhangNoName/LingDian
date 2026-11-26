@@ -4,6 +4,7 @@ import { formatOrderSource, resolvePickupCode } from "./order-presentation";
 describe("order presentation", () => {
   it.each([
     ["MINIAPP", "小程序"],
+    ["APP", "零点 App"],
     ["MEITUAN_WAIMAI", "美团外卖"],
     ["JD_DAOJIA", "京东到家"],
     ["POS", "收银台"],
